@@ -172,10 +172,22 @@ exports.getDealRoom = onRequest(
     if (tok.status !== 'pending') {
       errPage(410, 'This deal has already been accepted — your rep will reach out to confirm your installation.'); return;
     }
+    // A rep can delete a deal room after minting its accept link (Close Board
+    // "Remove" doesn't touch deal_accept_tokens). Without this check, the
+    // fire-and-forget stamp below RECREATES deal_rooms/{dealId} via set(merge)
+    // on a doc that no longer exists — a stale link brings a removed deal back
+    // to life just by being opened.
+    const dealRoomSnap = await db.doc(`deal_rooms/${tok.dealId}`).get();
+    if (!dealRoomSnap.exists) {
+      errPage(410, 'This deal is no longer available. Ask your rep for an update.'); return;
+    }
 
-    // Fire-and-forget viewed stamps (do not gate the response).
+    // Fire-and-forget viewed stamps (do not gate the response). update(), not
+    // set(merge) — the doc is confirmed to exist above, and update() throws
+    // (caught below) instead of silently recreating it if it's deleted in the
+    // narrow window between that check and this write.
     db.doc(`deal_accept_tokens/${token}`).update({ viewedAt: FieldValue.serverTimestamp() }).catch(() => {});
-    db.doc(`deal_rooms/${tok.dealId}`).set({ status: 'viewed', viewedAt: FieldValue.serverTimestamp() }, { merge: true }).catch(() => {});
+    db.doc(`deal_rooms/${tok.dealId}`).update({ status: 'viewed', viewedAt: FieldValue.serverTimestamp() }).catch(() => {});
 
     let html = '';
     try {
@@ -279,9 +291,21 @@ exports.submitDealAcceptance = onRequest(
         if (t.status !== 'pending') {
           const e = new Error('done'); e._http = 409; e._msg = 'This deal has already been accepted.'; throw e;
         }
+        // Same resurrection hazard as getDealRoom: a rep can delete the deal
+        // room after minting this token (Close Board "Remove" doesn't touch
+        // deal_accept_tokens). Reading the doc inside the transaction means
+        // Firestore retries this whole transaction if it's deleted concurrently,
+        // so this check can't be raced by a delete landing after it runs.
+        const dealRoomRef = db.doc(`deal_rooms/${t.dealId}`);
+        const dealRoomSnap = await tx.get(dealRoomRef);
+        if (!dealRoomSnap.exists) {
+          const e = new Error('gone'); e._http = 410; e._msg = 'This deal is no longer available. Ask your rep for an update.'; throw e;
+        }
         const price = (t.tierPrices && t.tierPrices[tier]) || 0;
         tx.update(tokRef, { status: 'accepted', acceptedAt: FieldValue.serverTimestamp() });
-        tx.set(db.doc(`deal_rooms/${t.dealId}`), {
+        // update(), not set(merge) — the existence check above means this must
+        // modify an existing doc, never create one.
+        tx.update(dealRoomRef, {
           status: 'accepted',
           acceptedTier: tier,
           acceptedPrice: price,
@@ -290,7 +314,7 @@ exports.submitDealAcceptance = onRequest(
           scheduledInstallDate: scheduledDate || null,
           acceptedAt: FieldValue.serverTimestamp(),
           acceptedVia: 'remote',
-        }, { merge: true });
+        });
         return {
           dealId: t.dealId, ownerUid: t.ownerUid, leadId: t.leadId || null,
           customerName: t.customerName || '', price,

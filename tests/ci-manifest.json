@@ -17,6 +17,10 @@
     "portal-doc-modal-a11y-2026-09-16.test.js",
     "portal-tenant-cta-contrast-2026-09-16.test.js",
     "tier-pricing-premium-claim-2026-09-16.test.js",
+    "deal-room-delete-no-resurrection-2026-09-16.test.js",
+    "customer-photos-by-phase-team-scope-2026-09-16.test.js",
+    "portal-open-signal-extension-2026-09-16.test.js",
+    "inspect-photo-disclosure-2026-09-16.test.js",
     "customer-doc-branding.test.js",
     "crm-required-fields.test.js",
     "deploy-failure-parse.test.js",
@@ -667,6 +671,7 @@
   "wired-individually": [
     "communication-log-contract.test.js",
     "esign-setup-placement.test.js",
+    "esign-setup-void-2026-09-16.test.js",
     "esign-signature-reachable.test.js",
     "esign-signer-flow.test.js",
     "esign-stamp.test.js",
