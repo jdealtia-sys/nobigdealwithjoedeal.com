@@ -456,6 +456,32 @@
        label + checkmark already carry the essential information. */
     .progress-step-date{ display:none; }
   }
+
+  /* Print stylesheet (2026-09-16). A homeowner's real use case: handing an
+     insurance adjuster a paper copy. Without this, the page printed as-is
+     — interactive controls and all — which meant 6 pages, most of them
+     blank boxes, because a cross-origin iframe (the BoldSign/Cal.com
+     embeds) doesn't rasterize in browser print at all. nbd-brand.css
+     already swaps the color tokens for toner savings on print; this adds
+     the missing LAYOUT half: strip everything a homeowner can't act on
+     once it's on paper (embeds, buttons, form controls, the sandboxed
+     document-viewer modal, the phase-filter tabs), keep everything that
+     answers "what's the status of my project" (the header, the dated
+     progress tracker, photos, document names/dates, the rep's contact
+     info, the balance amount).
+     One class list, not per-card exceptions: every interactive control on
+     this page is consistently either a .btn/.btn-ghost anchor, a real
+     <button>, or a form <input>/<textarea> — never bare text — so hiding
+     those four selectors removes exactly the controls and nothing else,
+     without needing a print-specific marker class on every card. */
+  @media print {
+    .cal-embed, .doc-modal-overlay, .ph-tabs, #livePill,
+    button, input, textarea, a.btn, a.btn-ghost {
+      display: none !important;
+    }
+    .card { break-inside: avoid; box-shadow: none; }
+    .doc-row, .ph-tile { break-inside: avoid; }
+  }
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>

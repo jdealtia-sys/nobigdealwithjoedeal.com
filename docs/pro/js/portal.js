@@ -568,26 +568,64 @@
         if (_footSite) _footSite.style.display = 'none';
         var _cols = view.company.colors || null;
         if (_cols && _cols.accent) {
+          // 2026-09-16 (CTA-contrast fix): this used to copy the raw tenant
+          // accent verbatim into the background ramp, with only a coarse
+          // luminance>0.45 threshold picking white-or-#12223D foreground —
+          // not a computed WCAG ratio, so a mid-luminance tenant color could
+          // clear that threshold while still failing real AA (4.5:1)
+          // against EITHER ink choice. Fix: darken the accent itself, in
+          // small steps, until at least one ink choice actually achieves
+          // AA — "derive by darkening until AA, don't copy the accent" —
+          // then pick whichever ink has the higher of the two ratios. A
+          // tenant accent already dark enough exits the loop on the first
+          // check (safeAccent === the original color, unchanged).
+          var _hexToRgb = function (h) {
+            h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+            return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+          };
+          var _relLum = function (rgb) {
+            var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+            return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]);
+          };
+          var _contrast = function (l1, l2) {
+            var a = Math.max(l1, l2) + 0.05, b = Math.min(l1, l2) + 0.05; return a / b;
+          };
+          var _rgbToHex = function (rgb) {
+            return '#' + rgb.map(function (v) {
+              return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+            }).join('');
+          };
+          var AA = 4.5; // WCAG AA, normal text — the button label size this drives
+          var DARK_INK_LUM = _relLum(_hexToRgb('#12223D'));
+          var _rgb = _hexToRgb(_cols.accent);
+          var safeAccent = _cols.accent;
+          for (var _i = 0; _i < 20; _i++) {
+            var _lum = _relLum(_rgb);
+            if (_contrast(_lum, 1) >= AA || _contrast(_lum, DARK_INK_LUM) >= AA) { safeAccent = _rgbToHex(_rgb); break; }
+            _rgb = _rgb.map(function (c) { return c * 0.9; }); // 10% darker each step
+            safeAccent = _rgbToHex(_rgb);
+          }
+          var _safeLum = _relLum(_hexToRgb(safeAccent));
+          var _fg = _contrast(_safeLum, 1) >= _contrast(_safeLum, DARK_INK_LUM) ? '#ffffff' : '#12223D';
+
           // Override the whole orange RAMP, not just the base token — the
           // tenant drill showed mixed blue/orange (progress dots, eyebrow,
           // totals use the -deep/-medium/-soft/-glow variants). color-mix
-          // derives each from the tenant accent.
+          // derives each from safeAccent (the AA-verified color above, not
+          // necessarily the raw tenant value).
           // nbd-brand.css also scopes the token set onto .nbd-brand (body
           // carries that class), which SHADOWS an html-level override for
           // everything inside body — set the vars on BOTH roots.
           var _apply = function (st) {
-            st.setProperty('--nbd-orange', _cols.accent);
-            st.setProperty('--accent', _cols.accent);
-            st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + _cols.accent + ' 78%, #000)');
-            st.setProperty('--nbd-orange-medium', 'color-mix(in srgb, ' + _cols.accent + ' 88%, #000)');
-            st.setProperty('--nbd-orange-ink', 'color-mix(in srgb, ' + _cols.accent + ' 60%, #000)');
-            st.setProperty('--nbd-orange-soft', 'color-mix(in srgb, ' + _cols.accent + ' 12%, transparent)');
-            st.setProperty('--nbd-orange-glow', 'color-mix(in srgb, ' + _cols.accent + ' 30%, transparent)');
+            st.setProperty('--nbd-orange', safeAccent);
+            st.setProperty('--accent', safeAccent);
+            st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + safeAccent + ' 78%, #000)');
+            st.setProperty('--nbd-orange-medium', 'color-mix(in srgb, ' + safeAccent + ' 88%, #000)');
+            st.setProperty('--nbd-orange-ink', 'color-mix(in srgb, ' + safeAccent + ' 60%, #000)');
+            st.setProperty('--nbd-orange-soft', 'color-mix(in srgb, ' + safeAccent + ' 12%, transparent)');
+            st.setProperty('--nbd-orange-glow', 'color-mix(in srgb, ' + safeAccent + ' 30%, transparent)');
             st.setProperty('--nbd-ink-on-orange', _fg);
           };
-
-          var _lum=(function(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');var r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;var f=function(v){return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)})(_cols.accent);
-          var _fg=_lum>0.45?'#12223D':'#ffffff';
           _apply(document.documentElement.style);
           if (document.body) _apply(document.body.style);
         }
@@ -1311,34 +1349,91 @@
   // origin: allow-scripts still lets the document's own print button etc.
   // work, but an opaque-origin frame cannot read this page's DOM, storage,
   // or make same-origin-credentialed requests, even with scripting on).
+  // 2026-09-16 (a11y fix): this modal originally had no aria-modal, no
+  // role, and no focus trap at all — a real modal dialog with none of the
+  // accessible-modal semantics or keyboard containment customer.html's
+  // OLDER modals at least (incompletely) advertise. Since this is new code
+  // with no back-compat concern, it gets the full treatment: role="dialog"
+  // + aria-modal on the dialog box itself (not the backdrop), focus moved
+  // in on open and restored to whatever triggered it on close, and a real
+  // Tab-key trap so keyboard/screen-reader focus can't leak to the page
+  // behind the backdrop.
   let _docModal = null;
+  let _docModalTrapHandler = null;
+  let _docModalTriggerEl = null;
   function _openDocModal(name) {
+    _docModalTriggerEl = document.activeElement;
     if (!_docModal) {
       const overlay = document.createElement('div');
       overlay.className = 'doc-modal-overlay';
       overlay.innerHTML =
-        '<div class="doc-modal">' +
+        '<div class="doc-modal" role="dialog" aria-modal="true" aria-labelledby="docModalTitle">' +
           '<div class="doc-modal-header">' +
-            '<div class="doc-modal-title"></div>' +
+            '<div class="doc-modal-title" id="docModalTitle"></div>' +
             '<button type="button" class="doc-modal-close" aria-label="Close">✕</button>' +
           '</div>' +
           '<div class="doc-modal-body">' +
             '<div class="doc-modal-status">Loading…</div>' +
-            '<iframe class="doc-modal-iframe" sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-scripts allow-modals" title="Document"></iframe>' +
+            '<iframe class="doc-modal-iframe" tabindex="-1" sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-scripts allow-modals" title="Document"></iframe>' +
           '</div>' +
         '</div>';
       document.body.appendChild(overlay);
-      const close = () => { overlay.classList.remove('open'); overlay.querySelector('.doc-modal-iframe').srcdoc = ''; };
+      const close = () => {
+        overlay.classList.remove('open');
+        overlay.querySelector('.doc-modal-iframe').srcdoc = '';
+        if (_docModalTrapHandler) { document.removeEventListener('keydown', _docModalTrapHandler); _docModalTrapHandler = null; }
+        if (_docModalTriggerEl && typeof _docModalTriggerEl.focus === 'function') _docModalTriggerEl.focus();
+      };
       overlay.querySelector('.doc-modal-close').addEventListener('click', close);
       overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
-      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
+      overlay._nbdClose = close;
       _docModal = overlay;
     }
+    // Wired on every OPEN (not just the first build) — close() removes it,
+    // and the modal DOM is reused across opens, so a listener added only
+    // once at build time would silently stop working after the first close.
+    const dialog = _docModal.querySelector('.doc-modal');
+    // The iframe is deliberately tabindex="-1" (excluded here by
+    // :not([tabindex="-1"])) — NOT an oversight. Once keyboard focus moves
+    // INSIDE a sandboxed cross-origin iframe (no allow-same-origin, by
+    // design — see the sandbox comment above), its keydown events fire in
+    // THAT document, not this one; a parent-level listener structurally
+    // cannot observe them, so Tab pressed while focus is inside the iframe
+    // can never reach this handler to be trapped. Granting the sandbox
+    // allow-same-origin to fix that would defeat the entire reason it's
+    // sandboxed in the first place. So the close button is the only
+    // element this trap manages — a provably-correct trap around one
+    // element beats an attempted trap that silently leaks focus to the
+    // page behind the backdrop the moment a user tabs into the iframe.
+    // offsetParent is null for display:none elements (among other cases) —
+    // still needed for anything ever added here in future, though today
+    // the only match is the always-visible close button.
+    const focusable = () => Array.from(dialog.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter((el) => el.offsetParent !== null);
+    _docModalTrapHandler = (e) => {
+      if (e.key === 'Escape') { _docModal._nbdClose(); return; }
+      if (e.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      e.preventDefault();
+      const idx = items.indexOf(document.activeElement);
+      const next = e.shiftKey
+        ? items[idx <= 0 ? items.length - 1 : idx - 1]
+        : items[idx === -1 || idx === items.length - 1 ? 0 : idx + 1];
+      next.focus();
+    };
+    document.addEventListener('keydown', _docModalTrapHandler);
+
     _docModal.querySelector('.doc-modal-title').textContent = name || 'Document';
     _docModal.querySelector('.doc-modal-status').style.display = 'block';
     _docModal.querySelector('.doc-modal-status').textContent = 'Loading…';
     _docModal.querySelector('.doc-modal-iframe').style.display = 'none';
     _docModal.classList.add('open');
+    // Move focus into the dialog so screen readers announce it and Tab
+    // starts contained — the close button, not the iframe (which has no
+    // content yet while the fetch below is in flight).
+    _docModal.querySelector('.doc-modal-close').focus();
     return _docModal;
   }
 
