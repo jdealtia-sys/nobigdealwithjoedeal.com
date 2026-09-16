@@ -90,16 +90,25 @@ async function gatherStripe(db, cutoffMs) {
   // webhook health. Empty = either no Stripe activity (fine) or webhook
   // not delivering (bad). We just report the count; a separate
   // failed-events read would need Stripe API access.
+  //
+  // Filter at the Firestore level (like gatherVisionSpend's monthKey where
+  // and gatherActivity's uploadedAt/createdAt where clauses do), not with an
+  // unbounded, unordered .limit(200) fetched first and filtered in JS after.
+  // stripe_events is an append-only, ever-growing collection (one doc per
+  // Stripe event ever processed, no orderBy) — a plain .limit(200) has no
+  // guarantee of returning the newest 200 once the collection outgrows 200
+  // total events, so the old shape could report "0 events in 24h" forever
+  // even with webhooks actively arriving.
   let total = 0;
   let recentTypes = {};
-  const snap = await db.collection('stripe_events').limit(200).get();
+  const snap = await db.collection('stripe_events')
+    .where('processedAt', '>=', Timestamp.fromMillis(cutoffMs))
+    .limit(2000)
+    .get();
   snap.forEach(d => {
     const data = d.data();
-    const ts = data.processedAt && data.processedAt.toMillis ? data.processedAt.toMillis() : 0;
-    if (ts >= cutoffMs) {
-      total++;
-      recentTypes[data.type] = (recentTypes[data.type] || 0) + 1;
-    }
+    total++;
+    recentTypes[data.type] = (recentTypes[data.type] || 0) + 1;
   });
   return { total, recentTypes };
 }
@@ -108,6 +117,16 @@ async function gatherApiUsage(db) {
   // api_usage_daily/{dayKey}__uid__{uid} and __co__{companyId} —
   // reserved Claude tokens for today. Sum the uid rows (the co rows
   // double-count).
+  //
+  // `tokens` is the field the claudeProxy budget counter actually writes
+  // (functions/handlers/_shared.js reserveClaudeBudget/adjustClaudeBudget,
+  // via FieldValue.increment) — there is no `tokensUsed` field anywhere in
+  // this codebase, so reading it always summed to 0. `voice_analysisTokens`
+  // is the sibling field the voice-intelligence integration writes on the
+  // same doc (functions/integrations/voice-intelligence.js
+  // incrementVoiceUsage) — also real Claude/Anthropic spend (callClaudeJson
+  // hits api.anthropic.com), just under a different key because it shares
+  // the counter doc with a non-Claude voice_audioSec field.
   const dayKey = new Date().toISOString().slice(0, 10);
   let total = 0;
   let topUsers = [];
@@ -115,8 +134,9 @@ async function gatherApiUsage(db) {
   snap.forEach(d => {
     if (!d.id.includes('__uid__')) return;
     if (!d.id.startsWith(dayKey)) return;
-    const tokens = (d.data() && d.data().tokensUsed) || 0;
-    total += Number(tokens);
+    const data = d.data() || {};
+    const tokens = Number(data.tokens || 0) + Number(data.voice_analysisTokens || 0);
+    total += tokens;
     topUsers.push({ uid: d.id.split('__uid__')[1], tokens });
   });
   topUsers.sort((a, b) => b.tokens - a.tokens);
