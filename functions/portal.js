@@ -1024,7 +1024,14 @@ exports.getHomeownerPortalView = onRequest(
           urls: p.urls || null,
           url:  _freshUrls.get(d.id) || p.url || null,
           phase: p.phase || 'During',
-          caption: p.homeownerCaption || ''
+          caption: p.homeownerCaption || '',
+          // 2026-09-16 (photo self-announce fix): source, not exposed for
+          // display (the gallery shows no origin badge either way), only so
+          // the client's live-update diff can tell "a rep just shared this"
+          // from "I just uploaded this myself" before firing a toast. Same
+          // internal-field-redaction posture as the rest of this view —
+          // this is the one internal field that actually needs to travel.
+          source: p.source === 'homeowner' ? 'homeowner' : 'rep',
         };
       }),
       // D-2.7: auto-pair before/after photos by location. The portal

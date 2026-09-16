@@ -232,11 +232,19 @@
     if (pStage && nStage && pStage !== nStage) {
       events.push({ kind: 'stage', from: pStage, to: nStage, msg: `🎉 Status update: now ${nStage}` });
     }
-    const pPhotos = (prev.photos && prev.photos.length) || 0;
-    const nPhotos = (next.photos && next.photos.length) || 0;
-    if (nPhotos > pPhotos) {
-      const added = nPhotos - pPhotos;
-      events.push({ kind: 'photos', delta: added, msg: `📸 ${added} new photo${added === 1 ? '' : 's'} from your rep` });
+    // 2026-09-16 (photo self-announce fix): was a bare length comparison,
+    // so a homeowner's OWN upload via "Show Us What You See" (which lands
+    // in this same sharedWithHomeowner-gated photos array — see
+    // uploadHomeownerPhoto in functions/portal.js) incremented the count
+    // and got announced back to them as "new photo from your rep". Diff by
+    // id to find what's actually NEW, then exclude anything the homeowner
+    // uploaded themselves (source: 'homeowner', added to the server payload
+    // by the same fix) — only a rep-sourced addition is a "from your rep"
+    // event.
+    const pPhotoIds = new Set(((prev.photos) || []).map(p => p.id));
+    const newRepPhotos = ((next.photos) || []).filter(p => !pPhotoIds.has(p.id) && p.source !== 'homeowner');
+    if (newRepPhotos.length) {
+      events.push({ kind: 'photos', delta: newRepPhotos.length, msg: `📸 ${newRepPhotos.length} new photo${newRepPhotos.length === 1 ? '' : 's'} from your rep` });
     }
     // (Removed dead "new message" banner: getHomeownerPortalView never returns
     // a `messages` field, so this never fired. Rep replies are surfaced by the
@@ -2156,6 +2164,16 @@
                 ? ' (' + json.remainingToday + ' more allowed today)' : ''),
               'success'
             );
+            // Belt-and-suspenders for the photo self-announce fix above:
+            // mark this photo as already-seen in local state immediately,
+            // rather than depending on the next 30s poll's server payload
+            // to carry source:'homeowner' before _diffView runs against it.
+            // Covers a race between this success handler and the poll timer.
+            if (_lastView && Array.isArray(_lastView.photos) && json.photoId) {
+              _lastView = Object.assign({}, _lastView, {
+                photos: _lastView.photos.concat([{ id: json.photoId, url: json.url || null, urls: null, phase: 'During', caption: caption || '', source: 'homeowner' }])
+              });
+            }
             // Reset for another upload after a beat so the rep
             // can send a few in sequence.
             setTimeout(() => {
