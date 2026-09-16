@@ -302,7 +302,7 @@ function loadWarrantyClaim(dbHooks, domStub) {
 // ═══════════════════════════════════════════════════════════════════════
 console.log('\nDeliberate mutation — resolutionNotes gate removed (proves 3d is a real guard, not a tautology)');
 {
-  let src = fs.readFileSync(path.join(PRO_JS, 'warranty-claim.js'), 'utf8');
+  let src = fs.readFileSync(path.join(PRO_JS, 'warranty-claim.js'), 'utf8').replace(/\r\n/g, '\n');
   const before = src;
   src = src.replace(
     "if (!notes) {\n      if (typeof window.showToast === 'function') window.showToast('Resolution notes are required to close a claim', 'warning');\n      return false;\n    }",
