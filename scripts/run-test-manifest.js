@@ -220,6 +220,9 @@ const RUNNABLE = ['node', 'smoke'];
 //               Warranty Claim lane — the third and final piece of the
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
+//   2026-09-15  132/67/218 → 133/67/219, tests/customer-audit-integrity.test.js
+//               (the forgeable customerAuditEvents resourceId fix + the
+//               document_view coverage gap in the customer audit trail).
 
 //   2026-09-15  TENTH collision: the photo-report-sharing lane (#1499,
 //               unmerged since 2026-09-08) rebased onto this tree adds one
@@ -233,12 +236,17 @@ const RUNNABLE = ['node', 'smoke'];
 //               (133/67/219 missed the new smoke suite; 132/68/219 missed
 //               the new node suite) — re-measured via --check on the
 //               rebased tree per this ledger's own rule.
-//   2026-09-15  TWELFTH collision: the esign rotation/optional-fields/
-//               revoked-message lane adds one new node suite
+//   2026-09-15  TWELFTH collision: the customer-audit-integrity lane
+//               (forgeable resourceId fix + document_view coverage) adds
+//               one node suite on top of 133/68/220. Re-measured via
+//               --check on the merged tree. MERGED into main as 134/68/221.
+//   2026-09-15  THIRTEENTH collision: the esign rotation/optional-fields/
+//               revoked-message lane independently adds one new node suite
 //               (tests/esign-envelope-guards.test.js; esign-setup-placement
-//               .test.js is pre-existing, only modified) on top of
-//               133/68/220. Re-measured via --check on the merged tree.
-const FLOORS = { node: 134, smoke: 68, disk: 221 };
+//               .test.js is pre-existing, only modified) from the SAME
+//               133/68/220 base as the customer-audit lane, which has since
+//               merged. Re-measured via --check on this tree: 135/68/222.
+const FLOORS = { node: 135, smoke: 68, disk: 222 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
