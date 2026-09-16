@@ -260,7 +260,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               original 133/68/220 base. Re-measured via --check on this
 //               tree (three lanes above already merged + these two new
 //               suites): 138/68/225.
-const FLOORS = { node: 149, smoke: 68, disk: 237 };
+const FLOORS = { node: 152, smoke: 68, disk: 240 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

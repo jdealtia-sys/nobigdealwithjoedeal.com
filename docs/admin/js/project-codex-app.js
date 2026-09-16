@@ -743,7 +743,7 @@ function toggleSearchFilter(filter, btn) {
     }
     if (!_searchFilters.length) {
       _searchFilters = ['all'];
-      document.getElementById('sf-all').classList.add('on');
+      document.getElementById('flt-all').classList.add('on');
     }
   }
   runSearch();

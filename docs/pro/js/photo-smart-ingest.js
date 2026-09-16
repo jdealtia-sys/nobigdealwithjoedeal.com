@@ -19,9 +19,11 @@
  *   .inferSlopeFromHeading(heading, polygon) → { label, confidence }|null
  *   .analyze(file, lead)                     → Promise<{exif, inferredLocation}|null>
  *
- * No external deps. Hand-rolled JPEG EXIF parser handles iPhone Camera
- * roll output (HEIC photos taken on iPhone are auto-converted to JPEG
- * when uploaded via <input type=file>, so we don't need a HEIC parser).
+ * Hand-rolled JPEG EXIF parser handles iPhone Camera roll output (HEIC
+ * photos taken on iPhone are auto-converted to JPEG when uploaded via
+ * <input type=file>, so this covers the 99% case with no dependency at
+ * all). A native HEIC/HEIF/TIFF/AVIF file lazy-loads the self-hosted
+ * `exifr` build vendored at docs/assets/vendor/exifr/ — see _loadExifr().
  */
 (function () {
   'use strict';
@@ -60,17 +62,24 @@
   //   - iOS Safari versions that don't auto-convert
   //
   // Hand-rolling a HEIC EXIF parser is ~400 LOC of HEIF box parsing.
-  // Instead we lazy-load the well-maintained `exifr` library from CDN
-  // ONLY when the JPEG path returns null AND the file looks like HEIC.
-  // Cost: zero on the 99% case (JPEG), ~30KB one-time on HEIC.
+  // Instead we lazy-load the well-maintained `exifr` library ONLY when the
+  // JPEG path returns null AND the file looks like HEIC. Cost: zero on the
+  // 99% case (JPEG), ~75KB one-time on HEIC.
+  //
+  // 2026-09-16: self-hosted (docs/assets/vendor/exifr/exifr.esm.mjs, exifr
+  // 7.1.3's own "module" entry, `dist/full.esm.mjs`, vendored verbatim — zero
+  // external deps, so no CDN rewriting was needed) — this repo's CSP
+  // script-src-elem never allowlisted cdn.skypack.dev, so the previous
+  // `import('https://cdn.skypack.dev/exifr@7')` was SILENTLY BLOCKED on every
+  // real page load. The try/catch below swallowed the CSP refusal exactly
+  // like a network failure, so every HEIC/HEIF/TIFF/AVIF photo has been
+  // uploading with zero EXIF/GPS since this landed — no error surfaced
+  // anywhere, just a console.warn nobody was watching for.
   let _exifrLib = null;
   async function _loadExifr() {
     if (_exifrLib) return _exifrLib;
     try {
-      // Skypack ESM build of exifr@7 — minimal footprint, supports
-      // HEIC / HEIF / TIFF / AVIF. CDN fail → return null silently;
-      // photo upload proceeds without EXIF in that case.
-      _exifrLib = await import('https://cdn.skypack.dev/exifr@7');
+      _exifrLib = await import('/assets/vendor/exifr/exifr.esm.mjs');
       return _exifrLib;
     } catch (e) {
       console.warn('[smart-ingest] exifr lazy-load failed:', e.message);

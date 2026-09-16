@@ -175,7 +175,13 @@ exports.stormWatch = onSchedule(
     // Affected subscribers (within radius of ANY new event)
     const textEnabled = process.env.STORM_TEXT_ENABLED === 'true';
     const cooldown = Timestamp.fromMillis(Date.now() - SUBSCRIBER_COOLDOWN_H * 3600_000);
-    const subsSnap = await db.collection('storm_alert_subscribers').limit(1000).get();
+    // active:true is server-stamped on every subscriber (functions/handlers/
+    // integrations.js's serverDefaults, never client-trusted) specifically so
+    // an opted-out subscriber stops matching every alert query — sms-
+    // functions.js's sibling checkStormAlerts cron already filters on it.
+    // This query queried unfiltered, so an unsubscribed homeowner kept
+    // receiving stormWatch's texts even after opting out.
+    const subsSnap = await db.collection('storm_alert_subscribers').where('active', '==', true).limit(1000).get();
     const affected = [];
     let unknownZips = 0;
     for (const doc of subsSnap.docs) {
