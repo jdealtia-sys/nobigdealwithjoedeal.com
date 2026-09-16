@@ -465,7 +465,15 @@ that I did not re-verify, and §1 carries a Sunday-09-13 production warning —
 demoting all of that behind a photo-report brief would bury it. Full write-up:
 [SESSION-2026-09-08-photo-report-builder](SESSION-2026-09-08-photo-report-builder.md).
 
-**Ten commits, CI green on `bf299ab2`. Not merged yet.**
+**MERGED** as `ac8f7e69` and deployed — confirmed live via two successful
+Firebase deploys that contain it (`1cb610fb`, `a59f4575`). Its own deploy run
+was cancelled, which is `concurrency: firebase-deploy` + `cancel-in-progress:
+false` working as designed during a six-PR burst; what matters is that a LATER
+deploy carrying the commit succeeded, not that yours did.
+
+**But see the correction above: none of it reaches a customer until #1505
+lands.** The server render path has been dead since June, so photo reports
+still come from the client fallback, which has none of this.
 
 ### The one finding that reaches beyond this lane
 
@@ -484,6 +492,17 @@ template is an isolated document whose default font-size is 0, and that with
 `preferCSSPageSize: true` the `margin` option is **ignored entirely** (two
 strategies with different margins rendered byte-identical). Do not re-add a
 Paged Media margin box; nothing in the pipeline can honour it.
+
+> **Correction (same day).** #1505 found `renderPdf` failing 100% of the time at
+> `stage: launch` since the @sparticuz/chromium 148 → 149 bump (#712,
+> 2026-06-24) — 149 is `"type":"module"` with one `"default"` export condition,
+> so `require()` returns the ESM namespace and `chromium.executablePath` reads
+> `undefined`. Verified independently, not taken on trust. So **the server
+> render path had not run in production since June**: everything in this
+> section became live only when #1505 landed, and until then every photo report
+> came from the client fallback. I also wrote that the variant-key bug was "a
+> large part of why that path times out" — the render never reached
+> `setContent`, so that was a guess stated as a finding.
 
 ### Also fixed, each its own defect
 
@@ -510,7 +529,7 @@ Paged Media margin box; nothing in the pipeline can honour it.
   document on a teammate's lead and attach none. Fixed with that clause
   verbatim; emulator-tested in both directions.
 
-### Open, in the order I would take them
+### Open — and what already picked each one up
 
 > **Update 2026-09-08, later the same day: 1 and 6 are CLOSED** on a branch
 > stacked on #1483 —
