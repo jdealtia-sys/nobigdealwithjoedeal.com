@@ -146,6 +146,8 @@
     "kanban-filter-unification.test.js",
     "warranty-claim.test.js",
     "anniversary-touch-stage-roles.test.js",
+    "analytics-card-cache-account-switch.test.js",
+    "adjuster-board-handler-tenancy.test.js",
     "customer-audit-integrity.test.js"
   ],
   "smoke": {
