@@ -1186,11 +1186,13 @@ window.loadPhotosByPhase = async function(leadId) {
 
   const fetchFresh = async function () {
     const photosRef = window.collection(window.db, 'photos');
-    const q = window.query(
-      photosRef,
-      window.where('leadId', '==', leadId),
-      window.where('userId', '==', uid)
-    );
+    // Team visibility (matches loadPhotos()'s #photoList query, customer-
+    // bootstrap.module.js:1563-1572): a hard leadId+userId scope returns
+    // EMPTY for a company_admin/manager/viewer opening a teammate's lead —
+    // the exact bug window._photoQueryScopes was already fixed and exported
+    // for (its own comment: "so a fourth hand-rolled copy" doesn't repeat
+    // this). This was the third hand-rolled copy; now there are none.
+    const q = window.query(photosRef, ...window._photoQueryScopes(leadId));
     const snap = await window.getDocs(q);
     const list = [];
     snap.forEach(function (doc) { list.push(photoDocToView(doc.id, doc.data())); });
