@@ -43,7 +43,7 @@ whatever print vendor or social platform uses them.
 | `docs/pro/img/nbd-icon-512.png` | `icons/nbd-pro-icon-512.png` |
 | `docs/pro/img/nbd-icon-maskable-192.png` | `icons/nbd-pro-maskable-192.png` |
 | `docs/pro/img/nbd-icon-maskable-512.png` | `icons/nbd-pro-maskable-512.png` |
-| `docs/assets/images/apple-touch-icon.png` | regenerated FROM the new `docs/favicon.svg` (not copied directly — see `scripts/render-apple-touch-icon.js`) |
+| `docs/assets/images/apple-touch-icon.png` | regenerated FROM `icons/home-solutions-icon.svg` — the full lettered mark, **not** `icons/home-solutions-icon-small.svg` (not copied directly — see `scripts/render-apple-touch-icon.js`). Corrected 2026-09-16: this row previously said `docs/favicon.svg`, which is itself sourced from the wordless `-small.svg` two rows up — that made the one "large" homeowner icon (180×180, iOS/Android home screen) wordless too, the one context normal use actually renders bigger than a tab icon. Pro's equivalent (`nbd-icon-192.png`, below) was never wordless because it's copied from the pack's already-lettered 192px master, not derived from `pro/favicon.svg`. |
 | `docs/assets/images/nbd-logo.png` | `derived/logo-white-accent.svg` (**not** `web/logo-color-600-transparent.png` — see below) |
 | `scripts/assets/nbd-wordmark.png` | `web/logo-color-600-transparent.png` (navy-on-transparent — correct for this tool's white-paper PDF export context; **not** the same file as the header logo above, which needs the opposite colorway for its dark background) |
 | `print-assets/nbd-logo-master.png` | `upscaled-original/logo-4K-transparent.png` |

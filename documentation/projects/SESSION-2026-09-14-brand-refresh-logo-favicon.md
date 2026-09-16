@@ -253,3 +253,30 @@ here to match. Two corrections, closing that dangling reference:
   `logoUrl` at `apple-touch-icon.png` (already square, already on-brand, no
   CSS change needed) — see `tests/render-pdf-brand-mark-square.test.js`,
   added the same session so this class of bug can't silently recur.
+
+## Dated correction (2026-09-16): the homeowner brand never showed "NBD" lettering anywhere
+
+Line 51-53 above frames `docs/favicon.svg` going wordless as fine because
+"the NBD wordmark only appears on 192px+ app icons" — true for Pro
+(`docs/pro/img/nbd-icon-192.png` is copied from the pack's already-lettered
+192px master, and Pro also ships 512px + maskable variants via
+`docs/pro/manifest.json`), but nobody checked whether the homeowner side
+actually has anything at or above that threshold. It doesn't: the homeowner
+brand's only "large" asset is `apple-touch-icon.png` at 180×180 — just under
+the 192px line — and `scripts/render-apple-touch-icon.js` (line 63-65 above)
+regenerates it **from** `docs/favicon.svg`, the wordless small variant. So
+every homeowner "Add to Home Screen" icon, every context where a browser or
+OS renders the favicon bigger than a tab (which is the normal way anyone
+actually *notices* a favicon), showed a bare roofline with zero "NBD"
+lettering — while Pro's equivalent always showed it correctly. This wasn't
+a deliberate call anyone made; it was never checked against the 192px rule
+line 51 states, and Jo caught it directly ("no matter where i only see the
+roofline favicon no NBD"). Fixed by repointing
+`scripts/render-apple-touch-icon.js`'s source at
+`brand/logo-pack-2026-09/icons/home-solutions-icon.svg` (the full lettered
+mark, same viewBox/tile/corner-radius as the old wordless source — no other
+pipeline change needed) and regenerating. Verified legible at the PDF
+brand-mark's 42pt scale too (that same PNG feeds `render-pdf.js`'s
+`logoUrl`, per the entry above) — "NBD" is three bold letters, not a full
+wordmark, so it survives the same small-size crop that a wordmark couldn't.
+`brand/logo-pack-2026-09/README.md`'s mapping table updated to match.

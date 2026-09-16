@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
  * scripts/render-apple-touch-icon.js — rebuild docs/assets/images/apple-touch-icon.png
- * from docs/favicon.svg. Run it whenever favicon.svg changes; nothing else does.
+ * from the full lettered home-solutions mark. Run it whenever that source SVG
+ * changes; nothing else does.
  *
  * WHY (2026-09-13)
  * ────────────────
@@ -13,6 +14,22 @@
  * passed because every gate checked existence, signature or dimensions. The
  * fix is to make the PNG a build product of the SVG instead of a hand export.
  * tests/favicon-contract.test.js now walks every chunk of this file.
+ *
+ * SOURCE FIX (2026-09-16)
+ * ───────────────────────
+ * This used to render from docs/favicon.svg. The 2026-09-14 brand-pack
+ * refresh (#1570) repointed docs/favicon.svg at the pack's wordless
+ * `-small.svg` tier (roofline only — "NBD" lettering was deliberately
+ * deferred to 192px+ app icons; see brand/logo-pack-2026-09/README.md).
+ * Nobody updated this script's source to match, so every apple-touch-icon
+ * rebuild since then silently inherited the wordless mark — the one
+ * "large" homeowner-brand asset that exists (180×180, iOS/Android home
+ * screen) never showed "NBD" lettering anywhere, while Pro's equivalent
+ * (docs/pro/img/nbd-icon-192.png, copied from the pack's lettered 192px
+ * master) always did. Jo confirmed both marks are meant to carry "NBD"
+ * lettering. Source is now the pack's full lettered SVG directly (same
+ * viewBox, same white tile, same corner radius as the old source — no
+ * other pipeline change needed).
  *
  * WHAT
  * ────
@@ -36,10 +53,10 @@ const path = require('path');
 const zlib = require('zlib');
 
 const ROOT = path.join(__dirname, '..');
-const SVG = path.join(ROOT, 'docs', 'favicon.svg');
+const SVG = path.join(ROOT, 'brand', 'logo-pack-2026-09', 'icons', 'home-solutions-icon.svg');
 const OUT = path.join(ROOT, 'docs', 'assets', 'images', 'apple-touch-icon.png');
 const SIZE = 180;
-const TILE = '#ffffff'; // the tile colour in docs/favicon.svg (2026-09-14 brand refresh: was '#1a3057')
+const TILE = '#ffffff'; // the tile colour in the source SVG (2026-09-14 brand refresh: was '#1a3057')
 
 function crc32(buf) {
   let c, crc = 0xffffffff;
