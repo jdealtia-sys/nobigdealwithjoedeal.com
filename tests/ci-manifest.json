@@ -120,6 +120,7 @@
     "nav-contract.test.js",
     "photo-report-output-contract.test.js",
     "photo-report-builder.test.js",
+    "photo-report-sharing.test.js",
     "session-revocation.test.js",
     "calcom-webhook-payload.test.js",
     "lead-alert-calcom.test.js",
@@ -481,6 +482,19 @@
       "failure-count threshold — this path saw 22 calls in three weeks, so any",
       "volume threshold sleeps through a total outage — and keeps the failure",
       "text HTML-escaped on its way into the email body."
+    ],
+    "health-digest-usage-signals.test.js": [
+      "Two more digest signals must see the data they claim to summarize.",
+      "gatherApiUsage read a `tokensUsed` field no writer ever sets (the real",
+      "claudeProxy counter writes `tokens`; voice-intelligence's Claude spend",
+      "lands in `voice_analysisTokens` on the same doc), so Anthropic Token",
+      "Usage reported 0 forever. gatherStripe fetched an unbounded, unordered",
+      ".limit(200) from the ever-growing stripe_events collection and filtered",
+      "by time in JS afterward, so once the collection outgrew 200 docs the",
+      "24h window could be entirely absent from the slice fetched, reporting",
+      "0 Stripe events forever even with webhooks actively arriving. Both",
+      "gatherers are vm-sandboxed against a fake Firestore and proven to read",
+      "the real writer fields / push the time filter down to the query."
     ],
     "widgets-no-fabricated-data.test.js": [
       "Widgets must not invent data: the Team Leaderboard rendered three fake",

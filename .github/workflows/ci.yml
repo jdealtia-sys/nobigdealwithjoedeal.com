@@ -145,6 +145,20 @@ jobs:
       # three prior guard failures got backwards. Stale exemptions fail too.
       - name: Check chrome governance (nav/footer are generator-owned)
         run: node scripts/check-chrome-governance.js
+      # Owner-keyed Storage registry: STORAGE_PREFIXES drives BOTH the GDPR
+      # export and the erasure sweep, so a prefix missing from it is silently
+      # absent from both — the user can't obtain those objects and a
+      # right-to-be-forgotten request doesn't delete them. Four were missing at
+      # once on 2026-09-08 (documents, esign, homeowner-uploads, pdf-renders).
+      # The old guard compared the registry against a hand-maintained list
+      # labelled "all 8 storage.rules prefixes" while storage.rules defined
+      # eleven, and being a subset check it could only ever catch a prefix
+      # someone had already remembered to type into it. This derives the truth
+      # from storage.rules AND the write sites in code — two sources, because
+      # pdf-renders/ and homeowner-uploads/ are admin-SDK writes that never had
+      # a rules block at all.
+      - name: Check owner-keyed Storage registry (GDPR export + erasure scope)
+        run: node scripts/check-storage-prefix-registry.js
       # Sitemap drift gate: build-sitemap.js dry-runs by default and exits 1
       # when the generated sitemap differs from docs/sitemap.xml (prints the
       # unified diff). Writes nothing without --write.
