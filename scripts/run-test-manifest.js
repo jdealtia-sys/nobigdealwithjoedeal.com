@@ -89,6 +89,7 @@ const RUNNABLE = ['node', 'smoke'];
 // check until the floor moves with it in the same commit. That is the point,
 // not a nuisance — the error prints the exact literal to paste, and this
 // 2026-09-07 entry should be the last of its kind.
+
 //   2026-09-08  four portal branches each raised these; this is the value
 //               MEASURED after all of them landed, not any one branch's
 //               delta added to another's.
@@ -220,13 +221,24 @@ const RUNNABLE = ['node', 'smoke'];
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
 
-//   2026-09-15  134/67/220, adjuster-board cross-tenant cache-leak lane
-//               (tests/analytics-card-cache-account-switch.test.js +
-//               tests/adjuster-board-handler-tenancy.test.js). MEASURED via
-//               --check on this branch; both suites are pure-Node (no
-//               functions/ or tests/ node_modules), same class as
-//               session-revocation.test.js, so they land in the node bucket.
-const FLOORS = { node: 134, smoke: 67, disk: 220 };
+//   2026-09-15  TENTH collision: the photo-report-sharing lane (#1499,
+//               unmerged since 2026-09-08) rebased onto this tree adds one
+//               more node suite (tests/photo-report-sharing.test.js) on top
+//               of 132/67/218. Re-measured via --check on the merged tree
+//               rather than adding this lane's own stale +1 by hand.
+//   2026-09-15  ELEVENTH collision: the health-digest usage-signals fix
+//               rebased on top of the photo-report-sharing lane adds one
+//               smoke suite (tests/health-digest-usage-signals.test.js).
+//               Neither side's literal alone was right for the merged tree
+//               (133/67/219 missed the new smoke suite; 132/68/219 missed
+//               the new node suite) — re-measured via --check on the
+//               rebased tree per this ledger's own rule.
+//   2026-09-15  TWELFTH collision: the adjuster-board cross-tenant
+//               cache-leak lane (tests/analytics-card-cache-account-switch.
+//               test.js + tests/adjuster-board-handler-tenancy.test.js, both
+//               pure-Node) adds two node suites on top of 133/68/220.
+//               Re-measured via --check on the merged tree.
+const FLOORS = { node: 135, smoke: 68, disk: 222 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
