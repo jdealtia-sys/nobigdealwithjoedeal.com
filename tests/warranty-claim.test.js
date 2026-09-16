@@ -305,7 +305,7 @@ console.log('\nDeliberate mutation — resolutionNotes gate removed (proves 3d i
   let src = fs.readFileSync(path.join(PRO_JS, 'warranty-claim.js'), 'utf8');
   const before = src;
   src = src.replace(
-    "if (!notes) {\n      if (typeof window.showToast === 'function') window.showToast('Resolution notes are required to close a claim', 'warning');\n      return false;\n    }",
+    "if (!notes) {\r\n      if (typeof window.showToast === 'function') window.showToast('Resolution notes are required to close a claim', 'warning');\r\n      return false;\r\n    }",
     '// GATE REMOVED FOR MUTATION TEST'
   );
   ok('mutation target string found (test stays honest about what it broke)', src !== before);
