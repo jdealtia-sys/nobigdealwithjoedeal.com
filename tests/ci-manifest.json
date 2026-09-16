@@ -18,6 +18,7 @@
     "portal-tenant-cta-contrast-2026-09-16.test.js",
     "deal-room-delete-no-resurrection-2026-09-16.test.js",
     "portal-open-signal-extension-2026-09-16.test.js",
+    "admin-project-codex-duplicate-ids-2026-09-16.test.js",
     "customer-doc-branding.test.js",
     "crm-required-fields.test.js",
     "deploy-failure-parse.test.js",
