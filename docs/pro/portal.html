@@ -72,6 +72,12 @@
     margin-bottom: var(--nbd-space-4);
   }
   .hero-logo {
+    /* Uses nbd-logo-light-bg.png (navy text), not the site-wide
+       nbd-logo.png — that asset was recolored white-on-purpose by #1572
+       for the nav/footer's dark navy background, and this hero sits on a
+       light orange-tinted gradient (.hero above), where white text reads
+       as a near-invisible blank. Rendered from the same brand-pack SVG
+       (logo-color.svg) #1572 started from, before its white recolor. */
     height: 44px;
     width: auto;
     display: block;
@@ -401,7 +407,7 @@
 <div id="heroWrap" class="hero" style="display:none;">
   <div class="hero-inner">
     <div class="hero-mark">
-      <img class="hero-logo" src="/assets/images/nbd-logo.png" alt="No Big Deal Home Solutions" />
+      <img class="hero-logo" src="/assets/images/nbd-logo-light-bg.png" alt="No Big Deal Home Solutions" />
       <div class="hero-brand" id="heroCompany">No Big Deal Home Solutions</div>
     </div>
     <div class="hero-title" id="heroTitle">—</div>
