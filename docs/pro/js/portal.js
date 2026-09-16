@@ -643,8 +643,11 @@
       const sig = signaturePill(e.signatureStatus || 'none');
       const hasTotal = e.grandTotal != null && !isNaN(Number(e.grandTotal));
       const signedHref = safeUrl(e.signedDocumentUrl);
+      // Audit batch 7 gap fix: id lets wireDocumentLinks() below bind a
+      // click handler that emits document_view — this was the one
+      // homeowner document-viewing action with zero audit trail.
       const signedPdf = signedHref
-        ? '<a class="btn btn-ghost" style="margin-top:12px;" href="' + esc(signedHref) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
+        ? '<a id="signedContractLink" class="btn btn-ghost" style="margin-top:12px;" href="' + esc(signedHref) + '" target="_blank" rel="noopener">📄 Download Signed Contract</a>'
         : '';
       parts.push(
         '<div class="card">' +
@@ -1129,6 +1132,9 @@
     // Phase 5 (Output Engine): wire phase tabs + location chips that
     // filter the photo gallery client-side.
     wirePhotoFilters();
+    // Audit batch 7 gap fix: wire the signed-contract download link to
+    // emit document_view (no-op if the card wasn't rendered).
+    wireDocumentLinks(view);
   }
 
   // ─── D-2.7: Before & After ────────────────────────────────────
@@ -1187,6 +1193,22 @@
         clearTimeout(wireReferralCard._t);
         wireReferralCard._t = setTimeout(() => { statusEl.style.display = 'none'; }, 3000);
       }
+    });
+  }
+
+  // ─── Audit batch 7 gap fix: signed-contract download → document_view ──
+  // The homeowner's one document-viewing action in the portal (clicking
+  // "Download Signed Contract") left zero trace in customerAuditEvents even
+  // though 'document_view' is a declared ALLOWED_TYPE and the rep-facing
+  // activity timeline renders an icon/label for it — the coverage the UI
+  // implied never existed. Click handler mirrors the photo_view pattern:
+  // fire-and-forget, never blocks the navigation/download itself.
+  function wireDocumentLinks(view) {
+    const link = document.getElementById('signedContractLink');
+    if (!link) return;
+    const estId = (view && view.estimate && view.estimate.id) || null;
+    link.addEventListener('click', function () {
+      _emitAuditEvent('document_view', estId);
     });
   }
 

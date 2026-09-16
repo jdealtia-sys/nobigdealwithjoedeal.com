@@ -27,6 +27,7 @@
     "billing-gate.test.js",
     "calendar-feed.test.js",
     "company-stale-fields-cleanup.test.js",
+    "createcompany-admin-claim-guard.test.js",
     "crm-audit.test.js",
     "cron-heartbeat.test.js",
     "cust-id-prefix.test.js",
@@ -143,7 +144,8 @@
     "render-pdf-brand-mark-square.test.js",
     "paperwork-filing.test.js",
     "kanban-filter-unification.test.js",
-    "warranty-claim.test.js"
+    "warranty-claim.test.js",
+    "customer-audit-integrity.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

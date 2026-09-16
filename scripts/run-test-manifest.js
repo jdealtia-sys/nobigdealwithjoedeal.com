@@ -220,6 +220,9 @@ const RUNNABLE = ['node', 'smoke'];
 //               Warranty Claim lane — the third and final piece of the
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
+//   2026-09-15  132/67/218 → 133/67/219, tests/customer-audit-integrity.test.js
+//               (the forgeable customerAuditEvents resourceId fix + the
+//               document_view coverage gap in the customer audit trail).
 
 //   2026-09-15  TENTH collision: the photo-report-sharing lane (#1499,
 //               unmerged since 2026-09-08) rebased onto this tree adds one
@@ -233,11 +236,24 @@ const RUNNABLE = ['node', 'smoke'];
 //               (133/67/219 missed the new smoke suite; 132/68/219 missed
 //               the new node suite) — re-measured via --check on the
 //               rebased tree per this ledger's own rule.
-//   2026-09-15  TWELFTH collision: the funnel-recovery hardening lane
+//   2026-09-15  TWELFTH collision: the customer-audit-integrity lane
+//               (forgeable resourceId fix + document_view coverage) adds
+//               one node suite on top of 133/68/220. Re-measured via
+//               --check on the merged tree.
+//   2026-09-15  THIRTEENTH collision: the createCompany admin-claim-guard
+//               lane independently adds one node suite from the SAME
+//               133/68/220 base as the customer-audit lane above — both
+//               landed on the literal 134/68/221 by coincidence, which is
+//               not evidence either alone was right for a tree carrying
+//               both. Re-measured via --check on the merged tree: both
+//               suites present pushes this to 135/68/222. Both now merged.
+//   2026-09-15  FOURTEENTH collision: the funnel-recovery hardening lane
 //               (double-send stamp-before-send, per-email throttle,
-//               unsubscribe link, heartbeat fix) adds one node suite on top
-//               of 133/68/220. Re-measured via --check on the merged tree.
-const FLOORS = { node: 134, smoke: 68, disk: 221 };
+//               unsubscribe link, heartbeat fix) independently adds one
+//               node suite from the original 133/68/220 base. Re-measured
+//               via --check on this tree (both lanes above already merged
+//               into main + this lane's own suite): 136/68/223.
+const FLOORS = { node: 136, smoke: 68, disk: 223 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
