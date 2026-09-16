@@ -21,6 +21,7 @@
     "customer-stage-advance.test.js",
     "customer-invoice-markpaid.test.js",
     "esign-autodetect.test.js",
+    "esign-envelope-guards.test.js",
     "address-match.test.js",
     "address-audit-script.test.js",
     "backup-freshness.test.js",

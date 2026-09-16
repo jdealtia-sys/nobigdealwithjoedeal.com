@@ -339,8 +339,17 @@ el.auto.addEventListener('click', async () => {
   try {
     for (const pv of pageViews) {
       const tc = await pv.page.getTextContent();
-      const base = pv.page.getViewport({ scale: 1 });
-      const found = AD.detectFields(tc.items, { w: base.width, h: base.height }, {
+      // getTextContent() reports item positions in the page's own RAW,
+      // UNROTATED user space (matching pv.page.view / the mediabox) — not
+      // the rotation-aware viewport, which SWAPS width/height on a 90 or
+      // 270 degree rotated page. Clamping against the rotated dimensions
+      // here would corrupt (or drop) fields detected in the upper portion
+      // of a rotated scan. pv.page.view is [x0, y0, x1, y1] in that same
+      // raw space, so its own width/height are always correct regardless
+      // of rotation.
+      const view = pv.page.view;
+      const pageSize = { w: view[2] - view[0], h: view[3] - view[1] };
+      const found = AD.detectFields(tc.items, pageSize, {
         pageIndex: pv.index, idPrefix: `a${pv.index}_`,
       });
       for (const f of found) {

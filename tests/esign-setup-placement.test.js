@@ -35,7 +35,7 @@ function ok(name, cond, extra) {
   else { failed++; fails.push(name); console.log('  ✗ ' + name + (extra ? '\n      ' + extra : '')); }
 }
 
-const { PDFDocument, StandardFonts, rgb } = require(path.join(FN, 'node_modules', 'pdf-lib'));
+const { PDFDocument, StandardFonts, rgb, degrees } = require(path.join(FN, 'node_modules', 'pdf-lib'));
 const stamp = require(path.join(FN, 'esign-stamp.js'));
 
 /* Minimal ES-module stubs standing in for the gstatic Firebase SDK. */
@@ -80,6 +80,26 @@ async function buildForm() {
   T('Homeowner Signature', 62, 186, 8);
   T('_______________', 400, 200, 12);
   T('Date', 400, 186, 8);
+  return doc.save();
+}
+
+/**
+ * A page ROTATED 90° (/Rotate 90 in the PDF), with its signature line drawn
+ * near the top of the page's own RAW/unrotated coordinate space (y=750 of a
+ * 612x792 mediabox). pdf.js swaps width/height for a 90/270-rotated page's
+ * viewport but text-content transforms stay in the raw, unrotated space —
+ * so a caller that hands auto-detect the rotated viewport's dimensions as
+ * the clamp bounding box corrupts (or drops) exactly this kind of upper-page
+ * field. See docs/pro/js/esign-setup.js's auto-detect call site.
+ */
+async function buildRotatedForm() {
+  const doc = await PDFDocument.create();
+  const page = doc.addPage([612, 792]);
+  page.setRotation(degrees(90));
+  const helv = await doc.embedFont(StandardFonts.Helvetica);
+  const T = (t, x, y, s) => page.drawText(t, { x, y, size: s || 11, font: helv, color: rgb(0.1, 0.1, 0.18) });
+  T('_________________________________', 62, 750, 12);
+  T('Homeowner Signature', 62, 736, 8);
   return doc.save();
 }
 
@@ -222,6 +242,50 @@ async function buildForm() {
     const tapped = (await peek())[1];
     ok('a tap drops a default-sized box rather than a 2pt sliver',
       tapped && tapped.w > 40 && tapped.h > 15, JSON.stringify(tapped));
+
+    // ── rotated pages: auto-detect must not corrupt/drop upper-page fields ──
+    // Scanned insurance forms and manufacturer warranties routinely carry a
+    // /Rotate entry. pdf.js swaps width/height in the viewport it reports for
+    // a 90/270-rotated page, but getTextContent() positions stay in the raw,
+    // unrotated page space — so a caller that clamps against the rotated
+    // viewport's (swapped) size corrupts the y-coordinate of anything auto-
+    // detect finds in what is actually the upper portion of the raw page.
+    const rotBytes = await buildRotatedForm();
+    const rotTmp = path.join(os.tmpdir(), `nbd-esign-rotated-${process.pid}.pdf`);
+    fs.writeFileSync(rotTmp, Buffer.from(rotBytes));
+    const errs2 = [];
+    try {
+      const page2 = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+      page2.on('pageerror', (e) => errs2.push(String(e)));
+      page2.on('dialog', (d) => d.accept());
+      for (const [file, body] of Object.entries(STUBS)) {
+        await page2.route(`**/${file}`, (route) => route.fulfill({
+          status: 200, contentType: 'text/javascript', body,
+        }));
+      }
+      await page2.goto(`http://127.0.0.1:${port}/pro/esign-setup.html?lead=LEAD2`);
+      await page2.waitForSelector('#suDrop', { state: 'visible', timeout: 20000 });
+      await page2.setInputFiles('#suFile', rotTmp);
+      await page2.waitForSelector('.es-page canvas', { timeout: 25000 });
+      await page2.waitForFunction(
+        '(globalThis.__uploads || 0) > 0 && (globalThis.__calls || []).some(c => c.name === "createEsignEnvelope")',
+        null, { timeout: 15000 });
+
+      await page2.click('#suAuto');
+      await page2.waitForFunction('document.querySelectorAll(".su-field").length > 0', null, { timeout: 20000 });
+      const rotFields = await page2.evaluate(() => (window.__peekFields && window.__peekFields()) || []);
+      const sig = rotFields.find((f) => f.type === 'signature');
+      ok('rotated (90°) page: auto-detect still finds the signature line',
+        !!sig, JSON.stringify(rotFields));
+      if (sig) {
+        ok('rotated (90°) page: the field keeps its RAW (unrotated) y — not squashed by the rotated/swapped viewport size',
+          sig.y > 700, `y=${sig.y} (the bug clamps this against the SWAPPED viewport height, ~<=566)`);
+      }
+      await page2.close();
+    } finally {
+      try { fs.unlinkSync(rotTmp); } catch (_) {}
+    }
+    ok('rotated (90°) page: no JS errors', errs2.length === 0, errs2.join(' | '));
 
     ok('no JS errors across the whole session', errs.length === 0, errs.join(' | '));
   } finally {
