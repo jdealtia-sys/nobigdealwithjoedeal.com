@@ -226,7 +226,14 @@ const RUNNABLE = ['node', 'smoke'];
 //               more node suite (tests/photo-report-sharing.test.js) on top
 //               of 132/67/218. Re-measured via --check on the merged tree
 //               rather than adding this lane's own stale +1 by hand.
-const FLOORS = { node: 133, smoke: 67, disk: 219 };
+//   2026-09-15  ELEVENTH collision: the health-digest usage-signals fix
+//               rebased on top of the photo-report-sharing lane adds one
+//               smoke suite (tests/health-digest-usage-signals.test.js).
+//               Neither side's literal alone was right for the merged tree
+//               (133/67/219 missed the new smoke suite; 132/68/219 missed
+//               the new node suite) — re-measured via --check on the
+//               rebased tree per this ledger's own rule.
+const FLOORS = { node: 133, smoke: 68, disk: 220 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
