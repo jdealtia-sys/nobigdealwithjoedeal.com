@@ -219,8 +219,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               Warranty Claim lane — the third and final piece of the
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
+//   2026-09-15  132/67/218 → 133/67/219, tests/customer-audit-integrity.test.js
+//               (the forgeable customerAuditEvents resourceId fix + the
+//               document_view coverage gap in the customer audit trail).
 
-const FLOORS = { node: 132, smoke: 67, disk: 218 };
+const FLOORS = { node: 133, smoke: 67, disk: 219 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
