@@ -127,8 +127,15 @@ module.exports.run = function run(ctx) {
     const fr = read(path.join(FUNCTIONS, 'funnel-recovery.js'));
     assert('funnel-recovery.js requires resend-guard',
       /require\('\.\/resend-guard'\)/.test(fr));
+    // The gap after the closing `}` is wider than this file's other
+    // assertions: the double-send hardening fix (funnel-recovery-hardening
+    // task) wraps the stamp write in its own try/catch (so a bookkeeping
+    // failure AFTER a real send can't be replayed as a re-send — see the
+    // claim-before-send comment in the source) with an explanatory comment
+    // ahead of it. Still a tight, single-purpose gap: the very next write
+    // after the resendRejected guard, not "somewhere in the file".
     assert('funnel-recovery throws on resendRejected(response) before recoveryEmailSentAt is stamped (that stamp gates all future retries)',
-      /if \(resendRejected\(response\)\) \{[\s\S]{0,60}throw new Error\(resendErrorMessage\(response\)\);[\s\S]{0,60}\}[\s\S]{0,60}recoveryEmailSentAt: FieldValue\.serverTimestamp\(\)/.test(fr));
+      /if \(resendRejected\(response\)\) \{[\s\S]{0,60}throw new Error\(resendErrorMessage\(response\)\);[\s\S]{0,60}\}[\s\S]{0,320}recoveryEmailSentAt: FieldValue\.serverTimestamp\(\)/.test(fr));
 
     // ── functions/lead-followup.js ──
     const lf = read(path.join(FUNCTIONS, 'lead-followup.js'));
