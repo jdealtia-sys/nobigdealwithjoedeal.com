@@ -39,7 +39,7 @@ const { logger } = require('firebase-functions/v2');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
-const { httpRateLimit } = require('./integrations/upstash-ratelimit');
+const { httpRateLimit, enforceRateLimit } = require('./integrations/upstash-ratelimit');
 const { resendRejected, resendErrorMessage } = require('./resend-guard');
 
 // ───────────────────────────────────────────────────────────────
@@ -196,6 +196,26 @@ exports.saveFunnelProgress = onRequest(
         return;
       }
 
+      // Per-email cap. The doc ID is the client-generated funnelId (see the
+      // note below), so the per-IP cap above does nothing to stop one IP from
+      // rotating through fresh funnelIds that all target the SAME
+      // attacker-supplied email — each one is a distinct funnel_abandoned
+      // record and therefore a future outbound recovery email via
+      // runAbandonRecovery. 3/day mirrors the funnel's own outbound-email cap
+      // (estimate-email.js) and comfortably covers a real visitor restarting
+      // the funnel a few times, while bounding how many recovery emails a
+      // single burst can queue against an uninvolved address.
+      try {
+        await enforceRateLimit('funnelProgress:email', email, 3, 24 * 60 * 60 * 1000);
+      } catch (e) {
+        if (e && e.rateLimited) {
+          res.set('Retry-After', String(Math.ceil((e.retryAfterMs || 24 * 60 * 60 * 1000) / 1000)));
+          res.status(429).json({ success: false, error: 'rate_limited' });
+          return;
+        }
+        throw e;
+      }
+
       const db = getFirestore();
       const docRef = db.collection('funnel_abandoned').doc(funnelId);
       const now = FieldValue.serverTimestamp();
@@ -290,8 +310,12 @@ exports.runAbandonRecovery = onSchedule(
     if (enabled) {
       const apiKey = process.env.RESEND_API_KEY;
       if (!apiKey) {
-        logger.error('funnel_recovery_missing_api_key');
-        return;
+        // Throw, don't return: this branch means the function is LIVE
+        // (FUNNEL_RECOVERY_ENABLED=true) but its secret binding is broken —
+        // a rotated/expired/deleted RESEND_API_KEY. withHeartbeat only pings
+        // the dead-man's-switch /fail endpoint on a throw, so a plain return
+        // here reported this exact misconfiguration as a healthy, on-time run.
+        throw new Error('funnel_recovery_missing_api_key');
       }
       resend = new Resend(apiKey);
       if (process.env.EMAIL_FROM) fromAddress = process.env.EMAIL_FROM;
@@ -303,6 +327,11 @@ exports.runAbandonRecovery = onSchedule(
       // Skip if already completed or already sent recovery
       if (data.completedAt) { skipped++; continue; }
       if (data.recoveryEmailSentAt) { skipped++; continue; }
+      // A prior run claimed this record right before calling Resend (below).
+      // Once claimed, it stays excluded from every future run regardless of
+      // whether the post-send "sent" stamp ever lands — see the claim write
+      // for why that is the only way to guarantee no re-send.
+      if (data.recoveryEmailStatus === 'sending') { skipped++; continue; }
       if (!isValidEmail(data.email)) { skipped++; continue; }
 
       const firstName = sanitizeString(data.firstName, 80);
@@ -315,6 +344,32 @@ exports.runAbandonRecovery = onSchedule(
           age_min: Math.round((now - data.createdAt.toMillis()) / 60000),
         });
         skipped++;
+        continue;
+      }
+
+      // Claim the record BEFORE calling Resend. The eligibility gate above
+      // (`recoveryEmailStatus === 'sending'`) is exactly why this must
+      // happen first: the OLD code's only exclusion came from the write
+      // AFTER the send, so a send that genuinely succeeded but whose
+      // bookkeeping write then failed (transient Firestore error,
+      // permission blip, deadline exceeded) left recoveryEmailSentAt unset
+      // and the homeowner got the same email again next hour. Claiming
+      // first means the exclusion is durable before Resend is ever called,
+      // so it can never depend on anything that happens after the send.
+      try {
+        await doc.ref.update({
+          recoveryEmailStatus: 'sending',
+          recoveryEmailClaimedAt: FieldValue.serverTimestamp(),
+        });
+      } catch (claimErr) {
+        // Couldn't durably claim it — do not send. Worst case this delays a
+        // legitimate recovery email by an hour; that's a far better failure
+        // mode than a duplicate.
+        logger.error('funnel_recovery_claim_failed', {
+          funnelId: doc.id,
+          error: claimErr && claimErr.message,
+        });
+        failed++;
         continue;
       }
 
@@ -338,20 +393,42 @@ exports.runAbandonRecovery = onSchedule(
           throw new Error(resendErrorMessage(response));
         }
 
-        await doc.ref.update({
-          recoveryEmailSentAt: FieldValue.serverTimestamp(),
-          recoveryEmailStatus: 'sent',
-        });
+        try {
+          await doc.ref.update({
+            recoveryEmailSentAt: FieldValue.serverTimestamp(),
+            recoveryEmailStatus: 'sent',
+          });
+        } catch (stampErr) {
+          // The email is already out — do NOT mark this 'failed' (that would
+          // clear the 'sending' claim's exclusion and make it eligible for a
+          // real re-send next hour). The claim above is what keeps it out of
+          // future runs; this is now a bookkeeping gap only, loud enough
+          // that it needs a human to reconcile against Resend's own log.
+          logger.error('funnel_recovery_stamp_failed_after_send', {
+            funnelId: doc.id,
+            email: data.email,
+            error: stampErr && stampErr.message,
+          });
+        }
         sent++;
       } catch (err) {
         logger.error('funnel_recovery_send_failed', {
           funnelId: doc.id,
           error: err && err.message,
         });
-        await doc.ref.update({
-          recoveryEmailStatus: 'failed',
-          recoveryEmailError: (err && err.message) || 'unknown',
-        });
+        try {
+          await doc.ref.update({
+            recoveryEmailStatus: 'failed',
+            recoveryEmailError: (err && err.message) || 'unknown',
+          });
+        } catch (failWriteErr) {
+          // Already claimed 'sending' above; if even this write fails the
+          // record simply stays excluded rather than silently reopening.
+          logger.error('funnel_recovery_fail_stamp_failed', {
+            funnelId: doc.id,
+            error: failWriteErr && failWriteErr.message,
+          });
+        }
         failed++;
       }
     }

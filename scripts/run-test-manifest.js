@@ -246,8 +246,14 @@ const RUNNABLE = ['node', 'smoke'];
 //               landed on the literal 134/68/221 by coincidence, which is
 //               not evidence either alone was right for a tree carrying
 //               both. Re-measured via --check on the merged tree: both
-//               suites present pushes this to 135/68/222.
-const FLOORS = { node: 135, smoke: 68, disk: 222 };
+//               suites present pushes this to 135/68/222. Both now merged.
+//   2026-09-15  FOURTEENTH collision: the funnel-recovery hardening lane
+//               (double-send stamp-before-send, per-email throttle,
+//               unsubscribe link, heartbeat fix) independently adds one
+//               node suite from the original 133/68/220 base. Re-measured
+//               via --check on this tree (both lanes above already merged
+//               into main + this lane's own suite): 136/68/223.
+const FLOORS = { node: 136, smoke: 68, disk: 223 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
