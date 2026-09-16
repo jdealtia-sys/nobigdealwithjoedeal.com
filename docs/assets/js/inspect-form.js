@@ -99,10 +99,17 @@
     return 'Please add your name, the property address and a 10-digit mobile number so Joe can reach you.';
   }
 
-  function showSuccess() {
+  // photoCount is a string (see gatherFormData) — '0' when no file was
+  // chosen, so this form never silently implies the rep already has photos
+  // that were, in fact, dropped on the floor (the file input's bytes are
+  // never sent — only its filenames/count, as photoNames/photoCount text
+  // fields; see gatherFormData's own comment).
+  function showSuccess(photoCount) {
     var form = document.getElementById('inspectForm');
     var ok = document.getElementById('inspectSuccess');
+    var note = document.getElementById('inspectPhotoNote');
     if (form) form.style.display = 'none';
+    if (note) note.hidden = !(Number(photoCount) > 0);
     if (ok) {
       ok.classList.add('visible');
       try { ok.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
@@ -157,7 +164,7 @@
 
       window.submitPublicLead('inspect', data).then(function (res) {
         if (res && res.ok) {
-          showSuccess();
+          showSuccess(data.photoCount);
         } else {
           // The gateway client returns the server's message as `res.reason`
           // (not `res.error`), so the real rejection text was never surfaced —
