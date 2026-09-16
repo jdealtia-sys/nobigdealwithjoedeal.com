@@ -8,7 +8,7 @@
   "enabled": true,
   "conditions": [
     {
-      "displayName": "getPublicSiteConfig 500 errors > 3 in 15m",
+      "displayName": "getPublicSiteConfig failed (any occurrence; notifies at most hourly)",
       "conditionMatchedLog": {
         "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"getpublicsiteconfig\" AND jsonPayload.message=\"getPublicSiteConfig failed\""
       }

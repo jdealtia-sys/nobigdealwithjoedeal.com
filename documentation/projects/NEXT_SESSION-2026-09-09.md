@@ -465,7 +465,15 @@ that I did not re-verify, and §1 carries a Sunday-09-13 production warning —
 demoting all of that behind a photo-report brief would bury it. Full write-up:
 [SESSION-2026-09-08-photo-report-builder](SESSION-2026-09-08-photo-report-builder.md).
 
-**Ten commits, CI green on `bf299ab2`. Not merged yet.**
+**MERGED** as `ac8f7e69` and deployed — confirmed live via two successful
+Firebase deploys that contain it (`1cb610fb`, `a59f4575`). Its own deploy run
+was cancelled, which is `concurrency: firebase-deploy` + `cancel-in-progress:
+false` working as designed during a six-PR burst; what matters is that a LATER
+deploy carrying the commit succeeded, not that yours did.
+
+**But see the correction above: none of it reaches a customer until #1505
+lands.** The server render path has been dead since June, so photo reports
+still come from the client fallback, which has none of this.
 
 ### The one finding that reaches beyond this lane
 
@@ -484,6 +492,17 @@ template is an isolated document whose default font-size is 0, and that with
 `preferCSSPageSize: true` the `margin` option is **ignored entirely** (two
 strategies with different margins rendered byte-identical). Do not re-add a
 Paged Media margin box; nothing in the pipeline can honour it.
+
+> **Correction (same day).** #1505 found `renderPdf` failing 100% of the time at
+> `stage: launch` since the @sparticuz/chromium 148 → 149 bump (#712,
+> 2026-06-24) — 149 is `"type":"module"` with one `"default"` export condition,
+> so `require()` returns the ESM namespace and `chromium.executablePath` reads
+> `undefined`. Verified independently, not taken on trust. So **the server
+> render path had not run in production since June**: everything in this
+> section became live only when #1505 landed, and until then every photo report
+> came from the client fallback. I also wrote that the variant-key bug was "a
+> large part of why that path times out" — the render never reached
+> `setContent`, so that was a guess stated as a finding.
 
 ### Also fixed, each its own defect
 
@@ -510,15 +529,31 @@ Paged Media margin box; nothing in the pipeline can honour it.
   document on a teammate's lead and attach none. Fixed with that clause
   verbatim; emulator-tested in both directions.
 
-### Open, in the order I would take them
+### Open — and what already picked each one up
 
-1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
-   top-level `reports` collection; a filed photo report is a `documents` row.
-   — PR #1499 open against this.
+> **Update 2026-09-08, later the same day: 1 and 6 are CLOSED** on a branch
+> stacked on #1483 —
+> [SESSION-2026-09-08-photo-report-number-and-share](SESSION-2026-09-08-photo-report-number-and-share.md).
+> **2 is still open on purpose**: that work streams the PDF through the admin
+> SDK precisely so `pdf-renders/` does not have to become client-readable, so
+> the gating task is unblocked and un-pre-empted. 3–5 untouched.
+>
+> **Correction, 2026-09-15 (rebase onto main):** all six items below are now
+> CLOSED. 1 and 6 land in this same PR (#1499, rebased and merged today). 2
+> merged as #1504 (`pdf-renders/` Storage rule + reaper). 3 (destructive
+> annotations) merged as #1567/#1569 (persistence to Firestore + the
+> `switchPhoto()` re-key fix). 4 and 5 were already closed per the notes
+> below (#1503, #1497). Nothing from this list remains open.
+
+1. ~~**No share link.**~~ **CLOSED.** `createReportShareToken` now accepts a
+   lead-scoped `{leadId, documentId}` alongside a top-level `reportId`, and
+   streams the PDF rather than redirecting to a Storage URL.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
-   never expires. — PR #1504 open against this.
-3. **Annotations are destructive** — `photo-editor.js` builds arrows, callouts,
-   stamps and measurements and persists none of it. **Still open, no PR.**
+   never expires. — **CLOSED — #1504, merged.**
+3. ~~**Annotations are destructive**~~ **CLOSED — #1567/#1569, merged.**
+   `photo-editor.js`'s arrows, callouts, stamps and measurements now persist
+   to Firestore (a pre-annotation original is backed up first), and
+   `switchPhoto()` re-keys `S.photoId` to the selected photo.
 4. ~~**Three incompatible `damageType` vocabularies** collide in one count.~~
    **CLOSED — #1503, merged and deployed 2026-09-08.** It was **four**, not
    three: the `customer.html` bulk bar wrote a fourth, kebab-case set, and the
@@ -535,8 +570,9 @@ Paged Media margin box; nothing in the pipeline can honour it.
    Dry-run prints a fold map with counts before writing anything.
 5. ~~**Customer-page uploads write no `createdAt`**, so report order is arbitrary
    for them.~~ **CLOSED — #1497, merged.**
-6. **The report number is `Date.now().toString().slice(-6)`** — unsequenced,
-   and it changes on every regeneration. — PR #1499 open against this.
+6. ~~**The report number is `Date.now().toString().slice(-6)`**~~ **CLOSED.**
+   Now `<TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>`, assigned once and reused from
+   the filed `documents` row.
 
 ### Trust level on that list
 
@@ -1145,3 +1181,85 @@ prod error or traffic volume as customer impact, break it down by
 Playwright shards, not a retry loop — there is no retry anywhere in that path.
 Two live consequences: CI silently depends on those prod functions being up,
 and it can 429 itself against the per-IP limiter (60/min on this route).
+
+## §16 — GDPR Storage prefix registry (added 2026-09-08, PR #1508)
+
+`STORAGE_PREFIXES` in `functions/integrations/user-owned.js` drives **both**
+halves of `compliance.js` — the Art. 15 export and the Art. 17 erasure sweep.
+**Four prefixes were missing from it**, so each was absent from both: the user
+could not obtain those objects, and erasure did not delete them.
+
+`documents/` · `esign/` · `homeowner-uploads/` · `pdf-renders/`
+
+**`homeowner-uploads/` was in no prior list anywhere** — not the opening brief,
+not the 08-18 orphan audit. `uploadHomeownerPhoto` files its Firestore row into
+`photos` (which *is* erased) while the bytes land in a prefix nothing has ever
+swept, so erasure **deleted the pointer and left the homeowner's property
+photo** in the bucket. `documents/` was only incidentally safe: it is
+lead-keyed, so erasure cleaned most of it as a side effect of deleting lead
+rows — best-effort, via a `retry: false` trigger, blind to already-orphaned
+objects.
+
+### The scope call was Jo's, and it is deliberately not symmetric
+
+`documents/`, `homeowner-uploads/` and `pdf-renders/` **export and erase**.
+`esign/` is **exported but held back** under Art. 17(3)(e) — executed,
+counter-signed contracts. Nothing had ever deleted one, so the hold makes
+existing behaviour deliberate rather than accidental.
+
+Because a silent hold is worse than none: `ERASURE_STORAGE_PREFIXES` is derived
+(never hand-maintained), the receipt logs `retained` **even when empty**, and
+the consent page — which promised to remove *"all your … documents"* — now
+states the exception before the button. Art. 17(3) licenses the retention; it
+does not license being quiet about it.
+
+### The trap worth carrying
+
+**`storage.rules` is a registry of what is RULED, not of what EXISTS.** The
+obvious gate design — parse `match /<prefix>/{uid}/` — would have caught two of
+the four and **missed `pdf-renders/` and `homeowner-uploads/` entirely**: both
+are ADMIN-SDK writes that bypass Security Rules and never had a block.
+`scripts/check-storage-prefix-registry.js` therefore unions rules blocks with
+the `<prefix>/{uid}/` write sites in code. Code-only is no better — `galleries/`,
+`reports/` and `shared_docs/` have blocks but no matching write site and would
+read as dead. Measured: rules 11, code 10, **union 13**.
+
+The guard it replaces asserted the registry was a *superset* of a
+hand-maintained array labelled "all 8 storage.rules prefixes" while the file
+defined **eleven**. A subset check can only catch a prefix someone already
+remembered to type into it.
+
+**A break-test that silently fails to mutate is indistinguishable from a gate
+that cannot fail.** Two of five breaks reported green; the *harness* was at
+fault, matching bare `\n` against CRLF working-tree files, so the mutation never
+applied and a no-op tree passed. Assert the mutation changed the file before
+running the command.
+
+Also rewrote `F-01: confirmAccountErasure GET does not trigger deletion` — a
+**character-distance** regex (`GET` … within 2000 chars … `res.status(200)`).
+Adding a paragraph pushed the distance to 2235 and reddened it with no
+behaviour change, and distance never tested mutation at all. It now slices the
+GET branch and asserts it holds no write calls.
+
+### Open
+
+1. **`esign_envelopes` is not erased either** — top-level Firestore,
+   `ownerField: ownerUid`, holding signer name, IP, user agent and both SHA-256
+   digests, and **not in `FLAT_USER_COLLECTIONS`**. Consistent with the hold —
+   a signed PDF without its audit trail is a far weaker record — but currently
+   an omission that happens to align with the decision rather than the decision
+   itself. `esign_tokens` likewise, though those carry `expiresAt`.
+2. **No reaper for `esign/`.** "Retained forever" and "retained for as long as
+   a claim could be brought" are different policies; only one is implemented.
+3. **`homeowner-uploads/` still has no `storage.rules` block** — default-deny by
+   omission, the exact condition that hid `pdf-renders/`.
+4. **Nothing diffs the live bucket against the registry.** Every gate here is
+   static analysis; a prefix written from outside the scanned tree would evade
+   it.
+
+**Correction, 2026-09-15 (rebase onto main):** items 1, 2 and 4 above are
+still open. Item 3 is now moot — `homeowner-uploads/` got a `storage.rules`
+block via #1553 (2026-09-14), independently of this lane.
+
+Full write-up:
+[GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08](../audit/GDPR-STORAGE-PREFIX-REGISTRY-2026-09-08.md).

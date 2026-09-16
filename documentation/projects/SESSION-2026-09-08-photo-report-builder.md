@@ -66,9 +66,31 @@ The payload builder read `p.urls.lg || p.urls.md`. `image-pipeline.js:105-109`
 names variants off `VARIANTS[].name` — `thumb` / `med` / `full`. **Neither `lg`
 nor `md` has ever existed**, so every photo fell through to `p.url`, the
 original camera upload, twenty-odd times inside the renderer's 25s `setContent`
-budget. A large part of why that path times out and drops to the client
-fallback. Fixed at six sites; `_imgAttrs` 700 lines earlier in the same file had
+budget. Fixed at six sites; `_imgAttrs` 700 lines earlier in the same file had
 the names right the whole time.
+
+> **Correction, 2026-09-08 (same day).** This section originally read "a large
+> part of why that path times out and drops to the client fallback." **That was
+> wrong, and it was a guess stated as a finding.** [#1505](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1505)
+> found `renderPdf` failing **100% of the time at `stage: launch`** since the
+> `@sparticuz/chromium` 148 → 149 bump in #712 (2026-06-24) — the render never
+> reached `setContent`, so image weight cannot have been why it fell back.
+> Verified here independently rather than taken on trust: 149 is
+> `"type":"module"` with a single `"default"` export condition, so `require()`
+> returns the ESM namespace `{__esModule, default, inflate,
+> setupLambdaEnvironment}` and `chromium.executablePath` reads `undefined`.
+>
+> The variant fix is still correct and still worth having — it is the
+> difference between 1600px variants and full sensor originals in a 20-photo
+> PDF. It just was not the cause of anything.
+>
+> **What this means for everything below.** The server render path has not run
+> in production since June, so the D-6 template, the footer, the numbering and
+> the whole option set became live only when #1505 lands. Until then every
+> photo report comes from `buildReportHTML`, the client fallback, which has
+> none of it. My local verification was sound — I rendered through real system
+> Chrome — but "the template renders correctly" was never the same claim as
+> "customers are receiving this".
 
 ### 3. No rep-typed caption had ever appeared in a report
 
@@ -208,12 +230,23 @@ with "Expected request to fail, but it succeeded".
 
 ## Still open
 
+> **Update 2026-09-08 (later the same day): items 1 and 7 are CLOSED**, on a
+> branch stacked on this one —
+> [SESSION-2026-09-08-photo-report-number-and-share](SESSION-2026-09-08-photo-report-number-and-share.md).
+> The number is now `<TENANT>-<PHO|ADJ>-<YYYY>-<MMDD>-<NNNN>`, assigned once and
+> reused from the filed row; `createReportShareToken` now accepts a lead-scoped
+> document and streams the PDF. **Item 2 (`pdf-renders/` Storage rule) is
+> deliberately still open** — that work chose streaming through the admin SDK
+> partly so it would not pre-empt the queued gating task. Items 3–6 are
+> untouched.
+
 From the 108-gap list — **and that list is only partly adjudicated.** The
 verification pass lost 87 of its refuter agents to a session limit, so treat
 anything below that this session did not touch directly as a lead, not a
 finding.
 
-1. **No share link.** `createReportShareToken` only accepts a `reportId` in the
+1. ~~**No share link.**~~ **CLOSED** — see the update above.
+   `createReportShareToken` only accepted a `reportId` in the
    top-level `reports` collection; a filed photo report is a `documents` row.
 2. **`pdf-renders/` has no Storage rule**, and in download-token mode the URL
    never expires. Relates to
@@ -245,8 +278,8 @@ finding.
    already stamped, the newest doc predating the 08-18 pass by two days, so the
    gap never produced orphaned data.
 6. **No measurements section**, though the CRM already pays for the data.
-7. **The report number is `Date.now().toString().slice(-6)`** — unsequenced, and
-   it changes on every regeneration.
+7. ~~**The report number is `Date.now().toString().slice(-6)`**~~ — **CLOSED**,
+   see the update above. It was unsequenced, and changed on every regeneration.
 
 Related: [SESSION-2026-09-07-client-pdfs-and-drive-tidy](SESSION-2026-09-07-client-pdfs-and-drive-tidy.md)
 is the house-style bar this work was measured against — `scripts/render-estimate-pdf.py`,

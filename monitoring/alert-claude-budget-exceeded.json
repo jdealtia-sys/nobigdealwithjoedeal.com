@@ -1,11 +1,11 @@
 {
-  "displayName": "NBD Pro — Claude daily token budget exceeded",
+  "displayName": "[NOT DEPLOYABLE] NBD Pro — Claude daily token budget exceeded",
   "documentation": {
-    "content": "A user has exceeded their daily Anthropic token budget in claudeProxy. Normal for heavy power users; investigate if the same uid trips this repeatedly or multiple uids trip it at once (= possible credential stuffing).",
+    "content": "A user has exceeded their daily Anthropic token budget in claudeProxy. Normal for heavy power users; investigate if the same uid trips this repeatedly or multiple uids trip it at once (= possible credential stuffing).\n\n---\nNOT DEPLOYABLE (2026-09-13) — it cannot fire as intended. \"Daily AI budget exceeded\" exists only in the HTTP response body at functions/handlers/ai.js:201; nothing logs it, so the textPayload clause never matches. The other clause is the catch-all logger.error(\"claudeProxy error\") at ai.js:292, under service_name=\"claudeProxy\" — camelCase, which matches nothing (Cloud Run names are lowercase). Lowercasing it would alert on EVERY claudeProxy error, not on budgets. Real fix is code: log a distinct line (e.g. logger.warn(\"ai_budget_exceeded\", {uid})) where the 429 is returned, deploy, then point conditionMatchedLog at it and set enabled true. Zero matches for any budget text in the 7 days before this note.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
-  "enabled": true,
+  "enabled": false,
   "conditions": [
     {
       "displayName": "Daily AI budget exceeded response",
