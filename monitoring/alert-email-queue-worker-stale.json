@@ -1,7 +1,7 @@
 {
   "displayName": "NBD Pro — emailQueueWorker stale > 30m",
   "documentation": {
-    "content": "The emailQueueWorker scheduled function hasn't emitted its per-tick heartbeat in over 30 minutes. It runs every 1 minute and now logs a heartbeat on EVERY tick (even when the queue is empty), so a 30-minute gap means the worker has silently stopped — which stops delivery of GDPR-erasure confirmation emails and Stripe dunning emails with no other signal.\n\nInvestigation:\n  1. gcloud functions logs read emailQueueWorker --project nobigdeal-pro --gen2 --limit 50\n  2. gcloud scheduler jobs list --project nobigdeal-pro | grep emailQueueWorker\n  3. Check the RESEND_API_KEY / EMAIL_FROM secrets are still set (the worker no-ops + logs 'Resend not configured' if not — that still heartbeats, so a true gap is a crash/deploy/scheduler problem).\n  4. Inspect email_queue for a pile-up of status='pending' or status='sending' rows.\n\nSee documentation/runbooks/ for the email-pipeline runbook (Audit #4 Phase 3).\n\n---\nFIXED 2026-09-04. This policy could never be created: its filter named jsonPayload/textPayload fields, which are LOG-entry fields with no meaning in the METRIC filter a conditionAbsent takes, and it carried no metric.type at all. It now watches the free system metric logging.googleapis.com/log_entry_count for service \"emailqueueworker\". Tradeoff: this fires when the service stops logging ENTIRELY, not when one specific heartbeat line stops. For a cron whose only activity is its scheduled run these are the same event. Narrowing it further would need a user-defined log-based metric, which is the one chargeable option.",
+    "content": "The emailQueueWorker scheduled function hasn't emitted its per-tick heartbeat in over 30 minutes. It runs every 1 minute and now logs a heartbeat on EVERY tick (even when the queue is empty), so a 30-minute gap means the worker has silently stopped — which stops delivery of GDPR-erasure confirmation emails and Stripe dunning emails with no other signal.\n\nInvestigation:\n  1. gcloud functions logs read emailQueueWorker --project nobigdeal-pro --gen2 --limit 50\n  2. gcloud scheduler jobs list --project nobigdeal-pro | grep emailQueueWorker\n  3. Check the RESEND_API_KEY / EMAIL_FROM secrets are still set (the worker no-ops + logs 'Resend not configured' if not — that still heartbeats, so a true gap is a crash/deploy/scheduler problem).\n  4. Inspect email_queue for a pile-up of status='pending' or status='sending' rows.\n\nSee documentation/runbooks/ for the email-pipeline runbook (Audit #4 Phase 3).\n\n---\nFIXED 2026-09-04. This policy could never be created: its filter named jsonPayload/textPayload fields, which are LOG-entry fields with no meaning in the METRIC filter a conditionAbsent takes, and it carried no metric.type at all. It now watches the free system metric logging.googleapis.com/log_entry_count for service \"emailqueueworker\". Tradeoff: this fires when the service stops logging ENTIRELY, not when one specific heartbeat line stops. For a cron whose only activity is its scheduled run these are the same event. Narrowing it further would need a user-defined log-based metric, which is the one chargeable option.\n\n---\nFIXED 2026-09-13 (before going live). Without a cross-series reducer, log_entry_count arrives as one series per revision x severity x log: 192 series across 49 revisions in the previous 7 days, 184 of them already stale. An absence condition evaluates EACH series, so every functions deploy (which retires a revision) would have paged \"worker stale\". REDUCE_SUM collapses them to one series: 2,016 five-minute points over 168h with no gap. It fires only when the worker as a whole stops logging. Same day: duration 900s -> 1800s, so the condition matches the '> 30m' this policy's name, condition and README have always claimed.",
     "mimeType": "text/markdown"
   },
   "combiner": "OR",
@@ -11,11 +11,12 @@
       "displayName": "No emailQueueWorker heartbeat in 30m",
       "conditionAbsent": {
         "filter": "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"emailqueueworker\" AND metric.type=\"logging.googleapis.com/log_entry_count\"",
-        "duration": "900s",
+        "duration": "1800s",
         "aggregations": [
           {
             "alignmentPeriod": "300s",
-            "perSeriesAligner": "ALIGN_COUNT"
+            "perSeriesAligner": "ALIGN_COUNT",
+            "crossSeriesReducer": "REDUCE_SUM"
           }
         ]
       }

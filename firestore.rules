@@ -1337,13 +1337,21 @@ service cloud.firestore {
       // admin SDK), and an unpinned create let anyone squat companies/{ANY-uid}
       // as long as they stamped ownerId=self — locking out a legacy owner from
       // team management and exposing that tenant's members subcollection.
+      // `plan` (entitlement) + `ownerId` (provenance) are admin-SDK-only — the
+      // Stripe webhook sets plan, provisioning sets ownerId. Freezing them on
+      // UPDATE (below) stops a free-tier owner from client-writing
+      // plan:'enterprise' on their own doc to defeat the team-seat gate
+      // (createTeamInvite/assignSeats trust companies.plan). That freeze alone
+      // is not enough: it never touches CREATE, and createCompany's own
+      // idempotency check (existing.exists) only re-validates ownerId, never
+      // plan, on a re-call — so an owner could squat companies/{own-uid} with
+      // plan:'enterprise' at document CREATION and keep it forever. Require
+      // plan to be absent or 'free' at create too, matching the only shape the
+      // admin SDK ever writes there (createCompany always seeds plan:'free').
       allow create: if isAuth()
         && companyId == request.auth.uid
-        && request.resource.data.ownerId == request.auth.uid;
-      // `plan` (entitlement) + `ownerId` (provenance) are admin-SDK-only — the
-      // Stripe webhook sets plan, provisioning sets ownerId. Freezing them stops
-      // a free-tier owner from client-writing plan:'enterprise' on their own doc
-      // to defeat the team-seat gate (createTeamInvite trusts companies.plan).
+        && request.resource.data.ownerId == request.auth.uid
+        && (!('plan' in request.resource.data) || request.resource.data.plan == 'free');
       allow update: if ((isAuth() && resource.data.ownerId == request.auth.uid)
             && didNotChange(['plan', 'ownerId'])) || isAdmin();
       allow delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
