@@ -38,13 +38,24 @@
    * Pure: which estimates are being viewed RIGHT NOW and deserve a strike.
    * Same predicate as notif-bell Wave 95 — fresh view (≤ window), not yet
    * responded, parent lead not terminal — returned newest-first.
+   *
+   * Also strikes on a fresh lead.lastPortalOpenAt (2026-09-16, extends the
+   * 2026-09-16 view-tracking fix here too — estimate.viewedAt only fires
+   * from the standalone estimate-view.html link, never from the homeowner
+   * opening the main portal). Skips a lead already matched by an estimate
+   * view above — one strike per lead per fresh window — and uses a
+   * synthetic `'portal:' + leadId` estId (mirrors pickFreshViewNotifs'
+   * `'lead:' + leadId` fallback below) so fire()'s struck-set dedupe still
+   * works with no real estimate id to key on.
    */
   function detectFreshViews(estimates, leads, nowMs, windowMs) {
     windowMs = windowMs > 0 ? windowMs : FRESH_WINDOW_MS;
     var byId = new Map();
     (Array.isArray(leads) ? leads : []).forEach(function (l) { if (l && l.id) byId.set(l.id, l); });
+    var ests = Array.isArray(estimates) ? estimates : [];
     var out = [];
-    (Array.isArray(estimates) ? estimates : []).forEach(function (est) {
+    var matchedLeadIds = new Set();
+    ests.forEach(function (est) {
       if (!est || est.respondedAt) return;
       var v = toMs(est.viewedAt);
       if (!Number.isFinite(v)) return;
@@ -54,6 +65,7 @@
       if (!lead || lead.deleted) return;
       var stage = String(lead.stage || '').toLowerCase();
       if (stage === 'closed' || stage === 'lost' || stage === 'complete') return;
+      matchedLeadIds.add(lead.id);
       out.push({
         estId: est.id,
         leadId: lead.id,
@@ -61,6 +73,26 @@
         phone: String(lead.phone || ''),
         amount: Number(est.total || est.grandTotal || est.amount || 0) || 0,
         viewedAtMs: v,
+        source: 'estimate',
+      });
+    });
+    byId.forEach(function (lead) {
+      if (!lead || lead.deleted || matchedLeadIds.has(lead.id)) return;
+      var stage = String(lead.stage || '').toLowerCase();
+      if (stage === 'closed' || stage === 'lost' || stage === 'complete') return;
+      if (ests.some(function (e) { return e && e.leadId === lead.id && e.respondedAt; })) return;
+      var v = toMs(lead.lastPortalOpenAt);
+      if (!Number.isFinite(v)) return;
+      var age = nowMs - v;
+      if (age <= 0 || age > windowMs) return;
+      out.push({
+        estId: 'portal:' + lead.id,
+        leadId: lead.id,
+        name: leadName(lead),
+        phone: String(lead.phone || ''),
+        amount: 0,
+        viewedAtMs: v,
+        source: 'portal',
       });
     });
     out.sort(function (a, b) { return b.viewedAtMs - a.viewedAtMs; });
@@ -151,11 +183,15 @@
       'box-shadow:0 8px 26px rgba(0,0,0,.32);color:var(--t,#e8eaf0);font-size:13px;' +
       'max-width:420px;animation:nbd-bis-in .24s ease-out;';
     var amt = match.amount > 0 ? ' ' + money(match.amount) : '';
+    // A portal-open match (no specific estimate — the homeowner may be
+    // looking at photos, documents, or the timeline) says "portal" rather
+    // than claiming they're on the estimate specifically.
+    var whatText = match.source === 'portal' ? 'is viewing your portal' : ('is viewing your' + amt + ' estimate');
     card.innerHTML =
       '<span style="font-size:18px;line-height:1;flex-shrink:0;" aria-hidden="true">🔥</span>' +
       '<div style="flex:1;min-width:0;line-height:1.35;">' +
         '<div style="font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' +
-          esc(match.name) + ' is viewing your' + esc(amt) + ' estimate</div>' +
+          esc(match.name) + ' ' + esc(whatText) + '</div>' +
         '<div style="font-size:11px;color:var(--m,#9aa3b2);">Call now — they\'re on the page</div>' +
       '</div>';
 

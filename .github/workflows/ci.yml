@@ -827,6 +827,9 @@ jobs:
   #                               same PDF coordinates.
   #   esign-signature-reachable — the generated-contract signature block is not
   #                               clipped out of the page (it was, for months).
+  #   esign-setup-void          — the rep's "Void this link" button: shown only
+  #                               for a live (sent/viewed) link, calls
+  #                               voidEsignEnvelope, hides itself once voided.
   esign-suites:
     name: E-sign suites (Chromium)
     runs-on: ubuntu-latest
@@ -861,6 +864,7 @@ jobs:
           node esign-stamp.test.js
           node esign-signer-flow.test.js
           node esign-setup-placement.test.js
+          node esign-setup-void-2026-09-16.test.js
           node esign-signature-reachable.test.js
 
   # CRITICAL RECIPE NOTE: tests/playwright.config.js defaults baseURL to

@@ -85,6 +85,31 @@ console.log('BUYING-INTENT STRIKE — fresh-view detection');
   ok('null / malformed input never throws', !threw);
 }
 
+// ── 2026-09-16: lead.lastPortalOpenAt strikes too (extends the 2026-09-16
+//    view-tracking fix here) — estimate.viewedAt only fires from the
+//    standalone estimate-view.html link, never from the homeowner opening
+//    the main portal. ──
+{
+  const m = detect([], [{ id: 'L1', firstName: 'Sarah', lastName: 'Jones', phone: '(513) 555-0100', stage: 'inspected', lastPortalOpenAt: minsAgo(10) }], NOW);
+  ok('fresh portal open with no estimate strikes', m.length === 1 && m[0].estId === 'portal:L1');
+  ok('portal-derived match is tagged source:"portal" (so the card says "portal", not "estimate")', m[0].source === 'portal');
+  ok('portal-derived match has amount 0 (renderStrike omits the $ clause)', m[0].amount === 0);
+
+  ok('a stale portal open (7h) does not strike',
+    detect([], [{ id: 'L1', stage: 'inspected', lastPortalOpenAt: minsAgo(420) }], NOW).length === 0);
+  ok('terminal-stage lead is suppressed for portal opens too',
+    detect([], [{ id: 'L2', stage: 'closed', lastPortalOpenAt: minsAgo(5) }], NOW).length === 0);
+  ok('deleted lead is suppressed for portal opens too',
+    detect([], [{ id: 'L3', stage: 'inspected', deleted: true, lastPortalOpenAt: minsAgo(5) }], NOW).length === 0);
+
+  const respondedLead = [{ id: 'L1', stage: 'inspected', lastPortalOpenAt: minsAgo(5) }];
+  ok('a lead whose estimate already got a response is NOT struck again just for opening the portal',
+    detect([{ id: 'E', leadId: 'L1', viewedAt: minsAgo(60), respondedAt: minsAgo(4) }], respondedLead, NOW).length === 0);
+
+  ok('a lead with BOTH a fresh estimate view and a fresh portal open strikes ONCE (estimate wins, not double-counted)',
+    detect([{ id: 'E1', leadId: 'L1', viewedAt: minsAgo(5) }], [{ id: 'L1', stage: 'inspected', lastPortalOpenAt: minsAgo(3) }], NOW).length === 1);
+}
+
 console.log('\n──────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) {
