@@ -1082,6 +1082,21 @@ exports.getHomeownerPortalView = onRequest(
       : { uses: FieldValue.increment(1), lastSeenAt: FieldValue.serverTimestamp() }
     ).catch(() => {});
 
+    // 2026-09-16 (view-tracking fix): this open-tracking write existed
+    // already, but ONLY on portal_tokens/{token} — nothing rep-facing reads
+    // that doc, so a genuine open never moved any indicator a rep actually
+    // watches. Those indicators (customer-engagement-score.js,
+    // customer-viewed-chip.js, crm-pipeline.js's kanban badge) all key off
+    // estimate.viewedAt instead — a SEPARATE signal from a different flow
+    // (getEstimateForView, the standalone /pro/estimate-view.html link) that
+    // never fires just because the homeowner opened the main portal. Stamp
+    // the LEAD doc too, on a genuine open only, so those three consumers can
+    // read it for free off the same lead object they already have loaded —
+    // no new query, no new subscription.
+    if (!isPoll) {
+      db.doc(`leads/${tok.leadId}`).update({ lastPortalOpenAt: FieldValue.serverTimestamp() }).catch(() => {});
+    }
+
     res.status(200).json(view);
   }
 );

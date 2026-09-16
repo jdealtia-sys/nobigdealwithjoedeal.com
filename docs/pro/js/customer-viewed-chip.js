@@ -63,7 +63,6 @@
     if (sk === 'closed' || sk === 'lost' || sk === 'Lost' || sk === 'Complete') return null;
 
     const estimates = Array.isArray(window._estimates) ? window._estimates : [];
-    if (estimates.length === 0) return null;
 
     let latestViewMs = 0;
     let anyResponded = false;
@@ -73,7 +72,17 @@
       const ms = toMillis(e.viewedAt);
       if (ms > latestViewMs) latestViewMs = ms;
     }
-    if (anyResponded || latestViewMs === 0) return null;
+    if (anyResponded) return null;
+    // 2026-09-16 (view-tracking fix, kept in lockstep with crm-pipeline.js's
+    // matching badge per this file's own header comment): estimate.viewedAt
+    // only fires from the standalone estimate-view.html link. A homeowner
+    // who opens the main portal (functions/portal.js stamps
+    // lead.lastPortalOpenAt on a genuine open) never moved this chip before —
+    // it required at least one estimate to exist at all. Counts exactly like
+    // an estimate view for "latest" purposes; still suppressed once anyResponded.
+    const portalOpenMs = toMillis(lead.lastPortalOpenAt);
+    if (portalOpenMs > latestViewMs) latestViewMs = portalOpenMs;
+    if (latestViewMs === 0) return null;
     return latestViewMs;
   }
 
