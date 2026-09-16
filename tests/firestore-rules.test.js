@@ -517,6 +517,22 @@ async function run() {
   await assertFails(setDoc(doc(alice, 'companies/squatUid'), { ownerId: 'alice', name: 'squat' })); // ❌ create pinned to own uid
   await assertSucceeds(setDoc(doc(alice, 'companies/alice'), { ownerId: 'alice', name: 'Alice solo co' })); // ✅ own-uid create
 
+  // 23f. CRITICAL (audit 2026-09-15): the create branch pinned ownerId but
+  //      never checked `plan` — the didNotChange(['plan','ownerId']) freeze
+  //      right above only guards UPDATE, so a self-serve owner could squat
+  //      their OWN companies/{uid} doc with plan:'enterprise' at CREATE
+  //      time and keep it forever: createCompany's idempotent branch
+  //      (existing.exists) only checks ownerId, never re-validates plan on
+  //      re-call. createTeamInvite/assignSeats fall back to companies.plan
+  //      whenever the tenant's own subscriptions doc isn't
+  //      active/trialing/past_due — and createCompany seeds every self-serve
+  //      tenant's subscriptions doc with status:'none' forever — so this was
+  //      the PERMANENT seat-gate bypass for every free tenant, not a race.
+  //      bob/dave have no companies/{uid} doc yet.
+  await assertFails(setDoc(doc(bob, 'companies/bob'), { ownerId: 'bob', name: 'Bob Roofing', plan: 'enterprise' })); // ❌ plan escalation at create
+  await assertSucceeds(setDoc(doc(bob, 'companies/bob'), { ownerId: 'bob', name: 'Bob Roofing', plan: 'free' }));    // ✅ explicit free create still allowed
+  await assertSucceeds(setDoc(doc(dave, 'companies/dave'), { ownerId: 'dave', name: 'Dave Co' }));                  // ✅ plan-absent create (admin-SDK shape) still allowed
+
   // 24. NEW-D11: saved reports — owners delete their OWN reports. The old
   //     rule was `allow update, delete: if isAdmin()`, so the My Reports
   //     delete button silently failed for every non-admin owner. Update
