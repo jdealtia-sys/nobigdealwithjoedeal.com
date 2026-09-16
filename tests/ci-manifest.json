@@ -11,6 +11,7 @@
   ],
   "node": [
     "crm-logo-legibility-2026-09-16.test.js",
+    "portal-timeline-docs-balance-2026-09-16.test.js",
     "customer-doc-branding.test.js",
     "crm-required-fields.test.js",
     "deploy-failure-parse.test.js",

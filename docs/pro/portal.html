@@ -207,6 +207,51 @@
     background: #fff;
   }
   @media (max-width: 600px) { .cal-embed { height: 820px; } }
+  /* Documents shelf (2026-09-16) */
+  .doc-list { margin-top: var(--nbd-space-3); display: flex; flex-direction: column; gap: var(--nbd-space-2); }
+  .doc-row {
+    display: flex; align-items: center; justify-content: space-between; gap: var(--nbd-space-3);
+    padding: var(--nbd-space-3); border: 1px solid var(--nbd-line); border-radius: var(--nbd-radius-md);
+    background: var(--nbd-bg-sunken);
+  }
+  .doc-info { min-width: 0; }
+  .doc-name {
+    font-weight: 700; color: var(--nbd-ink); font-size: var(--nbd-text-sm);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .doc-meta { font-size: var(--nbd-text-xs); color: var(--nbd-ink-subtle); margin-top: 2px; }
+  .doc-row .btn { flex-shrink: 0; }
+
+  /* Sandboxed document viewer modal — see wirePortalDocumentsCard's comment
+     in portal.js for why generated documents render in an opaque-origin
+     iframe (srcdoc) rather than a direct link. */
+  .doc-modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 1000;
+    background: rgba(15,17,21,.72); padding: var(--nbd-space-4);
+    align-items: center; justify-content: center;
+  }
+  .doc-modal-overlay.open { display: flex; }
+  .doc-modal {
+    width: 100%; max-width: 820px; height: 88vh;
+    background: #fff; border-radius: var(--nbd-radius-lg);
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: var(--nbd-shadow-md);
+  }
+  .doc-modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--nbd-space-3) var(--nbd-space-4);
+    border-bottom: 1px solid var(--nbd-line); flex-shrink: 0;
+  }
+  .doc-modal-title { font-weight: 700; color: var(--nbd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .doc-modal-close {
+    border: none; background: transparent; font-size: 18px; line-height: 1; cursor: pointer;
+    color: var(--nbd-ink-subtle); padding: var(--nbd-space-2);
+  }
+  .doc-modal-body { flex: 1; position: relative; min-height: 0; }
+  .doc-modal-status { padding: var(--nbd-space-4); color: var(--nbd-ink-subtle); text-align: center; }
+  .doc-modal-iframe { width: 100%; height: 100%; border: none; display: none; }
+  @media (max-width: 600px) { .doc-modal { height: 92vh; } }
+
   /* Project photo gallery — square tiles, generous spacing.
      Tap a tile to open the full 1600px variant in a new tab. */
   .ph-grid {
@@ -365,6 +410,13 @@
   }
   .progress-step.done .progress-step-label,
   .progress-step.current .progress-step-label{ color: var(--nbd-ink); }
+  /* Only completed steps carry one (see portal.js's render — the current
+     step's date isn't known yet, future steps have none). */
+  .progress-step-date{
+    font-size:10px; font-weight:600; color: var(--nbd-ink-subtle);
+    margin-top:2px; line-height:1.2;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
   .progress-next{
     margin-top: var(--nbd-space-4); padding: var(--nbd-space-3) var(--nbd-space-4);
     background: var(--nbd-orange-soft); border: 1px solid var(--nbd-orange-medium);
@@ -398,6 +450,9 @@
     .progress-step-label{ font-size:9px; }
     .progress-dot{ width:24px; height:24px; font-size:11px; }
     .progress-track::before, .progress-track-fill{ top:11px; }
+    /* Too tight at this width for a third line under a 9px label — the
+       label + checkmark already carry the essential information. */
+    .progress-step-date{ display:none; }
   }
 </style>
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
