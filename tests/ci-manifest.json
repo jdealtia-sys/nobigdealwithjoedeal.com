@@ -145,6 +145,8 @@
     "paperwork-filing.test.js",
     "kanban-filter-unification.test.js",
     "warranty-claim.test.js",
+    "analytics-card-cache-account-switch.test.js",
+    "adjuster-board-handler-tenancy.test.js",
     "customer-audit-integrity.test.js"
   ],
   "smoke": {

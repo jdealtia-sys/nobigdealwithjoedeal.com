@@ -252,8 +252,15 @@ const RUNNABLE = ['node', 'smoke'];
 //               unsubscribe link, heartbeat fix) independently adds one
 //               node suite from the original 133/68/220 base. Re-measured
 //               via --check on this tree (both lanes above already merged
-//               into main + this lane's own suite): 136/68/223.
-const FLOORS = { node: 136, smoke: 68, disk: 223 };
+//               into main + this lane's own suite): 136/68/223. Merged.
+//   2026-09-15  FIFTEENTH collision: the adjuster-board cross-tenant
+//               cache-leak lane (tests/analytics-card-cache-account-switch.
+//               test.js + tests/adjuster-board-handler-tenancy.test.js, both
+//               pure-Node) independently adds two node suites from the
+//               original 133/68/220 base. Re-measured via --check on this
+//               tree (three lanes above already merged + these two new
+//               suites): 138/68/225.
+const FLOORS = { node: 138, smoke: 68, disk: 225 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
