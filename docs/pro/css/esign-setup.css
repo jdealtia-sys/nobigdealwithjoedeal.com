@@ -78,6 +78,7 @@
 .su-signer { display: flex; gap: 8px; flex: 1 1 320px; min-width: 200px; }
 .su-signer .es-input { min-height: 40px; font-size: 14px; padding: 9px 10px; }
 .su-foot .es-apply { flex: 0 0 auto; }
+.su-void { flex: 0 0 auto; color: var(--es-bad); border-color: #fda29b; }
 
 .su-status { flex: 0 0 auto; padding: 8px 12px; font-size: 13px; background: #eff8f3; color: var(--es-good); border-top: 1px solid #cdeadd; }
 .su-status.bad { background: #fef3f2; color: var(--es-bad); border-top-color: #fda29b; }

@@ -667,6 +667,7 @@
   "wired-individually": [
     "communication-log-contract.test.js",
     "esign-setup-placement.test.js",
+    "esign-setup-void-2026-09-16.test.js",
     "esign-signature-reachable.test.js",
     "esign-signer-flow.test.js",
     "esign-stamp.test.js",
