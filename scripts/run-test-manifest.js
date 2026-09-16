@@ -239,15 +239,22 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-15  TWELFTH collision: the customer-audit-integrity lane
 //               (forgeable resourceId fix + document_view coverage) adds
 //               one node suite on top of 133/68/220. Re-measured via
-//               --check on the merged tree. MERGED into main as 134/68/221.
-//   2026-09-15  THIRTEENTH collision: the adjuster-board cross-tenant
+//               --check on the merged tree.
+//   2026-09-15  THIRTEENTH collision: the createCompany admin-claim-guard
+//               lane independently adds one node suite from the SAME
+//               133/68/220 base as the customer-audit lane above — both
+//               landed on the literal 134/68/221 by coincidence, which is
+//               not evidence either alone was right for a tree carrying
+//               both. Re-measured via --check on the merged tree: both
+//               suites present pushes this to 135/68/222. Both now merged.
+//   2026-09-15  FOURTEENTH collision: the adjuster-board cross-tenant
 //               cache-leak lane (tests/analytics-card-cache-account-switch.
 //               test.js + tests/adjuster-board-handler-tenancy.test.js, both
-//               pure-Node) independently adds two node suites from the SAME
-//               133/68/220 base as the customer-audit lane, which has since
-//               merged. Re-measured via --check on this tree (customer-audit
-//               already in main + these two new suites): 136/68/223.
-const FLOORS = { node: 136, smoke: 68, disk: 223 };
+//               pure-Node) independently adds two node suites from the
+//               original 133/68/220 base. Re-measured via --check on this
+//               tree (both lanes above already merged + these two new
+//               suites): 137/68/224.
+const FLOORS = { node: 137, smoke: 68, disk: 224 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
