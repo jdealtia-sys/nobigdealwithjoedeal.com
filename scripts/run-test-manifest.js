@@ -247,11 +247,19 @@ const RUNNABLE = ['node', 'smoke'];
 //               not evidence either alone was right for a tree carrying
 //               both. Re-measured via --check on the merged tree: both
 //               suites present pushes this to 135/68/222. Both now merged.
-//   2026-09-15  FOURTEENTH collision: the anniversary-touch stage-roles lane
-//               independently adds one node suite from the original
-//               133/68/220 base. Re-measured via --check on this tree
-//               (both lanes above already merged + this one): 136/68/223.
-const FLOORS = { node: 136, smoke: 68, disk: 223 };
+//   2026-09-15  FOURTEENTH collision: the funnel-recovery hardening lane
+//               (double-send stamp-before-send, per-email throttle,
+//               unsubscribe link, heartbeat fix) independently adds one
+//               node suite from the original 133/68/220 base. Re-measured
+//               via --check on this tree (both lanes above already merged
+//               into main + this lane's own suite): 136/68/223. Merged.
+//   2026-09-15  FIFTEENTH collision: the anniversary-touch stage-roles lane
+//               independently adds one node suite from the SAME original
+//               133/68/220 base as the funnel-recovery lane — both landed
+//               on 136/68/223 by coincidence. Re-measured via --check on
+//               this tree (three lanes above already merged + this one):
+//               137/68/224.
+const FLOORS = { node: 137, smoke: 68, disk: 224 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
