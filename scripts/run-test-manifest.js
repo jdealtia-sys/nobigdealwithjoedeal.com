@@ -220,7 +220,13 @@ const RUNNABLE = ['node', 'smoke'];
 //               original three-lane CRM streamlining ask, after Collections
 //               and Paperwork Filing).
 
-const FLOORS = { node: 132, smoke: 67, disk: 218 };
+//   2026-09-15  134/67/220, adjuster-board cross-tenant cache-leak lane
+//               (tests/analytics-card-cache-account-switch.test.js +
+//               tests/adjuster-board-handler-tenancy.test.js). MEASURED via
+//               --check on this branch; both suites are pure-Node (no
+//               functions/ or tests/ node_modules), same class as
+//               session-revocation.test.js, so they land in the node bucket.
+const FLOORS = { node: 134, smoke: 67, disk: 220 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

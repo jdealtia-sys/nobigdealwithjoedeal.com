@@ -141,7 +141,9 @@
     "render-pdf-brand-mark-square.test.js",
     "paperwork-filing.test.js",
     "kanban-filter-unification.test.js",
-    "warranty-claim.test.js"
+    "warranty-claim.test.js",
+    "analytics-card-cache-account-switch.test.js",
+    "adjuster-board-handler-tenancy.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
