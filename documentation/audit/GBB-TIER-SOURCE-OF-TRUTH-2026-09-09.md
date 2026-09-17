@@ -697,6 +697,84 @@ from §8.
 
 ---
 
+## §11 — UPDATE 2026-09-17: the picker's DEFAULT was disconnected from the sold tier (found and closed)
+
+Jo, reporting from actual use: *"job templates ... generate with a good
+better or best tier written on them but that doesn't always apply ... I
+think it currently defaults and just says a tier at random that may not
+match or even correlate."*
+
+This is a **different bug from anything §1–§10 covers.** Every prior pass in
+this audit assumed the picker's *value* was correct and chased what the
+*display label* or *warranty text* did with it. Nobody checked where the
+value the picker starts pre-selected on actually comes from — because it
+still says "Good/Better/Best" either way (§7.1 decided that's fine for
+rep-facing UI), a stale default and a correct one look identical on screen
+unless you trace the data.
+
+**Root cause:** `doc-preflight.js`'s three `warrantyTier` field definitions
+(proposal, contract, warranty_certificate) were `source: 'lead.warrantyTier',
+persist: PERSIST.LEAD` — a lead-level field that **nothing in this codebase
+has ever written** (confirmed: repo-wide grep for `warrantyTier =`
+assignments returns zero hits, both in this pass and independently
+corroborated against the original Sept-9 audit's own file list). Every one
+of those three documents therefore *always* fell straight through to
+whichever hardcoded literal default that field carried (`'better'` on two,
+`'best'` on the third) — never once reflecting the tier the estimate was
+actually priced and sold at. The rep-facing card picker (`renderWarrantyTier()`)
+genuinely works and the rep genuinely can click a different card — the bug
+was purely in what it started pre-selected on, which is exactly what a busy
+rep clicking through fast would never notice.
+
+The fix was already fully supported by existing infrastructure and required
+no new plumbing: `resolveFieldValue()`'s `source: 'estimate.<key>'` branch
+(used by every other estimate-derived field on these same schemas, e.g.
+`estimate.lineItems`) already resolves against `ctx.estimate`, which
+`pickPreflightEstimate()` already picks correctly (the lead's
+`primaryEstimateId`, falling back to the first estimate) — the exact
+"which estimate if there are several" question this fix would otherwise
+have needed to answer from scratch. `estimate-v2-ui.js`'s `getCurrentEstimate()`
+already persists the rep's real tier choice as `estimate.tier` on save. The
+three field defs now read `source: 'estimate.tier', persist:
+PERSIST.DOCUMENT` (matching the persist convention every sibling
+estimate-sourced field already uses) instead.
+
+Also fixed while in the area, for internal consistency (not the main bug,
+but the same class of silent-default problem): the remaining raw
+`warrantyTier` fallbacks inside `document-generator.js`/
+`document-generator-templates.js` (the OLD fill-form-modal auto-fill path,
+practically unreachable since it only fires if `DocPreflight` fails to load
+despite riding the same bundle as `NBDDocGen`) defaulted to `'best'` in two
+places against `'better'` everywhere else — now all consistently
+`'better'`, the more conservative choice when nothing is actually known.
+
+**Explicitly NOT part of this fix, and not reopened:** job-template
+selection's own tier concept (§4's material/product-enforcement gap — a job
+template's *individual line items* still aren't constrained by tier; that's
+still deferred per §7.5/PR 5) and the estimate-builder's tier UI itself
+(`estimate-v2-ui.js`'s tabs, `job-templates-ui.js`'s preconfirm tier step) —
+both already write the correct, real `estimate.tier` value; this fix only
+repoints the document generator to *read* the field that was already right.
+
+**Test added** (per this doc's own §10 "Guardrail" recommendation — one
+contract test per surface, asserting the resolver reads the shared source
+rather than trusting a literal): `tests/docgen-preflight-contract.test.js`
+now exercises the real `DocPreflight._resolveFieldValue()`/`ctx` path
+directly (not just the renderer) for all three doc types — proves the field
+resolves the estimate's real tier, proves a conflicting `lead.warrantyTier`
+is correctly ignored (regression guard against silently reverting to the old
+source), and proves the no-estimate-at-all case resolves empty rather than
+fabricating a tier. Verified the test actually catches the regression by
+reverting the source change locally and confirming 12 of 18 new assertions
+fail, then restoring it.
+
+**Verified:** `check-js-syntax.js` (509 files), `node tests/smoke.test.js`
+(3875/3875), `node tests/docgen-preflight-contract.test.js` (190/190, incl.
+the 18 new assertions), `node tests/docgen-render.test.js` (377/377),
+`node tests/estimate-v2-payload.test.js` (94/94) — all green.
+
+---
+
 **Shared-checkout note for whoever reads this next:** while finishing this
 PR, `docs/pro/dashboard.html`, `customer.html`, `customer-tasks-ui.js`,
 `dashboard-bootstrap.module.js`, `document-generator.js` and

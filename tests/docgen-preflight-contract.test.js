@@ -58,7 +58,7 @@ function loadEnv() {
   vm.runInNewContext(SRC_DOCGEN, sandbox, { filename: 'document-generator.js' });
   vm.runInNewContext(SRC_TEMPLATES, sandbox, { filename: 'document-generator-templates.js' });
   vm.runInNewContext(SRC_PREFLIGHT, sandbox, { filename: 'doc-preflight.js' });
-  return { dg: win.NBDDocGen, hydrate: win.DocPreflight && win.DocPreflight._hydrateDerivedFields };
+  return { dg: win.NBDDocGen, hydrate: win.DocPreflight && win.DocPreflight._hydrateDerivedFields, preflight: win.DocPreflight };
 }
 
 const env = loadEnv();
@@ -340,6 +340,54 @@ function renderViaPreflight(method, preflightData) {
 {
   const html3 = renderViaPreflight('renderWarrantyCertificate', { installDate: '2026-09-15', warrantyTier: 'best', transferable: false });
   ok('warranty: Elite tier stays transferable even with the checkbox unchecked (tier default wins)', /fully transferable/.test(html3));
+}
+
+// ── warrantyTier SOURCE OF TRUTH (2026-09-17): the field must read the
+//    estimate's actual sold tier (estimate.tier), not a lead.warrantyTier
+//    field nothing in this codebase ever writes. Before this fix every
+//    proposal/contract/warranty_certificate printed whichever hardcoded
+//    default that call site happened to carry, regardless of what was
+//    priced — this exercises the REAL resolveFieldValue()/ctx path
+//    (DocPreflight.open() -> resolveFieldValue), not just the renderer, since
+//    the bug was in field resolution, not rendering. ──
+{
+  console.log('PREFLIGHT CONTRACT — warrantyTier reads estimate.tier, not lead.warrantyTier');
+  const preflight = env.preflight;
+  ok('DocPreflight._resolveFieldValue is exposed for this test', typeof preflight._resolveFieldValue === 'function');
+
+  ['proposal', 'contract', 'warranty_certificate'].forEach(function (docType) {
+    const schema = preflight.DOC_SCHEMAS[docType];
+    let field = null;
+    (schema.sections || []).forEach(function (sec) {
+      (sec.fields || []).forEach(function (f) { if (f.key === 'warrantyTier') field = f; });
+    });
+    ok(docType + ': schema defines a warrantyTier field', !!field);
+    if (!field) return;
+    ok(docType + ': warrantyTier.source is estimate.tier (not lead.warrantyTier)', field.source === 'estimate.tier');
+    ok(docType + ': warrantyTier.persist is document, not lead (an estimate-derived value has no lead field to update)', field.persist === 'document');
+
+    // The estimate actually sold at "best" (Elite) reaches the resolved value.
+    const ctxBest = { lead: {}, estimate: { tier: 'best' }, photos: [], overrides: {} };
+    const gotBest = preflight._resolveFieldValue(field, ctxBest);
+    ok(docType + ': resolves "best" from the estimate the doc is generated for (got ' + JSON.stringify(gotBest) + ')',
+      gotBest === 'best');
+
+    // A stale/forged lead.warrantyTier must NOT win over the real estimate —
+    // guards against silently regressing back to the old source.
+    const ctxConflict = { lead: { warrantyTier: 'good' }, estimate: { tier: 'best' }, photos: [], overrides: {} };
+    const gotConflict = preflight._resolveFieldValue(field, ctxConflict);
+    ok(docType + ': a lead.warrantyTier value is ignored in favor of the estimate\'s real tier (got ' + JSON.stringify(gotConflict) + ')',
+      gotConflict === 'best');
+
+    // No estimate at all (a real, if rare, state): resolves empty rather than
+    // silently asserting a tier nobody chose. renderWarrantyTier()'s own
+    // display-only fallback (not this resolver) is what shows a card
+    // pre-selected in that case.
+    const ctxNone = { lead: {}, estimate: null, photos: [], overrides: {} };
+    const gotNone = preflight._resolveFieldValue(field, ctxNone);
+    ok(docType + ': no estimate at all resolves empty, not a fabricated tier (got ' + JSON.stringify(gotNone) + ')',
+      gotNone === '');
+  });
 }
 
 // ── certificate_of_completion: modal scopeCompleted bridges to renderer scopeSummary ──

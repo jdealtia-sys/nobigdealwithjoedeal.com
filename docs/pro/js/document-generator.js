@@ -3206,7 +3206,11 @@ ${price ? '<div style="text-align:right;margin:24px 0;"><span style="font-size:1
         inspectorName: lead.assignedTo||'',
         deductibleAmount: lead.deductibleOrOwedByHO||'',
         notes: lead.notes||'',
-        warrantyTier: lead.warrantyTier||'best',
+        // 2026-09-17: 'better', not 'best' — matches every sibling default
+        // in this file. lead.warrantyTier is never written anywhere in this
+        // codebase (this fallback modal only runs if DocPreflight's own
+        // estimate.tier-sourced field fails to load at all).
+        warrantyTier: lead.warrantyTier||'better',
         estimatedTimeline: lead.estimatedTimeline||''
       };
       Object.keys(map).forEach(k => {
