@@ -8,6 +8,7 @@ function openEditCustomerModal() {
   document.getElementById('editEmail').value = lead.email || '';
   document.getElementById('editAddress').value = lead.address || '';
   document.getElementById('editDamageType').value = lead.damageType || lead.serviceType || '';
+  document.getElementById('editScope').value = lead.scopeOfWork || '';
   // Extra properties worked under the same job (see the SERVICE LOCATIONS
   // block on generated documents). Legacy leads have no array — render zero
   // rows rather than one empty one, so an untouched modal saves [] and not ['']. 
@@ -106,6 +107,7 @@ async function saveCustomerEdits() {
       // a guard on every consumer.
       serviceAddresses: _readServiceAddressRows().filter(function (a) { return a; }),
       damageType: document.getElementById('editDamageType').value.trim(),
+      scopeOfWork: document.getElementById('editScope').value.trim(),
       // Coerce to a NUMBER before writing. Every downstream consumer
       // (kanban column totals, dashboard KPI tiles, leaderboard, the profit
       // panel) does Number(lead.jobValue) — a rep typing "$45,000" stored

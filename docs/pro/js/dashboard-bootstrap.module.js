@@ -847,22 +847,90 @@
   function _dashCheckPrerequisites(type, data) {
     const prereq = _DASH_DOC_PREREQUISITES[type];
     if (!prereq) return { ok: true };
+    // Shape mirrors customer-tasks-ui.js's checkPrerequisites: each entry
+    // keeps the `need` id alongside its human `text` so _showPrereqModal's
+    // "Fix" button knows which field in the lead modal to focus.
     const missing = [];
     for (const need of prereq.needs) {
       switch (need) {
-        case 'estimate':  if (!data._hasEstimate)  missing.push('Build an estimate'); break;
-        case 'contact':   if (!data._hasContact)   missing.push('Add phone or email'); break;
-        case 'address':   if (!data._hasAddress)   missing.push('Add property address'); break;
-        case 'scope':     if (!data._hasScope)     missing.push('Add scope of work'); break;
-        case 'photos':    if (!data._hasPhotos)    missing.push('Upload inspection photos'); break;
-        case 'claim':     if (!data._hasClaim)     missing.push('Add insurance carrier & claim number'); break;
-        case 'jobValue':  if (!data._hasJobValue)  missing.push('Add job value or build estimate'); break;
-        case 'jobComplete': if (!data._isJobComplete) missing.push('Mark job as Complete / Closed'); break;
-        case 'beforeAfterPhotos': if (!data._hasBeforeAfterPhotos) missing.push('Upload both Before AND After photos'); break;
+        case 'estimate':  if (!data._hasEstimate)  missing.push({ need, text: 'Build an estimate' }); break;
+        case 'contact':   if (!data._hasContact)   missing.push({ need, text: 'Add phone or email' }); break;
+        case 'address':   if (!data._hasAddress)   missing.push({ need, text: 'Add property address' }); break;
+        case 'scope':     if (!data._hasScope)     missing.push({ need, text: 'Add scope of work' }); break;
+        case 'photos':    if (!data._hasPhotos)    missing.push({ need, text: 'Upload inspection photos' }); break;
+        case 'claim':     if (!data._hasClaim)     missing.push({ need, text: 'Add insurance carrier & claim number' }); break;
+        case 'jobValue':  if (!data._hasJobValue)  missing.push({ need, text: 'Add job value or build estimate' }); break;
+        case 'jobComplete': if (!data._isJobComplete) missing.push({ need, text: 'Mark job as Complete / Closed' }); break;
+        case 'beforeAfterPhotos': if (!data._hasBeforeAfterPhotos) missing.push({ need, text: 'Upload both Before AND After photos' }); break;
       }
     }
     return missing.length ? { ok: false, missing, label: prereq.label, msg: prereq.msg } : { ok: true };
   }
+
+  // ── "Fix the issue" routing (dashboard side) ────────────────────────
+  // Parity with customer-tasks-ui.js's _fixDocNeed, one entry point for
+  // both dashboard doc-gen surfaces (desktop lead-card chips + mobile
+  // job-detail sheet — both call _generateDocWithPreflight, both land on
+  // _showPrereqModal below). Dashboard's single lead modal (#leadModal,
+  // opened by editLead) already carries every field customer.html splits
+  // across Edit Info + the claim editor + the stage button, INCLUDING
+  // Scope of Work (#lScopeOfWork) and Stage (#lStage) — so unlike
+  // customer.html, jobComplete is a real one-step fix here (a <select>
+  // option), not a scroll-to-the-kanban-button consolation. Only
+  // estimate/photos genuinely live outside that modal.
+  function _dashFixNeedFieldId(need) {
+    switch (need) {
+      case 'contact': return 'lPhone';
+      case 'address': return 'lAddr';
+      case 'scope': return 'lScopeOfWork';
+      case 'jobValue': return 'lJobValue';
+      case 'claim': return 'lInsCarrier';
+      case 'jobComplete': return 'lStage';
+      default: return null;
+    }
+  }
+
+  function _dashFixDocNeed(need, leadId) {
+    if (!leadId) return;
+    if (need === 'estimate') {
+      if (typeof window.startNewEstimate === 'function') window.startNewEstimate(leadId);
+      return;
+    }
+    if (need === 'photos' || need === 'beforeAfterPhotos') {
+      // No standing photo surface on the desktop board itself — send the
+      // rep to the same customer.html Photos tab the mobile sheet's own
+      // "View full record" link uses, rather than fake a fix in place.
+      _stageWindowStateForLead(leadId);
+      const base = (window.NBDUrl && window.NBDUrl.customer(leadId))
+        || ('/pro/customer.html?id=' + encodeURIComponent(leadId));
+      window.location.href = base + '#photosTab';
+      return;
+    }
+    const fieldId = _dashFixNeedFieldId(need);
+    if (typeof window.editLead === 'function') window.editLead(leadId);
+    if (fieldId) {
+      setTimeout(() => {
+        // #insuranceFieldsBlock is hidden by toggleInsuranceFields (fired by
+        // editLead's own setTimeout above) whenever jobType isn't already
+        // 'insurance' — exactly the case a rep routed here for a MISSING
+        // claim is likely to hit. Force it open rather than focus a field
+        // the rep can't see.
+        if (need === 'claim') {
+          const block = document.getElementById('insuranceFieldsBlock');
+          if (block) block.style.display = 'block';
+        }
+        const f = document.getElementById(fieldId);
+        if (!f) return;
+        f.focus();
+        if (typeof f.select === 'function') f.select();
+        f.style.transition = 'box-shadow .2s ease';
+        const prevShadow = f.style.boxShadow;
+        f.style.boxShadow = '0 0 0 3px var(--orange,#BD5728)';
+        setTimeout(() => { f.style.boxShadow = prevShadow; }, 1600);
+      }, 150);
+    }
+  }
+  window._dashFixDocNeed = _dashFixDocNeed;
 
   // Expose only if the customer-page versions aren't there. Customer
   // page wins because it has fresh-loaded estimates/photos for the
@@ -900,7 +968,7 @@
   // Render the "Can't generate — missing X" modal. Copy of the same UX
   // pattern used on customer.html, so the rep sees the same message
   // regardless of where they triggered generation from.
-  function _showPrereqModal(check) {
+  function _showPrereqModal(check, leadId) {
     const escFn = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
     const modal = document.createElement('div');
     modal.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay,10000);background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;';
@@ -910,11 +978,20 @@
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t,#fff);margin-bottom:8px;">Can't generate ${escFn(check.label || 'document')}</div>
         <div style="font-size:13px;color:var(--m,#888);margin-bottom:16px;">${escFn(check.msg || 'This document needs data that hasn’t been added yet:')}</div>
         <div style="text-align:left;background:var(--s2,#12223D);border-radius:8px;padding:14px;margin-bottom:20px;">
-          ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange,#BD5728);padding:4px 0;">• ' + escFn(m) + '</div>').join('')}
+          ${check.missing.map(m => '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--orange,#BD5728);padding:4px 0;">'
+            + '<span>• ' + escFn(m.text) + '</span>'
+            + '<button type="button" class="nbd-preq-fix" data-need="' + escFn(m.need) + '" style="flex:none;padding:5px 12px;background:rgba(255,255,255,.08);color:var(--t,#fff);border:1px solid var(--br,#333);border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;">Fix &rarr;</button>'
+            + '</div>').join('')}
         </div>
         <button class="nbd-preq-close" style="padding:12px 28px;background:var(--orange,#BD5728);color:var(--accent-fg,#fff);border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Got it</button>
       </div>`;
     modal.querySelector('.nbd-preq-close').addEventListener('click', () => modal.remove());
+    modal.querySelectorAll('.nbd-preq-fix').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        modal.remove();
+        _dashFixDocNeed(btn.dataset.need, leadId);
+      });
+    });
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
     document.body.appendChild(modal);
   }
@@ -934,7 +1011,7 @@
     const data = _dashGetCustomerDocData(leadId);
     const check = _dashCheckPrerequisites(docType, data);
     if (!check.ok) {
-      _showPrereqModal(check);
+      _showPrereqModal(check, leadId);
       return;
     }
     // PR 2b: the doc-generation cluster (DocPreflight + NBDDocGen) is now

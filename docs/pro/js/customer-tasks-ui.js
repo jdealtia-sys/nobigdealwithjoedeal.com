@@ -1824,22 +1824,70 @@ function getCustomerDocData() {
 function checkPrerequisites(type, data) {
   const prereq = DOC_PREREQUISITES[type];
   if (!prereq) return { ok: true };
+  // Each entry keeps the `need` id (not just its human text) so the
+  // Can't-Generate modal's "Fix" button knows which existing UI to route
+  // to — see _fixDocNeed below. `text` is unchanged, still what renders.
   const missing = [];
   for (const need of prereq.needs) {
     switch(need) {
-      case 'estimate': if (!data._hasEstimate) missing.push('Build an estimate'); break;
-      case 'contact': if (!data._hasContact) missing.push('Add phone or email'); break;
-      case 'address': if (!data._hasAddress) missing.push('Add property address'); break;
-      case 'scope': if (!data._hasScope) missing.push('Add scope of work'); break;
-      case 'photos': if (!data._hasPhotos) missing.push('Upload inspection photos'); break;
-      case 'claim': if (!data._hasClaim) missing.push('Add insurance carrier & claim number'); break;
-      case 'jobValue': if (!data._hasJobValue) missing.push('Add job value or build estimate'); break;
-      case 'jobComplete': if (!data._isJobComplete) missing.push('Mark job as Complete'); break;
-      case 'beforeAfterPhotos': if (!data._hasBeforeAfterPhotos) missing.push('Upload both Before AND After photos'); break;
+      case 'estimate': if (!data._hasEstimate) missing.push({ need, text: 'Build an estimate' }); break;
+      case 'contact': if (!data._hasContact) missing.push({ need, text: 'Add phone or email' }); break;
+      case 'address': if (!data._hasAddress) missing.push({ need, text: 'Add property address' }); break;
+      case 'scope': if (!data._hasScope) missing.push({ need, text: 'Add scope of work' }); break;
+      case 'photos': if (!data._hasPhotos) missing.push({ need, text: 'Upload inspection photos' }); break;
+      case 'claim': if (!data._hasClaim) missing.push({ need, text: 'Add insurance carrier & claim number' }); break;
+      case 'jobValue': if (!data._hasJobValue) missing.push({ need, text: 'Add job value or build estimate' }); break;
+      case 'jobComplete': if (!data._isJobComplete) missing.push({ need, text: 'Mark job as Complete' }); break;
+      case 'beforeAfterPhotos': if (!data._hasBeforeAfterPhotos) missing.push({ need, text: 'Upload both Before AND After photos' }); break;
     }
   }
   return missing.length > 0 ? { ok: false, missing, label: prereq.label, msg: prereq.msg } : { ok: true };
 }
+
+// ─────────────────────────────────────────────────────────────────
+// "Fix the issue" routing — takes a rep from the Can't-Generate modal
+// straight to the existing UI that captures the missing field, instead
+// of a "Got it" dead end. No new editors: every target already exists.
+// `estimate` and `photos`/`beforeAfterPhotos` have no single field to
+// focus, so those just scroll the matching section into view; jobComplete
+// can't be auto-advanced (stage moves one step at a time), so it scrolls
+// to and pulses the existing "Move to Next Stage" control instead.
+// ─────────────────────────────────────────────────────────────────
+function _pulseTarget(el) {
+  if (!el) return;
+  el.style.transition = 'box-shadow .2s ease';
+  const prevShadow = el.style.boxShadow;
+  el.style.boxShadow = '0 0 0 3px var(--orange)';
+  setTimeout(() => { el.style.boxShadow = prevShadow; }, 1600);
+}
+
+window._fixDocNeed = function (need) {
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); _pulseTarget(el); }
+  };
+  const focusInModal = (fieldId) => {
+    if (typeof window.openEditCustomerModal === 'function') window.openEditCustomerModal();
+    setTimeout(() => { const f = document.getElementById(fieldId); if (f) { f.focus(); if (f.select) f.select(); } }, 120);
+  };
+  switch (need) {
+    case 'contact': focusInModal('editPhone'); break;
+    case 'address': focusInModal('editAddress'); break;
+    case 'scope': focusInModal('editScope'); break;
+    case 'jobValue': focusInModal('editJobValue'); break;
+    case 'claim':
+      scrollTo('insurancePanel');
+      setTimeout(() => { if (typeof window.openClaimEditor === 'function') window.openClaimEditor(); }, 300);
+      break;
+    case 'estimate': scrollTo('estimatesPanelTitle'); break;
+    case 'photos':
+    case 'beforeAfterPhotos':
+      scrollTo('photosTab');
+      break;
+    case 'jobComplete': scrollTo('stageProgressBtn'); break;
+    default: break;
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────
 // Blank-preview escape hatch. Lets a rep render any template even
@@ -2082,7 +2130,10 @@ window.generateCustomerDoc = async function(type) {
         <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;color:var(--t);margin-bottom:8px;">Can't Generate ${esc(label)}</div>
         <div style="font-size:13px;color:var(--m);margin-bottom:16px;">This document requires data that hasn't been added yet:</div>
         <div style="text-align:left;background:var(--s);border-radius:8px;padding:14px;margin-bottom:20px;">
-          ${check.missing.map(m => '<div style="font-size:13px;color:var(--orange);padding:4px 0;">• ' + esc(m) + '</div>').join('')}
+          ${check.missing.map(m => '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;color:var(--orange);padding:4px 0;">'
+            + '<span>• ' + esc(m.text) + '</span>'
+            + '<button type="button" class="nbd-preq-fix" data-need="' + esc(m.need) + '" style="flex:none;padding:5px 12px;background:rgba(255,255,255,.08);color:var(--t);border:1px solid var(--br);border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;cursor:pointer;">Fix &rarr;</button>'
+            + '</div>').join('')}
         </div>
         <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
           <button class="nbd-preq-preview" style="padding:12px 22px;background:rgba(255,255,255,.08);color:var(--t);border:1px solid var(--br);border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">👁 Preview blank template</button>
@@ -2093,6 +2144,12 @@ window.generateCustomerDoc = async function(type) {
     modal.querySelector('.nbd-preq-preview').addEventListener('click', () => {
       modal.remove();
       window._previewBlankDoc(type);
+    });
+    modal.querySelectorAll('.nbd-preq-fix').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        modal.remove();
+        window._fixDocNeed(btn.dataset.need);
+      });
     });
     document.body.appendChild(modal);
     modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
