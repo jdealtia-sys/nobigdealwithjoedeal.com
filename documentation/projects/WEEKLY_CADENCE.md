@@ -349,7 +349,50 @@
    green. The bigger export-proxy migration this item is really about (making
    the top-level `functions/index.js` re-exports themselves lazy) still needs
    a live deploy to verify cold-start deltas — not done from this sandbox.
-10. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
+10. Inline-CSS dedup phase 2 (~2.86 MB across 17 distinct duplicated blocks,
+    real count from a 2026-09-17 marker-by-marker census — not the earlier
+    "~2.7 MB, needs generator design" estimate). **Slice 1 shipped 2026-09-17**:
+    the nav base dropdown/mobile-nav/hamburger show-hide block (269 pages,
+    ~513 KB, the single biggest chunk) moved from a per-page injected
+    `<style>` to `docs/assets/css/nbd-nav-base.css`, mirroring the icon-CSS
+    inject-to-link migration (`ensure-icon-css.js`/`nbd-icons.css`).
+    `ensure-nav-css.js` now checks for the link OR the marker (any content —
+    the field-notes blog post's deliberate variant stays untouched) OR the
+    own-CSS escape hatch, and `--write` migrates a byte-exact legacy block.
+    Verified: real headless-Chromium screenshots of the dropdown-open and
+    mobile-drawer states (byte-identical rendering before/after); one test
+    fix needed in `marketing-polish-contract.test.js`'s "nav collapse at
+    1024" check, which only scanned inline page text — now also accepts the
+    link.
+    **16 more blocks surveyed, not yet touched** (see
+    `docs/dev/globals-tranche3-plan.md`-style census — full inventory in the
+    2026-09-17 session transcript, not yet written to its own doc): 6 more
+    small no-conflict blocks (nav-logo text/layout, nav-wordmark guard,
+    nav-collapse normalize, a11y focus/reduced-motion, iOS-zoom fix; ~211 KB
+    combined) are queued as the obvious next slice — **but a markup grep
+    found the nav-logo-text-targeting rules among them are DEAD CSS on every
+    marketing page**: `.nav-logo-text` CSS text appears in 227 marketing
+    files, but the actual `class="nav-logo-text"` markup it targets exists
+    in ZERO of them (all 8 real uses are under `docs/pro/` or
+    `docs/sites/free-guide/`, out of scope) — the shared nav-standard
+    partial only ever emits a bare `<img>`. Next slice should verify that
+    fully and DELETE rather than extract those rules — bigger win, zero
+    behavior risk. Five blocks (footer contrast, footer social icons,
+    sitewide readability v2, trust-icon fix, blog-template shim) already
+    have one-shot INJECT-ONLY generator scripts from when they first
+    shipped (not CI-wired) — extracting them needs those scripts updated
+    too, so treat as a separate slice. The typography-normalize block has
+    3 minor-drift variant groups (not a clean single canonical text). The
+    biggest single chunk (~928 KB, `/* unified-nav injected */`, hail/
+    roof-replacement/roof-repair/siding/gutter service templates + blog) is
+    NOT one block — 15-19 distinct per-template shapes needing 5-6 separate
+    extracted files, not a universal one; also stacks with blocks #1/#9/#13
+    on the SAME pages (overlapping nav-styling mechanisms — consolidation
+    needs to watch for that, not just dedupe each marker in isolation). The
+    per-template `:root` variable subsets (~231 pages) and a few
+    accessibility-motivated per-page overrides (`docs/inspect.html`'s
+    `--orange-dark`, `the-pledge`/`free-tools`/`book`/`free-roof`'s extra
+    tokens) need human design review before touching, not just automation.
 11. ~~/our-work/<slug> detail pages~~ **DONE, PR #1632 (2026-09-17)** —
     `scripts/build-projects.mjs` generates one standalone page per live
     project with its own Service/BreadcrumbList JSON-LD, wired into
