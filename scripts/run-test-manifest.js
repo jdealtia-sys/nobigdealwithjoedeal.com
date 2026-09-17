@@ -276,7 +276,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               matching number that is not evidence, per this ledger's own
 //               rule. Re-measured via --check on the tree with BOTH lanes
 //               merged (this esign lane's own suite + anniversary-touch's):
-const FLOORS = { node: 156, smoke: 68, disk: 245 };
+const FLOORS = { node: 157, smoke: 68, disk: 246 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

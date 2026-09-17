@@ -1,0 +1,124 @@
+/**
+ * tests/ourwork-detail-pages.test.js — /our-work/<slug> detail pages
+ * (2026-09-17).
+ *
+ * WHY THIS EXISTS. scripts/build-projects.mjs now generates one standalone
+ * page per live project into docs/our-work/<slug>.html, on top of the
+ * existing gallery. Two failure modes are specific to a GENERATED page that
+ * also carries nbd:partial regions it doesn't own:
+ *
+ *  1. The generator and apply-partials.js fighting over the nav/footer
+ *     region — one clobbers what the other just filled in, so --check for
+ *     one of them is never simultaneously clean with the other. Caught by
+ *     re-running build-projects.mjs against the real, already-partialed
+ *     files and asserting nothing changes.
+ *  2. A removed/re-slugged project leaving an orphaned, unlinked, still-200
+ *     page behind. Caught by asserting the file list matches live slugs
+ *     exactly, both directions.
+ *
+ * Zero deps. Run: node tests/ourwork-detail-pages.test.js
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const ROOT = path.join(__dirname, '..');
+const DATA = path.join(ROOT, 'docs', 'assets', 'data', 'projects.json');
+const DETAIL_DIR = path.join(ROOT, 'docs', 'our-work');
+const GEN = path.join(ROOT, 'scripts', 'build-projects.mjs');
+const OUR_WORK = path.join(ROOT, 'docs', 'our-work.html');
+
+let passed = 0, failed = 0;
+const fails = [];
+function ok(name, cond, detail) {
+  if (cond) { passed++; console.log('  ✓ ' + name); }
+  else { failed++; fails.push(name + (detail ? ' — ' + detail : '')); console.log('  ✗ ' + name + (detail ? ' — ' + detail : '')); }
+}
+
+console.log('\nOUR-WORK DETAIL PAGES — generated one per live project\n');
+
+const manifest = JSON.parse(fs.readFileSync(DATA, 'utf8'));
+const today = new Date(); today.setHours(0, 0, 0, 0);
+const live = manifest.projects.filter((p) => {
+  const d = new Date(p.published); d.setHours(0, 0, 0, 0);
+  return d <= today;
+});
+const liveSlugs = new Set(live.map((p) => p.slug));
+
+const onDisk = fs.existsSync(DETAIL_DIR)
+  ? fs.readdirSync(DETAIL_DIR).filter((f) => f.endsWith('.html')).map((f) => f.replace(/\.html$/, ''))
+  : [];
+const onDiskSet = new Set(onDisk);
+
+ok('every live project has a detail page on disk',
+  live.every((p) => onDiskSet.has(p.slug)),
+  live.filter((p) => !onDiskSet.has(p.slug)).map((p) => p.slug).join(', '));
+ok('no orphaned detail page for a non-live/removed slug',
+  onDisk.every((s) => liveSlugs.has(s)),
+  onDisk.filter((s) => !liveSlugs.has(s)).join(', '));
+
+console.log('\nSTRUCTURE — spot-check every generated page');
+for (const p of live) {
+  const file = path.join(DETAIL_DIR, `${p.slug}.html`);
+  if (!fs.existsSync(file)) continue; // already flagged above
+  const html = fs.readFileSync(file, 'utf8');
+  ok(`${p.slug}: canonical link points at /our-work/${p.slug}`,
+    html.includes(`<link rel="canonical" href="https://nobigdealwithjoedeal.com/our-work/${p.slug}">`));
+  ok(`${p.slug}: title present`, html.includes(`<h1 class="pd-title">`) && html.includes(esc(p.title)));
+  ok(`${p.slug}: Service + BreadcrumbList JSON-LD present`,
+    /"@type":"Service"/.test(html) && /"@type":"BreadcrumbList"/.test(html));
+  ok(`${p.slug}: nav-standard region is FILLED, not an empty marker pair (apply-partials ran)`,
+    /<!-- nbd:partial nav-standard[^>]*-->\r?\n<nav/.test(html));
+  ok(`${p.slug}: footer-standard region is FILLED, not an empty marker pair`,
+    /<!-- nbd:partial footer-standard[^>]*-->\r?\n<footer/.test(html));
+  ok(`${p.slug}: every photo appears in the gallery`,
+    p.photos.every((ph) => html.includes(esc(ph.src))));
+  ok(`${p.slug}: links back to the listing`, html.includes('href="/our-work"'));
+}
+
+console.log('\nCARD LINK — the listing gallery links out to each detail page');
+{
+  const ourWorkHtml = fs.readFileSync(OUR_WORK, 'utf8');
+  const missing = live.filter((p) => !ourWorkHtml.includes(`href="/our-work/${p.slug}"`));
+  ok('every live project card links to its own /our-work/<slug> page',
+    missing.length === 0, missing.map((p) => p.slug).join(', '));
+}
+
+console.log('\nSITEMAP — every detail page is discoverable');
+{
+  const sitemap = fs.readFileSync(path.join(ROOT, 'docs', 'sitemap.xml'), 'utf8');
+  const missing = live.filter((p) => !sitemap.includes(`<loc>https://nobigdealwithjoedeal.com/our-work/${p.slug}</loc>`));
+  ok('every live project detail page is listed in sitemap.xml',
+    missing.length === 0, missing.map((p) => p.slug).join(', '));
+}
+
+console.log('\nGENERATOR SOURCE CONTRACT — the fixes that make this not fight apply-partials.js');
+{
+  const src = fs.readFileSync(GEN, 'utf8');
+  ok('carryOverPartials exists (preserves already-filled nav/footer content)',
+    /function carryOverPartials/.test(src));
+  ok('carried-over content is normalized to LF before splicing (no double-CRLF bug)',
+    /existingMatch\[2\]\.replace\(\/\\r\\n\/g, '\\n'\)/.test(src));
+  ok('stale-file cleanup exists for removed/re-slugged projects',
+    /orphaned.*no longer a live project slug/.test(src));
+}
+
+console.log('\nIDEMPOTENCY — re-running the real generator against the real, already-partialed files changes nothing');
+{
+  const before = new Map(onDisk.map((s) => [s, fs.readFileSync(path.join(DETAIL_DIR, `${s}.html`), 'utf8')]));
+  execFileSync(process.execPath, [GEN], { cwd: ROOT, stdio: 'pipe' });
+  const after = onDisk.filter((s) =>
+    fs.readFileSync(path.join(DETAIL_DIR, `${s}.html`), 'utf8') !== before.get(s));
+  ok('re-running build-projects.mjs against already-partialed pages is a no-op',
+    after.length === 0, after.join(', '));
+}
+
+function esc(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+console.log('\n' + '─'.repeat(50));
+console.log(`${passed} passed, ${failed} failed`);
+if (failed) { console.log('\nFailures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }

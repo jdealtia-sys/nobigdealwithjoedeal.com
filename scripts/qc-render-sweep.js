@@ -251,12 +251,27 @@ function probe() {
     if (rel.endsWith('/index.html')) return '/' + rel.slice(0, -'index.html'.length);
     return '/' + rel;
   };
+  // A leaf page whose basename collides with a same-named sibling directory
+  // (our-work.html next to our-work/<slug>.html, added 2026-09-17) is
+  // genuinely ambiguous for a plain static file server: Firebase Hosting's
+  // real cleanUrls priority is exact file, then +.html, then /index.html —
+  // our-work.html wins there — but http-server (what CI runs) resolves the
+  // directory first, redirects to our-work/, and 404s with no index.html
+  // inside it. Route around that one case rather than trusting the global
+  // cleanUrls probe, which only sampled a collision-free page (/about).
+  const collidesWithDir = (file) => {
+    const rel = path.relative(DOCS, file).split(path.sep).join('/');
+    if (rel === 'index.html' || rel.endsWith('/index.html')) return false;
+    const base = path.join(DOCS, rel.replace(/\.html$/, ''));
+    return fs.existsSync(base) && fs.statSync(base).isDirectory();
+  };
+
   const report = [];
   let scanned = 0;
 
   for (const file of files) {
     const urlPath = toUrlPath(file);
-    const fetchPath = cleanUrls ? urlPath : rawPath(file);
+    const fetchPath = (cleanUrls && !collidesWithDir(file)) ? urlPath : rawPath(file);
     const findings = [];
 
     for (const d of duplicateStyleBlocks(file)) {
