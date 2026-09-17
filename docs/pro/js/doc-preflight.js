@@ -350,7 +350,17 @@
           id: 'warranty', title: 'Warranty', collapsed: true,
           fields: [
             { key: 'warrantyTier', label: 'Warranty Tier', type: 'warranty-tier',
-              source: 'lead.warrantyTier', persist: PERSIST.LEAD, default: 'better' }
+              // 2026-09-17: was source:'lead.warrantyTier' — a field nothing
+              // in this codebase ever writes (repo-wide grep for
+              // `warrantyTier =` returns zero hits), so it silently fell
+              // through to the 'better' literal below on every document,
+              // regardless of the tier the estimate was actually priced and
+              // sold at. estimate.tier is the real, rep-chosen field the
+              // estimate builder maintains (estimate-v2-ui.js) — read that
+              // instead, same as every other estimate-derived field on this
+              // schema (see PERSIST.DOCUMENT below: a value read from the
+              // estimate has no "customer record" to update back).
+              source: 'estimate.tier', persist: PERSIST.DOCUMENT }
           ]
         },
         {
@@ -393,7 +403,9 @@
           id: 'warranty', title: 'Warranty', collapsed: false,
           fields: [
             { key: 'warrantyTier', label: 'Warranty Tier', type: 'warranty-tier',
-              source: 'lead.warrantyTier', persist: PERSIST.LEAD, required: true, default: 'better' }
+              // 2026-09-17: see the proposal schema's identical comment above
+              // — was sourced from a lead field nothing ever writes.
+              source: 'estimate.tier', persist: PERSIST.DOCUMENT, required: true }
           ]
         },
         {
@@ -636,7 +648,10 @@
             { key: 'installDate', label: 'Install Completion Date', type: 'date', required: true,
               source: 'computed.todayISO', persist: PERSIST.DOCUMENT },
             { key: 'warrantyTier', label: 'Warranty Tier', type: 'warranty-tier', required: true,
-              source: 'lead.warrantyTier', persist: PERSIST.LEAD, default: 'better' },
+              // 2026-09-17: see the proposal schema's identical comment
+              // (§ warranty section above) — was sourced from a lead field
+              // nothing ever writes.
+              source: 'estimate.tier', persist: PERSIST.DOCUMENT },
             { key: 'coverageDetails', label: 'Coverage Details', type: 'textarea', rows: 3,
               source: 'literal:Workmanship warranty as shown above. Manufacturer warranties per shingle product datasheet.',
               persist: PERSIST.DOCUMENT },

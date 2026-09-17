@@ -471,7 +471,13 @@
            data && data.warrantyTier, data && (data.issueDate || data.completionDate)], 5)
       : _wcPrefix + '-' + (Date.now() % 100000);
     const d = Object.assign({ homeownerName:'[Homeowner Name]', address:'[Property Address]',
-      warrantyTier:'best', workPerformed:'', coverageDetails:'', transferable:false,
+      // 2026-09-17: was 'best' — a lone-Elite default among sibling
+      // call sites that all default to 'better', for the same reason:
+      // defaulting to the TOP tier when nothing is actually known
+      // overstates what a customer was promised. Only reached when no
+      // estimate exists at all (doc-preflight.js's warrantyTier field
+      // now reads estimate.tier); a real estimate's tier still wins.
+      warrantyTier:'better', workPerformed:'', coverageDetails:'', transferable:false,
       certificateNumber: _certSeed, issueDate:today() }, data);
 
     // GBB audit, 2026-09-09: this certificate used to print a real
