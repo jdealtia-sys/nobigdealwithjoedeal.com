@@ -1149,6 +1149,15 @@ function openMobileJobDetail(leadId) {
 
   window._cardDetailLeadId = leadId;
 
+  // Stage window._leadDoc/_customerId/_customerEstimates/_allPhotos up
+  // front — previously only done lazily inside _mountDocumentsHub on the
+  // Documents tab's first visit, so a rep who tapped a Job Checklist
+  // checkbox (below) without ever opening Documents would write with a
+  // stale/unset window._customerId. Pure in-memory lookups (no Firestore
+  // read), safe to call unconditionally on every open; _mountDocumentsHub's
+  // own call to this is now a cheap, idempotent no-op.
+  if (typeof window._stageWindowStateForLead === 'function') window._stageWindowStateForLead(leadId);
+
   // Tear down Messages/Voice Intel's live Firestore listener if it's still
   // mounted for a DIFFERENT lead — see dashboard-actions.js's
   // _mJdTeardownRealtimeTabs comment for why this can't wait for the rep to
@@ -1246,6 +1255,18 @@ function openMobileJobDetail(leadId) {
   setEnabled('mJdEstimate', true);
 
   // ── Details tab ──
+  // window._currentLead — a page-scoped global customer.html already sets
+  // (and customer-checklist.js's toggleJobChecklistItem() reads directly,
+  // not as a passed argument) for the checklist panel below. Not previously
+  // set anywhere on dashboard.html; safe to introduce, matches the same
+  // "current lead in a detail context" meaning customer.html uses it for.
+  window._currentLead = lead;
+  // Job Checklist — reuses window.JobChecklist.render(lead) UNMODIFIED.
+  // Unconditional on every open, same as the six rows below (render() flips
+  // #checklistPanel's own display:none → block; nothing to gate here).
+  if (window.JobChecklist && typeof window.JobChecklist.render === 'function') {
+    window.JobChecklist.render(lead);
+  }
   $('mJdDmg').textContent     = lead.damageType || '—';
   $('mJdPhone').textContent   = lead.phone || '—';
   $('mJdEmailV').textContent  = lead.email || '—';
@@ -1256,6 +1277,33 @@ function openMobileJobDetail(leadId) {
   // actually had a carrier.
   $('mJdCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || lead.carrier || '—';
   $('mJdClaim').textContent   = lead.claimNumber || lead.claim || '—';
+  // Warranty Claim panel — reuses window.WarrantyClaim.renderPanel(elId, lead)
+  // UNMODIFIED (same function customer.html calls). Self-clears to '' when
+  // lead.openWarrantyClaimId is falsy, so calling it unconditionally on every
+  // open (same as the 6 rows above, not the lazy _mount*() pattern the
+  // Firestore-backed tabs use) is safe and always reflects the current lead.
+  if (window.WarrantyClaim && typeof window.WarrantyClaim.renderPanel === 'function') {
+    window.WarrantyClaim.renderPanel('mJdWarrantyClaimPanel', lead);
+  }
+  // Insurance Details panel — reuses window.ClaimPanel.render(containerId, lead)
+  // UNMODIFIED from claim-core.js. normalizeClaim() reads flat fields straight
+  // off the in-memory lead object (no Firestore call), so — like the panel
+  // above — this runs synchronously on every open, not through the lazy
+  // _mount*() pattern. Same gate customer-bootstrap.module.js uses for
+  // #insurancePanel's own display:block toggle.
+  {
+    const insPanel = $('mJdInsurancePanel');
+    const isInsurance = lead.jobType === 'insurance' || lead.insCarrier || lead.insuranceCarrier
+      || lead.claimNumber || (lead.claimStatus && lead.claimStatus !== 'No Claim');
+    if (insPanel) {
+      if (isInsurance && window.ClaimPanel && typeof window.ClaimPanel.render === 'function') {
+        insPanel.style.display = 'block';
+        window.ClaimPanel.render('mJdInsurancePanel', lead);
+      } else {
+        insPanel.style.display = 'none';
+      }
+    }
+  }
   // Communication Log — same "clear cache flag on every open" contract as
   // Documents/the activity feed above; _mountCommsLog (dashboard-actions.js)
   // re-fetches on the next switch to Details.
@@ -1263,6 +1311,14 @@ function openMobileJobDetail(leadId) {
   if (commsBody) {
     delete commsBody.dataset.loadedFor;
     commsBody.innerHTML = '<div class="m-jd-empty">Loading…</div>';
+  }
+  // Notes — same "clear cache flag on every open" contract as Comms Log
+  // above; _mountNotesTab (dashboard-actions.js) re-fetches on the next
+  // switch to Details.
+  const notesBody = $('mJdNotesList');
+  if (notesBody) {
+    delete notesBody.dataset.loadedFor;
+    notesBody.innerHTML = '<div class="m-jd-empty">Loading…</div>';
   }
 
   // ── Photos tab — cleared, not built. CustomerPhotoHub owns this tab and

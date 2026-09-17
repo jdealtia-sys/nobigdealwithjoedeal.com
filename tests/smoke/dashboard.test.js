@@ -4904,7 +4904,7 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
   const openMobileFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
                                       widgets.indexOf('window.openMobileJobDetail'));
   assert('openMobileJobDetail calls the teardown on every open, before staging the new lead\'s data',
-    /window\._cardDetailLeadId = leadId;[\s\S]{0,400}window\._mJdTeardownRealtimeTabs\(leadId\)/.test(openMobileFn));
+    /window\._cardDetailLeadId = leadId;[\s\S]{0,1200}window\._mJdTeardownRealtimeTabs\(leadId\)/.test(openMobileFn));
 
   // customer-realtime.module.js refactor: pure export now, no top-level
   // side effect — importing mountMessages from the dashboard bridge must
@@ -5002,7 +5002,7 @@ section('Mobile job-detail: homeowner portal activity + communication log (2026-
   assert('dashboard.html: the Details tab carries a Communication Log container',
     /id="mJdCommsLog"/.test(html));
   assert("_mJdSwitchTab mounts the comms log on switching to 'details'",
-    /if \(tab === 'details'\) _mountCommsLog\(\);/.test(actions));
+    /if \(tab === 'details'\) \{ _mountCommsLog\(\); _mountNotesTab\(\); \}/.test(actions));
 
   const commsFn = actions.slice(actions.indexOf('function _mountCommsLog'), actions.lastIndexOf('// Bring the tab row to the top'));
   assert('_mountCommsLog is defined', commsFn.length > 0);
@@ -5055,6 +5055,86 @@ section('Job Templates link from customer.html (2026-09-17, Jo: "job templates a
     /window\.openJobTemplatesForLead\(leadParam\)/.test(templatesFn));
   assert('the templates deep link cleans the URL after opening (same convention every other deep link here uses)',
     /window\.history\.replaceState\(\{\}, '', '\/pro\/dashboard\.html'\)/.test(templatesFn));
+}
+
+section('Mobile Details-tab parity round 2: Warranty Claim, Insurance Details, Job Checklist, Notes (2026-09-17)');
+{
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+
+  const openMobileFn3 = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                                       widgets.indexOf('window.openMobileJobDetail'));
+
+  // ── Staging: window._customerId must be set BEFORE a rep can interact
+  // with the checklist, not only lazily on the Documents tab's first visit.
+  assert('openMobileJobDetail stages window._customerId (etc.) unconditionally on every open, not just lazily via Documents',
+    /window\._cardDetailLeadId = leadId;[\s\S]{0,700}window\._stageWindowStateForLead\(leadId\)/.test(openMobileFn3));
+  assert('openMobileJobDetail sets window._currentLead (customer-checklist.js\'s toggleJobChecklistItem reads it directly, not as a passed arg)',
+    /window\._currentLead = lead;/.test(openMobileFn3));
+
+  // ── Warranty Claim ──
+  assert('dashboard.html: the Details tab carries a Warranty Claim panel container',
+    /id="mJdWarrantyClaimPanel"/.test(html));
+  assert('openMobileJobDetail calls window.WarrantyClaim.renderPanel UNMODIFIED, pointed at the mobile container',
+    /window\.WarrantyClaim && typeof window\.WarrantyClaim\.renderPanel === 'function'\)[\s\S]{0,80}window\.WarrantyClaim\.renderPanel\('mJdWarrantyClaimPanel', lead\)/.test(openMobileFn3));
+
+  // ── Insurance Details ──
+  assert('dashboard.html: the Details tab carries an Insurance Details panel container',
+    /id="mJdInsurancePanel"/.test(html));
+  assert('dashboard.html now loads claim-core.js (not loaded there before this round)',
+    /<script defer src="js\/claim-core\.js\?v=1"><\/script>/.test(html));
+  assert('openMobileJobDetail gates the insurance panel the SAME way customer-bootstrap.module.js gates #insurancePanel',
+    /const isInsurance = lead\.jobType === 'insurance' \|\| lead\.insCarrier \|\| lead\.insuranceCarrier/.test(openMobileFn3));
+  assert('openMobileJobDetail calls window.ClaimPanel.render UNMODIFIED, pointed at the mobile container',
+    /window\.ClaimPanel\.render\('mJdInsurancePanel', lead\)/.test(openMobileFn3));
+
+  // ── Job Checklist ──
+  assert('dashboard.html: the Details tab reuses the SAME #checklistPanel id customer.html uses (render() hardcodes it, not container-agnostic)',
+    /id="checklistPanel"/.test(html));
+  assert('dashboard.html now loads customer-checklist.js (not loaded there before this round)',
+    /<script defer src="js\/customer-checklist\.js\?v=1"><\/script>/.test(html));
+  assert('openMobileJobDetail calls window.JobChecklist.render UNMODIFIED',
+    /window\.JobChecklist && typeof window\.JobChecklist\.render === 'function'\)[\s\S]{0,60}window\.JobChecklist\.render\(lead\)/.test(openMobileFn3));
+  assert('a document-level change delegate dispatches checklist checkbox taps to the REAL window.toggleJobChecklistItem (customer-tasks-ui.js\'s own delegate isn\'t loaded on this page)',
+    /data-change-action="toggleJobChecklistItem"/.test(actions) &&
+    /window\.toggleJobChecklistItem\(key, el\)/.test(actions));
+
+  // ── Notes ──
+  assert('dashboard.html: the Details tab carries the Notes quick-add + list markup',
+    /id="mJdNotesInput"/.test(html) && /id="mJdNotesSend"/.test(html) &&
+    /id="mJdNotesStatus"/.test(html) && /id="mJdNotesList"/.test(html));
+  assert('the Send button dispatches through the registry to _mJdQuickAddNote',
+    /data-action="call" data-fn="_mJdQuickAddNote"/.test(html));
+
+  const notesFn = actions.slice(actions.indexOf('function _mountNotesTab'), actions.indexOf('async function _mJdQuickAddNote'));
+  assert('_mountNotesTab is defined and reads the CURRENT overlay lead',
+    notesFn.length > 0 && /window\._cardDetailLeadId/.test(notesFn));
+  assert('_mountNotesTab queries the SAME `notes` collection/shape loadNotes uses (leadId only, no author filter)',
+    /collection\(window\.db, 'notes'\)/.test(notesFn) && /where\('leadId', '==', leadId\)/.test(notesFn) &&
+    !/where\('userId'/.test(notesFn));
+  assert('_mountNotesTab discards a stale response if the overlay lead changed mid-fetch',
+    /window\._cardDetailLeadId !== leadId\) return;/.test(notesFn));
+  assert('_mountNotesTab caches per-lead via the host dataset (same convention as _mountDocumentsHub)',
+    /host\.dataset\.loadedFor === leadId\) return;/.test(notesFn) && /host\.dataset\.loadedFor = leadId;/.test(notesFn));
+
+  const quickAddFn = actions.slice(actions.indexOf('async function _mJdQuickAddNote'), actions.indexOf('document.addEventListener(\'keydown\''));
+  assert('_mJdQuickAddNote is defined', quickAddFn.length > 0);
+  assert('_mJdQuickAddNote writes the SAME field shape quickAddNote uses (leadId/userId/text/createdAt/createdBy)',
+    /collection\(window\.db, 'notes'\)/.test(quickAddFn) &&
+    /leadId: leadId/.test(quickAddFn) && /userId: window\.auth\.currentUser\.uid/.test(quickAddFn) &&
+    /createdAt: window\.serverTimestamp\(\)/.test(quickAddFn) && /createdBy: window\.auth\.currentUser\.email/.test(quickAddFn));
+  assert('_mJdQuickAddNote re-fetches the mobile notes list after a successful save',
+    /delete host\.dataset\.loadedFor;[\s\S]{0,20}_mountNotesTab\(\);/.test(quickAddFn));
+  assert('_mJdQuickAddNote is registered in __NBD_CALL_REGISTRY (bare window.X exports never dispatch)',
+    /_mJdQuickAddNote: _mJdQuickAddNote,/.test(actions));
+  assert('Cmd/Ctrl+Enter on the mobile notes textarea submits, same UX as desktop\'s quickNoteInput',
+    /ev\.target\.id === 'mJdNotesInput' && ev\.key === 'Enter' && \(ev\.metaKey \|\| ev\.ctrlKey\)/.test(actions));
+
+  // ── Cache reset on open — all three lazily-fetched panels above must be
+  // re-fetched on every overlay open, same contract Documents established.
+  assert('openMobileJobDetail clears the notes list\'s cache flag on every open',
+    /mJdNotesList[\s\S]{0,200}delete notesBody\.dataset\.loadedFor/.test(openMobileFn3));
 }
 
 };
