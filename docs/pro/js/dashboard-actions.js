@@ -1537,7 +1537,11 @@ function _mJdOpenDocCreate() {
   }).join('');
   const modal = document.createElement('div');
   modal.id = 'mJdDocTypeSheet';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;';
+  // --z-overlay-top (10001): one tier above the base modal overlay
+  // (--z-overlay:10000, what DocPreflight itself opens at) — this sheet is
+  // an intermediate step that can be followed by DocPreflight stacking on
+  // top of it, not a replacement for it.
+  modal.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay-top, 10001);background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;';
   modal.innerHTML = '<div style="width:100%;max-width:500px;max-height:80vh;overflow-y:auto;background:var(--s, #111318);border-radius:20px 20px 0 0;border:1px solid var(--br, #1e2530);padding:16px;">'
     + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
     +   '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--t);">Generate a document</div>'
