@@ -281,12 +281,35 @@ coordinated twin removal (e.g. the 14 `dashboard-actions.js`+`maps.js`
 twins, 8 `dashboard-actions.js`+`maps-routing.js`). Slower per name; order
 inside the band by cluster size, biggest first.
 
+> ### Update 2026-09-17 — 12-name slice shipped (PR #1637)
+>
+> `maps.js`'s `/* EXPOSE MAP FUNCTIONS TO WINDOW */` try/catch block
+> (`searchMap`, `selectPin`, `deletePin`, `clearAllPins`, `goToLeadFromPin`,
+> `deleteLeadFromPin`, `makeLeadFromPin`, `deletePinOnly`, `toggleMapSidebar`,
+> `updatePinStats`, `toggleOverlay`, `goToMyLocation`) was exactly this
+> band's "twin assigner" shape: each name is a top-level `function`/`async
+> function` declaration in its real owner file (`maps-overlays.js`,
+> `dashboard-ui.js`, `dashboard-widgets.js`, `maps-core.js`,
+> `maps-routing.js`), which a classic script already puts on `window` the
+> moment that file parses. The `typeof`-guarded re-export here was a second,
+> redundant assigner — pure `window.X = window.X` — not a safety net. Deleted
+> whole; ~171 names remain in the band.
+
+**Correction 2026-09-17 — `goToMyLocation` needed the three-way proof
+re-run, not the deletion above.** The T3-M section (below) still describes
+it as blocked because "the maps.js shim still re-states it on window." That
+was true only of the redundant re-export just deleted; `goToMyLocation`
+itself is still dispatched from markup via `data-fn="goToMyLocation"` and is
+**not yet registered** in `__NBD_CALL_REGISTRY`, so it correctly stays
+allowlisted in `dashboard-state.js` — a genuine T3-C/T3-B candidate on its
+own merits, independent of the shim that used to also be in the way.
+
 **T3-C — one-consumer names by edge (176, ~5–6 PRs).**
 Convert edge-by-edge; each edge is one natural PR:
 
 | Edge (assigner → consumer) | Names |
 |---|---|
-| dashboard-bootstrap.module.js → ui.js | 7 |
+| dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637)** |
 | customer-tasks-ui.js → customer-bootstrap.module.js | 6 |
 | customer-bootstrap.module.js → customer-tasks-ui.js | 5 |
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 |
@@ -297,6 +320,26 @@ Convert edge-by-edge; each edge is one natural PR:
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
 the edge is a real API).
+
+> ### Update 2026-09-17 — the ui.js edge, 6 of 7 (PR #1637)
+>
+> `_loadCompanySettings`, `_loadCompanyProfileSettings`, `_loadAccessInfo`,
+> `_loadBillingInfo`, `_loadNotifSettings`, `_loadProfileSettings` all moved
+> off `window` into `dashboard-bootstrap.module.js`'s `__NBD_CALL_REGISTRY`.
+> The first two were 2c-4f's only MUST-STAY leftovers, kept window-exported
+> specifically because `switchSettingsTab` (`ui.js`) read them as bare
+> `window.X()` calls; rewiring that one consumer to read the registry
+> unblocked all six — the other four loaders were never in any prior
+> tranche's ledger at all (not MUST-STAY, just never audited) and turned out
+> to have the identical single-owner/single-consumer shape.
+>
+> **The 7th name in the edge, `_loadEstimateDefaultsV2`, is excluded on
+> purpose.** It looked like the same shape but isn't: 3 internal
+> self-references inside `dashboard-bootstrap.module.js` itself (not just the
+> one the file's own comment names) plus a derived
+> `window._loadEstimateDefaults = function() { return
+> window._loadEstimateDefaultsV2(); }` alias. Converting it needs its own
+> slice — rewiring the self-references too, not just the `ui.js` edge.
 
 **T3-D — the 2–5 band proper (131 names → NBD-prefixed singleton APIs).**
 Owner-cluster order, biggest coherent API first:

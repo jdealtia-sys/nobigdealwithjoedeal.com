@@ -5749,7 +5749,7 @@
 // toggleRecentDropdown joined — dispatched via _NBD_TOGGLE_FNS through
 // _nbdResolveMapped (registry-first since T3-M), never data-fn, so they have
 // no allowlist history; their window exports are deleted.
-// Tranche 3 T3-D edge (2026-09-17): _loadCompanySettings and
+// Tranche 3 T3-C edge (2026-09-17): _loadCompanySettings and
 // _loadCompanyProfileSettings graduated too — the "ui.js cross-file window
 // calls" this file's own comment cited as their MUST-STAY reason are exactly
 // switchSettingsTab's bare window.X() reads in ui.js, now rewired to read

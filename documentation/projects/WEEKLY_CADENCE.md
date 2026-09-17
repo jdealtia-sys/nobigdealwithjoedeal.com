@@ -340,7 +340,15 @@
    now renders it instead of the `SAMPLE DATA` mock. `errors`/`rateLimits`
    have no real backing data (only successes are persisted) and are
    reported as untracked rather than faked.
-9. Functions cold-start increment 2 (lazy export proxies)
+9. Functions cold-start increment 2 (lazy export proxies) — **investigated
+   2026-09-17, one safe slice peeled off and shipped**: `functions/esign-stamp.js`
+   required `pdf-lib` unconditionally at module scope even though only the
+   e-sign stamping path uses it; PR #1635 lazy-memoizes the `require()` behind
+   a `pdfLib()` accessor, verified via `require.cache` inspection (zero pdf-lib
+   files loaded until `stampPdf`/`readPdfGeometry` actually run) + full smoke
+   green. The bigger export-proxy migration this item is really about (making
+   the top-level `functions/index.js` re-exports themselves lazy) still needs
+   a live deploy to verify cold-start deltas — not done from this sandbox.
 10. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
 11. ~~/our-work/<slug> detail pages~~ **DONE, PR #1632 (2026-09-17)** —
     `scripts/build-projects.mjs` generates one standalone page per live
@@ -350,16 +358,26 @@
     specific, real copy, not placeholder text; the only actual gap (7
     projects missing a price range) needs Jo's real numbers, not drafted
     prose, and is already tracked in this file's one-off queue.
-12. **Globals Tranche 3** ~~plan~~ **PARTIALLY EXECUTED, then stalled** —
-    verified 2026-09-17: the dependency-ordered plan
+12. **Globals Tranche 3** ~~plan~~ **RESUMED 2026-09-17** — the
+    dependency-ordered plan
     ([globals-tranche3-plan.md](../../docs/dev/globals-tranche3-plan.md),
     2026-08-31, PR #1304) shipped T3-0, T3-A slice 1, T3-M + the "freed
     15"/"bonus eight" (PRs #1316/#1319/#1326/#1338–#1342 through 2026-09-02:
-    25/36 map-dispatch names now registry-only) — but T3-B (177 names), T3-C
-    (176 names), T3-D (131-name band → NBD-prefixed APIs) and T3-E
-    (spine-disposition docs) are untouched since, zero `T3-` commits after
-    2026-09-02 · **404 full-chrome** (unchanged — `docs/404.html` is still a
-    bespoke centered card, zero `<nav>`/`<footer>`/`nbd:partial` markers) ·
+    25/36 map-dispatch names now registry-only), then sat with zero `T3-`
+    commits until this session opened **PR #1637** with a first slice of
+    each of the next two bands: **T3-B** (`maps.js`'s 12-name twin-assigner
+    re-export block deleted — every name already an auto-global on `window`
+    from its real owner file, so the guarded re-export was pure `window.X =
+    window.X`) and **T3-C** (6 of the 7 `dashboard-bootstrap.module.js` →
+    `ui.js` edge names graduated to `__NBD_CALL_REGISTRY`; the 7th,
+    `_loadEstimateDefaultsV2`, deliberately excluded — it has 2 more
+    internal self-references than its MUST-STAY comment claimed, plus a
+    derived `window._loadEstimateDefaults` alias, so it needs its own slice).
+    T3-B has ~171 names left, T3-C has ~170; T3-D (131-name band → NBD-prefixed
+    APIs) and T3-E (spine-disposition docs) remain fully untouched · **404
+    full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
+    carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
+    `footer-extended` chrome instead of a bespoke centered card ·
     **emulator widening** (unchanged — `ci.yml:773,791` still gates
     `NBD_EMU_FUNCTIONS` to `@stranger`/`@gauntlet` only, 2 of 6 shards;
     comment still calls it "future work once boot cost is addressed") ·

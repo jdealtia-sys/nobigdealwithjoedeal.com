@@ -979,7 +979,7 @@ function switchSettingsTab(tab) {
   }
   // Lazy-load Company tab settings from localStorage + Firestore.
   // These six settings-tab loaders live in dashboard-bootstrap.module.js's
-  // __NBD_CALL_REGISTRY (Globals Tranche 3, T3-D, 2026-09-17) rather than on
+  // __NBD_CALL_REGISTRY (Globals Tranche 3, T3-C, 2026-09-17) rather than on
   // window directly — a real ES module, so nothing leaks there by default.
   var _nbdReg = window.__NBD_CALL_REGISTRY;
   if (tab === 'company') {

@@ -314,7 +314,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  _saveSiteSlug, retryLoadLeads, copyDebugInfo, testFirestoreRules. Do NOT
   //  re-add. MUST-STAY (kept below): _saveEstimateDefaultsV2 (intra-module
   //  self-read), loadSampleData (dashboard-actions.js twin).
-  //  Tranche 3 T3-D (2026-09-17): _loadCompanySettings and
+  //  Tranche 3 T3-C (2026-09-17): _loadCompanySettings and
   //  _loadCompanyProfileSettings also moved OFF window into
   //  __NBD_CALL_REGISTRY — the "ui.js cross-file window calls" that kept
   //  them MUST-STAY were switchSettingsTab's bare window.X() reads, now
@@ -348,7 +348,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  testFirestoreRules → __NBD_CALL_REGISTRY, Tranche 2c-4f
   //  (dashboard-bootstrap.module.js), off window. Do NOT re-add.
   //  _loadCompanySettings / _loadCompanyProfileSettings → __NBD_CALL_REGISTRY,
-  //  Tranche 3 T3-D (2026-09-17), off window. Do NOT re-add.)
+  //  Tranche 3 T3-C (2026-09-17), off window. Do NOT re-add.)
   // (cdaMjdAct, cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo,
   //  cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
   //  cdPickStage, cdPickType → __NBD_CALL_REGISTRY, Tranche 2c-4a/4b, off window)

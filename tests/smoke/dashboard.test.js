@@ -3082,7 +3082,7 @@ section('Globals Tranches 0+1: converted names stay off window');
     '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
     '_resetCompanyProfileSettings', '_exportAllData', '_exportEstimates',
     '_exportPhotos',
-    // Tranche 3 T3-D (2026-09-17): the settings-tab loader sextet graduated
+    // Tranche 3 T3-C (2026-09-17): the settings-tab loader sextet graduated
     // off window into the same __NBD_CALL_REGISTRY block — switchSettingsTab's
     // bare window.X() reads in ui.js were rewired to read the registry instead.
     '_loadCompanySettings', '_loadCompanyProfileSettings', '_loadAccessInfo',
@@ -3737,7 +3737,7 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       new RegExp('window\\.' + n + '\\s*=').test(bootReg) && new RegExp("'" + n + "'").test(stateSrc));
   }
 
-  // ── Tranche 3 T3-D (2026-09-17): the settings-tab loader sextet ──
+  // ── Tranche 3 T3-C (2026-09-17): the settings-tab loader sextet ──
   // _loadCompanySettings and _loadCompanyProfileSettings were the ONLY two
   // MUST-STAY names left over from 2c-4f — kept window-exported + allowlisted
   // because switchSettingsTab (ui.js) read them as bare window.X() calls. That
@@ -3749,11 +3749,11 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     '_loadAccessInfo', '_loadBillingInfo', '_loadNotifSettings', '_loadProfileSettings'];
   const uiJsSrc = read(path.join(PRO_JS, 'ui.js'));
   for (const n of T3D_NAMES) {
-    assert('dashboard-bootstrap registers ' + n + ' in __NBD_CALL_REGISTRY (T3-D)',
+    assert('dashboard-bootstrap registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
       new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootRegBlock));
-    assert('allowlist no longer carries ' + n + ' (T3-D — registry replaced it)',
+    assert('allowlist no longer carries ' + n + ' (T3-C — registry replaced it)',
       !new RegExp("'" + n + "'").test(stateSrc));
-    assert('dashboard-bootstrap no longer exposes window.' + n + ' (T3-D off window)',
+    assert('dashboard-bootstrap no longer exposes window.' + n + ' (T3-C off window)',
       !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(bootReg));
     assert('ui.js switchSettingsTab reads ' + n + ' off the registry, not bare window.' + n,
       new RegExp('_nbdReg\\.' + n + '\\b').test(uiJsSrc) && !new RegExp('window\\.' + n + '\\s*\\(').test(uiJsSrc));
