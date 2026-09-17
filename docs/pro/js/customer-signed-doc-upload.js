@@ -53,7 +53,10 @@ async function handleSignedDocUpload(input) {
       size: file.size,
       uploadedAt: window.serverTimestamp(),
       uploadedBy: uid,
-      source: 'signed_upload'
+      source: 'signed_upload',
+      // Already an executed document the rep is attaching, not something
+      // moving through draft/sent — status starts (and stays) 'signed'.
+      status: 'signed'
     });
 
     if (typeof showToast === 'function') showToast('Document uploaded successfully', 'success');

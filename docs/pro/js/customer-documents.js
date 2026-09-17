@@ -65,6 +65,13 @@
   function normalize(id, d, legacy) {
     var url = d.url || d.signedDocumentUrl || (d.htmlPath ? '' : (d.htmlUrl || ''));
     var signedAt = toDate(d.signedAt);
+    // Explicit lifecycle field (2026-09-17) — draft/sent/signed, stamped by
+    // the generator, createSignRequest, submitSignature, onPersistFinalized
+    // and the signed-doc upload. Whitelisted: this is Firestore data, not a
+    // typed value. Rows written before this field existed have none — fall
+    // back to the old presence-based inference so nothing needs a backfill.
+    var status = (d.status === 'draft' || d.status === 'sent' || d.status === 'signed')
+      ? d.status : null;
     return {
       id: id,
       legacy: !!legacy,
@@ -78,7 +85,9 @@
       htmlPath: (typeof d.htmlPath === 'string' && d.htmlPath) ? d.htmlPath : null,
       size: Number.isFinite(+d.size) ? +d.size : null,
       date: toDate(d.uploadedAt) || toDate(d.createdAt) || toDate(d.date) || signedAt,
-      signed: !!(d.signedRemotely || d.signedAt || /signed/i.test(String(d.source || ''))),
+      status: status,
+      signed: status ? status === 'signed'
+        : !!(d.signedRemotely || d.signedAt || /signed/i.test(String(d.source || ''))),
       signedAt: signedAt,
       source: d.source || null,
       // A filed photo report can be handed over as a no-login link, not just a
@@ -191,6 +200,8 @@
     if (doc.size != null) bits.push((doc.size / 1024).toFixed(0) + ' KB');
     if (doc.signed) {
       bits.push('✓ Signed' + (doc.signedAt ? ' ' + doc.signedAt.toLocaleDateString() : ''));
+    } else if (doc.status === 'sent') {
+      bits.push('Awaiting signature');
     } else if (doc.source === 'signed_upload' || doc.source === 'dnd_upload') {
       bits.push('Uploaded');
     }

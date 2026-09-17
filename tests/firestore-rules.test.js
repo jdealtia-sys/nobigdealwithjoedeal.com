@@ -980,6 +980,25 @@ async function run() {
   await assertFails(setDoc(doc(mgrA, 'leads/leadA2/activity/mgr-webhook-forge'),
     { userId: 'mia', type: 'note', source: 'rep', note: 'x', stripeInvoiceId: 'in_123' }));
 
+  // 28a2. DOCUMENT STATUS (2026-09-17 lifecycle field) — documentStatusWriteOk()
+  // is shape-only (draft/sent/signed), NOT access-tier gating. onPersistFinalized
+  // (in-person signing, document-generator.js) sets 'signed' via a plain client
+  // updateDoc, same trust bar signedAt/signedSigners have always had — there is
+  // no Cloud Function in that path to defer to, so 'signed' has to stay reachable
+  // by the same owner-or-same-company-staff writers as every other field here.
+  await assertSucceeds(setDoc(doc(alice, 'leads/leadA2/documents/status-draft'),
+    { name: 'contract.html', status: 'draft' }));
+  await assertSucceeds(setDoc(doc(mgrA, 'leads/leadA2/documents/status-sent'),
+    { name: 'contract.html', status: 'sent' }));
+  await assertSucceeds(setDoc(doc(alice, 'leads/leadA2/documents/status-signed'),
+    { name: 'contract.html', status: 'signed' }));
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/documents/status-bogus'),
+    { name: 'contract.html', status: 'made_up_status' }));
+  // absence-safe — a write that never touches status still succeeds (e.g.
+  // the homeowner-share toggle on an already-created row).
+  await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2/documents/status-draft'),
+    { sharedWithHomeowner: true }));
+
   // 28b. WARRANTY CLAIMS (2026-09-15 Warranty Claim lane) — same
   // owner-or-same-company-staff shape as documents/drawings just above,
   // plus warrantyClaimWriteOk()'s enum gate on status/reason.

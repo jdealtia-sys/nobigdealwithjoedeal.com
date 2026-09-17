@@ -541,6 +541,12 @@ window.NBDDocGen = {
                 customerName: customerName || null,
                 filename: _filename,
                 htmlPath: _htmlPath,
+                // Lifecycle: draft -> sent (createSignRequest) -> signed
+                // (submitSignature, or onPersistFinalized for in-person
+                // signing below). customer-documents.js's normalize() falls
+                // back to inferring signed/generated for pre-existing rows
+                // that predate this field, so no backfill is needed.
+                status: 'draft',
                 createdAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
                 createdBy: window.auth?.currentUser?.email || window._user?.email || 'unknown',
                 userId: window.auth?.currentUser?.uid || window._user?.uid || null,
@@ -630,6 +636,7 @@ window.NBDDocGen = {
           try {
             if (_docMetaRef && window.updateDoc) {
               await window.updateDoc(_docMetaRef, {
+                status: 'signed',
                 signedAt: window.serverTimestamp ? window.serverTimestamp() : new Date(),
                 // Keep the doc metadata lean: strip the PNG dataURLs (they
                 // live in the signed HTML in Storage and in the per-role
