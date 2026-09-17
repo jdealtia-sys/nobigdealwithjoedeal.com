@@ -120,7 +120,7 @@ function stubs(pdfBase64) {
   const browser = await chromium.launch();
   const errs = [];
 
-  async function openWithStatus(status) {
+  async function openWithStatus(status, expectVoidHidden) {
     const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
     page.on('pageerror', (e) => errs.push(String(e)));
     page.on('dialog', (d) => d.accept());
@@ -130,13 +130,24 @@ function stubs(pdfBase64) {
     }
     await page.goto(`http://127.0.0.1:${port}/pro/esign-setup.html?env=ENV1`);
     await page.waitForSelector('.es-page canvas', { timeout: 20000 });
+    // renderAll() appends the canvas BEFORE awaiting page.render(...).promise
+    // (esign-setup.js:136-152), and updateVoidVisibility() only runs after
+    // that promise resolves and openBytes() returns. The selector above can
+    // match mid-render, before the button's hidden state is actually set —
+    // an intermittent race, not a timing coincidence (flaked in CI on PRs
+    // that never touched this file). Wait for the settled state itself,
+    // same as every su-field wait in esign-setup-placement.test.js.
+    await page.waitForFunction(
+      (want) => document.getElementById('suVoid').hidden === want,
+      expectVoidHidden, { timeout: 8000 },
+    );
     return page;
   }
 
   try {
     console.log('\nLIVE LINK — status "sent" shows the Void button');
     {
-      const page = await openWithStatus('sent');
+      const page = await openWithStatus('sent', false);
       const hidden = await page.locator('#suVoid').isHidden();
       ok('Void button is visible', !hidden);
 
@@ -156,21 +167,21 @@ function stubs(pdfBase64) {
 
     console.log('\nVIEWED LINK — status "viewed" also shows the Void button');
     {
-      const page = await openWithStatus('viewed');
+      const page = await openWithStatus('viewed', false);
       ok('Void button is visible', !(await page.locator('#suVoid').isHidden()));
       await page.close();
     }
 
     console.log('\nDRAFT — no link has ever been sent, nothing to void');
     {
-      const page = await openWithStatus('draft');
+      const page = await openWithStatus('draft', true);
       ok('Void button stays hidden', await page.locator('#suVoid').isHidden());
       await page.close();
     }
 
     console.log('\nCOMPLETED — already signed, voiding is meaningless (and the backend itself refuses it)');
     {
-      const page = await openWithStatus('completed');
+      const page = await openWithStatus('completed', true);
       ok('Void button stays hidden', await page.locator('#suVoid').isHidden());
       await page.close();
     }
