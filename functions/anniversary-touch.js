@@ -44,6 +44,7 @@ const { logger } = require('firebase-functions/v2');
 const { FieldPath, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
+const stageRoles = require('./stage-roles');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM     = defineSecret('EMAIL_FROM');
@@ -61,20 +62,24 @@ const ANNIVERSARY_MAX_DAYS = 380;
 // we never miss the next year's touch.
 const RESKIP_WINDOW_DAYS = 350;
 
-// Stages that count as "the job is done" for anniversary purposes.
-// Stored both lower-case and capitalized to match the various ways
-// the codebase persists the stage field.
-const COMPLETE_STAGES = new Set([
-  'complete', 'Complete',
-  'install_complete',
-  'deductible_collected',
-  'final_payment',
-]);
+// 2026-09-15: "the job is done" is now derived from functions/stage-roles.js
+// — the same single source of truth dormant-leads.js's _isTerminalLead uses
+// — instead of a hand-maintained literal-stage Set. The old COMPLETE_STAGES
+// ({'complete','Complete','install_complete','deductible_collected',
+// 'final_payment'}) never included 'closed' (the actual canonical stage a
+// job gets via the normal close path today) nor 'final_photos' /
+// 'collections' / 'warranty_claim' (added by #1576 and #1580), so this cron
+// was blind to the overwhelmingly common completed-job case. See
+// tests/anniversary-touch-stage-roles.test.js.
+//
 // 5.2: server-side filter list for the leads query. Lets Firestore return
 // only completed leads instead of scanning every lead per user (the bulk of
-// an active rep's pipeline is NOT complete). Result set is identical to the
-// old full-scan + in-memory COMPLETE_STAGES.has() filter. ≤30 values for `in`.
-const COMPLETE_STAGE_LIST = Array.from(COMPLETE_STAGES);
+// an active rep's pipeline is NOT complete). ≤30 values for `in` — this list
+// (current WON stages + legacy won-aliasing raw names) is well under that.
+const COMPLETE_STAGE_LIST = Array.from(new Set([
+  ...stageRoles.WON_STAGES,
+  ...stageRoles.WON_ALIASES,
+]));
 
 // ─── Branded email template ──────────────────────────────────────
 const TEMPLATE_STYLES = `
@@ -231,7 +236,11 @@ async function findAnniversaryLeads(db, uid) {
     const lead = { id: doc.id, ...doc.data() };
     if (lead.deleted) continue;
     if (lead.isProspect) continue;
-    if (!COMPLETE_STAGES.has(lead.stage)) continue;
+    // Authoritative re-check, mirroring dormant-leads.js's _isTerminalLead:
+    // reuse stage-roles.js's roleFor()/ROLE.WON instead of a literal-stage
+    // Set, so a persisted stageRole (custom pipelines) or a stage this file
+    // hasn't been told about yet is still classified correctly.
+    if (stageRoles.roleFor(lead) !== stageRoles.ROLE.WON) continue;
 
     // Use the canonical completion field — fall back through the
     // common candidates the codebase uses to mark "job is done".
@@ -391,3 +400,9 @@ exports.anniversaryAutoTouch = onSchedule(
     });
   }
 );
+
+// Real-fn-call test hook (same convention as photo-vision.js's exports._test).
+// findAnniversaryLeads can't be exercised through the onSchedule wrapper
+// without a live/emulated Firestore + scheduler trigger, so tests call it
+// directly against a fake `db` — see tests/anniversary-touch-stage-roles.test.js.
+exports._test = { findAnniversaryLeads, COMPLETE_STAGE_LIST };
