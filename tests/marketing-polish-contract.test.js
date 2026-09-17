@@ -169,6 +169,10 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
   for (const f of marketing) {
     const s = read(f);
     if (!s.includes('nav-links') || !s.includes('hamburger')) continue;
+    // The 1024px rule moved to the shared docs/assets/css/nbd-nav-base.css
+    // (2026-09-17 inline-CSS dedup) — a page linking it carries the rule
+    // just as authoritatively as an inline copy.
+    if (s.includes('/assets/css/nbd-nav-base.css')) continue;
     const legacyOnly = /@media[^{]*max-width:\s*(900|780)px[^{]*\{[^@]*?\.nav-links\s*\{[^}]*display:\s*none/.test(s)
       && !/@media[^{]*max-width:\s*1024px[^{]*\{[\s\S]{0,600}?\.nav-links\s*\{[^}]*display:\s*none/.test(s);
     if (legacyOnly) bad.push(rel(f));
