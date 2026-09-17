@@ -39,8 +39,17 @@ PAD_RATIO = 0.04      # breathing room, as a fraction of the artwork width
 PALETTE = 64          # colours; flat brand art needs nowhere near 256
 THRESHOLD = 12        # how far from the paper colour counts as artwork
 
-img = Image.open(SRC).convert("RGB")
-paper = img.getpixel((0, 0))
+src = Image.open(SRC).convert("RGBA")
+# The master's transparent pixels carry black (0,0,0,0) underneath -- a bare
+# .convert("RGB") only drops the alpha channel, it doesn't composite, so
+# every "transparent" pixel kept its black RGB and baked in as a solid black
+# box behind the wordmark. Flatten onto white first, matching the studio
+# background the master actually displays as.
+paper_rgb = (255, 255, 255)
+canvas0 = Image.new("RGB", src.size, paper_rgb)
+canvas0.paste(src, mask=src.split()[3])
+img = canvas0
+paper = paper_rgb
 delta = ImageChops.difference(img, Image.new("RGB", img.size, paper)).convert("L")
 box = delta.point(lambda p: 255 if p > THRESHOLD else 0).getbbox()
 if not box:
