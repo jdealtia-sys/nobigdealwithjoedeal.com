@@ -1265,6 +1265,16 @@ function openMobileJobDetail(leadId) {
     photoBody.innerHTML = '<div class="m-jd-empty">Loading photos…</div>';
   }
 
+  // ── Documents tab — cleared, not built. _mountDocumentsHub owns this tab
+  // and mounts on the first switch to it (_mJdSwitchTab), same lazy contract
+  // as Estimates/Photos. Clearing the cache flag forces a re-fetch for
+  // whichever lead this overlay is opening for now, not the previous one.
+  const docBody = $('mJdTabDocuments');
+  if (docBody) {
+    delete docBody.dataset.loadedFor;
+    docBody.innerHTML = '<div class="m-jd-empty">Loading documents…</div>';
+  }
+
   // ── Activity tab — the lead's estimates + stage history ──
   // Was a static stub that always read "No activity yet for this lead" (the
   // tab was never populated). Surface what we already hold in memory (no extra

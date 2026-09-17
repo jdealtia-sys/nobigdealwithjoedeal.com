@@ -4151,8 +4151,76 @@ section('Embedded per-customer estimate hub (CustomerEstimateHub)');
     /var jobValue = Number\(lead\.jobValue\)/.test(hub));
 
   const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
-  assert('4-tab job-detail still uses the flex tab row (no fixed 3-tab width)',
+  // 2026-09-17: 5-tab now (Documents added) — still asserting flex:1, not a
+  // fixed column count, so this stays true regardless of how many tabs exist.
+  assert('5-tab job-detail still uses the flex tab row (no fixed column width)',
     /\.m-jd-tab\{[\s\S]{0,80}flex:1/.test(css));
+}
+
+section('Mobile job-detail Documents tab (leads/{id}/documents parity)');
+{
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const bootstrap = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  const loader = read(path.join(PRO_JS, 'script-loader.js'));
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+
+  // 2026-09-17: Jo, from real use on his phone — "I can never click
+  // documents or see an area for it." The mobile job-detail overlay never
+  // had a Documents tab; customer.html's own 7-tab desktop nav
+  // (Overview/Timeline/Photos/Files/Messages/Voice Intel/Contact) had no
+  // mobile equivalent for this one at all.
+  assert("dashboard.html: Documents tab button dispatches _mJdSwitchTab('documents')",
+    /data-tab="documents"[^>]*data-fn="_mJdSwitchTab" data-arg="documents"/.test(html));
+  assert('dashboard.html: #mJdTabDocuments panel exists to mount into',
+    /id="mJdTabDocuments"[^>]*role="tabpanel"/.test(html));
+
+  assert("_mJdSwitchTab maps the documents tab to #mJdTabDocuments",
+    /documents:'mJdTabDocuments'/.test(actions));
+  assert('hub mounts lazily on the first switch to the Documents tab',
+    /if \(tab === 'documents'\) _mountDocumentsHub\(\);/.test(actions));
+
+  const mountFn = actions.slice(actions.indexOf('function _mountDocumentsHub'),
+                                 actions.indexOf('// Recompute the job-detail hero'));
+  assert('_mountDocumentsHub is defined', mountFn.length > 0);
+  assert('_mountDocumentsHub reads the CURRENT overlay lead, not a stale global',
+    /window\._cardDetailLeadId/.test(mountFn));
+  // Reuses the SAME store customer.html reads — not a second fetch/normalize
+  // implementation (the exact class of drift this session's other fixes
+  // (document status field, tier source of truth) were closing elsewhere).
+  assert("_mountDocumentsHub reuses window.NBDCustomerDocs.load(), not its own Firestore read",
+    /window\.NBDCustomerDocs\.load\(leadId\)/.test(mountFn) && !/getDocs\(/.test(mountFn));
+  assert('_mountDocumentsHub degrades gracefully when the module is absent, never throws into the tab switch',
+    /if \(!window\.NBDCustomerDocs\)[\s\S]{0,220}return;/.test(mountFn));
+  // Lazy bundle load — same contract as _generateDocWithPreflight, not a
+  // second eager <script> tag.
+  assert("_mountDocumentsHub lazy-loads the docgen bundle if not yet present",
+    /window\.ScriptLoader\.loadBundle\('docgen'\)/.test(mountFn));
+  // Stale-response guard: a slow load must not paint a lead the rep already
+  // navigated away from.
+  assert('_mountDocumentsHub discards a stale response if the overlay lead changed mid-fetch',
+    /window\._cardDetailLeadId !== leadId\) return;/.test(mountFn));
+  // Opening a generated doc reuses customer-documents.js's own [data-doc-view]
+  // click delegate — no second click handler for the same action.
+  assert('a generated (htmlPath) row uses data-doc-view, the existing global click delegate',
+    /data-doc-view=/.test(mountFn));
+  // An uploaded doc with a real URL opens directly, same as desktop, through
+  // the same normalize()-validated (scheme-safe) url field.
+  assert('an uploaded row with a real URL opens via a plain anchor to the normalized url',
+    /d\.url\)[\s\S]{0,200}href="[\s\S]{0,40}esc\(d\.url\)/.test(mountFn));
+  // The status field this session's other fix (PR #1612) established as the
+  // source of truth surfaces here too, not just on desktop.
+  assert("surfaces the sent/signed status established as the source of truth elsewhere this session",
+    /d\.status === 'sent'/.test(mountFn) && /d\.signed/.test(mountFn));
+
+  assert('openMobileJobDetail resets the Documents tab (and its load cache) on every open',
+    /mJdTabDocuments[\s\S]{0,200}delete docBody\.dataset\.loadedFor/.test(widgets));
+
+  assert('dashboard-bootstrap.module.js exports _stageWindowStateForLead for cross-file reuse',
+    /window\._stageWindowStateForLead = _stageWindowStateForLead;/.test(bootstrap));
+
+  assert('script-loader.js: docgen bundle carries customer-documents.js (lazy, not a second eager tag)',
+    /docgen:\s*\[[\s\S]{0,700}customer-documents\.js/.test(loader));
 }
 
 section('Customer-surface sweep — blockers caught in review (regression pins)');

@@ -1310,7 +1310,7 @@ function _mJdSwitchTab(tab) {
     t.classList.toggle('active', on);
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
-  const map = { activity:'mJdTabActivity', estimates:'mJdTabEstimates', photos:'mJdTabPhotos', details:'mJdTabDetails' };
+  const map = { activity:'mJdTabActivity', estimates:'mJdTabEstimates', photos:'mJdTabPhotos', documents:'mJdTabDocuments', details:'mJdTabDetails' };
   for (const [k, id] of Object.entries(map)) {
     const el = document.getElementById(id);
     if (el) el.hidden = (k !== tab);
@@ -1319,6 +1319,7 @@ function _mJdSwitchTab(tab) {
   // so a job-detail open costs nothing extra.
   if (tab === 'estimates') _mountEstimateHub();
   if (tab === 'photos') _mountPhotoHub();
+  if (tab === 'documents') _mountDocumentsHub();
 }
 
 // Bring the tab row to the top of the scroller after an action-ring button
@@ -1374,6 +1375,84 @@ function _mountPhotoHub() {
     onPhotosChanged: () => _repaintJobDetailHero(),
     onCoverChanged: () => _repaintJobDetailHero(),
   });
+}
+
+// Mount (or re-render) the Documents tab from the SAME leads/{id}/documents
+// store customer.html reads (customer-documents.js), not a second copy of
+// that read/normalize logic. Jo, from real use: "I can never click
+// documents or see an area for it from my phone" — the mobile job-detail
+// overlay simply never had a Documents tab. Reuses:
+//   - window.NBDCustomerDocs.load() for the fetch+normalize (same rows,
+//     same signed/status logic PR #1612 established as the source of truth)
+//   - the docgen bundle (customer-documents.js added alongside it) for lazy
+//     load, same contract as _generateDocWithPreflight
+//   - customer-documents.js's own global `[data-doc-view]` click delegate
+//     (viewGeneratedDoc) to open a generated doc's HTML — no new click
+//     handler needed here, the delegate is document-level already
+// Scope is read + open, matching what Activity/Details already are (no
+// generate/delete/share from this tab yet — that's a bigger lift than "the
+// rep can't see documents at all today").
+function _mountDocumentsHub() {
+  const host = document.getElementById('mJdTabDocuments');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (host.dataset.loadedFor === leadId) return;
+  host.innerHTML = '<div class="m-jd-empty">Loading documents…</div>';
+
+  (async () => {
+    if (!window.NBDCustomerDocs && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      await window.ScriptLoader.loadBundle('docgen');
+    }
+    if (!window.NBDCustomerDocs) {
+      host.innerHTML = '<div class="m-jd-empty">Documents unavailable — reload the page.</div>';
+      return;
+    }
+    if (typeof window._stageWindowStateForLead === 'function') window._stageWindowStateForLead(leadId);
+
+    let docs;
+    try {
+      docs = await window.NBDCustomerDocs.load(leadId);
+    } catch (e) {
+      host.innerHTML = '<div class="m-jd-empty">Could not load documents — try again.</div>';
+      return;
+    }
+    // Stale by the time the fetch resolves (rep switched leads or closed the
+    // overlay) — a slow load must not paint the wrong customer's documents.
+    if (window._cardDetailLeadId !== leadId) return;
+    host.dataset.loadedFor = leadId;
+    if (!docs.length) {
+      host.innerHTML = '<div class="m-jd-empty">No documents yet.</div>';
+      return;
+    }
+
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    host.innerHTML = docs.map(d => {
+      const icon = d.generated ? '📝' : '📄';
+      const title = esc(d.typeName || d.name || 'Document');
+      const dateStr = d.date ? d.date.toLocaleDateString() : '';
+      const sub = d.signed ? ('✓ Signed' + (d.signedAt ? ' ' + d.signedAt.toLocaleDateString() : ''))
+        : d.status === 'sent' ? 'Awaiting signature'
+        : dateStr;
+      const subHtml = sub ? '<span class="m-jd-act-item-s">' + esc(sub) + '</span>' : '';
+      if (d.url) {
+        return '<a class="m-jd-act-item" style="text-decoration:none;" href="' + esc(d.url) + '" target="_blank" rel="noopener noreferrer">'
+          + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + title + '</span>' + subHtml + '</span>'
+          + '<span class="m-jd-act-item-chev">›</span></a>';
+      }
+      if (d.htmlPath) {
+        return '<button type="button" class="m-jd-act-item" data-doc-view="' + esc(d.id) + '">'
+          + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + title + '</span>' + subHtml + '</span>'
+          + '<span class="m-jd-act-item-chev">›</span></button>';
+      }
+      return '<div class="m-jd-act-item m-jd-act-item--static">'
+        + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+        + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + title + '</span>' + subHtml + '</span>'
+        + '</div>';
+    }).join('');
+  })();
 }
 
 // Recompute the job-detail hero from the same inputs openMobileJobDetail uses:

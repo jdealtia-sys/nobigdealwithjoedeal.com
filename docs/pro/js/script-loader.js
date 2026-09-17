@@ -145,7 +145,12 @@
       'js/nbd-badge-assets.js?v=1',
       'js/document-generator.js?v=10',
       'js/document-generator-templates.js?v=8',
-      'js/doc-preflight.js?v=1'
+      'js/doc-preflight.js?v=1',
+      // Mobile job-detail Documents tab (dashboard-actions.js
+      // _mountDocumentsHub) reads leads/{id}/documents through this same
+      // store customer.html uses — one reader, not a second copy of the
+      // fetch/normalize logic. Version matches customer.html's own tag.
+      'js/customer-documents.js?v=1'
     ],
     // Estimate engine (PR 2c). The revenue-critical builder + its product/
     // catalog data. Only needed when the rep builds an estimate, opens the

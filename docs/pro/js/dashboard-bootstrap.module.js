@@ -891,6 +891,11 @@
     window._allPhotos = (window._photoCache && window._photoCache[leadId]) || [];
     return true;
   }
+  // Exported: the mobile job-detail Documents tab (dashboard-actions.js
+  // _mountDocumentsHub) needs the same window._customerId staging that
+  // customer-documents.js's load()/viewGeneratedDoc() read, and this is
+  // the one function that already does it correctly — no second copy.
+  window._stageWindowStateForLead = _stageWindowStateForLead;
 
   // Render the "Can't generate — missing X" modal. Copy of the same UX
   // pattern used on customer.html, so the rep sees the same message
