@@ -49,12 +49,22 @@ There is no in-flight work and no open PR waiting on anything. Start fresh
 from whatever Jo asks next. Two small, non-blocking things worth knowing
 about if they come up:
 
-1. **A flaky Playwright assertion** — `tests/esign-setup-void-2026-09-16.test.js`,
-   the "VIEWED LINK — status 'viewed' also shows the Void button" case.
-   Failed once in CI (on PR #1620, which never touched that file), passed
-   clean on an immediate re-run. A background task is already spawned for
-   it (task title: "Fix flaky esign-setup-void 'viewed' status test") —
-   check if Jo started it before re-investigating from scratch.
+1. ~~**A flaky Playwright assertion**~~ — **RESOLVED**, don't re-investigate.
+   `tests/esign-setup-void-2026-09-16.test.js`'s "VIEWED LINK" case was fixed
+   same-day in commit `acb484d9` (PR #1626): `openWithStatus()` now waits for
+   `#suVoid.hidden` to settle to the expected value instead of trusting
+   `waitForSelector('.es-page canvas')`, which can match mid-render — the
+   canvas is appended to the DOM at `esign-setup.js:147`, *before* its
+   `page.render(...).promise` is awaited at line 148-152, and
+   `updateVoidVisibility()` doesn't run until `openBytes()` fully returns
+   (`esign-setup.js:592-595`). A later session independently re-verified this
+   root cause against the current source and re-ran the suite: 5/5 clean with
+   the fix in place; reverting the fix locally for 15 runs did not reproduce
+   the race (consistent with it being a genuine but CI-timing-dependent
+   intermittency, not a deterministic repro — matches the original "flaked
+   once, passed clean on immediate re-run" report). No further action needed
+   here; if a spawned background task with this title is still sitting
+   unstarted, it can be dismissed.
 2. **`functions/node_modules` went completely empty twice today**, on this
    machine, in the shared main checkout — once mid-morning, once again
    mid-afternoon. Both times: `npm install` in `functions/` fixed it in
