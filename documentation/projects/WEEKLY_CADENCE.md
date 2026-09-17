@@ -333,11 +333,23 @@
    in [NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md) §2. The one
    survivor — `functions/monthly-overhead-alert.js`'s `expenses` query had
    no `.limit()` — is fixed in PR #1628 alongside 7d.
-8. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
-   claudeProxy already logs real usage, needs aggregation + page wiring
+8. ~~**Admin AI-usage endpoint**~~ **DONE, PR #1631 (2026-09-17)** — new
+   `functions/handlers/ai-usage-analytics.js` (`getAiUsageAnalytics`,
+   platform-admin gated, rate-limited) aggregates the real `api_usage`
+   collection `claudeProxy` was already writing; `/admin/analytics.html`
+   now renders it instead of the `SAMPLE DATA` mock. `errors`/`rateLimits`
+   have no real backing data (only successes are persisted) and are
+   reported as untracked rather than faked.
 9. Functions cold-start increment 2 (lazy export proxies)
 10. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
-11. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
+11. ~~/our-work/<slug> detail pages~~ **DONE, PR #1632 (2026-09-17)** —
+    `scripts/build-projects.mjs` generates one standalone page per live
+    project with its own Service/BreadcrumbList JSON-LD, wired into
+    `build-sitemap.js`. **The Haiku blurb drafter half had no real
+    target**: checked all 45 live projects — every description is already
+    specific, real copy, not placeholder text; the only actual gap (7
+    projects missing a price range) needs Jo's real numbers, not drafted
+    prose, and is already tracked in this file's one-off queue.
 12. **Globals Tranche 3** ~~plan~~ **PARTIALLY EXECUTED, then stalled** —
     verified 2026-09-17: the dependency-ordered plan
     ([globals-tranche3-plan.md](../../docs/dev/globals-tranche3-plan.md),
