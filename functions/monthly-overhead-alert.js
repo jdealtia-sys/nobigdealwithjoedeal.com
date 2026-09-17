@@ -56,7 +56,16 @@ exports.monthlyOverheadAlertCron = onSchedule(
     const db = getFirestore();
     const { lastKey, priorKey, lastLabel, queryStart } = L.monthKeysAt(new Date());
 
-    const snap = await db.collection('expenses').where('date', '>=', queryStart).get();
+    // Capped as a defense against a runaway (an import bug, a tenant with
+    // years of unpruned expense history) rather than because real volume is
+    // expected to reach it — "expense volume is small" above is a belief
+    // about today's data, not a guarantee. A hit is loud, not a silent
+    // truncation: some_company's overhead would quietly under-report.
+    const EXPENSES_READ_CAP = 5000;
+    const snap = await db.collection('expenses').where('date', '>=', queryStart).limit(EXPENSES_READ_CAP).get();
+    if (snap.size >= EXPENSES_READ_CAP) {
+      logger.warn('monthly_overhead.read_cap_hit', { cap: EXPENSES_READ_CAP, queryStart });
+    }
     const docs = snap.docs.map(d => d.data());
     const perCompany = L.summarizeOverhead(docs, lastKey, priorKey);
 

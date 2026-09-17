@@ -98,5 +98,14 @@ ok('marker id stable for same (company, month)', L.alertMarkerId('co-a', '2026-0
 ok('marker id differs by month', L.alertMarkerId('co-a', '2026-06') !== L.alertMarkerId('co-a', '2026-07'));
 ok('marker id differs by company', L.alertMarkerId('co-a', '2026-06') !== L.alertMarkerId('co-b', '2026-06'));
 
+console.log('MONTHLY OVERHEAD LOGIC — cron read is bounded (source contract)');
+{
+  const fs = require('fs');
+  const path = require('path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'functions', 'monthly-overhead-alert.js'), 'utf8');
+  ok('the expenses query caps its read with .limit(', /collection\('expenses'\)[\s\S]{0,80}\.limit\(/.test(src));
+  ok('hitting the cap logs a warning rather than truncating silently', /read_cap_hit/.test(src));
+}
+
 console.log('\n' + (failed === 0 ? '✓' : '✗') + ' monthly overhead logic: ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILURES:\n  ' + fails.join('\n  ')); process.exit(1); }

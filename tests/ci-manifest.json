@@ -38,6 +38,7 @@
     "esign-autodetect.test.js",
     "esign-envelope-guards.test.js",
     "address-match.test.js",
+    "cron-gate-drift.test.js",
     "address-audit-script.test.js",
     "backup-freshness.test.js",
     "billing-gate.test.js",

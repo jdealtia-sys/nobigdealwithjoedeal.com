@@ -1,0 +1,45 @@
+'use strict';
+
+/**
+ * functions/cron-gates.js — the canonical list of feature-gate env vars
+ * that scheduled functions check before doing real work. health-digest.js's
+ * gate-status table and tests/cron-gate-drift.test.js both read this ONE
+ * list, rather than each keeping its own hand-copied copy that can drift
+ * out of sync with what a function actually checks (add a gate to a new
+ * cron and forget to register it here, or rename one and leave a stale
+ * entry behind — either way this is the single place that would catch it).
+ *
+ * Two polarities exist:
+ *   - 'enabled'  — the gate defaults OFF; the cron only runs when the env
+ *                  var is the literal string 'true'.
+ *   - 'disabled' — the gate defaults ON; the cron skips only when the env
+ *                  var is the literal string 'true'.
+ */
+const CRON_GATES = [
+  { name: 'ANNIVERSARY_TOUCH_ENABLED', polarity: 'enabled', file: 'anniversary-touch.js' },
+  { name: 'DORMANT_NUDGE_ENABLED', polarity: 'enabled', file: 'dormant-leads.js' },
+  { name: 'ESTIMATE_EMAIL_ENABLED', polarity: 'enabled', file: 'estimate-email.js' },
+  { name: 'FUNNEL_RECOVERY_ENABLED', polarity: 'enabled', file: 'funnel-recovery.js' },
+  { name: 'HEALTH_DIGEST_ENABLED', polarity: 'enabled', file: 'health-digest.js' },
+  { name: 'LEAD_ACK_SMS_ENABLED', polarity: 'enabled', file: 'lead-alert.js' },
+  { name: 'LEAD_FOLLOWUP_ENABLED', polarity: 'enabled', file: 'lead-followup.js' },
+  { name: 'REVIEW_NUDGE_ENABLED', polarity: 'enabled', file: 'review-request-nudge.js' },
+  { name: 'STORM_TEXT_ENABLED', polarity: 'enabled', file: 'storm-watch.js' },
+  { name: 'VISUALIZER_IMAGEGEN_ENABLED', polarity: 'enabled', file: 'visualizer-image-gen.js' },
+  { name: 'WEEKLY_DIGEST_ENABLED', polarity: 'enabled', file: 'weekly-digest.js' },
+  { name: 'MONTHLY_OVERHEAD_ALERT_DISABLED', polarity: 'disabled', file: 'monthly-overhead-alert.js' },
+];
+
+/**
+ * Reads `env` (normally process.env) and returns each gate's live on/off
+ * state, respecting its polarity.
+ */
+function gateStatus(env) {
+  return CRON_GATES.map((g) => {
+    const raw = env[g.name];
+    const on = g.polarity === 'enabled' ? raw === 'true' : raw !== 'true';
+    return { name: g.name, file: g.file, polarity: g.polarity, raw: raw || '(unset)', on };
+  });
+}
+
+module.exports = { CRON_GATES, gateStatus };
