@@ -76,7 +76,7 @@
   function compute() {
     const leads = Array.isArray(window._leads) ? window._leads : [];
     const estimates = Array.isArray(window._estimates) ? window._estimates : [];
-    if (leads.length === 0 || estimates.length === 0) return [];
+    if (leads.length === 0) return [];
 
     const leadById = {};
     for (const l of leads) leadById[l.id] = l;
@@ -87,11 +87,12 @@
     // per lead and the highest-value estimate they viewed (most
     // useful single number to surface).
     const byLead = new Map();
+    const respondedLeadIds = new Set();
     for (const e of estimates) {
       if (!e || !e.leadId) continue;
-      if (e.respondedAt) continue;
+      if (e.respondedAt) { respondedLeadIds.add(e.leadId); continue; }
       const status = (e.status || '').toLowerCase();
-      if (TERMINAL_ESTIMATE_STATUSES.has(status)) continue;
+      if (TERMINAL_ESTIMATE_STATUSES.has(status)) { respondedLeadIds.add(e.leadId); continue; }
       const viewed = toMillis(e.viewedAt);
       if (!viewed) continue;
       if (viewed < cutoff) continue;
@@ -110,6 +111,32 @@
         existing.estCount++;
         if (viewed > existing.viewedAt) existing.viewedAt = viewed;
         if (total > existing.total)     existing.total = total;
+      }
+    }
+
+    // 2026-09-16 (view-tracking fix): estimate.viewedAt only fires from the
+    // standalone estimate-view.html link. A homeowner who opens the MAIN
+    // portal instead (functions/portal.js's getHomeownerPortalView, which
+    // stamps lead.lastPortalOpenAt on a genuine open — the same signal
+    // customer-viewed-chip.js / customer-engagement-score.js / notif-bell.js /
+    // buying-intent-strike.js were extended to read) never surfaced a lead
+    // here before, even one with no estimate viewed at all. Merges into the
+    // existing per-lead entries (a portal open counts toward "most recent
+    // engagement" the same as a later estimate view would) and adds
+    // portal-only leads with estCount:0/total:0 — both already render
+    // correctly as "viewed" with no dollar figure or estimate count shown.
+    for (const lead of leads) {
+      if (!lead || lead.deleted || lead.isProspect) continue;
+      if (respondedLeadIds.has(lead.id)) continue;
+      if (window.LeadSnooze && window.LeadSnooze.isSnoozed(lead)) continue;
+      const opened = toMillis(lead.lastPortalOpenAt);
+      if (!opened || opened < cutoff) continue;
+
+      const existing = byLead.get(lead.id);
+      if (existing) {
+        if (opened > existing.viewedAt) existing.viewedAt = opened;
+      } else {
+        byLead.set(lead.id, { lead, viewedAt: opened, total: 0, estCount: 0 });
       }
     }
 
@@ -229,7 +256,7 @@
                 background:var(--s2,#0f1419); border:1px solid var(--br,#1e2530);
                 cursor:pointer; transition:background .15s;
                 -webkit-tap-highlight-color:transparent;"
-              title="Customer viewed ${estCount === 1 ? 'an estimate' : estCount + ' estimates'} — no response yet">
+              title="Customer viewed ${estCount === 0 ? 'the portal' : estCount === 1 ? 'an estimate' : estCount + ' estimates'} — no response yet">
               <div style="
                 width:34px; height:34px; flex-shrink:0;
                 background:#a855f7; color:#fff;

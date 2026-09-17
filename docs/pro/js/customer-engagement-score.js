@@ -83,6 +83,19 @@
         if (ms > latestViewMs) latestViewMs = ms;
       }
     }
+    // 2026-09-16 (view-tracking fix): estimate.viewedAt only fires from the
+    // standalone /pro/estimate-view.html link — a homeowner who opens the
+    // MAIN portal (functions/portal.js's getHomeownerPortalView, which now
+    // stamps lead.lastPortalOpenAt on a genuine open) never moved this tier,
+    // so a rep watching this chip saw "waiting for the customer to open it"
+    // even after they had. A portal open counts as a view exactly like an
+    // estimate view does — same viewCount/latestViewMs the Hot/Viewed tiers
+    // below already key off, so no other logic needed to change.
+    const portalOpenMs = toMillis(lead.lastPortalOpenAt);
+    if (portalOpenMs > 0) {
+      viewCount++;
+      if (portalOpenMs > latestViewMs) latestViewMs = portalOpenMs;
+    }
 
     const sharedMs = toMillis(lead.lastSharedAt);
     const sharedAgeMs = sharedMs ? Date.now() - sharedMs : Infinity;

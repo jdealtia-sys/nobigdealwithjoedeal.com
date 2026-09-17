@@ -265,7 +265,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               133/68/220 base as the adjuster-board lane above. Re-
 //               measured via --check on this tree (four lanes above
 //               already merged + this one): 139/68/226.
-const FLOORS = { node: 139, smoke: 68, disk: 226 };
+const FLOORS = { node: 154, smoke: 68, disk: 242 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

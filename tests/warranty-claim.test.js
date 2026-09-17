@@ -302,7 +302,11 @@ function loadWarrantyClaim(dbHooks, domStub) {
 // ═══════════════════════════════════════════════════════════════════════
 console.log('\nDeliberate mutation — resolutionNotes gate removed (proves 3d is a real guard, not a tautology)');
 {
-  let src = fs.readFileSync(path.join(PRO_JS, 'warranty-claim.js'), 'utf8');
+  // Normalize to LF before matching: warranty-claim.js is a CRLF file on
+  // this repo's Windows checkouts, and a hardcoded \n target string here
+  // would silently stop matching the moment line endings flip either way
+  // (see documentation/audit/GIT-PHANTOM-MODIFICATIONS-2026-09-05.md).
+  let src = fs.readFileSync(path.join(PRO_JS, 'warranty-claim.js'), 'utf8').replace(/\r\n/g, '\n');
   const before = src;
   src = src.replace(
     "if (!notes) {\n      if (typeof window.showToast === 'function') window.showToast('Resolution notes are required to close a claim', 'warning');\n      return false;\n    }",

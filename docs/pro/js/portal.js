@@ -232,11 +232,19 @@
     if (pStage && nStage && pStage !== nStage) {
       events.push({ kind: 'stage', from: pStage, to: nStage, msg: `🎉 Status update: now ${nStage}` });
     }
-    const pPhotos = (prev.photos && prev.photos.length) || 0;
-    const nPhotos = (next.photos && next.photos.length) || 0;
-    if (nPhotos > pPhotos) {
-      const added = nPhotos - pPhotos;
-      events.push({ kind: 'photos', delta: added, msg: `📸 ${added} new photo${added === 1 ? '' : 's'} from your rep` });
+    // 2026-09-16 (photo self-announce fix): was a bare length comparison,
+    // so a homeowner's OWN upload via "Show Us What You See" (which lands
+    // in this same sharedWithHomeowner-gated photos array — see
+    // uploadHomeownerPhoto in functions/portal.js) incremented the count
+    // and got announced back to them as "new photo from your rep". Diff by
+    // id to find what's actually NEW, then exclude anything the homeowner
+    // uploaded themselves (source: 'homeowner', added to the server payload
+    // by the same fix) — only a rep-sourced addition is a "from your rep"
+    // event.
+    const pPhotoIds = new Set(((prev.photos) || []).map(p => p.id));
+    const newRepPhotos = ((next.photos) || []).filter(p => !pPhotoIds.has(p.id) && p.source !== 'homeowner');
+    if (newRepPhotos.length) {
+      events.push({ kind: 'photos', delta: newRepPhotos.length, msg: `📸 ${newRepPhotos.length} new photo${newRepPhotos.length === 1 ? '' : 's'} from your rep` });
     }
     // (Removed dead "new message" banner: getHomeownerPortalView never returns
     // a `messages` field, so this never fired. Rep replies are surfaced by the
@@ -504,6 +512,26 @@
     return n.getFullYear() + '-' + p(n.getMonth() + 1) + '-' + p(n.getDate());
   }
 
+  // Short date for a completed progress-timeline step, e.g. "Sep 3" (or
+  // "Sep 3, 2025" across a year boundary, so a job spanning New Year's
+  // doesn't read as "which September"). Unlike _scheduleLine's bare
+  // YYYY-MM-DD input, view.progress.milestoneDates carries full ISO
+  // timestamps (server writes new Date().toISOString()) — new Date(iso)
+  // parses those correctly in the reader's local zone.
+  function _milestoneDateLabel(iso) {
+    if (typeof iso !== 'string') return null;
+    const dt = new Date(iso);
+    if (isNaN(dt.getTime())) return null;
+    const sameYear = dt.getFullYear() === new Date().getFullYear();
+    try {
+      return dt.toLocaleDateString(undefined, sameYear
+        ? { month: 'short', day: 'numeric' }
+        : { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch (_) {
+      return null;
+    }
+  }
+
   function renderView(view) {
     const firstName = (view.homeowner && view.homeowner.firstName) || '';
     const lastName  = (view.homeowner && view.homeowner.lastName)  || '';
@@ -540,26 +568,64 @@
         if (_footSite) _footSite.style.display = 'none';
         var _cols = view.company.colors || null;
         if (_cols && _cols.accent) {
+          // 2026-09-16 (CTA-contrast fix): this used to copy the raw tenant
+          // accent verbatim into the background ramp, with only a coarse
+          // luminance>0.45 threshold picking white-or-#12223D foreground —
+          // not a computed WCAG ratio, so a mid-luminance tenant color could
+          // clear that threshold while still failing real AA (4.5:1)
+          // against EITHER ink choice. Fix: darken the accent itself, in
+          // small steps, until at least one ink choice actually achieves
+          // AA — "derive by darkening until AA, don't copy the accent" —
+          // then pick whichever ink has the higher of the two ratios. A
+          // tenant accent already dark enough exits the loop on the first
+          // check (safeAccent === the original color, unchanged).
+          var _hexToRgb = function (h) {
+            h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(function (c) { return c + c; }).join('');
+            return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+          };
+          var _relLum = function (rgb) {
+            var f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+            return 0.2126 * f(rgb[0]) + 0.7152 * f(rgb[1]) + 0.0722 * f(rgb[2]);
+          };
+          var _contrast = function (l1, l2) {
+            var a = Math.max(l1, l2) + 0.05, b = Math.min(l1, l2) + 0.05; return a / b;
+          };
+          var _rgbToHex = function (rgb) {
+            return '#' + rgb.map(function (v) {
+              return Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0');
+            }).join('');
+          };
+          var AA = 4.5; // WCAG AA, normal text — the button label size this drives
+          var DARK_INK_LUM = _relLum(_hexToRgb('#12223D'));
+          var _rgb = _hexToRgb(_cols.accent);
+          var safeAccent = _cols.accent;
+          for (var _i = 0; _i < 20; _i++) {
+            var _lum = _relLum(_rgb);
+            if (_contrast(_lum, 1) >= AA || _contrast(_lum, DARK_INK_LUM) >= AA) { safeAccent = _rgbToHex(_rgb); break; }
+            _rgb = _rgb.map(function (c) { return c * 0.9; }); // 10% darker each step
+            safeAccent = _rgbToHex(_rgb);
+          }
+          var _safeLum = _relLum(_hexToRgb(safeAccent));
+          var _fg = _contrast(_safeLum, 1) >= _contrast(_safeLum, DARK_INK_LUM) ? '#ffffff' : '#12223D';
+
           // Override the whole orange RAMP, not just the base token — the
           // tenant drill showed mixed blue/orange (progress dots, eyebrow,
           // totals use the -deep/-medium/-soft/-glow variants). color-mix
-          // derives each from the tenant accent.
+          // derives each from safeAccent (the AA-verified color above, not
+          // necessarily the raw tenant value).
           // nbd-brand.css also scopes the token set onto .nbd-brand (body
           // carries that class), which SHADOWS an html-level override for
           // everything inside body — set the vars on BOTH roots.
           var _apply = function (st) {
-            st.setProperty('--nbd-orange', _cols.accent);
-            st.setProperty('--accent', _cols.accent);
-            st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + _cols.accent + ' 78%, #000)');
-            st.setProperty('--nbd-orange-medium', 'color-mix(in srgb, ' + _cols.accent + ' 88%, #000)');
-            st.setProperty('--nbd-orange-ink', 'color-mix(in srgb, ' + _cols.accent + ' 60%, #000)');
-            st.setProperty('--nbd-orange-soft', 'color-mix(in srgb, ' + _cols.accent + ' 12%, transparent)');
-            st.setProperty('--nbd-orange-glow', 'color-mix(in srgb, ' + _cols.accent + ' 30%, transparent)');
+            st.setProperty('--nbd-orange', safeAccent);
+            st.setProperty('--accent', safeAccent);
+            st.setProperty('--nbd-orange-deep', 'color-mix(in srgb, ' + safeAccent + ' 78%, #000)');
+            st.setProperty('--nbd-orange-medium', 'color-mix(in srgb, ' + safeAccent + ' 88%, #000)');
+            st.setProperty('--nbd-orange-ink', 'color-mix(in srgb, ' + safeAccent + ' 60%, #000)');
+            st.setProperty('--nbd-orange-soft', 'color-mix(in srgb, ' + safeAccent + ' 12%, transparent)');
+            st.setProperty('--nbd-orange-glow', 'color-mix(in srgb, ' + safeAccent + ' 30%, transparent)');
             st.setProperty('--nbd-ink-on-orange', _fg);
           };
-
-          var _lum=(function(h){h=h.replace('#','');if(h.length===3)h=h.split('').map(function(c){return c+c}).join('');var r=parseInt(h.slice(0,2),16)/255,g=parseInt(h.slice(2,4),16)/255,b=parseInt(h.slice(4,6),16)/255;var f=function(v){return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4)};return 0.2126*f(r)+0.7152*f(g)+0.0722*f(b)})(_cols.accent);
-          var _fg=_lum>0.45?'#12223D':'#ffffff';
           _apply(document.documentElement.style);
           if (document.body) _apply(document.body.style);
         }
@@ -590,9 +656,15 @@
       const steps = p.milestones.map((m, i) => {
         const cls = i < idx ? 'done' : (i === idx ? 'current' : '');
         const symbol = i < idx ? '✓' : (i + 1);
+        // Only a completed step gets a date — the current step's date isn't
+        // known yet (it's in progress), and future steps have no date at all.
+        const dateLabel = i < idx
+          ? _milestoneDateLabel(p.milestoneDates && p.milestoneDates[m.key])
+          : null;
         return '<div class="progress-step ' + cls + '">' +
                  '<div class="progress-dot">' + symbol + '</div>' +
                  '<div class="progress-step-label">' + esc(m.label) + '</div>' +
+                 (dateLabel ? '<div class="progress-step-date">' + esc(dateLabel) + '</div>' : '') +
                '</div>';
       }).join('');
       const nextHtml = p.nextLabel
@@ -719,6 +791,56 @@
           '<div class="card-label">Sign Your Contract</div>' +
           '<div class="card-title">Check your email</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;">We\'ve sent the signing link. If you can\'t find it, reply to any message from your rep and we\'ll re-send.</p>' +
+        '</div>'
+      );
+    }
+
+    // ── Documents shelf (2026-09-16) ──
+    // Contract/estimate/invoice/warranty/etc (auto-visible, generated by
+    // construction) + any rep-shared upload + signed ancillary (esign)
+    // paperwork — see functions/portal.js's view.documents build for the
+    // visibility rule. A row with a direct `url` (upload, or an esign PDF —
+    // both already server-validated https) just downloads; a row with none
+    // (`viaHtml`, generated HTML content) opens in the sandboxed viewer
+    // below — see wirePortalDocumentsCard for why that can't be a plain
+    // link the way the others are.
+    if (Array.isArray(view.documents) && view.documents.length) {
+      const docRows = view.documents.map(function (d) {
+        const dateLabel = _milestoneDateLabel(d.date);
+        const meta = dateLabel ? '<div class="doc-meta">' + esc(dateLabel) + '</div>' : '';
+        const action = d.url
+          ? '<a class="btn btn-ghost" href="' + esc(safeUrl(d.url)) + '" target="_blank" rel="noopener">Download</a>'
+          : '<button type="button" class="btn btn-ghost portal-doc-view" data-doc-id="' + esc(d.id) + '">View</button>';
+        return '<div class="doc-row">' +
+                 '<div class="doc-info"><div class="doc-name">' + esc(d.name) + '</div>' + meta + '</div>' +
+                 action +
+               '</div>';
+      }).join('');
+      parts.push(
+        '<div class="card">' +
+          '<div class="card-label">📄 Your Documents</div>' +
+          '<div class="doc-list">' + docRows + '</div>' +
+        '</div>'
+      );
+    }
+
+    // ── Balance due / pay (2026-09-16), read-only ──
+    // Only ever shows a real, already-rep-sent Stripe link (functions/
+    // portal.js never mints one) — never a dead "Pay Now" button. Absent
+    // entirely when there's no outstanding invoice, same gating shape as
+    // every other conditional card on this page.
+    if (view.balance) {
+      const amount = (view.balance.amountCents / 100).toLocaleString(undefined, {
+        style: 'currency', currency: 'USD'
+      });
+      const payAction = view.balance.stripePaymentLink
+        ? '<a class="btn" style="margin-top:12px;" href="' + esc(safeUrl(view.balance.stripePaymentLink)) + '" target="_blank" rel="noopener">Pay Now →</a>'
+        : '<p style="color:var(--muted);margin:12px 0 0;">Ask your rep for a payment link to pay online.</p>';
+      parts.push(
+        '<div class="card">' +
+          '<div class="card-label">💳 Balance Due</div>' +
+          '<div class="card-title">' + esc(amount) + '</div>' +
+          payAction +
         '</div>'
       );
     }
@@ -1135,6 +1257,9 @@
     // Audit batch 7 gap fix: wire the signed-contract download link to
     // emit document_view (no-op if the card wasn't rendered).
     wireDocumentLinks(view);
+    // 2026-09-16: wire the Documents shelf's "View" buttons (no-op if the
+    // card wasn't rendered, or every row had a direct download url instead).
+    wirePortalDocumentsCard();
   }
 
   // ─── D-2.7: Before & After ────────────────────────────────────
@@ -1209,6 +1334,139 @@
     const estId = (view && view.estimate && view.estimate.id) || null;
     link.addEventListener('click', function () {
       _emitAuditEvent('document_view', estId);
+    });
+  }
+
+  // ─── 2026-09-16: Documents shelf — sandboxed viewer ────────────
+  // A generated document (contract/estimate/invoice/etc) has no direct URL
+  // to link to — functions/document-view.js's header explains why a signed
+  // Storage URL is wrong for HTML specifically (it would execute same-origin
+  // as storage.googleapis.com, unlike the plain-link rows above, which are
+  // PDFs/images). The rep-facing equivalent (NBDDocViewer, docs/pro/js/
+  // nbd-doc-viewer.js) solves this with a sandboxed srcdoc iframe; this
+  // mirrors its exact sandbox token list (see that file's "H-2" comment —
+  // 'allow-same-origin' is deliberately ABSENT so the iframe gets an opaque
+  // origin: allow-scripts still lets the document's own print button etc.
+  // work, but an opaque-origin frame cannot read this page's DOM, storage,
+  // or make same-origin-credentialed requests, even with scripting on).
+  // 2026-09-16 (a11y fix): this modal originally had no aria-modal, no
+  // role, and no focus trap at all — a real modal dialog with none of the
+  // accessible-modal semantics or keyboard containment customer.html's
+  // OLDER modals at least (incompletely) advertise. Since this is new code
+  // with no back-compat concern, it gets the full treatment: role="dialog"
+  // + aria-modal on the dialog box itself (not the backdrop), focus moved
+  // in on open and restored to whatever triggered it on close, and a real
+  // Tab-key trap so keyboard/screen-reader focus can't leak to the page
+  // behind the backdrop.
+  let _docModal = null;
+  let _docModalTrapHandler = null;
+  let _docModalTriggerEl = null;
+  function _openDocModal(name) {
+    _docModalTriggerEl = document.activeElement;
+    if (!_docModal) {
+      const overlay = document.createElement('div');
+      overlay.className = 'doc-modal-overlay';
+      overlay.innerHTML =
+        '<div class="doc-modal" role="dialog" aria-modal="true" aria-labelledby="docModalTitle">' +
+          '<div class="doc-modal-header">' +
+            '<div class="doc-modal-title" id="docModalTitle"></div>' +
+            '<button type="button" class="doc-modal-close" aria-label="Close">✕</button>' +
+          '</div>' +
+          '<div class="doc-modal-body">' +
+            '<div class="doc-modal-status">Loading…</div>' +
+            '<iframe class="doc-modal-iframe" tabindex="-1" sandbox="allow-popups allow-popups-to-escape-sandbox allow-forms allow-scripts allow-modals" title="Document"></iframe>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+      const close = () => {
+        overlay.classList.remove('open');
+        overlay.querySelector('.doc-modal-iframe').srcdoc = '';
+        if (_docModalTrapHandler) { document.removeEventListener('keydown', _docModalTrapHandler); _docModalTrapHandler = null; }
+        if (_docModalTriggerEl && typeof _docModalTriggerEl.focus === 'function') _docModalTriggerEl.focus();
+      };
+      overlay.querySelector('.doc-modal-close').addEventListener('click', close);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+      overlay._nbdClose = close;
+      _docModal = overlay;
+    }
+    // Wired on every OPEN (not just the first build) — close() removes it,
+    // and the modal DOM is reused across opens, so a listener added only
+    // once at build time would silently stop working after the first close.
+    const dialog = _docModal.querySelector('.doc-modal');
+    // The iframe is deliberately tabindex="-1" (excluded here by
+    // :not([tabindex="-1"])) — NOT an oversight. Once keyboard focus moves
+    // INSIDE a sandboxed cross-origin iframe (no allow-same-origin, by
+    // design — see the sandbox comment above), its keydown events fire in
+    // THAT document, not this one; a parent-level listener structurally
+    // cannot observe them, so Tab pressed while focus is inside the iframe
+    // can never reach this handler to be trapped. Granting the sandbox
+    // allow-same-origin to fix that would defeat the entire reason it's
+    // sandboxed in the first place. So the close button is the only
+    // element this trap manages — a provably-correct trap around one
+    // element beats an attempted trap that silently leaks focus to the
+    // page behind the backdrop the moment a user tabs into the iframe.
+    // offsetParent is null for display:none elements (among other cases) —
+    // still needed for anything ever added here in future, though today
+    // the only match is the always-visible close button.
+    const focusable = () => Array.from(dialog.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    )).filter((el) => el.offsetParent !== null);
+    _docModalTrapHandler = (e) => {
+      if (e.key === 'Escape') { _docModal._nbdClose(); return; }
+      if (e.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) return;
+      e.preventDefault();
+      const idx = items.indexOf(document.activeElement);
+      const next = e.shiftKey
+        ? items[idx <= 0 ? items.length - 1 : idx - 1]
+        : items[idx === -1 || idx === items.length - 1 ? 0 : idx + 1];
+      next.focus();
+    };
+    document.addEventListener('keydown', _docModalTrapHandler);
+
+    _docModal.querySelector('.doc-modal-title').textContent = name || 'Document';
+    _docModal.querySelector('.doc-modal-status').style.display = 'block';
+    _docModal.querySelector('.doc-modal-status').textContent = 'Loading…';
+    _docModal.querySelector('.doc-modal-iframe').style.display = 'none';
+    _docModal.classList.add('open');
+    // Move focus into the dialog so screen readers announce it and Tab
+    // starts contained — the close button, not the iframe (which has no
+    // content yet while the fetch below is in flight).
+    _docModal.querySelector('.doc-modal-close').focus();
+    return _docModal;
+  }
+
+  function wirePortalDocumentsCard() {
+    const list = document.querySelector('.doc-list');
+    if (!list) return;
+    list.addEventListener('click', async function (e) {
+      const btn = e.target.closest('.portal-doc-view');
+      if (!btn) return;
+      const docId = btn.dataset.docId;
+      if (!docId) return;
+      const token = getToken().trim();
+      const modal = _openDocModal(btn.closest('.doc-row')?.querySelector('.doc-name')?.textContent);
+      try {
+        const res = await fetch(FUNCTIONS_BASE + '/getPortalDocumentHtml', {
+          method: 'POST',
+          credentials: 'omit',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token, docId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || typeof data.html !== 'string') {
+          modal.querySelector('.doc-modal-status').textContent = (data && data.error) || 'Could not load this document.';
+          return;
+        }
+        const iframe = modal.querySelector('.doc-modal-iframe');
+        iframe.srcdoc = data.html;
+        modal.querySelector('.doc-modal-status').style.display = 'none';
+        iframe.style.display = 'block';
+        _emitAuditEvent('document_view', docId);
+      } catch (err) {
+        modal.querySelector('.doc-modal-status').textContent = 'Could not load this document — check your connection and try again.';
+      }
     });
   }
 
@@ -2001,6 +2259,16 @@
                 ? ' (' + json.remainingToday + ' more allowed today)' : ''),
               'success'
             );
+            // Belt-and-suspenders for the photo self-announce fix above:
+            // mark this photo as already-seen in local state immediately,
+            // rather than depending on the next 30s poll's server payload
+            // to carry source:'homeowner' before _diffView runs against it.
+            // Covers a race between this success handler and the poll timer.
+            if (_lastView && Array.isArray(_lastView.photos) && json.photoId) {
+              _lastView = Object.assign({}, _lastView, {
+                photos: _lastView.photos.concat([{ id: json.photoId, url: json.url || null, urls: null, phase: 'During', caption: caption || '', source: 'homeowner' }])
+              });
+            }
             // Reset for another upload after a beat so the rep
             // can send a few in sequence.
             setTimeout(() => {

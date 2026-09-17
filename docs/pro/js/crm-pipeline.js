@@ -984,7 +984,6 @@ function buildCard(l){
   let viewedBadge = '';
   (function buildViewedBadge() {
     const estimates = Array.isArray(window._estimates) ? window._estimates : [];
-    if (estimates.length === 0) return;
     const sk = (l._stageKey || l.stage || 'new').toString();
     if (sk === 'closed' || sk === 'lost' || sk === 'Lost' || sk === 'Complete') return;
 
@@ -1001,7 +1000,22 @@ function buildCard(l){
       else if (typeof v === 'number')                 ms2 = v;
       if (ms2 > latestViewMs) latestViewMs = ms2;
     }
-    if (anyResponded || latestViewMs === 0) return;
+    if (anyResponded) return;
+    // 2026-09-16 (view-tracking fix, kept in lockstep with
+    // customer-viewed-chip.js's matching badge — see that file's header
+    // comment): estimate.viewedAt only fires from the standalone
+    // estimate-view.html link. A homeowner who opens the main portal
+    // (functions/portal.js stamps lead.lastPortalOpenAt on a genuine open)
+    // never moved this badge before — it required at least one estimate to
+    // exist at all. Counts exactly like an estimate view for "latest".
+    let portalMs = 0;
+    const po = l.lastPortalOpenAt;
+    if (po && typeof po.toMillis === 'function')      portalMs = po.toMillis();
+    else if (po && typeof po.toDate === 'function')   portalMs = po.toDate().getTime();
+    else if (po instanceof Date)                      portalMs = po.getTime();
+    else if (typeof po === 'number')                  portalMs = po;
+    if (portalMs > latestViewMs) latestViewMs = portalMs;
+    if (latestViewMs === 0) return;
 
     const days = Math.floor((Date.now() - latestViewMs) / 86400000);
     let label;
