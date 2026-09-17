@@ -460,13 +460,6 @@ window.buildTopbarThemeGrid    = nbdRenderThemes;
 window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full picker replaces it
 
 /* ── EXPOSE MAP FUNCTIONS TO WINDOW ─────────────────────────────────
-   Every name below is defined in a SIBLING file (maps-overlays, maps-core,
-   maps-routing, dashboard-actions, dashboard-ui, dashboard-widgets). A bare
-   read of a missing sibling's identifier throws a ReferenceError at maps.js
-   top level, which used to kill nbdBoot() below — one failed script load
-   (deploy race, SW cache miss, 5xx) silently took down the theme/font engine.
-   So: every re-export is typeof-guarded AND the block is fenced in its own
-   try/catch so a future unguarded addition still can't reach nbdBoot.
    spyglassSearch / spyglassGoToLocation / fabToggle / quickStormCheck →
    __NBD_CALL_REGISTRY (dashboard-ui.js, Globals Tranche 2c-4h Slice H2);
    markup dispatch resolves registry-first, no re-export needed here.
@@ -477,25 +470,19 @@ window.buildWelcomeThemePicker = () => {};  // DS welcome modal — no-op, full 
    dashboard-actions.js, Globals Tranche 3 slice T3-0 (2026-08-31) — the six
    re-exports that lived here are deleted. Those were the shims the Tranche 2
    audit called "unguarded"; the 2026-08-07 rework above already made them
-   typeof-guarded, which is what finally made the cluster convertible. */
-try {
-  // maps-overlays.js
-  if (typeof searchMap === 'function') window.searchMap = searchMap;
-  if (typeof selectPin === 'function') window.selectPin = selectPin;
-  if (typeof deletePin === 'function') window.deletePin = deletePin;
-  if (typeof clearAllPins === 'function') window.clearAllPins = clearAllPins;
-  if (typeof goToLeadFromPin === 'function') window.goToLeadFromPin = goToLeadFromPin;
-  if (typeof deleteLeadFromPin === 'function') window.deleteLeadFromPin = deleteLeadFromPin;
-  if (typeof makeLeadFromPin === 'function') window.makeLeadFromPin = makeLeadFromPin;
-  if (typeof deletePinOnly === 'function') window.deletePinOnly = deletePinOnly;
-  // dashboard-ui.js / dashboard-widgets.js / maps-core.js / maps-routing.js
-  if (typeof toggleMapSidebar === 'function') window.toggleMapSidebar = toggleMapSidebar;
-  if (typeof updatePinStats === 'function') window.updatePinStats = updatePinStats;
-  if (typeof toggleOverlay === 'function') window.toggleOverlay = toggleOverlay;
-  if (typeof goToMyLocation === 'function') window.goToMyLocation = goToMyLocation;
-} catch (e) {
-  console.error('[maps.js] sibling re-export failed (a maps/dashboard file did not load?):', e);
-}
+   typeof-guarded, which is what finally made the cluster convertible.
+   2026-09-17 (Globals Tranche 3, T3-B): the remaining 12-name try/catch
+   block (searchMap/selectPin/deletePin/clearAllPins/goToLeadFromPin/
+   deleteLeadFromPin/makeLeadFromPin/deletePinOnly/toggleMapSidebar/
+   updatePinStats/toggleOverlay/goToMyLocation) was pure `window.X =
+   window.X` — every one of those 12 names is a top-level `function`/
+   `async function` declaration in its owner sibling file (maps-overlays.js,
+   dashboard-ui.js, dashboard-widgets.js, maps-core.js, maps-routing.js;
+   goToMyLocation and searchMap even carry their OWN explicit window.X = X
+   export already), which a classic non-module script puts on window the
+   moment that file parses — independent of whether this block ever ran.
+   Verified against the live tree: single owner each, zero bracket/dynamic
+   dispatch, no twin definitions. Deleted rather than re-guarded. */
 
 /* ── BOOT ─────────────────────────────────────────────────────────── */
 (function nbdBoot() {
