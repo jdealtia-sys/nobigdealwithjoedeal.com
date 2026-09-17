@@ -891,6 +891,11 @@
     window._allPhotos = (window._photoCache && window._photoCache[leadId]) || [];
     return true;
   }
+  // Exported: the mobile job-detail Documents tab (dashboard-actions.js
+  // _mountDocumentsHub) needs the same window._customerId staging that
+  // customer-documents.js's load()/viewGeneratedDoc() read, and this is
+  // the one function that already does it correctly — no second copy.
+  window._stageWindowStateForLead = _stageWindowStateForLead;
 
   // Render the "Can't generate — missing X" modal. Copy of the same UX
   // pattern used on customer.html, so the rep sees the same message
@@ -955,6 +960,12 @@
     }
     _run();
   }
+  // Exported: the mobile job-detail Documents tab's "Generate a document"
+  // picker (dashboard-actions.js _mJdOpenDocCreate) reuses this SAME
+  // staging+prereq+DocPreflight chain instead of a second copy, and needs
+  // the prerequisite labels to build its type list.
+  window._generateDocWithPreflight = _generateDocWithPreflight;
+  window._DASH_DOC_PREREQUISITES = _DASH_DOC_PREREQUISITES;
 
   // explicitLeadId (2026-09-15): the kanban card's next-action chip calls
   // this directly (crm-pipeline.js wireKanbanCardListeners) with the

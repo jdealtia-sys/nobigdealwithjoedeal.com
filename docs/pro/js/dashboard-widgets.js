@@ -1149,6 +1149,12 @@ function openMobileJobDetail(leadId) {
 
   window._cardDetailLeadId = leadId;
 
+  // Tear down Messages/Voice Intel's live Firestore listener if it's still
+  // mounted for a DIFFERENT lead — see dashboard-actions.js's
+  // _mJdTeardownRealtimeTabs comment for why this can't wait for the rep to
+  // revisit those tabs.
+  if (typeof window._mJdTeardownRealtimeTabs === 'function') window._mJdTeardownRealtimeTabs(leadId);
+
   // ── Status pill (uses the same stageLabel/stageColor as the desktop modal) ──
   const rawStage = lead._stageKey || lead.stage || 'new';
   const stageEl = $('mJdStatus');
@@ -1263,6 +1269,16 @@ function openMobileJobDetail(leadId) {
       window.CustomerPhotoHub.unmount();
     }
     photoBody.innerHTML = '<div class="m-jd-empty">Loading photos…</div>';
+  }
+
+  // ── Documents tab — cleared, not built. _mountDocumentsHub owns this tab
+  // and mounts on the first switch to it (_mJdSwitchTab), same lazy contract
+  // as Estimates/Photos. Clearing the cache flag forces a re-fetch for
+  // whichever lead this overlay is opening for now, not the previous one.
+  const docBody = $('mJdTabDocuments');
+  if (docBody) {
+    delete docBody.dataset.loadedFor;
+    docBody.innerHTML = '<div class="m-jd-empty">Loading documents…</div>';
   }
 
   // ── Activity tab — the lead's estimates + stage history ──

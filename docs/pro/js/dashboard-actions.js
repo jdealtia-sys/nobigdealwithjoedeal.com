@@ -1310,7 +1310,7 @@ function _mJdSwitchTab(tab) {
     t.classList.toggle('active', on);
     t.setAttribute('aria-selected', on ? 'true' : 'false');
   });
-  const map = { activity:'mJdTabActivity', estimates:'mJdTabEstimates', photos:'mJdTabPhotos', details:'mJdTabDetails' };
+  const map = { activity:'mJdTabActivity', estimates:'mJdTabEstimates', photos:'mJdTabPhotos', documents:'mJdTabDocuments', messages:'mJdTabMessages', voice:'mJdTabVoice', details:'mJdTabDetails' };
   for (const [k, id] of Object.entries(map)) {
     const el = document.getElementById(id);
     if (el) el.hidden = (k !== tab);
@@ -1319,6 +1319,9 @@ function _mJdSwitchTab(tab) {
   // so a job-detail open costs nothing extra.
   if (tab === 'estimates') _mountEstimateHub();
   if (tab === 'photos') _mountPhotoHub();
+  if (tab === 'documents') _mountDocumentsHub();
+  if (tab === 'messages') _mountMessagesHub();
+  if (tab === 'voice') _mountVoiceIntel();
 }
 
 // Bring the tab row to the top of the scroller after an action-ring button
@@ -1375,6 +1378,271 @@ function _mountPhotoHub() {
     onCoverChanged: () => _repaintJobDetailHero(),
   });
 }
+
+// Mount (or re-render) the Documents tab from the SAME leads/{id}/documents
+// store customer.html reads (customer-documents.js), not a second copy of
+// that read/normalize logic. Jo, from real use: "I can never click
+// documents or see an area for it from my phone" — the mobile job-detail
+// overlay simply never had a Documents tab. Reuses:
+//   - window.NBDCustomerDocs.load() for the fetch+normalize (same rows,
+//     same signed/status logic PR #1612 established as the source of truth)
+//   - the docgen bundle (customer-documents.js added alongside it) for lazy
+//     load, same contract as _generateDocWithPreflight
+//   - customer-documents.js's own global `[data-doc-view]` click delegate
+//     (viewGeneratedDoc) to open a generated doc's HTML — no new click
+//     handler needed here, the delegate is document-level already
+// Scope is read + open, matching what Activity/Details already are (no
+// generate/delete/share from this tab yet — that's a bigger lift than "the
+// rep can't see documents at all today").
+function _mountDocumentsHub() {
+  const host = document.getElementById('mJdTabDocuments');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (host.dataset.loadedFor === leadId) return;
+  host.innerHTML = '<div class="m-jd-empty">Loading documents…</div>';
+
+  (async () => {
+    if (!window.NBDCustomerDocs && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+      await window.ScriptLoader.loadBundle('docgen');
+    }
+    if (!window.NBDCustomerDocs) {
+      host.innerHTML = '<div class="m-jd-empty">Documents unavailable — reload the page.</div>';
+      return;
+    }
+    if (typeof window._stageWindowStateForLead === 'function') window._stageWindowStateForLead(leadId);
+
+    let docs;
+    try {
+      docs = await window.NBDCustomerDocs.load(leadId);
+    } catch (e) {
+      host.innerHTML = '<div class="m-jd-empty">Could not load documents — try again.</div>';
+      return;
+    }
+    // Stale by the time the fetch resolves (rep switched leads or closed the
+    // overlay) — a slow load must not paint the wrong customer's documents.
+    if (window._cardDetailLeadId !== leadId) return;
+    host.dataset.loadedFor = leadId;
+    if (!docs.length) {
+      host.innerHTML = '<div class="m-jd-empty">No documents yet.</div>';
+      return;
+    }
+
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+      { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    // 2026-09-17: Documents actions (generate/delete/share/homeowner-toggle)
+    // — a doc row can't nest a delete/share BUTTON inside the tappable
+    // View anchor/button itself (nested interactive elements, plus a tap
+    // target conflict on a 375px screen), so secondary actions render as a
+    // sibling row underneath the primary tappable one, not inside it.
+    const genBtn = '<button type="button" class="m-jd-act-item" data-action="call" data-fn="_mJdOpenDocCreate">'
+      + '<span class="m-jd-act-item-ico">➕</span>'
+      + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">Generate a document</span></span>'
+      + '<span class="m-jd-act-item-chev">›</span></button>';
+    // Wrapped in .m-jd-act-list (same class the Activity tab uses) so rows
+    // get real spacing via its gap:8px — .m-jd-act-item alone has none.
+    host.innerHTML = '<div class="m-jd-act-list">' + genBtn + docs.map(d => {
+      const icon = d.generated ? '📝' : '📄';
+      const title = esc(d.typeName || d.name || 'Document');
+      const dateStr = d.date ? d.date.toLocaleDateString() : '';
+      const sub = d.signed ? ('✓ Signed' + (d.signedAt ? ' ' + d.signedAt.toLocaleDateString() : ''))
+        : d.status === 'sent' ? 'Awaiting signature'
+        : dateStr;
+      const subHtml = sub ? '<span class="m-jd-act-item-s">' + esc(sub) + '</span>' : '';
+      let row;
+      if (d.url) {
+        row = '<a class="m-jd-act-item" style="text-decoration:none;" href="' + esc(d.url) + '" target="_blank" rel="noopener noreferrer">'
+          + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + title + '</span>' + subHtml + '</span>'
+          + '<span class="m-jd-act-item-chev">›</span></a>';
+      } else if (d.htmlPath) {
+        row = '<button type="button" class="m-jd-act-item" data-doc-view="' + esc(d.id) + '">'
+          + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + title + '</span>' + subHtml + '</span>'
+          + '<span class="m-jd-act-item-chev">›</span></button>';
+      } else {
+        row = '<div class="m-jd-act-item m-jd-act-item--static">'
+          + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + title + '</span>' + subHtml + '</span>'
+          + '</div>';
+      }
+      // Secondary actions — same gates customer-documents.js's own desktop
+      // row uses (rowHtml()): share only for a shareable photo report,
+      // homeowner-toggle only for a non-generated, non-legacy upload,
+      // delete always. Share and the toggle dispatch through
+      // customer-documents.js's OWN document-wide [data-doc-share]/
+      // [data-doc-homeowner-share] click delegates — already active once
+      // that module loads, no second handler needed here. Delete calls
+      // window.deleteCustomerDoc directly (its markup convention on
+      // customer.html is a data-action delegate dashboard.html doesn't
+      // register; simplest correct path is calling the exposed function).
+      const actions = [];
+      if (d.shareable) {
+        actions.push('<button type="button" class="m-jd-doc-action" data-doc-share="' + esc(d.id) + '">'
+          + (d.shareUrl ? 'Copy link' : 'Share link') + '</button>');
+      }
+      if (!d.generated && !d.legacy) {
+        actions.push('<button type="button" class="m-jd-doc-action" data-doc-homeowner-share="' + esc(d.id) + '">'
+          + (d.sharedWithHomeowner ? '✓ Shown to homeowner' : 'Show to homeowner') + '</button>');
+      }
+      actions.push('<button type="button" class="m-jd-doc-action m-jd-doc-action--danger" data-action="call" data-fn="_mJdDeleteDoc" data-arg="' + esc(d.id) + '" data-arg2="' + title + '">Delete</button>');
+      return row + '<div class="m-jd-doc-actions">' + actions.join('') + '</div>';
+    }).join('') + '</div>';
+  })();
+}
+
+// data-fn dispatch target for the Delete button above. Kept as its own
+// tiny wrapper (rather than pointing the button straight at
+// window.deleteCustomerDoc) so it can re-run _mountDocumentsHub's fetch
+// after a successful delete — deleteCustomerDoc() itself calls
+// window.NBDCustomerDocs.refresh(), which repaints customer.html's OWN doc
+// lists, not this mobile panel.
+async function _mJdDeleteDoc(docId, label) {
+  if (typeof window.deleteCustomerDoc !== 'function') return;
+  await window.deleteCustomerDoc(docId, label);
+  const host = document.getElementById('mJdTabDocuments');
+  if (host) delete host.dataset.loadedFor;
+  _mountDocumentsHub();
+}
+
+// Mobile "Generate a document" entry point.
+//
+// Reuses dashboard-bootstrap.module.js's _generateDocWithPreflight — the
+// SAME staging (window._customerId etc.) + prerequisite-check + DocPreflight
+// -open chain the desktop lead-card doc chips already use, built specifically
+// so DocPreflight "can run from the dashboard the same way it runs on
+// customer.html" (that file's own comment). No second copy of that logic.
+// DocPreflight's own overlay is self-contained (position:fixed, z-index
+// var(--z-overlay) = 10000 — well above #mJobDetail's 2100), so it stacks
+// correctly on top of the mobile job-detail overlay with no CSS changes.
+//
+// The type list + labels come from window._DASH_DOC_PREREQUISITES (also
+// exported from dashboard-bootstrap.module.js) rather than a second
+// hand-written catalog — one list of "what documents exist and what they
+// need," not two that could drift.
+function _mJdOpenDocCreate() {
+  const leadId = window._cardDetailLeadId;
+  if (!leadId) return;
+  const prereqs = window._DASH_DOC_PREREQUISITES;
+  if (!prereqs || typeof window._generateDocWithPreflight !== 'function') {
+    if (typeof showToast === 'function') showToast('Document generator unavailable — reload the page.', 'error');
+    return;
+  }
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+    { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  const rows = Object.keys(prereqs).map((type) => {
+    return '<button type="button" class="m-jd-act-item" data-action="call" data-fn="_mJdPickDocType" data-arg="' + esc(type) + '">'
+      + '<span class="m-jd-act-item-ico">📄</span>'
+      + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + esc(prereqs[type].label) + '</span></span>'
+      + '<span class="m-jd-act-item-chev">›</span></button>';
+  }).join('');
+  const modal = document.createElement('div');
+  modal.id = 'mJdDocTypeSheet';
+  // --z-overlay-top (10001): one tier above the base modal overlay
+  // (--z-overlay:10000, what DocPreflight itself opens at) — this sheet is
+  // an intermediate step that can be followed by DocPreflight stacking on
+  // top of it, not a replacement for it.
+  modal.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay-top, 10001);background:rgba(0,0,0,.8);display:flex;align-items:flex-end;justify-content:center;';
+  modal.innerHTML = '<div style="width:100%;max-width:500px;max-height:80vh;overflow-y:auto;background:var(--s, #111318);border-radius:20px 20px 0 0;border:1px solid var(--br, #1e2530);padding:16px;">'
+    + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">'
+    +   '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--t);">Generate a document</div>'
+    +   '<button type="button" data-action="call" data-fn="_mJdCloseDocTypeSheet" style="background:none;border:1px solid var(--br, #2a3040);border-radius:10px;color:var(--m);font-size:18px;width:34px;height:34px;">✕</button>'
+    + '</div>' + rows + '</div>';
+  modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+  document.body.appendChild(modal);
+}
+
+function _mJdCloseDocTypeSheet() {
+  const modal = document.getElementById('mJdDocTypeSheet');
+  if (modal) modal.remove();
+}
+
+// Picks a document type from the sheet above, then runs the SAME
+// staging+prereq+DocPreflight chain the desktop lead-card doc chips use.
+function _mJdPickDocType(type) {
+  _mJdCloseDocTypeSheet();
+  const leadId = window._cardDetailLeadId;
+  if (!leadId || typeof window._generateDocWithPreflight !== 'function') return;
+  window._generateDocWithPreflight(type, leadId);
+}
+
+// ── Messages + Voice Intel: mount-once-per-lead, torn down on lead change ──
+//
+// Unlike Documents (a plain fetch, cheap to redo), Messages and Voice Intel
+// both hold a LIVE Firestore onSnapshot listener once mounted. Re-mounting
+// on every tab tap (like _mountDocumentsHub does) would pile up duplicate
+// listeners; never tearing down would leak lead A's listener silently once
+// the rep opens lead B without ever revisiting these tabs. So state tracks
+// which lead each is CURRENTLY live for, mirrors _mountEstimateHub/
+// _mountPhotoHub's own "unmount if leadId() !== leadId" pattern, and
+// _mJdTeardownRealtimeTabs() (called from openMobileJobDetail, every open —
+// not just when the rep taps these tabs) is the one place that actually
+// tears one down on a lead change.
+let _messagesInstance = null, _messagesMountedFor = null;
+let _voiceInstance = null, _voiceMountedFor = null;
+
+function _mountMessagesHub() {
+  const host = document.getElementById('mJdTabMessages');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (_messagesMountedFor === leadId) return; // already live for this lead
+  if (_messagesInstance) { try { _messagesInstance.cleanup(); } catch (_) {} _messagesInstance = null; }
+  // Clear synchronously — the new lead's onSnapshot is async, and without
+  // this the previous lead's message bubbles would sit visible in
+  // #repMsgThread until that first snapshot arrives.
+  const threadEl = document.getElementById('repMsgThread');
+  const emptyEl = document.getElementById('repMsgEmpty');
+  if (threadEl) Array.from(threadEl.querySelectorAll('.rep-bubble')).forEach(n => n.remove());
+  if (emptyEl) emptyEl.style.display = 'block';
+  const sendBtn = document.getElementById('repMsgSend');
+  if (sendBtn) { sendBtn.disabled = true; sendBtn.style.opacity = '0.55'; }
+  const statusElReset = document.getElementById('repMsgStatus');
+  if (statusElReset) statusElReset.textContent = '';
+  if (!window.CustomerMessages || typeof window.CustomerMessages.mount !== 'function') {
+    const statusEl = document.getElementById('repMsgStatus');
+    if (statusEl) statusEl.textContent = 'Messages unavailable — reload the page.';
+    return;
+  }
+  if (!window.db) return;
+  _messagesInstance = window.CustomerMessages.mount({ leadId, db: window.db });
+  _messagesMountedFor = leadId;
+}
+
+function _mountVoiceIntel() {
+  const host = document.getElementById('mJdVoiceIntelRoot');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (_voiceMountedFor === leadId) return; // already live for this lead
+  if (_voiceInstance) { try { _voiceInstance.cleanup(); } catch (_) {} _voiceInstance = null; }
+  if (!window.VoiceIntel || typeof window.VoiceIntel.mount !== 'function') {
+    host.innerHTML = '<div class="m-jd-empty">Voice Intel unavailable — reload the page.</div>';
+    return;
+  }
+  if (!window.auth || !window.db || !window.storage) return;
+  host.innerHTML = '';
+  try {
+    _voiceInstance = window.VoiceIntel.mount({
+      leadId, containerEl: host, auth: window.auth, db: window.db, storage: window.storage
+    });
+    _voiceMountedFor = leadId;
+  } catch (e) {
+    host.innerHTML = '<div class="m-jd-empty">Voice Intel failed to load — try again.</div>';
+  }
+}
+
+// Called from openMobileJobDetail on EVERY open (not just when the rep taps
+// these tabs) — a listener mounted for the previous lead must not keep
+// running silently just because the rep never revisited its tab.
+function _mJdTeardownRealtimeTabs(newLeadId) {
+  if (_messagesMountedFor && _messagesMountedFor !== newLeadId) {
+    if (_messagesInstance) { try { _messagesInstance.cleanup(); } catch (_) {} }
+    _messagesInstance = null; _messagesMountedFor = null;
+  }
+  if (_voiceMountedFor && _voiceMountedFor !== newLeadId) {
+    if (_voiceInstance) { try { _voiceInstance.cleanup(); } catch (_) {} }
+    _voiceInstance = null; _voiceMountedFor = null;
+  }
+}
+window._mJdTeardownRealtimeTabs = _mJdTeardownRealtimeTabs;
 
 // Recompute the job-detail hero from the same inputs openMobileJobDetail uses:
 // the rep-chosen cover wins, else the first cached photo.
@@ -1737,6 +2005,12 @@ window.openLeadDetail = openLeadDetail;
     _mCreate: _mCreate,
     closeMobileInspection: closeMobileInspection,
     closeMobileCreatePopover: closeMobileCreatePopover,
+    // Mobile job-detail Documents tab actions (2026-09-17) — same
+    // registry-not-allowlist convention as _mJdSwitchTab above.
+    _mJdDeleteDoc: _mJdDeleteDoc,
+    _mJdOpenDocCreate: _mJdOpenDocCreate,
+    _mJdCloseDocTypeSheet: _mJdCloseDocTypeSheet,
+    _mJdPickDocType: _mJdPickDocType,
   });
 })();
 

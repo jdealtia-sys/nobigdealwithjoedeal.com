@@ -4151,8 +4151,82 @@ section('Embedded per-customer estimate hub (CustomerEstimateHub)');
     /var jobValue = Number\(lead\.jobValue\)/.test(hub));
 
   const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
-  assert('4-tab job-detail still uses the flex tab row (no fixed 3-tab width)',
-    /\.m-jd-tab\{[\s\S]{0,80}flex:1/.test(css));
+  // 2026-09-17: 7-tab now (Documents/Messages/Voice Intel added). flex:1
+  // equal-width broke at 7 tabs — "Voice Intel" wrapped to two lines and
+  // crowded the Messages badge onto its own line at a real 375px width
+  // (screenshot-verified). Switched to a horizontally-scrollable strip
+  // (flex:0 0 auto + overflow-x:auto), the pattern that survives an 8th or
+  // 9th tab without another CSS fire drill.
+  assert('m-jd-tabs scrolls horizontally instead of forcing every tab into an equal-width column',
+    /\.m-jd-tabs\{[\s\S]{0,160}overflow-x:auto/.test(css));
+  assert('m-jd-tab is natural-width + nowrap, not flex:1 (which is what broke at 7 tabs)',
+    /\.m-jd-tab\{[\s\S]{0,80}flex:0 0 auto[\s\S]{0,40}white-space:nowrap/.test(css));
+}
+
+section('Mobile job-detail Documents tab (leads/{id}/documents parity)');
+{
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const bootstrap = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  const loader = read(path.join(PRO_JS, 'script-loader.js'));
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+
+  // 2026-09-17: Jo, from real use on his phone — "I can never click
+  // documents or see an area for it." The mobile job-detail overlay never
+  // had a Documents tab; customer.html's own 7-tab desktop nav
+  // (Overview/Timeline/Photos/Files/Messages/Voice Intel/Contact) had no
+  // mobile equivalent for this one at all.
+  assert("dashboard.html: Documents tab button dispatches _mJdSwitchTab('documents')",
+    /data-tab="documents"[^>]*data-fn="_mJdSwitchTab" data-arg="documents"/.test(html));
+  assert('dashboard.html: #mJdTabDocuments panel exists to mount into',
+    /id="mJdTabDocuments"[^>]*role="tabpanel"/.test(html));
+
+  assert("_mJdSwitchTab maps the documents tab to #mJdTabDocuments",
+    /documents:'mJdTabDocuments'/.test(actions));
+  assert('hub mounts lazily on the first switch to the Documents tab',
+    /if \(tab === 'documents'\) _mountDocumentsHub\(\);/.test(actions));
+
+  const mountFn = actions.slice(actions.indexOf('function _mountDocumentsHub'),
+                                 actions.indexOf('// Recompute the job-detail hero'));
+  assert('_mountDocumentsHub is defined', mountFn.length > 0);
+  assert('_mountDocumentsHub reads the CURRENT overlay lead, not a stale global',
+    /window\._cardDetailLeadId/.test(mountFn));
+  // Reuses the SAME store customer.html reads — not a second fetch/normalize
+  // implementation (the exact class of drift this session's other fixes
+  // (document status field, tier source of truth) were closing elsewhere).
+  assert("_mountDocumentsHub reuses window.NBDCustomerDocs.load(), not its own Firestore read",
+    /window\.NBDCustomerDocs\.load\(leadId\)/.test(mountFn) && !/getDocs\(/.test(mountFn));
+  assert('_mountDocumentsHub degrades gracefully when the module is absent, never throws into the tab switch',
+    /if \(!window\.NBDCustomerDocs\)[\s\S]{0,220}return;/.test(mountFn));
+  // Lazy bundle load — same contract as _generateDocWithPreflight, not a
+  // second eager <script> tag.
+  assert("_mountDocumentsHub lazy-loads the docgen bundle if not yet present",
+    /window\.ScriptLoader\.loadBundle\('docgen'\)/.test(mountFn));
+  // Stale-response guard: a slow load must not paint a lead the rep already
+  // navigated away from.
+  assert('_mountDocumentsHub discards a stale response if the overlay lead changed mid-fetch',
+    /window\._cardDetailLeadId !== leadId\) return;/.test(mountFn));
+  // Opening a generated doc reuses customer-documents.js's own [data-doc-view]
+  // click delegate — no second click handler for the same action.
+  assert('a generated (htmlPath) row uses data-doc-view, the existing global click delegate',
+    /data-doc-view=/.test(mountFn));
+  // An uploaded doc with a real URL opens directly, same as desktop, through
+  // the same normalize()-validated (scheme-safe) url field.
+  assert('an uploaded row with a real URL opens via a plain anchor to the normalized url',
+    /d\.url\)[\s\S]{0,200}href="[\s\S]{0,40}esc\(d\.url\)/.test(mountFn));
+  // The status field this session's other fix (PR #1612) established as the
+  // source of truth surfaces here too, not just on desktop.
+  assert("surfaces the sent/signed status established as the source of truth elsewhere this session",
+    /d\.status === 'sent'/.test(mountFn) && /d\.signed/.test(mountFn));
+
+  assert('openMobileJobDetail resets the Documents tab (and its load cache) on every open',
+    /mJdTabDocuments[\s\S]{0,200}delete docBody\.dataset\.loadedFor/.test(widgets));
+
+  assert('dashboard-bootstrap.module.js exports _stageWindowStateForLead for cross-file reuse',
+    /window\._stageWindowStateForLead = _stageWindowStateForLead;/.test(bootstrap));
+
+  assert('script-loader.js: docgen bundle carries customer-documents.js (lazy, not a second eager tag)',
+    /docgen:\s*\[[\s\S]{0,700}customer-documents\.js/.test(loader));
 }
 
 section('Customer-surface sweep — blockers caught in review (regression pins)');
@@ -4714,6 +4788,141 @@ section('Mobile overflow sweep 2026-09-14 — 5 invisible-horizontal-scroll bugs
   assert('.rda-tabs mobile override adds a mask-image scroll affordance',
     /\.rda-tabs\s*\{\s*gap:\s*2px;\s*-webkit-mask-image:\s*linear-gradient\(to right,\s*#000 calc\(100% - 24px\),\s*transparent 100%\);\s*mask-image:\s*linear-gradient\(to right,\s*#000 calc\(100% - 24px\),\s*transparent 100%\);\s*\}/.test(rda),
     'expected the existing @media(max-width:768px) .rda-tabs override to add a mask-image fade like the other mobile tab/chip rows');
+}
+
+section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions (2026-09-17)');
+{
+  // Jo: "I want the same capabilities as computer. That's what we sold the
+  // CRM for at the landing page. Full CRM in your phone NOT half in your
+  // phone the rest at home" — docs/pro/index.html:1215 stakes the whole
+  // pitch on this ("Whatever you're using better work on your phone...or
+  // it doesn't work"). This section covers the three follow-ups that
+  // completed the mobile job-detail overlay's parity with customer.html's
+  // Documents/Messages/Voice Intel tabs.
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const bootstrap = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const realtime = read(path.join(PRO_JS, 'customer-realtime.module.js'));
+  const realtimeBootstrap = read(path.join(PRO_JS, 'customer-realtime-bootstrap.module.js'));
+  const bridge = read(path.join(PRO_JS, 'voice-intel-dashboard-bridge.module.js'));
+
+  // ── Voice Intel tab ──────────────────────────────────────────────────
+  assert("dashboard.html: Voice Intel tab button dispatches _mJdSwitchTab('voice')",
+    /data-tab="voice"[^>]*data-fn="_mJdSwitchTab" data-arg="voice"/.test(html));
+  assert('dashboard.html: #mJdTabVoice panel + #mJdVoiceIntelRoot mount point exist',
+    /id="mJdTabVoice"[^>]*role="tabpanel"/.test(html) && /id="mJdVoiceIntelRoot"/.test(html));
+  assert('dashboard.html loads voice-intelligence.css (Voice Intel styling)',
+    /voice-intelligence\.css/.test(html));
+  assert("_mJdSwitchTab maps the voice tab to #mJdTabVoice and mounts lazily",
+    /voice:'mJdTabVoice'/.test(actions) && /if \(tab === 'voice'\) _mountVoiceIntel\(\);/.test(actions));
+  const voiceFn = actions.slice(actions.indexOf('function _mountVoiceIntel'), actions.indexOf('// Called from openMobileJobDetail'));
+  assert('_mountVoiceIntel is defined', voiceFn.length > 0);
+  assert('_mountVoiceIntel calls window.VoiceIntel.mount with the overlay lead + live auth/db/storage',
+    /window\.VoiceIntel\.mount\(\{/.test(voiceFn) && /leadId, containerEl: host, auth: window\.auth, db: window\.db, storage: window\.storage/.test(voiceFn));
+  assert('_mountVoiceIntel skips re-mounting for the SAME lead (avoids a duplicate Firestore listener)',
+    /if \(_voiceMountedFor === leadId\) return;/.test(voiceFn));
+  assert('_mountVoiceIntel degrades gracefully when the bridge module is absent',
+    /if \(!window\.VoiceIntel[\s\S]{0,160}return;/.test(voiceFn));
+  assert('voice-intel-dashboard-bridge.module.js imports the REAL initVoiceIntel (no reimplementation)',
+    /import \{ initVoiceIntel \} from '\.\/voice-intelligence\.js';/.test(bridge) &&
+    /window\.VoiceIntel = \{ mount: initVoiceIntel \};/.test(bridge));
+
+  // ── Messages tab ─────────────────────────────────────────────────────
+  assert("dashboard.html: Messages tab button dispatches _mJdSwitchTab('messages')",
+    /data-tab="messages"[^>]*data-fn="_mJdSwitchTab" data-arg="messages"/.test(html));
+  assert('dashboard.html: #mJdTabMessages panel carries the SAME repMsg* ids customer.html uses',
+    /id="mJdTabMessages"[^>]*role="tabpanel"/.test(html) &&
+    /id="repMsgThread"/.test(html) && /id="repMsgEmpty"/.test(html) &&
+    /id="repMsgText"/.test(html) && /id="repMsgSend"/.test(html) && /id="repMsgStatus"/.test(html));
+  assert('dashboard.html: Messages tab button carries its own #mJdMsgBadge unread badge',
+    /id="mJdMsgBadge"/.test(html));
+  assert("_mJdSwitchTab maps the messages tab to #mJdTabMessages and mounts lazily",
+    /messages:'mJdTabMessages'/.test(actions) && /if \(tab === 'messages'\) _mountMessagesHub\(\);/.test(actions));
+  const msgFn = actions.slice(actions.indexOf('function _mountMessagesHub'), actions.indexOf('function _mountVoiceIntel'));
+  assert('_mountMessagesHub is defined', msgFn.length > 0);
+  assert('_mountMessagesHub reuses window.CustomerMessages.mount(), not a second Firestore subscription',
+    /window\.CustomerMessages\.mount\(\{ leadId, db: window\.db \}\)/.test(msgFn));
+  assert('_mountMessagesHub skips re-mounting for the SAME lead (avoids a duplicate onSnapshot)',
+    /if \(_messagesMountedFor === leadId\) return;/.test(msgFn));
+  assert('_mountMessagesHub clears the thread synchronously so the PREVIOUS lead\'s bubbles never show mid-fetch',
+    /threadEl\.querySelectorAll\('\.rep-bubble'\)\)\.forEach\(n => n\.remove\(\)\)/.test(msgFn));
+
+  // Teardown: a listener mounted for lead A must not keep running once the
+  // rep opens lead B without ever revisiting these tabs.
+  assert('_mJdTeardownRealtimeTabs is defined and exported for dashboard-widgets.js to call',
+    /function _mJdTeardownRealtimeTabs\(newLeadId\)/.test(actions) &&
+    /window\._mJdTeardownRealtimeTabs = _mJdTeardownRealtimeTabs;/.test(actions));
+  assert('_mJdTeardownRealtimeTabs unmounts Messages/Voice ONLY when the lead actually changed',
+    /_messagesMountedFor && _messagesMountedFor !== newLeadId/.test(actions) &&
+    /_voiceMountedFor && _voiceMountedFor !== newLeadId/.test(actions));
+  // Scoped to openMobileJobDetail's own body — openCardDetailModal (the
+  // DESKTOP card modal, earlier in this file) sets the same
+  // window._cardDetailLeadId global itself, so an unscoped search matches
+  // the wrong function.
+  const openMobileFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                                      widgets.indexOf('window.openMobileJobDetail'));
+  assert('openMobileJobDetail calls the teardown on every open, before staging the new lead\'s data',
+    /window\._cardDetailLeadId = leadId;[\s\S]{0,400}window\._mJdTeardownRealtimeTabs\(leadId\)/.test(openMobileFn));
+
+  // customer-realtime.module.js refactor: pure export now, no top-level
+  // side effect — importing mountMessages from the dashboard bridge must
+  // NOT re-trigger customer.html's auto-mount.
+  assert('customer-realtime.module.js exports mountMessages() and has NO top-level whenReady auto-run left',
+    /export function mountMessages\(/.test(realtime) && !/whenReady\(10000\)\.then/.test(realtime));
+  assert('customer-realtime.module.js\'s cleanup() unsubscribes AND removes the compose listeners (no double-bind on re-mount)',
+    /unsubscribeMessages && unsubscribeMessages\(\)/.test(realtime) &&
+    /textEl\.removeEventListener\('input', onInput\)/.test(realtime) &&
+    /sendBtn\.removeEventListener\('click', onSend\)/.test(realtime));
+  assert('customer-realtime.module.js checks BOTH badge ids (desktop msgUnreadBadge, mobile mJdMsgBadge)',
+    /\['msgUnreadBadge', 'mJdMsgBadge'\]/.test(realtime));
+  assert('customer.html\'s own auto-mount moved to customer-realtime-bootstrap.module.js, unchanged behavior',
+    /import \{ mountMessages \} from '\.\/customer-realtime\.module\.js';/.test(realtimeBootstrap) &&
+    /whenReady\(10000\)\.then/.test(realtimeBootstrap));
+  assert('customer.html now loads the bootstrap file, not customer-realtime.module.js directly',
+    /customer-realtime-bootstrap\.module\.js/.test(read(path.join(ROOT, 'docs/pro/customer.html'))) &&
+    !/src="js\/customer-realtime\.module\.js/.test(read(path.join(ROOT, 'docs/pro/customer.html'))));
+
+  // ── Documents tab actions: generate / delete / share / homeowner-toggle ─
+  const docsFn = actions.slice(actions.indexOf('function _mountDocumentsHub'), actions.indexOf('async function _mJdDeleteDoc'));
+  assert('the Documents tab renders a "Generate a document" entry point',
+    /Generate a document/.test(docsFn) && /_mJdOpenDocCreate/.test(docsFn));
+  assert('share/homeowner-toggle buttons dispatch through customer-documents.js\'s OWN [data-doc-share]/[data-doc-homeowner-share] delegates, not a second handler',
+    /data-doc-share="/.test(docsFn) && /data-doc-homeowner-share="/.test(docsFn) &&
+    /if \(d\.shareable\)/.test(docsFn) && /if \(!d\.generated && !d\.legacy\)/.test(docsFn));
+  assert('delete button always renders and dispatches through the registry (data-action="call")',
+    /data-action="call" data-fn="_mJdDeleteDoc"/.test(docsFn));
+
+  const deleteFn = actions.slice(actions.indexOf('async function _mJdDeleteDoc'), actions.indexOf('// Mobile "Generate a document" entry point'));
+  assert('_mJdDeleteDoc calls the REAL window.deleteCustomerDoc (soft-delete + confirm), not a reimplementation',
+    /window\.deleteCustomerDoc\(docId, label\)/.test(deleteFn));
+  assert('_mJdDeleteDoc re-fetches the mobile panel after a successful delete (deleteCustomerDoc only repaints customer.html\'s own lists)',
+    /delete host\.dataset\.loadedFor/.test(deleteFn) && /_mountDocumentsHub\(\);/.test(deleteFn));
+
+  const genFn = actions.slice(actions.indexOf('function _mJdOpenDocCreate'), actions.indexOf('function _mJdPickDocType'));
+  assert('_mJdOpenDocCreate builds its type list from window._DASH_DOC_PREREQUISITES — one catalog, not a second hand-written one',
+    /window\._DASH_DOC_PREREQUISITES/.test(genFn) && /Object\.keys\(prereqs\)/.test(genFn));
+  assert('_mJdPickDocType runs the SAME staging+prereq+DocPreflight chain the desktop lead-card doc chips use (_generateDocWithPreflight), not a second implementation',
+    /window\._generateDocWithPreflight\(type, leadId\)/.test(actions));
+  assert('dashboard-bootstrap.module.js exports _generateDocWithPreflight + _DASH_DOC_PREREQUISITES for the mobile picker to reuse',
+    /window\._generateDocWithPreflight = _generateDocWithPreflight;/.test(bootstrap) &&
+    /window\._DASH_DOC_PREREQUISITES = _DASH_DOC_PREREQUISITES;/.test(bootstrap));
+
+  // Every new data-fn button dispatches through __NBD_CALL_REGISTRY, the
+  // SAME convention _mJdSwitchTab uses — NOT a bare window[fnName] export,
+  // which _nbdResolveCall only honors for names on _NBD_CALL_ALLOWLIST.
+  assert('every new mobile doc-action handler registers in __NBD_CALL_REGISTRY (dispatchable via data-action="call")',
+    /_mJdDeleteDoc: _mJdDeleteDoc,/.test(actions) &&
+    /_mJdOpenDocCreate: _mJdOpenDocCreate,/.test(actions) &&
+    /_mJdCloseDocTypeSheet: _mJdCloseDocTypeSheet,/.test(actions) &&
+    /_mJdPickDocType: _mJdPickDocType,/.test(actions));
+
+  // Tab-bar CSS: the 7th tab is what actually broke flex:1 — screenshot-
+  // verified at a real 375px viewport (Voice Intel wrapped, Messages badge
+  // crowded onto its own line) before the overflow-x:auto fix.
+  const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
+  assert('.m-jd-doc-actions / .m-jd-doc-action styling exists for the new secondary-action row',
+    /\.m-jd-doc-actions\{/.test(css) && /\.m-jd-doc-action\{/.test(css));
 }
 
 };
