@@ -2928,8 +2928,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     // cluster — the whole file is IIFE-wrapped now; these 21 handlers
     // are module-scoped and dispatched via __NBD_CALL_REGISTRY (see the
     // "Globals Tranche 2c" section below for wiring guards). NOT here:
-    // goToMyLocation (maps.js still re-states it on window — failed the
-    // three-way proof) and the file's deliberate window exports
+    // goToMyLocation (still window[fnName]-dispatched via dashboard.html's
+    // "My Location" button, data-fn="goToMyLocation", not yet registered —
+    // maps.js's OWN bare re-export of it was deleted 2026-09-17, T3-B; this
+    // is the independent, still-live reason it stays allowlisted) and the
+    // file's deliberate window exports
     // (initDrawMap, selLT, setDrawMode, the toggle/close-map targets, …).
     'acceptAutoDetect', 'addStructure', 'applySmartWaste',
     'cancelAutoDetect', 'exportXactimateESX', 'generateScopeFromDrawing',
@@ -3073,13 +3076,17 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 2c-4f (2026-07-07): dashboard-bootstrap.module.js settings/debug/
     // export handlers — module-scoped (real ES module, no IIFE), dispatched via
     // __NBD_CALL_REGISTRY. NOT here (MUST-STAY window exports): loadSampleData
-    // (dashboard-actions.js twin), _saveEstimateDefaultsV2 (self-read),
-    // _loadCompanySettings / _loadCompanyProfileSettings (ui.js cross-file calls).
+    // (dashboard-actions.js twin), _saveEstimateDefaultsV2 (self-read).
     'runLeadAction', 'retryLoadLeads', 'copyDebugInfo', 'testFirestoreRules',
     '_saveSettings', '_saveNotifSettings', '_saveCompanySettings', '_testNotif',
     '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
     '_resetCompanyProfileSettings', '_exportAllData', '_exportEstimates',
     '_exportPhotos',
+    // Tranche 3 T3-D (2026-09-17): the settings-tab loader sextet graduated
+    // off window into the same __NBD_CALL_REGISTRY block — switchSettingsTab's
+    // bare window.X() reads in ui.js were rewired to read the registry instead.
+    '_loadCompanySettings', '_loadCompanyProfileSettings', '_loadAccessInfo',
+    '_loadBillingInfo', '_loadNotifSettings', '_loadProfileSettings',
     // Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual — the
     // dashboard-actions.js zone cluster + damageNearMePhotos, IIFE-scoped and
     // dispatched via __NBD_CALL_REGISTRY. maps.js's six re-exports are gone.
@@ -3298,9 +3305,11 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       !new RegExp("'" + n + "'").test(stateSrc));
   }
   // goToMyLocation must stay BOTH allowlisted and window-exported — the
-  // dispatcher reaches it as window[fn], and maps.js's shim line reads
-  // the bare name at load time. Losing either half = dead button or a
-  // maps.js boot ReferenceError.
+  // dispatcher reaches it as window[fn]. (maps.js's own bare re-export of
+  // this name — the second half of the old reasoning here — was deleted
+  // 2026-09-17, T3-B; maps-routing.js's explicit export below is now the
+  // only source of window.goToMyLocation, and always was the one that
+  // actually mattered.) Losing this half = a dead "My Location" button.
   assert('goToMyLocation keeps its allowlist entry (failed the three-way proof)',
     /'goToMyLocation'/.test(stateSrc));
   assert('maps-routing re-exports goToMyLocation for the maps.js shim',
@@ -3723,10 +3732,31 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(bootReg));
   }
   // MUST-STAY: still window-exported in the module AND still allowlisted.
-  for (const [n, why] of [['_saveEstimateDefaultsV2', 'intra-module self-read'],
-    ['_loadCompanySettings', 'ui.js:965-966'], ['_loadCompanyProfileSettings', 'ui.js:971-972']]) {
+  for (const [n, why] of [['_saveEstimateDefaultsV2', 'intra-module self-read']]) {
     assert('dashboard-bootstrap keeps window.' + n + ' (' + why + ')',
       new RegExp('window\\.' + n + '\\s*=').test(bootReg) && new RegExp("'" + n + "'").test(stateSrc));
+  }
+
+  // ── Tranche 3 T3-D (2026-09-17): the settings-tab loader sextet ──
+  // _loadCompanySettings and _loadCompanyProfileSettings were the ONLY two
+  // MUST-STAY names left over from 2c-4f — kept window-exported + allowlisted
+  // because switchSettingsTab (ui.js) read them as bare window.X() calls. That
+  // was the same shape as four other settings-tab loaders that had never been
+  // touched at all (_loadAccessInfo, _loadBillingInfo, _loadNotifSettings,
+  // _loadProfileSettings — no prior tranche, still auto-globals). Rewiring
+  // ui.js's reads to the registry unblocked graduating all six together.
+  const T3D_NAMES = ['_loadCompanySettings', '_loadCompanyProfileSettings',
+    '_loadAccessInfo', '_loadBillingInfo', '_loadNotifSettings', '_loadProfileSettings'];
+  const uiJsSrc = read(path.join(PRO_JS, 'ui.js'));
+  for (const n of T3D_NAMES) {
+    assert('dashboard-bootstrap registers ' + n + ' in __NBD_CALL_REGISTRY (T3-D)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootRegBlock));
+    assert('allowlist no longer carries ' + n + ' (T3-D — registry replaced it)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-bootstrap no longer exposes window.' + n + ' (T3-D off window)',
+      !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(bootReg));
+    assert('ui.js switchSettingsTab reads ' + n + ' off the registry, not bare window.' + n,
+      new RegExp('_nbdReg\\.' + n + '\\b').test(uiJsSrc) && !new RegExp('window\\.' + n + '\\s*\\(').test(uiJsSrc));
   }
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──

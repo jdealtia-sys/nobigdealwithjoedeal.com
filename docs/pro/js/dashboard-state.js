@@ -216,9 +216,13 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // bottom of maps-routing.js, which the dashboard-ui.js dispatchers
   // resolve FIRST. Do NOT re-add registered names here: a stale window
   // fallback would shadow-resurrect the global the tranche removed.
-  // goToMyLocation deliberately REMAINS allowlisted below — the maps.js
-  // shim still re-states it on window (failed the three-way proof;
-  // Tranche 3 candidate).
+  // goToMyLocation deliberately REMAINS allowlisted below — dashboard.html's
+  // "My Location" button dispatches it as data-fn="goToMyLocation" and it is
+  // not yet registered in __NBD_CALL_REGISTRY (Tranche 3 candidate). The
+  // maps.js shim's own bare re-export of this name was deleted 2026-09-17
+  // (T3-B, pure window.X = window.X once maps-routing.js's own explicit
+  // export already ran) — that specific reason no longer applies, but this
+  // allowlist entry still does, independently.
   // (damagNearMe registry-registered in maps-overlays.js 2026-08-07 — per the
   //  Tranche 2c-2 rule above, registered names must not keep a window
   //  fallback entry here.)
@@ -309,8 +313,12 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  _exportAllData, _saveCompanyProfileSettings, _resetCompanyProfileSettings,
   //  _saveSiteSlug, retryLoadLeads, copyDebugInfo, testFirestoreRules. Do NOT
   //  re-add. MUST-STAY (kept below): _saveEstimateDefaultsV2 (intra-module
-  //  self-read), _loadCompanySettings / _loadCompanyProfileSettings (ui.js
-  //  cross-file window calls), loadSampleData (dashboard-actions.js twin).)
+  //  self-read), loadSampleData (dashboard-actions.js twin).
+  //  Tranche 3 T3-D (2026-09-17): _loadCompanySettings and
+  //  _loadCompanyProfileSettings also moved OFF window into
+  //  __NBD_CALL_REGISTRY — the "ui.js cross-file window calls" that kept
+  //  them MUST-STAY were switchSettingsTab's bare window.X() reads, now
+  //  rewired in ui.js to read the registry. Do NOT re-add.)
   '_saveEstimateDefaultsV2',
   '_sharePortalLink',
   '_revokePortalLink', 'exportLeadsCsv', 'exportEstimatesCsv',
@@ -334,13 +342,13 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  a stale window fallback would shadow-resurrect the global.)
   // Settings page private setters (defensive — delegate's typeof
   // guard makes the && existence-check redundant)
-  '_nbdDismissTrial', '_loadCompanySettings',
+  '_nbdDismissTrial',
   '_gdprRequestErasure', '_gdprExport',
-  // Company Profile tab (doc-constants editable from UI)
-  '_loadCompanyProfileSettings',
   // (_saveCompanyProfileSettings, _resetCompanyProfileSettings, _saveSiteSlug,
   //  testFirestoreRules → __NBD_CALL_REGISTRY, Tranche 2c-4f
-  //  (dashboard-bootstrap.module.js), off window. Do NOT re-add.)
+  //  (dashboard-bootstrap.module.js), off window. Do NOT re-add.
+  //  _loadCompanySettings / _loadCompanyProfileSettings → __NBD_CALL_REGISTRY,
+  //  Tranche 3 T3-D (2026-09-17), off window. Do NOT re-add.)
   // (cdaMjdAct, cdaEditLead, cdaOpenMobileInspection, cdaVoiceMemo,
   //  cdaSharePortalLink, cdaRevokePortalLink, cdaConfirmPromote, cdaOpenTaskModal,
   //  cdPickStage, cdPickType → __NBD_CALL_REGISTRY, Tranche 2c-4a/4b, off window)

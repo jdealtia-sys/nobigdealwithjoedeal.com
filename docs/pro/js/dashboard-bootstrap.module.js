@@ -4309,7 +4309,7 @@
   // was actually saved (default-ON digest/nudge: only OFF when the
   // stored value is explicitly false — matches the cron `=== false`
   // opt-out checks in functions/weekly-digest.js + dormant-leads.js).
-  window._loadProfileSettings = async function() {
+  async function _loadProfileSettings() {
     const u = window._user;
     if (!u) return;
     const _setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
@@ -4983,7 +4983,7 @@
     if (typeof showToast === 'function') showToast('✓ Company info saved', 'success');
   };
 
-  window._loadCompanySettings = async function() {
+  async function _loadCompanySettings() {
     let data = {};
     try {
       const raw = localStorage.getItem('nbd_company_settings');
@@ -5274,7 +5274,7 @@
     _cpWireColorInputs();
   }
 
-  window._loadCompanyProfileSettings = async function () {
+  async function _loadCompanyProfileSettings() {
     // Refresh from Firestore (sets window._companyProfile), then mirror
     // into the form. Falls back to whatever's already in memory if the
     // network call fails.
@@ -5566,7 +5566,7 @@
     }
   }
 
-  window._loadNotifSettings = function() {
+  function _loadNotifSettings() {
     // Fast path — always paint from the localStorage cache (instant, sync).
     _applyNotifSettingsToUI(_readNotifSettings());
     // Slow path — once per page load, pull the source of truth from
@@ -5695,7 +5695,7 @@
   // ═════════════════════════════════════════════════════════
   // ACCESS TAB — populate current session info
   // ═════════════════════════════════════════════════════════
-  window._loadAccessInfo = function() {
+  function _loadAccessInfo() {
     const byId = (id) => document.getElementById(id);
     if (byId('accSignedInAs') && window._user) {
       byId('accSignedInAs').textContent = window._user.displayName || window._user.email || 'Joe';
@@ -5719,7 +5719,7 @@
   // ═════════════════════════════════════════════════════════
   // BILLING TAB — populate Ask Joe AI usage stats
   // ═════════════════════════════════════════════════════════
-  window._loadBillingInfo = function() {
+  function _loadBillingInfo() {
     const byId = (id) => document.getElementById(id);
     try {
       const usageRaw = localStorage.getItem('nbd_ai_usage') || '{}';
@@ -5743,13 +5743,20 @@
 // resolves window.__NBD_CALL_REGISTRY FIRST. Registration here replaces each
 // name's _NBD_CALL_ALLOWLIST entry as the security opt-in; the functions stay
 // module-scoped (this is a real ES module — no IIFE needed). MUST-STAY siblings
-// keep their window.X exposure: _saveEstimateDefaultsV2 (intra-module self-read),
-// _loadCompanySettings / _loadCompanyProfileSettings (ui.js cross-file window
-// calls), and loadSampleData (dashboard-actions.js:913 also exports it).
+// keep their window.X exposure: _saveEstimateDefaultsV2 (intra-module self-read)
+// and loadSampleData (dashboard-actions.js:913 also exports it).
 // Tranche 3 map-graduate follow-on (2026-09-02): toggleDebugConsole and
 // toggleRecentDropdown joined — dispatched via _NBD_TOGGLE_FNS through
 // _nbdResolveMapped (registry-first since T3-M), never data-fn, so they have
 // no allowlist history; their window exports are deleted.
+// Tranche 3 T3-D edge (2026-09-17): _loadCompanySettings and
+// _loadCompanyProfileSettings graduated too — the "ui.js cross-file window
+// calls" this file's own comment cited as their MUST-STAY reason are exactly
+// switchSettingsTab's bare window.X() reads in ui.js, now rewired to read
+// this registry instead (same fix ui.js needed either way, so the other
+// four settings-tab loaders below — none of them markup-dispatched, all of
+// them the SAME "ui.js cross-file window call" shape — graduated alongside
+// them rather than leaving a half-migrated set).
 window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   runLeadAction: runLeadAction,
@@ -5771,4 +5778,10 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _exportAllData: _exportAllData,
   _exportEstimates: _exportEstimates,
   _exportPhotos: _exportPhotos,
+  _loadCompanySettings: _loadCompanySettings,
+  _loadCompanyProfileSettings: _loadCompanyProfileSettings,
+  _loadAccessInfo: _loadAccessInfo,
+  _loadBillingInfo: _loadBillingInfo,
+  _loadNotifSettings: _loadNotifSettings,
+  _loadProfileSettings: _loadProfileSettings,
 });

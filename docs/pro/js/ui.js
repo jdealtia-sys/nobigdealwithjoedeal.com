@@ -977,34 +977,38 @@ function switchSettingsTab(tab) {
     else if (window.ScriptLoader && window.ScriptLoader.loadBundle) { window.ScriptLoader.loadBundle('estimates').then(_runEstDefaults); }
     else { _runEstDefaults(); }
   }
-  // Lazy-load Company tab settings from localStorage + Firestore
+  // Lazy-load Company tab settings from localStorage + Firestore.
+  // These six settings-tab loaders live in dashboard-bootstrap.module.js's
+  // __NBD_CALL_REGISTRY (Globals Tranche 3, T3-D, 2026-09-17) rather than on
+  // window directly — a real ES module, so nothing leaks there by default.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
   if (tab === 'company') {
-    if (typeof window._loadCompanySettings === 'function') {
-      window._loadCompanySettings();
+    if (_nbdReg && typeof _nbdReg._loadCompanySettings === 'function') {
+      _nbdReg._loadCompanySettings();
     }
   }
   // Company Profile tab — pull from Firestore singleton + populate fields
   if (tab === 'company-profile') {
-    if (typeof window._loadCompanyProfileSettings === 'function') {
-      window._loadCompanyProfileSettings();
+    if (_nbdReg && typeof _nbdReg._loadCompanyProfileSettings === 'function') {
+      _nbdReg._loadCompanyProfileSettings();
     }
   }
   // Access tab — populate session info
   if (tab === 'access') {
-    if (typeof window._loadAccessInfo === 'function') {
-      window._loadAccessInfo();
+    if (_nbdReg && typeof _nbdReg._loadAccessInfo === 'function') {
+      _nbdReg._loadAccessInfo();
     }
   }
   // Billing tab — populate Ask Joe AI usage
   if (tab === 'billing') {
-    if (typeof window._loadBillingInfo === 'function') {
-      window._loadBillingInfo();
+    if (_nbdReg && typeof _nbdReg._loadBillingInfo === 'function') {
+      _nbdReg._loadBillingInfo();
     }
   }
   // Notifications tab — restore saved preferences
   if (tab === 'notifications') {
-    if (typeof window._loadNotifSettings === 'function') {
-      window._loadNotifSettings();
+    if (_nbdReg && typeof _nbdReg._loadNotifSettings === 'function') {
+      _nbdReg._loadNotifSettings();
     }
   }
   // Profile tab — repopulate fields from the saved user doc. The
@@ -1015,8 +1019,8 @@ function switchSettingsTab(tab) {
   // checkboxes reflect what was actually saved (not the hardcoded
   // `checked` defaults in the markup).
   if (tab === 'profile') {
-    if (typeof window._loadProfileSettings === 'function') {
-      window._loadProfileSettings();
+    if (_nbdReg && typeof _nbdReg._loadProfileSettings === 'function') {
+      _nbdReg._loadProfileSettings();
     }
     // The kanban density buttons + bold/auto-collapse checkboxes live in
     // this panel too; their boot-time DCL+200ms painter ran before the
