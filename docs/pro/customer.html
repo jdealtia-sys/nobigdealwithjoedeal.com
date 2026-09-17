@@ -1557,8 +1557,17 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;" id="estimatesPanelTitle">Estimates</div>
-          <div style="display:flex;gap:8px;">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-ghost" data-action="openEstimateModal" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
+            <!-- 2026-09-17, Jo: job templates are way faster than a full
+                 estimate build for jobs that fit one — a rep on this page
+                 had no way to reach them at all before this button.
+                 Same "navigate to dashboard with the lead pre-selected"
+                 pattern _openInDashboardEstimate already uses (Build
+                 Estimate, to the right); dashboard-bootstrap.module.js's
+                 deep-link handler opens the SAME picker (openJobTemplatesForLead)
+                 the dashboard's own card-detail "Template Quote" button uses. -->
+            <button class="btn btn-ghost" data-action="_openInDashboardJobTemplates" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M4 3h9l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M7 9h6M7 12h6M7 15h3"/></svg> Job Templates</button>
             <button class="btn btn-orange" data-action="_openInDashboardEstimate" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:12px;height:12px;vertical-align:middle;"><path d="M10 4v12M4 10h12"/></svg> Build Estimate</button>
           </div>
         </div>

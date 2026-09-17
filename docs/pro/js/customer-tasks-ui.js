@@ -2132,6 +2132,17 @@ function _openInDashboardEstimate() {
     window.location.href = '/pro/dashboard?lead=' + window._customerId;
   }
 }
+// 2026-09-17: same navigate-with-lead-context pattern as the estimate
+// button above — Job Templates has no in-page UI on customer.html (it
+// rides the dashboard's own JobTemplatesUI picker), so this hands off to
+// dashboard-bootstrap.module.js's ?lead=&templates=1 deep link, which opens
+// the SAME openJobTemplatesForLead() the dashboard's card-detail "Template
+// Quote" button uses — no second picker implementation.
+function _openInDashboardJobTemplates() {
+  if (window._customerId) {
+    window.location.href = '/pro/dashboard?lead=' + window._customerId + '&templates=1';
+  }
+}
 function _openPhotoInEditorAndClose(idx) {
   // data-arg is always a string; coerce so array indexing works.
   if (typeof openPhotoInEditor === 'function') openPhotoInEditor(+idx);
@@ -2178,6 +2189,7 @@ window._closeGallerySharePanel       = _closeGallerySharePanel;
 window._closePhotoActionPopup        = _closePhotoActionPopup;
 window._triggerFileInput             = _triggerFileInput;
 window._openInDashboardEstimate      = _openInDashboardEstimate;
+window._openInDashboardJobTemplates  = _openInDashboardJobTemplates;
 window._openPhotoInEditorAndClose    = _openPhotoInEditorAndClose;
 window._previewPhotoFromPopup        = _previewPhotoFromPopup;
 window._sendReferralCodeAndSms       = _sendReferralCodeAndSms;
