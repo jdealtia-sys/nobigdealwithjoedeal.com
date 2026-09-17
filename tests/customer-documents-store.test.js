@@ -277,6 +277,66 @@ const UPLOADED = {
     ok('refresh() resolves the lead from window._customerId', /NBD-contract/.test(els.docList.innerHTML));
   }
 
+  // ── status field (2026-09-17): draft/sent/signed lifecycle ──────────
+  console.log('\nDOCUMENTS STORE — status field (draft/sent/signed)');
+  {
+    const DRAFT = Object.assign({}, GENERATED_V2, { id: 'S-draft', status: 'draft' });
+    const { win, els } = loadEnv([DRAFT]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    const row = els.generatedDocList.innerHTML;
+    ok('a draft doc shows neither Signed nor Awaiting signature', !/Signed|Awaiting signature/.test(row));
+  }
+  {
+    const SENT = Object.assign({}, GENERATED_V2, { id: 'S-sent', status: 'sent' });
+    const { win, els } = loadEnv([SENT]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    const row = els.generatedDocList.innerHTML;
+    ok('a sent doc shows "Awaiting signature"', /Awaiting signature/.test(row));
+    ok('a sent doc is NOT marked signed', !/✓ Signed/.test(row));
+    ok('window._customerDocs exposes status:"sent" for consumers beyond the doc list',
+      win._customerDocs.find(d => d.id === 'S-sent').status === 'sent');
+  }
+  {
+    // Explicit status:'signed' with NO signedAt/signedRemotely on the row —
+    // proves the explicit field alone is enough, the old heuristic is a
+    // fallback now, not the only path.
+    const SIGNED = Object.assign({}, GENERATED_V2, { id: 'S-signed', status: 'signed' });
+    const { win, els } = loadEnv([SIGNED]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('status:"signed" alone marks the row Signed (no signedAt/signedRemotely needed)',
+      /✓ Signed/.test(els.generatedDocList.innerHTML));
+  }
+  {
+    // A signed_upload row now carries status:'signed' from the writer
+    // (customer-signed-doc-upload.js) — same result as the old source-regex
+    // inference, proven explicitly rather than incidentally.
+    const UP = Object.assign({}, UPLOADED, { status: 'signed' });
+    const { win, els } = loadEnv([UP]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('a signed_upload row with status:"signed" shows Signed', /✓ Signed/.test(els.signedDocsList.innerHTML));
+  }
+  {
+    // Backward compatibility: a row written before this field existed (no
+    // status at all) must keep working off the old presence-based inference
+    // — no backfill migration required.
+    const OLD_SIGNED = Object.assign({}, GENERATED, { id: 'S-legacy', signedAt: ts('2026-08-20T00:00:00Z'), signedRemotely: true });
+    const { win, els } = loadEnv([OLD_SIGNED]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('a pre-existing row with no status field still infers Signed from signedRemotely/signedAt',
+      /✓ Signed/.test(els.generatedDocList.innerHTML));
+  }
+  {
+    // Defensive: a garbage status value (never written by any real writer,
+    // but Firestore data is not a typed value) must not crash and must not
+    // be trusted — falls back to inference like a missing field would.
+    const GARBAGE = Object.assign({}, GENERATED_V2, { id: 'S-garbage', status: 'made_up_status' });
+    const { win, els } = loadEnv([GARBAGE]);
+    await win.NBDCustomerDocs.load('LEAD1');
+    ok('an unrecognized status value does not crash the render — the row still shows',
+      /NBD-contract-2026-08-26\.pdf/.test(els.generatedDocList.innerHTML));
+    ok('an unrecognized status value is not trusted as signed', !/✓ Signed/.test(els.generatedDocList.innerHTML));
+  }
+
   console.log('\n──────────────────────');
   console.log(passed + ' passed, ' + failed + ' failed');
   if (failed) { console.log('FAILED: ' + fails.join(', ')); process.exit(1); }

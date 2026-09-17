@@ -265,6 +265,16 @@ exports.createSignRequest = onCall(
       expiresAt,
     });
 
+    // Document lifecycle: draft -> sent. Best-effort and separate from the
+    // token above (doc_sign_tokens.status is the token's own pending/signed/
+    // expired state) — a failure here must not stop the mint+email below,
+    // it only means the CRM's "awaiting signature" label doesn't light up.
+    try {
+      await db.doc(`leads/${leadId}/documents/${docId}`).set({ status: 'sent' }, { merge: true });
+    } catch (e) {
+      logger.warn('[createSignRequest] status stamp failed', { leadId, docId, err: e.message });
+    }
+
     // PR5: email the homeowner the signing link via Resend (same provider
     // as email-functions.js). Best-effort — the token is already minted,
     // so a transient mail failure surfaces to the rep without losing it.
@@ -523,6 +533,7 @@ exports.submitSignature = onRequest(
     }
     try {
       await db.doc(`leads/${info.leadId}/documents/${info.docId}`).set({
+        status: 'signed',
         signedAt: FieldValue.serverTimestamp(),
         signedRemotely: true,
         remoteSignerName: info.signerName || null,
