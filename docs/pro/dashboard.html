@@ -6185,12 +6185,50 @@
       <div id="mJdVoiceIntelRoot"></div>
     </div>
     <div class="m-jd-tab-body" id="mJdTabDetails" role="tabpanel" aria-labelledby="details" hidden>
+      <!-- Job Checklist — reuses window.JobChecklist.render(lead) UNMODIFIED
+           from customer-checklist.js. render() hardcodes getElementById(
+           'checklistPanel') (not container-agnostic like the two panels
+           below), so this id is REUSED from customer.html rather than
+           renamed — same "duplicate ids across two pages never both loaded
+           together" pattern the Messages tab (repMsg*) already relies on.
+           Checkbox taps dispatch via a small delegate in dashboard-actions.js
+           (_mJdWireChecklistDelegate) since customer-tasks-ui.js's own
+           data-change-action delegate isn't loaded on this page. -->
+      <div class="panel" id="checklistPanel" style="display:none;"></div>
+      <!-- Warranty Claim — reuses window.WarrantyClaim.renderPanel(elId, lead)
+           UNMODIFIED (warranty-claim.js is already <script defer> loaded on
+           this page but never invoked here). Self-clears to '' when the lead
+           has no open claim, so it's safe to always mount here. -->
+      <div id="mJdWarrantyClaimPanel"></div>
+      <!-- Insurance Details (deductible + status + tap-to-call Adjuster/Claim
+           Handler/Mortgage Company) — reuses window.ClaimPanel.render(containerId,
+           lead) UNMODIFIED from claim-core.js, gated the same way
+           customer-bootstrap.module.js gates #insurancePanel. Read-only on
+           mobile: the Edit affordance ClaimPanel paints depends on
+           customer.html-only globals/delegate wiring, out of scope here. -->
+      <div class="panel" id="mJdInsurancePanel" style="display:none;margin-bottom:16px;"></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Damage</span><span class="m-jd-detail-v" id="mJdDmg">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Phone</span><span class="m-jd-detail-v" id="mJdPhone">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Email</span><span class="m-jd-detail-v" id="mJdEmailV">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Source</span><span class="m-jd-detail-v" id="mJdSource">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Carrier</span><span class="m-jd-detail-v" id="mJdCarrier">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Claim #</span><span class="m-jd-detail-v" id="mJdClaim">—</span></div>
+      <!-- Notes — same `notes` Firestore collection + field shape as
+           customer.html's quick-add (customer-photo-report-generator.js's
+           loadNotes/quickAddNote), read/written directly rather than loading
+           that whole 640-line file (it also owns unrelated photo-report
+           code) just for ~90 lines of notes logic. New mobile-scoped ids —
+           loadNotes/quickAddNote hardcode the desktop ids, so this is a
+           second RENDER, not a second DATA layer (same "query shape is
+           portable, DOM ids are page-scoped" precedent as the activity feed
+           and comms log below). Populated by _mountNotesTab (dashboard-actions.js). -->
+      <div class="m-jd-act-section-title">Notes</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <textarea id="mJdNotesInput" rows="2" maxlength="4000" placeholder="Add a note…" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:13px;box-sizing:border-box;resize:vertical;"></textarea>
+        <button id="mJdNotesSend" type="button" class="btn btn-orange" data-action="call" data-fn="_mJdQuickAddNote" style="align-self:flex-end;">Send</button>
+      </div>
+      <div id="mJdNotesStatus" style="font-size:11px;color:var(--m);margin:-4px 0 8px;"></div>
+      <div id="mJdNotesList"><div class="m-jd-empty">Loading…</div></div>
       <!-- Communication Log (platform email/SMS send history) — customer.html's
            Contact tab has always had this; mobile never did. Populated by
            _mountCommsLog (dashboard-actions.js), same email_log/sms_log query
@@ -6478,6 +6516,12 @@
 <script defer src="js/stage-checklist.js?v=1"></script>
 <script defer src="js/paperwork-write.js?v=1"></script>
 <script defer src="js/warranty-claim.js?v=1"></script>
+<!-- Insurance Details panel reuse (mobile Details tab) — ClaimPanel.render
+     is container-agnostic; not loaded on this page before. -->
+<script defer src="js/claim-core.js?v=1"></script>
+<!-- Job Checklist panel reuse (mobile Details tab) — not loaded on this
+     page before. -->
+<script defer src="js/customer-checklist.js?v=1"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <!-- LAZY: photo-engine loads via ScriptLoader's `photos` bundle (PR 2d). -->
 <script defer src="js/photo-ai.js?v=2"></script>

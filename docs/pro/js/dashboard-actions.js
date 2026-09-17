@@ -1327,7 +1327,7 @@ function _mJdSwitchTab(tab) {
   // is just the homeowner-portal audit feed underneath it, which needs its
   // own Firestore read.
   if (tab === 'activity') _mountCustomerActivityFeed();
-  if (tab === 'details') _mountCommsLog();
+  if (tab === 'details') { _mountCommsLog(); _mountNotesTab(); }
 }
 
 // Homeowner portal activity (customerAuditEvents) for the Activity tab —
@@ -1477,6 +1477,131 @@ function _mountCommsLog() {
     }
   })();
 }
+
+function _mJdTimeAgo(date) {
+  const seconds = Math.floor((new Date() - date) / 1000);
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+  if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+  if (seconds < 604800) return Math.floor(seconds / 86400) + 'd ago';
+  return date.toLocaleDateString();
+}
+
+// Notes for the Details tab — same `notes` Firestore collection + field
+// shape as customer.html's quick-add (loadNotes/quickAddNote in
+// customer-photo-report-generator.js), read/written directly here rather
+// than loading that whole 640-line file (it also owns unrelated
+// photo-report code) for ~90 lines of notes logic — same "query shape is
+// portable, DOM ids are page-scoped" precedent as the activity feed and
+// comms log above.
+function _mountNotesTab() {
+  const host = document.getElementById('mJdNotesList');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (host.dataset.loadedFor === leadId) return;
+  host.dataset.loadedFor = leadId;
+  host.innerHTML = '<div class="m-jd-empty">Loading…</div>';
+
+  (async () => {
+    try {
+      if (!window.db || typeof window.getDocs !== 'function') {
+        host.innerHTML = '<div class="m-jd-empty">Notes unavailable — reload the page.</div>';
+        return;
+      }
+      // leadId-only (no author filter), matching loadNotes — the whole
+      // team's notes on this lead, not just the current rep's own.
+      const snap = await window.getDocs(window.query(
+        window.collection(window.db, 'notes'),
+        window.where('leadId', '==', leadId)
+      ));
+      if (window._cardDetailLeadId !== leadId) return;
+      const ms = (v) => (v && v.toDate ? v.toDate().getTime() : (v ? new Date(v).getTime() : 0)) || 0;
+      const notes = snap.docs.map((d) => d.data()).sort((a, b) => ms(b.createdAt) - ms(a.createdAt));
+      if (!notes.length) {
+        host.innerHTML = '<div class="m-jd-empty">No notes yet — type one above and hit Send.</div>';
+        return;
+      }
+      const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])));
+      host.innerHTML = '<div class="m-jd-act-list">' + notes.map((n) => {
+        const created = n.createdAt && n.createdAt.toDate ? n.createdAt.toDate() : new Date();
+        const bodyHtml = esc(n.text).replace(/\n/g, '<br>');
+        return '<div class="m-jd-act-item m-jd-act-item--static" style="display:block;">'
+          + '<div style="font-size:13px;line-height:1.5;margin-bottom:4px;">' + bodyHtml + '</div>'
+          + '<div class="m-jd-act-item-s">' + esc(n.createdBy || '') + ' · ' + esc(_mJdTimeAgo(created)) + '</div>'
+          + '</div>';
+      }).join('') + '</div>';
+    } catch (e) {
+      if (window._cardDetailLeadId !== leadId) return;
+      host.innerHTML = '<div class="m-jd-empty">Failed to load notes.</div>';
+    }
+  })();
+}
+
+// Quick-add handler for the Send button next to #mJdNotesInput. Simpler
+// than desktop's optimistic-prepend quickAddNote (no temp card / rollback
+// dance) — write, then re-fetch via _mountNotesTab, consistent with how
+// _mJdDeleteDoc/_mJdWireSignedUploadInputs already refresh their own lists.
+async function _mJdQuickAddNote() {
+  const input = document.getElementById('mJdNotesInput');
+  const send = document.getElementById('mJdNotesSend');
+  const status = document.getElementById('mJdNotesStatus');
+  const leadId = window._cardDetailLeadId;
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  if (!leadId || !window.db || !window.auth || !window.auth.currentUser) {
+    if (typeof showToast === 'function') showToast('No customer selected', 'error');
+    return;
+  }
+  input.disabled = true;
+  if (send) { send.disabled = true; send.style.opacity = '0.6'; }
+  if (status) { status.textContent = 'Saving…'; status.style.color = 'var(--m)'; }
+  try {
+    await window.addDoc(window.collection(window.db, 'notes'), {
+      leadId: leadId,
+      userId: window.auth.currentUser.uid,
+      text: text,
+      createdAt: window.serverTimestamp(),
+      createdBy: window.auth.currentUser.email || 'Unknown',
+    });
+    input.value = '';
+    if (status) {
+      status.textContent = 'Saved ✓';
+      status.style.color = 'var(--green)';
+      setTimeout(() => { if (status.textContent === 'Saved ✓') status.textContent = ''; }, 1800);
+    }
+    const host = document.getElementById('mJdNotesList');
+    if (host) delete host.dataset.loadedFor;
+    _mountNotesTab();
+  } catch (e) {
+    input.value = text;
+    if (status) { status.textContent = 'Save failed — try again'; status.style.color = 'var(--red)'; }
+    if (typeof showToast === 'function') showToast('Note save failed: ' + (e.message || 'unknown'), 'error');
+  } finally {
+    input.disabled = false;
+    if (send) { send.disabled = false; send.style.opacity = ''; }
+  }
+}
+document.addEventListener('keydown', (ev) => {
+  if (ev.target && ev.target.id === 'mJdNotesInput' && ev.key === 'Enter' && (ev.metaKey || ev.ctrlKey)) {
+    ev.preventDefault();
+    _mJdQuickAddNote();
+  }
+});
+
+// Job Checklist checkbox delegate — customer-checklist.js's checkboxes carry
+// data-change-action="toggleJobChecklistItem" data-arg="<key>" data-pass-el
+// and ride customer-tasks-ui.js's own change delegate on customer.html,
+// which dashboard.html doesn't load. A single document-level listener
+// (wired once here, not per-mount — #checklistPanel is populated
+// synchronously in openMobileJobDetail, not through a lazy _mount*()) covers
+// every checkbox regardless of which lead is currently open.
+document.addEventListener('change', (ev) => {
+  const el = ev.target && ev.target.closest && ev.target.closest('[data-change-action="toggleJobChecklistItem"]');
+  if (!el) return;
+  const key = el.getAttribute('data-arg');
+  if (typeof window.toggleJobChecklistItem === 'function') window.toggleJobChecklistItem(key, el);
+});
 
 // Bring the tab row to the top of the scroller after an action-ring button
 // switches tabs, so the rep lands ON the panel instead of having to scroll
@@ -2217,6 +2342,7 @@ window.openLeadDetail = openLeadDetail;
     // (loaded via the docgen bundle) — registered here, not redefined,
     // same convention _mJdDeleteDoc uses for window.deleteCustomerDoc.
     uploadSignedDoc: (...args) => (typeof window.uploadSignedDoc === 'function') && window.uploadSignedDoc(...args),
+    _mJdQuickAddNote: _mJdQuickAddNote,
   });
 })();
 
