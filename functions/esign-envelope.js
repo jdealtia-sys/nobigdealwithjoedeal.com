@@ -102,6 +102,26 @@ function isOwnEnvelopePath(p, uid, leadId, envelopeId) {
   return p === `esign/${uid}/${leadId}/${envelopeId}/source.pdf`;
 }
 
+/**
+ * How to answer a submit whose token is no longer 'pending'. Mirrors
+ * getEsignEnvelope's distinct signed/revoked/inactive handling (see that
+ * function's own comment) — 'revoked' is NOT 'signed', and telling a signer
+ * whose link was just superseded by a resend that "this document has
+ * already been signed" is both false and gives them nothing to act on.
+ */
+function nonPendingTokenResponse(status) {
+  if (status === 'signed') {
+    return { status: 409, body: { error: 'This document has already been signed.', reason: 'signed' } };
+  }
+  if (status === 'revoked') {
+    return {
+      status: 409,
+      body: { error: 'This link was cancelled — your rep sent a new one. Please use the latest link.', reason: 'revoked' },
+    };
+  }
+  return { status: 409, body: { error: 'This link is no longer active.', reason: 'inactive' } };
+}
+
 /** The signer-facing view of an envelope. Never leaks lead internals. */
 function publicEnvelope(env) {
   return {
@@ -359,6 +379,15 @@ exports.sendEsignEnvelope = onCall(
       throw new HttpsError('failed-precondition',
         'Place at least one field before sending — a document with no fields cannot be signed.');
     }
+    if (!env.fields.some((f) => f && f.required !== false)) {
+      // Same hole, different door: every field toggled to optional (one
+      // click each, no confirmation) leaves requiredFields() empty on the
+      // signer's page, so Finish enables with nothing filled in and the
+      // document "signs" with values = {}. Refuse to send a layout that
+      // cannot actually require anything.
+      throw new HttpsError('failed-precondition',
+        'At least one field must be required before sending — a document where every field is optional can be "signed" with nothing filled in.');
+    }
 
     const name = (typeof signerName === 'string' && signerName.trim()) || env.signerName || '';
     const email = (typeof signerEmail === 'string' && signerEmail.trim()) || env.signerEmail || '';
@@ -563,6 +592,12 @@ exports.submitEsignEnvelope = onRequest(
     if (!values || typeof values !== 'object' || Array.isArray(values)) {
       res.status(400).json({ error: 'No field values were submitted.' }); return;
     }
+    if (Object.keys(values).length === 0) {
+      // Belt to sendEsignEnvelope's "at least one required field" brace: an
+      // envelope sent before that guard existed (or otherwise reached with
+      // every field optional) must still not "sign" with nothing entered.
+      res.status(400).json({ error: 'Please complete at least one field before submitting.' }); return;
+    }
     if (Object.keys(values).length > 200) {
       res.status(413).json({ error: 'Too many values submitted.' }); return;
     }
@@ -578,10 +613,16 @@ exports.submitEsignEnvelope = onRequest(
     if (!pre.exists) { res.status(404).json({ error: 'This signing link is not valid.' }); return; }
     const tok = pre.data();
     if (tok.status !== 'pending') {
-      res.status(409).json({ error: 'This document has already been signed.' }); return;
+      // 'revoked' is not 'signed' — the exact false, un-actionable message
+      // getEsignEnvelope was rebuilt to stop giving (see its own comment
+      // above). Reachable in the ordinary course of business: the rep hits
+      // "resend" (which revokes the live token) while the original signer
+      // still has the old link open and submits from it.
+      const nonPending = nonPendingTokenResponse(tok.status);
+      res.status(nonPending.status).json(nonPending.body); return;
     }
     if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
-      res.status(410).json({ error: 'This signing link has expired.' }); return;
+      res.status(410).json({ error: 'This signing link has expired.', reason: 'expired' }); return;
     }
 
     const envRef = db.doc(`esign_envelopes/${tok.envelopeId}`);
@@ -642,14 +683,23 @@ exports.submitEsignEnvelope = onRequest(
         const snap = await tx.get(tokRef);
         if (!snap.exists) { const e = new Error('nf'); e._http = 404; e._msg = 'This signing link is not valid.'; throw e; }
         const t = snap.data();
-        if (t.status !== 'pending') { const e = new Error('done'); e._http = 409; e._msg = 'This document has already been signed.'; throw e; }
+        if (t.status !== 'pending') {
+          // Same distinction as the pre-check above — a resend can revoke
+          // the token in the window between that read and this transaction.
+          const r = nonPendingTokenResponse(t.status);
+          const e = new Error(t.status); e._http = r.status; e._msg = r.body.error; e._reason = r.body.reason;
+          throw e;
+        }
         if (t.expiresAt && t.expiresAt.toMillis && t.expiresAt.toMillis() < Date.now()) {
-          const e = new Error('exp'); e._http = 410; e._msg = 'This signing link has expired.'; throw e;
+          const e = new Error('exp'); e._http = 410; e._msg = 'This signing link has expired.'; e._reason = 'expired'; throw e;
         }
         tx.update(tokRef, { status: 'signed', signedAt: FieldValue.serverTimestamp() });
       });
     } catch (err) {
-      if (err && err._http) { res.status(err._http).json({ error: err._msg }); return; }
+      if (err && err._http) {
+        res.status(err._http).json(err._reason ? { error: err._msg, reason: err._reason } : { error: err._msg });
+        return;
+      }
       logger.error('[submitEsignEnvelope] burn txn failed', { msg: err.message });
       res.status(500).json({ error: 'Could not record your signature. Please try again.' }); return;
     }

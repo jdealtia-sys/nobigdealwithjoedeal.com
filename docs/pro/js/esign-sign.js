@@ -555,7 +555,13 @@ el.submit.addEventListener('click', async () => {
   if (r.status === 409 || r.status === 410) {
     el.done.hidden = true;
     el.foot.hidden = true;
-    showMsg('✅', 'Already signed', r.data.error || 'This document has already been signed.');
+    // Same distinction boot() already makes on the initial load: a revoked
+    // link is not a signed one, and telling the signer it is both false and
+    // leaves them nothing to act on.
+    const reason = r.data.reason || '';
+    if (reason === 'revoked') showMsg('🚫', 'Link cancelled', r.data.error || 'This link was cancelled. Please use the latest link.');
+    else if (reason === 'expired') showMsg('⏳', 'This link expired', r.data.error || 'This signing link has expired.');
+    else showMsg('✅', 'Already signed', r.data.error || 'This document has already been signed.');
     return;
   }
   if (Array.isArray(r.data.missing) && r.data.missing.length) {

@@ -264,8 +264,19 @@ const RUNNABLE = ['node', 'smoke'];
 //               independently adds one node suite from the SAME original
 //               133/68/220 base as the adjuster-board lane above. Re-
 //               measured via --check on this tree (four lanes above
-//               already merged + this one): 139/68/226.
-const FLOORS = { node: 154, smoke: 68, disk: 242 };
+//               already merged + this one); landed on 154/68/242 by the
+//               same base the esign lane below also started from — see
+//               SEVENTEENTH for why that coincidence wasn't trusted.
+//   2026-09-17  SEVENTEENTH collision: the esign rotation/optional-fields/
+//               revoked-message lane (tests/esign-envelope-guards.test.js,
+//               new; tests/esign-setup-placement.test.js, modified) was
+//               merged and re-measured against main BEFORE anniversary-touch
+//               (SIXTEENTH) landed, and both independently produced the
+//               literal 154/68/242 from the same 153/68/241 base — a
+//               matching number that is not evidence, per this ledger's own
+//               rule. Re-measured via --check on the tree with BOTH lanes
+//               merged (this esign lane's own suite + anniversary-touch's):
+const FLOORS = { node: 155, smoke: 68, disk: 243 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
