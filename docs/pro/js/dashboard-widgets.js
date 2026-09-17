@@ -1256,6 +1256,14 @@ function openMobileJobDetail(leadId) {
   // actually had a carrier.
   $('mJdCarrier').textContent = lead.insCarrier || lead.insuranceCarrier || lead.carrier || '—';
   $('mJdClaim').textContent   = lead.claimNumber || lead.claim || '—';
+  // Communication Log — same "clear cache flag on every open" contract as
+  // Documents/the activity feed above; _mountCommsLog (dashboard-actions.js)
+  // re-fetches on the next switch to Details.
+  const commsBody = $('mJdCommsLog');
+  if (commsBody) {
+    delete commsBody.dataset.loadedFor;
+    commsBody.innerHTML = '<div class="m-jd-empty">Loading…</div>';
+  }
 
   // ── Photos tab — cleared, not built. CustomerPhotoHub owns this tab and
   // mounts on the first switch to it (_mJdSwitchTab), same lazy contract as
@@ -1279,6 +1287,15 @@ function openMobileJobDetail(leadId) {
   if (docBody) {
     delete docBody.dataset.loadedFor;
     docBody.innerHTML = '<div class="m-jd-empty">Loading documents…</div>';
+  }
+
+  // ── Homeowner portal activity feed — same "clear cache flag on every
+  // open" contract as Documents above; _mountCustomerActivityFeed
+  // (dashboard-actions.js) re-fetches on the next switch to Activity.
+  const actFeedBody = $('mJdCustomerActivityFeed');
+  if (actFeedBody) {
+    delete actFeedBody.dataset.loadedFor;
+    actFeedBody.innerHTML = '<div class="m-jd-empty">Loading…</div>';
   }
 
   // ── Activity tab — the lead's estimates + stage history ──

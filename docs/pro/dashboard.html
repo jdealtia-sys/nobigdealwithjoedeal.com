@@ -6141,6 +6141,12 @@
         <span class="m-jd-cta-chev">›</span>
       </button>
       <div class="m-jd-empty">No activity yet for this lead.</div>
+      <!-- Homeowner portal activity (customerAuditEvents) — same audit
+           batch 7 log customer.html's Timeline tab shows under "Customer
+           Activity", never surfaced on mobile before. Populated by
+           _mountCustomerActivityFeed (dashboard-actions.js). -->
+      <div class="m-jd-act-section-title">Homeowner Portal Activity</div>
+      <div id="mJdCustomerActivityFeed"><div class="m-jd-empty">Loading…</div></div>
     </div>
     <div class="m-jd-tab-body" id="mJdTabEstimates" role="tabpanel" aria-labelledby="estimates" hidden>
       <div class="m-jd-empty">Loading estimates…</div>
@@ -6185,6 +6191,14 @@
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Source</span><span class="m-jd-detail-v" id="mJdSource">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Carrier</span><span class="m-jd-detail-v" id="mJdCarrier">—</span></div>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Claim #</span><span class="m-jd-detail-v" id="mJdClaim">—</span></div>
+      <!-- Communication Log (platform email/SMS send history) — customer.html's
+           Contact tab has always had this; mobile never did. Populated by
+           _mountCommsLog (dashboard-actions.js), same email_log/sms_log query
+           loadCommunicationLog (customer-tasks-ui.js) uses. Not the live
+           two-way homeowner chat (that's the Messages tab, a different
+           collection) — this is the rep-sent platform email/SMS history. -->
+      <div class="m-jd-act-section-title">Communication Log</div>
+      <div id="mJdCommsLog"><div class="m-jd-empty">Loading…</div></div>
     </div>
   </div>
 </div>

@@ -1322,6 +1322,160 @@ function _mJdSwitchTab(tab) {
   if (tab === 'documents') _mountDocumentsHub();
   if (tab === 'messages') _mountMessagesHub();
   if (tab === 'voice') _mountVoiceIntel();
+  // Activity's estimates+stage-history list is already built synchronously
+  // by openMobileJobDetail (dashboard-widgets.js) from in-memory data — this
+  // is just the homeowner-portal audit feed underneath it, which needs its
+  // own Firestore read.
+  if (tab === 'activity') _mountCustomerActivityFeed();
+  if (tab === 'details') _mountCommsLog();
+}
+
+// Homeowner portal activity (customerAuditEvents) for the Activity tab —
+// same audit batch 7 log customer.html's Timeline tab shows under "Customer
+// Activity" (customer-bootstrap.module.js's loadCustomerActivity), reading
+// the SAME collection/query shape rather than a second implementation. Not
+// a literal call-through: that function is ES-module-scoped (db/auth are
+// its own local imports, not window globals) so it can't be called directly
+// from here — but dashboard-bootstrap.module.js publishes the identical set
+// of Firestore helpers (window.db/getDocs/collection/query/where/orderBy/
+// limit) customer-bootstrap.module.js does, so the query itself is portable.
+// Cache flag lives on the host element's dataset (same convention
+// _mountDocumentsHub uses) so openMobileJobDetail can clear it on every
+// open the same way it already does for Documents — no second cross-file
+// reset function needed.
+function _mountCustomerActivityFeed() {
+  const host = document.getElementById('mJdCustomerActivityFeed');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (host.dataset.loadedFor === leadId) return;
+  host.dataset.loadedFor = leadId;
+  host.innerHTML = '<div class="m-jd-empty">Loading…</div>';
+
+  (async () => {
+    try {
+      if (!window.db || !window.auth || typeof window.getDocs !== 'function') {
+        host.innerHTML = '<div class="m-jd-empty">Activity unavailable — reload the page.</div>';
+        return;
+      }
+      const snap = await window.getDocs(window.query(
+        window.collection(window.db, 'customerAuditEvents'),
+        window.where('leadId', '==', leadId),
+        window.where('ownerUid', '==', window.auth.currentUser && window.auth.currentUser.uid),
+        window.orderBy('createdAt', 'desc'),
+        window.limit(50)
+      ));
+      // Stale by the time the fetch resolves — a slow load must not paint
+      // the wrong customer's activity (same guard _mountDocumentsHub uses).
+      if (window._cardDetailLeadId !== leadId) return;
+      const events = snap.docs.map(d => Object.assign({ id: d.id }, d.data()));
+      if (!events.length) {
+        host.innerHTML = '<div class="m-jd-empty">No activity yet. Activity appears here when the homeowner opens their portal link.</div>';
+        return;
+      }
+      const ICON = { portal_open: '🔓', photo_view: '📷', estimate_view: '📋', document_view: '📄', photo_upload: '⬆️' };
+      const LABEL = { portal_open: 'Opened portal', photo_view: 'Viewed photo', estimate_view: 'Viewed estimate', document_view: 'Viewed document', photo_upload: 'Uploaded photo' };
+      const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])));
+      host.innerHTML = '<div class="m-jd-act-list">' + events.map(e => {
+        const t = e.createdAt && e.createdAt.toDate ? e.createdAt.toDate() : null;
+        const when = t ? t.toLocaleDateString() : '';
+        const icon = ICON[e.type] || '•';
+        const label = LABEL[e.type] || esc(e.type);
+        return '<div class="m-jd-act-item m-jd-act-item--static">'
+          + '<span class="m-jd-act-item-ico">' + icon + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + label + '</span>'
+          + (when ? '<span class="m-jd-act-item-s">' + esc(when) + '</span>' : '') + '</span>'
+          + '</div>';
+      }).join('') + '</div>';
+    } catch (e) {
+      if (window._cardDetailLeadId !== leadId) return;
+      host.innerHTML = '<div class="m-jd-empty">Activity unavailable.</div>';
+    }
+  })();
+}
+
+// Communication Log for the Details tab — platform email/SMS SEND history
+// (email_log/sms_log), not the live two-way homeowner chat (Messages tab,
+// a different collection). Same query shape as loadCommunicationLog
+// (customer-tasks-ui.js): team-thread vs individual-uid scoping by role,
+// same 30/20 result caps. Not a literal call-through for the same reason
+// _mountCustomerActivityFeed isn't — that function is customer.html-scoped
+// (reads its own module-local uid/claims), but the query itself is portable
+// since dashboard.html publishes the identical Firestore helper globals.
+function _mountCommsLog() {
+  const host = document.getElementById('mJdCommsLog');
+  const leadId = window._cardDetailLeadId;
+  if (!host || !leadId) return;
+  if (host.dataset.loadedFor === leadId) return;
+  host.dataset.loadedFor = leadId;
+  host.innerHTML = '<div class="m-jd-empty">Loading…</div>';
+
+  (async () => {
+    try {
+      const uid = (window.auth && window.auth.currentUser && window.auth.currentUser.uid) || null;
+      if (!uid || !window.db || typeof window.getDocs !== 'function') {
+        host.innerHTML = '<div class="m-jd-empty">Sign in to view messages</div>';
+        return;
+      }
+      const claims = window._userClaims || {};
+      const role = claims.role || '';
+      const companyId = claims.companyId || null;
+      const teamThread = !!(companyId && (role === 'company_admin' || role === 'manager' || role === 'viewer' || claims.owner === true));
+
+      const emailRef = window.collection(window.db, 'email_log');
+      const smsRef = window.collection(window.db, 'sms_log');
+      let emailQ, smsQ;
+      if (teamThread) {
+        emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.where('companyId', '==', companyId), window.orderBy('date', 'desc'), window.limit(30));
+        smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.where('companyId', '==', companyId), window.orderBy('date', 'desc'), window.limit(30));
+      } else {
+        emailQ = window.query(emailRef, window.where('leadId', '==', leadId), window.where('uid', '==', uid), window.orderBy('date', 'desc'), window.limit(20));
+        smsQ = window.query(smsRef, window.where('leadId', '==', leadId), window.where('uid', '==', uid), window.orderBy('date', 'desc'), window.limit(20));
+      }
+      const [emailSnap, smsSnap] = await Promise.all([window.getDocs(emailQ), window.getDocs(smsQ)]);
+      if (window._cardDetailLeadId !== leadId) return;
+
+      let comms = [];
+      emailSnap.forEach((d) => {
+        const data = d.data();
+        comms.push({
+          type: 'email',
+          date: data.date && data.date.toDate ? data.date.toDate() : new Date(data.date),
+          subject: data.subject || 'Email',
+          fromUid: data.uid || null,
+        });
+      });
+      smsSnap.forEach((d) => {
+        const data = d.data();
+        const smsText = data.body || data.message || '';
+        comms.push({
+          type: 'sms',
+          date: data.date && data.date.toDate ? data.date.toDate() : new Date(data.date),
+          subject: smsText || 'Text Message',
+          fromUid: data.uid || null,
+        });
+      });
+      comms.sort((a, b) => b.date - a.date);
+      comms = comms.slice(0, 30);
+
+      if (!comms.length) {
+        host.innerHTML = '<div class="m-jd-empty">' + (teamThread ? 'No platform messages yet for this lead (team view).' : 'No messages yet — platform email/SMS will appear here.') + '</div>';
+        return;
+      }
+      const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])));
+      host.innerHTML = '<div class="m-jd-act-list">' + comms.map((c) => {
+        const dateStr = c.date.toLocaleDateString() + ' ' + c.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const who = (teamThread && c.fromUid && c.fromUid !== uid) ? ' · teammate' : '';
+        return '<div class="m-jd-act-item m-jd-act-item--static">'
+          + '<span class="m-jd-act-item-ico">' + (c.type === 'sms' ? '💬' : '✉️') + '</span>'
+          + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">' + esc(c.subject) + '</span>'
+          + '<span class="m-jd-act-item-s">' + esc(dateStr) + esc(who) + '</span></span>'
+          + '</div>';
+      }).join('') + '</div>';
+    } catch (e) {
+      if (window._cardDetailLeadId !== leadId) return;
+      host.innerHTML = '<div class="m-jd-empty">Failed to load messages</div>';
+    }
+  })();
 }
 
 // Bring the tab row to the top of the scroller after an action-ring button
