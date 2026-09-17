@@ -31,13 +31,25 @@
 
 'use strict';
 
-const { PDFDocument, StandardFonts, rgb, degrees } = require('pdf-lib');
+// Lazy + memoized: pdf-lib costs ~80ms to parse, and this module's exports
+// are only ever reached from an actual sign/stamp call, never at cold-start
+// module load — same memoized-require pattern already used for Stripe in
+// stripe.js / handlers/stripe-connect.js / handlers/seats.js.
+let _pdfLib = null;
+function pdfLib() {
+  if (!_pdfLib) _pdfLib = require('pdf-lib');
+  return _pdfLib;
+}
 
 /** Field types a signer can be asked to complete. */
 const FIELD_TYPES = ['signature', 'initials', 'date', 'text', 'checkbox'];
 
 /** Ink colour for typed values and check marks — near-black, never pure. */
-const INK = rgb(0.10, 0.10, 0.18);
+let _ink = null;
+function INK() {
+  if (!_ink) _ink = pdfLib().rgb(0.10, 0.10, 0.18);
+  return _ink;
+}
 
 /**
  * Largest size at which `text` fits inside `w` x `h`, capped at `max`.
@@ -114,6 +126,7 @@ function decodePngDataUrl(s) {
  */
 async function stampPdf(pdfBytes, fields, values, opts) {
   const options = opts || {};
+  const { PDFDocument, StandardFonts } = pdfLib();
   const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: false });
   const pages = pdf.getPages();
   validateFields(fields, pages.length);
@@ -169,12 +182,12 @@ async function stampPdf(pdfBytes, fields, values, opts) {
       page.drawLine({
         start: { x: cx + s * 0.18, y: cy + s * 0.52 },
         end: { x: cx + s * 0.42, y: cy + s * 0.24 },
-        thickness: t, color: INK,
+        thickness: t, color: INK(),
       });
       page.drawLine({
         start: { x: cx + s * 0.42, y: cy + s * 0.24 },
         end: { x: cx + s * 0.84, y: cy + s * 0.78 },
-        thickness: t, color: INK,
+        thickness: t, color: INK(),
       });
       continue;
     }
@@ -189,7 +202,7 @@ async function stampPdf(pdfBytes, fields, values, opts) {
       y: box.y + Math.max(1, (box.h - size) / 2 + size * 0.18),
       size,
       font,
-      color: INK,
+      color: INK(),
       maxWidth: box.w,
     });
   }
@@ -205,7 +218,7 @@ async function stampPdf(pdfBytes, fields, values, opts) {
         y: 6,
         size,
         font: helv,
-        color: rgb(0.45, 0.45, 0.5),
+        color: pdfLib().rgb(0.45, 0.45, 0.5),
       });
     }
   }
@@ -218,6 +231,7 @@ async function stampPdf(pdfBytes, fields, values, opts) {
 
 /** Page geometry the placement UI needs, without shipping the whole PDF twice. */
 async function readPdfGeometry(pdfBytes) {
+  const { PDFDocument } = pdfLib();
   const pdf = await PDFDocument.load(pdfBytes, { ignoreEncryption: false });
   return pdf.getPages().map((p) => {
     const { width, height } = p.getSize();
