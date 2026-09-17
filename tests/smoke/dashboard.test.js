@@ -5027,4 +5027,34 @@ section('Mobile job-detail: homeowner portal activity + communication log (2026-
     /\.m-jd-act-section-title\{/.test(css));
 }
 
+section('Job Templates link from customer.html (2026-09-17, Jo: "job templates are way faster than an estimate")');
+{
+  const customer = readCustomer();
+  const bootstrap = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+
+  // customer.html had NO path to Job Templates at all before this — the
+  // Estimates panel offered Log Estimate / Build Estimate only.
+  assert('the Estimates panel has a "Job Templates" button next to Log Estimate / Build Estimate',
+    /data-action="_openInDashboardJobTemplates"/.test(customer) && /Job Templates/.test(customer));
+  assert('_openInDashboardJobTemplates navigates to the dashboard with the lead pre-selected AND a templates flag',
+    /function _openInDashboardJobTemplates\(\)[\s\S]{0,160}\/pro\/dashboard\?lead=' \+ window\._customerId \+ '&templates=1'/.test(customer));
+  assert('_openInDashboardJobTemplates is exported to window (customer.html\'s data-action delegate resolves plain window.X, not a registry)',
+    /window\._openInDashboardJobTemplates\s*=\s*_openInDashboardJobTemplates;/.test(customer));
+
+  // The deep-link handler must check templates+lead BEFORE the general
+  // est||lead branch, or a plain ?lead=&templates=1 would fall into the
+  // "new estimate" branch instead and never reach the templates picker.
+  const templatesBranchIdx = bootstrap.indexOf("if (templatesParam && leadParam)");
+  const estOrLeadBranchIdx = bootstrap.indexOf("} else if (estParam || leadParam)");
+  assert('dashboard-bootstrap.module.js reads a templates= query param',
+    /const templatesParam = urlParams\.get\('templates'\);/.test(bootstrap));
+  assert('the templates+lead branch exists and is checked before the general est||lead branch',
+    templatesBranchIdx > -1 && estOrLeadBranchIdx > -1 && templatesBranchIdx < estOrLeadBranchIdx);
+  const templatesFn = bootstrap.slice(templatesBranchIdx, estOrLeadBranchIdx);
+  assert('the templates deep link calls openJobTemplatesForLead — the SAME entry point the dashboard\'s own "Template Quote" button uses, not a second picker',
+    /window\.openJobTemplatesForLead\(leadParam\)/.test(templatesFn));
+  assert('the templates deep link cleans the URL after opening (same convention every other deep link here uses)',
+    /window\.history\.replaceState\(\{\}, '', '\/pro\/dashboard\.html'\)/.test(templatesFn));
+}
+
 };

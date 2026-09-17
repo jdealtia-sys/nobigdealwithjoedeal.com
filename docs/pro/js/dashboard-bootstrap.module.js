@@ -1953,8 +1953,27 @@
     
     const estParam = urlParams.get('est');
     const leadParam = urlParams.get('lead');
+    const templatesParam = urlParams.get('templates');
 
-    if (estParam && editId) {
+    if (templatesParam && leadParam) {
+      // ── JOB TEMPLATES for a lead, from customer.html's Estimates panel
+      //    "Job Templates" button (2026-09-17, Jo: "job templates are way
+      //    faster than an estimate"). Checked BEFORE the estParam||leadParam
+      //    branch below so a plain ?lead= doesn't swallow this one.
+      //    openJobTemplatesForLead already owns its own lazy-load-then-run
+      //    (loads the 'estimates' bundle if JobTemplatesUI isn't ready) —
+      //    the SAME entry point the dashboard's own card-detail "Template
+      //    Quote" button calls, not a second picker.
+      setTimeout(() => {
+        goTo('crm');
+        if (typeof window.openJobTemplatesForLead === 'function') {
+          window.openJobTemplatesForLead(leadParam);
+        } else if (typeof showToast === 'function') {
+          showToast('Templates are still loading — try again in a moment', 'warning');
+        }
+        window.history.replaceState({}, '', '/pro/dashboard.html');
+      }, 500);
+    } else if (estParam && editId) {
       // ── REOPEN SAVED ESTIMATE from customer page ──
       // URL: ?edit=LEAD_ID&est=ESTIMATE_ID  (edit here = lead context, est = estimate to reopen)
       (async () => {
