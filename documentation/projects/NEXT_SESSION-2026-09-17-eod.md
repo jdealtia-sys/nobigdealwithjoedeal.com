@@ -2,6 +2,32 @@
 
 ## Status: nothing queued
 
+**Update (later 2026-09-17, a fourth session):** picked up the one item this
+brief flagged as worth a follow-up — grafted `test/push-bridge-executing`'s
+real `vm.createContext` execution test for `push-actions.js`'s open-redirect/
+XSS guard onto main's current `tests/push-notification-actions.test.js` (the
+file had independently diverged in an unrelated section since the branch was
+cut; that section was left alone). The old check was two regexes over the
+file's *text* — same shape that let #1541's phone-digit bug through; the new
+"THE PAGE BRIDGE" block actually runs `safePath()` against in-app, same-origin-
+absolute, cross-origin, protocol-relative, backslash, `javascript:`, and
+off-`/pro/` URLs and asserts on what reaches `window.location.assign`. 52/52
+assertions pass, 155/155 node suites, 3986/3986 smoke. PR:
+[#1625](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1625)
+(draft, watched). No production code changed — `push-actions.js` already
+behaved correctly; it just had no behavioral test. Once #1625 merges, the
+`test/push-bridge-executing` branch (`nbd-wt-bridge` worktree slot) has zero
+remaining unique content and can be deleted.
+
+Also: `functions/node_modules` was empty in this session's checkout — this is
+a **fresh remote container**, not a recurrence of the "went empty twice on
+Jo's machine" issue two sections below (that one is about node_modules
+vanishing mid-session on a persistent checkout with other things running;
+this one is just a clean clone that never ran `npm install`). `npm install`
+fixed it in ~10s; the incidental `package-lock.json` drift (proxy-agent-
+negotiate entries) was reverted with `git checkout --`, per this file's own
+warning. Not a third occurrence — don't count it as one.
+
 Everything Jo asked for today is shipped and merged. This brief is
 deliberately short — full narrative, root causes, and file:line detail for
 every fix live in [NEXT_SESSION-2026-09-17](NEXT_SESSION-2026-09-17.md),
