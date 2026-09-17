@@ -61,4 +61,14 @@ function isLost(lead) { return roleFor(lead) === ROLE.LOST; }
 // "Decided" = the project is finished either way (won or lost).
 function isDecided(lead) { const r = roleFor(lead); return r === ROLE.WON || r === ROLE.LOST; }
 
-module.exports = { ROLE, normKey, roleFromKey, roleFor, isWon, isLost, isDecided };
+// Exposed so callers that need a literal-stage Firestore `where(field, 'in',
+// list)` PREFILTER (e.g. functions/anniversary-touch.js — reading only
+// completed leads instead of a rep's whole pipeline) can build that list from
+// this single source of truth instead of hand-maintaining their own, which is
+// exactly how anniversary-touch.js went stale and missed 'closed' plus every
+// WON stage added after 2026-09-07 (2026-09-15 audit). Frozen copies — WON
+// above is the mutable module-internal Set; these are read-only exports.
+const WON_STAGES  = Object.freeze(Array.from(WON));
+const WON_ALIASES = Object.freeze(Object.keys(ALIAS).filter((k) => ALIAS[k] === 'closed'));
+
+module.exports = { ROLE, WON_STAGES, WON_ALIASES, normKey, roleFromKey, roleFor, isWon, isLost, isDecided };
