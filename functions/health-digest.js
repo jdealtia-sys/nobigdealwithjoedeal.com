@@ -26,6 +26,7 @@ const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped
 const { logger } = require('firebase-functions/v2');
 const { Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { FieldValue } = require('firebase-admin/firestore');
+const { gateStatus } = require('./cron-gates');
 
 // Destination — single recipient, the platform owner. Could become a
 // multi-recipient allowlist if we ever onboard ops staff.
@@ -282,6 +283,15 @@ function renderPdfSection(r) {
     + ' ' + lifetime + '</div>';
 }
 
+function renderCronGatesSection() {
+  const rows = gateStatus(process.env).map((g) =>
+    '<tr><td style="padding:4px 12px;font-family:monospace;font-size:11px;">' + escHtml(g.name) + '</td>' +
+    '<td style="padding:4px 12px;font-family:monospace;font-size:11px;color:#666;">' + escHtml(g.file) + '</td>' +
+    '<td style="padding:4px 12px;text-align:right;color:' + (g.on ? '#2e7d32' : '#999') + ';">' + (g.on ? 'ON' : 'off') + '</td></tr>'
+  ).join('');
+  return '<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:14px;"><thead><tr style="text-align:left;color:#888;text-transform:uppercase;letter-spacing:.06em;font-size:10px;"><th style="padding:6px 12px;">Gate</th><th style="padding:6px 12px;">Function</th><th style="padding:6px 12px;text-align:right;">State</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}
+
 function buildEmailBody({ vision, stripe, api, activity, imagePipe, renderPdf, periodLabel }) {
   const topLeadsRows = vision.topLeads.length
     ? vision.topLeads.map(l =>
@@ -309,6 +319,9 @@ function buildEmailBody({ vision, stripe, api, activity, imagePipe, renderPdf, p
     '<div style="font-family:-apple-system,system-ui,sans-serif;max-width:600px;margin:0 auto;color:#1a1612;">',
     '<h2 style="font-size:18px;margin:0 0 4px;letter-spacing:.04em;text-transform:uppercase;color:#bd5728;">NBD Pro · Health Digest</h2>',
     '<div style="color:#888;font-size:12px;margin-bottom:18px;">' + periodLabel + '</div>',
+
+    '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Cron Gates</h3>',
+    renderCronGatesSection(),
 
     '<h3 style="font-size:14px;color:#1a1612;margin:18px 0 8px;border-bottom:2px solid #bd5728;padding-bottom:4px;">Vision AI Spend</h3>',
     '<div style="font-size:13px;margin-bottom:8px;"><strong>' + fmtUsd(vision.userTotal) + '</strong> across <strong>' + fmtNum(vision.userCount) + '</strong> Vision calls in the last 24h.</div>',
@@ -404,4 +417,4 @@ exports.healthDigestCron = onSchedule(
   }
 );
 
-exports._test = { buildEmailBody, fmtUsd, fmtNum, escHtml, gatherImagePipeline, gatherRenderPdf, renderPdfBroken, renderPdfSection };
+exports._test = { buildEmailBody, fmtUsd, fmtNum, escHtml, gatherImagePipeline, gatherRenderPdf, renderPdfBroken, renderPdfSection, renderCronGatesSection };
