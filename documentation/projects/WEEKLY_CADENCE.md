@@ -275,16 +275,39 @@
    audio/galleries/reports/shared_docs~~ **DONE 2026-09-02 (#1350: 87
    assertions; Storage suite gates the deploy)** — still open from that item:
    #12-guard cases for the 12 newly guarded creates (2026-08-10 audit)
-7b. **Free-API wave 1** (one evening, five PRs) — the verified shortlist in
-   [FREE-API-INTEGRATIONS-RESEARCH-2026-09-02](../audit/FREE-API-INTEGRATIONS-RESEARCH-2026-09-02.md);
-   lane 1 of the current handoff
-7c. **Photo tokens, engineering half** — `onLeadDeleted` reaps photo originals
-   + variants + thumbs + docs; 30-day `pdf-renders/` reaper (the signed-URL
-   cutover waits on the IAM grant above)
-7d. **Cron-gate durability** — all 12 `*_ENABLED` names in
-   `functions/.env.nobigdeal-pro` + smoke drift pin + health-digest gate table
-7e. **Bound the four unbounded reads** + tests for storm-watch / data-export /
-   killswitch + `invoice-pipeline.js` onto cents + wire `crm-audit.js` into CI
+7b. ~~**Free-API wave 1**~~ **DONE 2026-09-05** — all five rows of the
+   [research note](../audit/FREE-API-INTEGRATIONS-RESEARCH-2026-09-02.md)
+   shipped as PRs #1385–#1392; see [NEXT_SESSION-2026-09-06](NEXT_SESSION-2026-09-06.md).
+7c. ~~**Photo tokens, engineering half**~~ **DONE, verified 2026-09-17** —
+   `functions/lead-artifact-cleanup.js`'s `onLeadDeleted` reaps photo
+   originals/variants/thumbs/docs, and `functions/pdf-render-retention.js`
+   is a live 30-day `pdf-renders/` reaper (both exist on `main` today).
+7d. ~~**Cron-gate durability**~~ **DONE, PR #1628 (2026-09-17)** —
+   `functions/cron-gates.js` is now the canonical list of all 12 gate names
+   (11 `*_ENABLED` + `MONTHLY_OVERHEAD_ALERT_DISABLED`), health-digest.js
+   renders live on/off state from it, and `tests/cron-gate-drift.test.js`
+   fails if the registry and the real `process.env.*` reads it describes
+   ever diverge (verified non-vacuous: a removed entry redded it).
+   **Correction to the item's own wording**: not all 12 belong in
+   `functions/.env.nobigdeal-pro` — most are deliberately withheld pending
+   Jo's decision (TCPA-gated SMS sends, storm texts, etc.), so the registry
+   tracks all 12 without forcing them into the deploy env file.
+7e. ~~**Bound the four unbounded reads** + tests for storm-watch / data-export /
+   killswitch + `invoice-pipeline.js` onto cents + wire `crm-audit.js` into CI~~
+   **Re-verified 2026-09-17 — mostly already done, one real item fixed in
+   PR #1628**: `crm-audit.js` has been a blocking CI step since 2026-09-04
+   (`ci.yml:222`); `health-digest.js`'s `stripe_events` read already carries
+   a Firestore-level `.where()` + `.limit(2000)` (the comment at its call
+   site is explaining why the *old* unbounded shape was wrong, not
+   describing a live bug); `tests/storm-watch-active-subscriber-2026-09-16.test.js`,
+   `tests/data-export.test.js`, and `tests/voice-portal-draft-killswitch.test.js`
+   already cover those three files; `invoice-pipeline.js` **does not exist**
+   under `functions/` (this exact claim was already flagged false by the
+   2026-09-04 recon — don't re-open it a third time); the two handler files
+   this item originally named were themselves corrected to "not unbounded"
+   in [NEXT_SESSION-2026-09-04](NEXT_SESSION-2026-09-04.md) §2. The one
+   survivor — `functions/monthly-overhead-alert.js`'s `expenses` query had
+   no `.limit()` — is fixed in PR #1628 alongside 7d.
 8. **Admin AI-usage endpoint** — the analytics page is labeled SAMPLE DATA;
    claudeProxy already logs real usage, needs aggregation + page wiring
 9. Functions cold-start increment 2 (lazy export proxies)
@@ -296,6 +319,13 @@
 *(2026-08-10: "rate-limit-policy adopt-vs-delete" left this list — ADOPTED;
 guardHttp/guardCallable now live on claudeProxy, validateAccessCode,
 getGoogleReviews, adminAI.)*
+
+*(2026-09-17: items 7b–7e above re-verified against `main` with direct code/
+test evidence (not just re-reading old handoffs) — three of four turned out
+already shipped in earlier sessions but never checked off here, which is
+exactly the kind of rot this list is supposed to prevent. Items 1–6 and
+8–13 were NOT re-verified this pass — don't assume this edit vouches for
+them; they're exactly as trustworthy as they were before.)*
 
 ---
 
