@@ -72,7 +72,17 @@ const el = {
   save: $('suSave'), send: $('suSend'), status: $('suStatus'), void: $('suVoid'),
   sent: $('suSent'), sentClose: $('suSentClose'), sentNote: $('suSentNote'),
   link: $('suLink'), copy: $('suCopy'), open: $('suOpen'),
+  generatedHint: $('suGeneratedHint'), generatedHintLink: $('suGeneratedHintLink'),
 };
+
+// Point the "sign a generated doc instead" hint at THIS customer's Documents
+// tab. Only meaningful with a real lead — esign-setup is always launched
+// with ?lead=, but stay defensive rather than link to a bare '#documentsTab'
+// that resolves against esign-setup's own (leadless) page.
+if (leadId && el.generatedHint && el.generatedHintLink) {
+  el.generatedHintLink.href = '/pro/customer.html?id=' + encodeURIComponent(leadId) + '#documentsTab';
+  el.generatedHint.hidden = false;
+}
 
 let uid = null;
 let currentStatus = 'draft';

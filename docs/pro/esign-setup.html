@@ -28,11 +28,17 @@
   <section class="su-drop" id="suDrop">
     <div class="su-drop-card">
       <h2>Upload a PDF to send for signature</h2>
-      <p>Any PDF works — a supplier form, an insurance scope, a manufacturer warranty, or a contract you generated here.</p>
+      <p>For anything that arrives as a PDF — a supplier form, an insurance scope, a manufacturer warranty.</p>
       <label class="su-file">
         <input type="file" id="suFile" accept="application/pdf,.pdf">
         <span>Choose a PDF</span>
       </label>
+      <div class="su-hint" id="suGeneratedHint" hidden>
+        Signing a document you generated here instead? Open it from this
+        customer's <a href="#" id="suGeneratedHintLink">Documents tab</a> and
+        use its own <strong>Send for Signature</strong> button — it's built
+        for that exact document, no download or re-upload needed.
+      </div>
       <div class="su-err" id="suDropErr" hidden></div>
     </div>
   </section>
