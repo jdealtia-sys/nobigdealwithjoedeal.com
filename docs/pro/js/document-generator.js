@@ -506,7 +506,14 @@ window.NBDDocGen = {
       let _htmlPath = null;
       let _docMetaRef = null;
       let _persistPromise = null;
-      if (_leadIdEarly && window.db && window.addDoc && window.collection) {
+      // A blank preview (the doc-template ⓘ icon, or the Can't-Generate
+      // modal's "Preview blank template" escape hatch) must never persist:
+      // it's a look-before-you-generate, not a real document. Without this
+      // gate every preview click silently uploaded the rendered HTML to
+      // Storage and wrote a 'draft' row under leads/{id}/documents — a rep
+      // spot-checking a template layout was leaving real, unwanted document
+      // records behind every time.
+      if (_leadIdEarly && window.db && window.addDoc && window.collection && !data._isBlankPreview) {
         _persistPromise = (async () => {
           // Upload the rendered HTML to Storage so we can re-open it
           // from the documents tab later. Best-effort — if Storage

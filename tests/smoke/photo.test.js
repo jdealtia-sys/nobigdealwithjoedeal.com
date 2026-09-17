@@ -827,6 +827,133 @@ section('doc-template cards: per-card ⓘ blank-preview button');
     /let\s+html\s*=\s*this\.getHTML\(type,\s*data\)/.test(docGen));
 }
 
+section('2026-09-17: blank preview no longer persists a fake draft document');
+{
+  const docGen = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+
+  // Before this fix, EVERY blank-preview click (the ⓘ icon or the
+  // Can't-Generate modal's "Preview blank template" button) silently
+  // uploaded the rendered HTML to Storage and wrote a 'draft' row under
+  // leads/{id}/documents — a look-before-you-generate was leaving real,
+  // unwanted document records behind on every use. The gate must sit on
+  // the SAME condition that starts the persist IIFE, not a later check —
+  // starting the upload/addDoc work and then discarding the result still
+  // writes to Storage and Firestore.
+  const gateLine = docGen.slice(
+    docGen.indexOf('let _persistPromise = null;'),
+    docGen.indexOf('let _persistPromise = null;') + 700);
+  assert('the persist IIFE\'s own if-condition excludes data._isBlankPreview',
+    /if\s*\([^)]*&&\s*!data\._isBlankPreview\)\s*\{/.test(gateLine));
+  assert('the persist condition still requires a real lead id + Firestore handles (unchanged for a real generate)',
+    /_leadIdEarly && window\.db && window\.addDoc && window\.collection/.test(gateLine));
+
+  // The server-rendered path (contract/invoice/change_order via
+  // _tryServerRender -> functions/render-pdf.js) never reaches this IIFE
+  // at all — it returns before getHTML() is even called — and the
+  // Cloud Function itself writes only an aggregate metrics/renderPdf
+  // counter, never a per-lead documents row. Pin that renderPdf.js has
+  // no per-lead Firestore write, so a future edit can't reintroduce the
+  // same bug on that path without this test catching it.
+  const renderPdf = read(path.join(FUNCTIONS, 'render-pdf.js'));
+  assert('render-pdf.js never writes to leads/{id}/documents (no per-lead persist)',
+    !/collection\(\s*['"]leads['"]/.test(renderPdf) && !/\.collection\(['"]documents['"]\)/.test(renderPdf));
+}
+
+section('2026-09-17: "Fix the issue" — Can\'t-Generate modal routes to the missing field (customer.html)');
+{
+  const customer = readCustomer();
+
+  // checkPrerequisites() now keeps the `need` id alongside its human
+  // `text` for every missing entry — the modal's Fix button reads
+  // `need`, so a plain array of strings can no longer satisfy the
+  // contract silently (this pins the object shape, not just presence).
+  assert('checkPrerequisites pushes {need, text} objects, not plain strings',
+    /missing\.push\(\{\s*need,\s*text:/.test(customer));
+  const needIds = ['estimate', 'contact', 'address', 'scope', 'photos', 'claim', 'jobValue', 'jobComplete', 'beforeAfterPhotos'];
+  for (const id of needIds) {
+    assert(`checkPrerequisites retains need id "${id}"`,
+      new RegExp("case '" + id + "':[^\\n]*missing\\.push\\(\\{\\s*need,").test(customer));
+  }
+
+  // The Can't-Generate modal renders one "Fix →" button per missing item
+  // and wires it to _fixDocNeed(need) — not just a "Got It" dead end.
+  assert('Can\'t-Generate modal renders a nbd-preq-fix button per missing item',
+    /class="nbd-preq-fix" data-need="[^"]*\+\s*esc\(m\.need\)/.test(customer)
+    || /nbd-preq-fix[\s\S]{0,80}data-need=.*esc\(m\.need\)/.test(customer));
+  assert('nbd-preq-fix buttons dispatch to window._fixDocNeed(need) on click',
+    /nbd-preq-fix['"]\)\.forEach[\s\S]{0,200}window\._fixDocNeed\(btn\.dataset\.need\)/.test(customer));
+
+  // window._fixDocNeed exists and routes every need id somewhere real —
+  // no case silently no-ops.
+  assert('window._fixDocNeed is exposed',
+    /window\._fixDocNeed\s*=\s*function/.test(customer));
+  assert('_fixDocNeed routes contact/address/scope/jobValue into the Edit Info modal',
+    /case 'contact': focusInModal\('editPhone'\)/.test(customer)
+    && /case 'address': focusInModal\('editAddress'\)/.test(customer)
+    && /case 'scope': focusInModal\('editScope'\)/.test(customer)
+    && /case 'jobValue': focusInModal\('editJobValue'\)/.test(customer));
+  assert('_fixDocNeed routes claim to the insurance panel + openClaimEditor',
+    /case 'claim':[\s\S]{0,150}scrollTo\('insurancePanel'\)[\s\S]{0,150}window\.openClaimEditor/.test(customer));
+  assert('_fixDocNeed routes estimate to the Estimates panel',
+    /case 'estimate': scrollTo\('estimatesPanelTitle'\)/.test(customer));
+  assert('_fixDocNeed routes photos + beforeAfterPhotos to the Photos tab',
+    /case 'photos':\s*\n\s*case 'beforeAfterPhotos':\s*\n\s*scrollTo\('photosTab'\)/.test(customer));
+  // jobComplete can't be auto-advanced (the stage progresses one step at a
+  // time via the kanban), so the honest fix is scroll-to-and-highlight the
+  // existing control, not a fake one-click "complete this job" action.
+  assert('_fixDocNeed routes jobComplete to the existing stage-advance button (no auto-advance)',
+    /case 'jobComplete': scrollTo\('stageProgressBtn'\)/.test(customer));
+  assert('#stageProgressBtn is the real "Move to Next Stage" control being targeted',
+    /id="stageProgressBtn"[\s\S]{0,80}Move to Next Stage/.test(customer));
+}
+
+section('2026-09-17: Scope of Work field added to the Edit Customer modal');
+{
+  const customer = readCustomer();
+
+  assert('#editScope textarea exists in #editCustomerModal',
+    /id="editCustomerModal"[\s\S]{0,6000}id="editScope"/.test(customer));
+  assert('openEditCustomerModal seeds #editScope from lead.scopeOfWork',
+    /getElementById\('editScope'\)\.value = lead\.scopeOfWork \|\| ''/.test(customer));
+  assert('saveCustomerEdits writes scopeOfWork from #editScope',
+    /scopeOfWork:\s*document\.getElementById\('editScope'\)\.value\.trim\(\)/.test(customer));
+}
+
+section('2026-09-17: "Fix the issue" — dashboard parity (desktop lead-card chips + mobile job-detail sheet)');
+{
+  const boot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+
+  assert('_dashCheckPrerequisites pushes {need, text} objects, matching customer.html\'s shape',
+    /missing\.push\(\{\s*need,\s*text:/.test(boot));
+  assert('_showPrereqModal renders a nbd-preq-fix button per missing item',
+    /nbd-preq-fix[\s\S]{0,120}data-need.*escFn\(m\.need\)/.test(boot));
+  assert('_showPrereqModal wires nbd-preq-fix to _dashFixDocNeed(need, leadId)',
+    /nbd-preq-fix['"]\)\.forEach[\s\S]{0,200}_dashFixDocNeed\(btn\.dataset\.need, leadId\)/.test(boot));
+  assert('_showPrereqModal receives leadId and _generateDocWithPreflight passes it through',
+    /function _showPrereqModal\(check, leadId\)/.test(boot)
+    && /_showPrereqModal\(check, leadId\);/.test(boot));
+  assert('window._dashFixDocNeed is exposed',
+    /window\._dashFixDocNeed\s*=\s*_dashFixDocNeed/.test(boot));
+
+  // Dashboard's single #leadModal already carries every field customer.html
+  // splits across Edit Info + the claim editor + the stage button — so
+  // unlike customer.html, jobComplete IS a real one-step fix here (a
+  // <select>), not a scroll-and-highlight consolation prize.
+  assert('_dashFixDocNeed opens editLead(leadId) for field-based needs',
+    /if\s*\(typeof window\.editLead === 'function'\) window\.editLead\(leadId\)/.test(boot));
+  assert('_dashFixNeedFieldId maps every field-based need to its #leadModal field id',
+    /case 'contact': return 'lPhone'/.test(boot)
+    && /case 'address': return 'lAddr'/.test(boot)
+    && /case 'scope': return 'lScopeOfWork'/.test(boot)
+    && /case 'jobValue': return 'lJobValue'/.test(boot)
+    && /case 'claim': return 'lInsCarrier'/.test(boot)
+    && /case 'jobComplete': return 'lStage'/.test(boot));
+  assert('_dashFixDocNeed routes estimate to window.startNewEstimate(leadId) — no second builder-open path',
+    /if\s*\(need === 'estimate'\)\s*\{\s*\n\s*if\s*\(typeof window\.startNewEstimate === 'function'\) window\.startNewEstimate\(leadId\)/.test(boot));
+  assert('_dashFixDocNeed routes photos/beforeAfterPhotos to customer.html#photosTab (no desktop photo surface to fix in place)',
+    /need === 'photos' \|\| need === 'beforeAfterPhotos'[\s\S]{0,600}#photosTab/.test(boot));
+}
+
 section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme');
 {
   const docGen     = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
