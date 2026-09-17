@@ -90,8 +90,11 @@ const PRO_PUBLIC = [
   'index.html', 'pricing.html', 'how-to.html', 'terms.html',
   'register.html', 'login.html', 'demo.html', 'sandbox.html',
 ].map((f) => path.join(DOCS, 'pro', f));
-// Pages that are intentionally bare or non-visual.
-const SKIP_FILES = new Set(['404.html', 'offline.html', 'googlee5b8f461f0f8e74b.html']);
+// Pages that are intentionally bare or non-visual. 404.html got real
+// nav/mobile-nav/footer chrome (2026-09-17) — it's exactly the
+// dropdown-open-at-rest / invisible-icon class of page this sweep exists
+// to catch now, so it no longer belongs here.
+const SKIP_FILES = new Set(['offline.html', 'googlee5b8f461f0f8e74b.html']);
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
