@@ -314,6 +314,107 @@ ok('the engine reports the floor it used, so documents can name it',
    !!floored && floored.minJobCharge === 450);
 ok('an unfloored estimate reports a zero floor', !!small && small.minJobCharge === 0);
 
+// ════════════════════════════════════════════════════════════════════
+// 5 — tier-material enforcement (GBB backlog, 2026-09-17)
+//
+// The catalog already self-declares good/better/best/any on every item
+// (estimate-catalog-xactimate.js) but nothing before this fix ever
+// compared it to the job's own state.tier: a rep browsing the catalog
+// saw zero tier signal, and adding a good-tier item to a best-tier job
+// (or vice versa) produced no warning anywhere — the exact "tier at
+// random" complaint the source-of-truth fix (PR #1615) only half-solved
+// (that fix pointed the PRINTED tier at the real estimate; it never
+// touched the MATERIALS under it). Loads the REAL catalog + REAL engine
+// alongside estimate-v2-ui.js in one sandbox (unlike loadV2UI() above,
+// which stubs both away) so this proves the warning reaches actual
+// rendered markup, not just that an internal boolean is correct.
+// ════════════════════════════════════════════════════════════════════
+console.log('SCOPE DISPLAY — tier-material mismatch signal');
+
+function loadFullV2UI() {
+  const win = {}; win.window = win;
+  win.EstimateBuilderV2 = {
+    loadSettings: () => ({ countyTax: {} }),
+    calculateAllTiers: () => ({}), calculatePerSq: () => ({}),
+  };
+  const toasts = [];
+  win.showToast = (msg, kind) => toasts.push({ msg, kind });
+  const els = {};
+  const makeEl = (id) => els[id] || (els[id] = {
+    id, innerHTML: '', textContent: '', style: {}, hidden: false, dataset: {},
+    appendChild() {}, addEventListener() {},
+    classList: { add() {}, remove() {}, toggle() {} },
+    querySelectorAll: () => [],
+  });
+  const sandbox = {
+    window: win, console: { log() {}, warn() {}, error() {} },
+    document: {
+      createElement: () => ({ style: {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {} } }),
+      addEventListener() {}, getElementById: (id) => makeEl(id),
+      querySelector: () => null, querySelectorAll: () => [],
+    },
+    Date, Math, JSON, Set, Map, setTimeout, clearTimeout, navigator: {}, localStorage: { getItem: () => null, setItem() {} },
+  };
+  ['docs/pro/js/product-data.js',
+   'docs/pro/js/estimate-labor-catalog.js',
+   'docs/pro/js/estimate-catalog-xactimate.js',
+   'docs/pro/js/estimate-logic-engine.js'].forEach((f) => {
+    vm.runInNewContext(read(f), sandbox, { filename: f });
+  });
+  vm.runInNewContext(read('docs/pro/js/estimate-v2-ui.js'), sandbox, { filename: 'estimate-v2-ui.js' });
+  return { ui: win.EstimateV2UI, toasts, cat: win.NBD_XACT_CATALOG, els };
+}
+
+const full = loadFullV2UI();
+const state5 = full.ui.getState();
+state5.tier = 'best';
+state5.measurements = Object.assign({}, MEAS);
+
+const goodItem = full.cat.items.find(i => i.tier === 'good' && i.category === 'roofing');
+const anyItem = full.cat.items.find(i => i.tier === 'any');
+ok('fixture: a good-tier roofing item exists in the real catalog', !!goodItem);
+ok('fixture: a tier-neutral item exists in the real catalog', !!anyItem);
+
+full.ui.addToScope(goodItem.code);
+ok('adding a good-tier item to a best-tier job warns the rep at add-time',
+   full.toasts.some(t => t.kind === 'warning' && t.msg.indexOf('good') !== -1 && t.msg.indexOf('best') !== -1),
+   JSON.stringify(full.toasts));
+
+const scopeHtml = full.els['v2scopeList'] ? full.els['v2scopeList'].innerHTML : '';
+ok('the scope list actually painted something', scopeHtml.length > 0, 'v2scopeList innerHTML was empty');
+ok('the mismatched line shows a visible tier-warn chip in the real rendered markup',
+   scopeHtml.indexOf('tier-warn') !== -1 && scopeHtml.indexOf('good-tier item on a best-tier job') !== -1,
+   scopeHtml.slice(0, 400));
+
+const catalogHtml = full.els['v2items'] ? full.els['v2items'].innerHTML : '';
+ok('the catalog browse view shows a tier pill on the mismatched item',
+   catalogHtml.indexOf('tier-pill') !== -1, catalogHtml.slice(0, 400));
+
+// A tier-neutral ('any') item never warns and never shows a mismatch pill.
+full.toasts.length = 0;
+full.ui.addToScope(anyItem.code);
+ok('adding a tier-neutral item never warns', full.toasts.length === 0, JSON.stringify(full.toasts));
+
+// Matching tier never warns and never shows the chip.
+const matched = loadFullV2UI();
+matched.ui.getState().tier = 'good';
+matched.ui.getState().measurements = Object.assign({}, MEAS);
+matched.ui.addToScope(goodItem.code);
+ok('adding a matching-tier item never warns', matched.toasts.length === 0, JSON.stringify(matched.toasts));
+const matchedScopeHtml = matched.els['v2scopeList'] ? matched.els['v2scopeList'].innerHTML : '';
+ok('a matching-tier line shows no tier-warn chip', matchedScopeHtml.indexOf('tier-warn') === -1);
+
+// Changing the job's tier AFTER an item was already added must surface the
+// drift on the very next render — the rep didn't re-add anything, the job
+// just moved out from under what's already in scope. removeFromScope on a
+// code that isn't present is a real, exposed, render()-triggering mutator
+// that leaves state.scope untouched, so it doubles as a "repaint now" probe.
+matched.ui.getState().tier = 'best';
+matched.ui.removeFromScope('__nonexistent-code__');
+const driftedHtml = matched.els['v2scopeList'] ? matched.els['v2scopeList'].innerHTML : '';
+ok('switching the job to a non-matching tier flags a previously-added item on the next render',
+   driftedHtml.indexOf('tier-warn') !== -1, driftedHtml.slice(0, 400));
+
 // ── report ──
 console.log('\n' + (failed === 0 ? 'PASS' : 'FAIL') + ' — ' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('Failures:\n  - ' + fails.join('\n  - ')); process.exit(1); }
