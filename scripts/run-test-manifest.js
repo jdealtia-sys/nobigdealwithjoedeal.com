@@ -253,15 +253,21 @@ const RUNNABLE = ['node', 'smoke'];
 //               node suite from the original 133/68/220 base. Re-measured
 //               via --check on this tree (both lanes above already merged
 //               into main + this lane's own suite): 136/68/223. Merged.
-//   2026-09-15  FIFTEENTH collision: the esign rotation/optional-fields/
-//               revoked-message lane independently adds one new node suite
-//               (tests/esign-envelope-guards.test.js; esign-setup-placement
-//               .test.js is pre-existing, only modified) from the SAME
-//               original 133/68/220 base as the funnel-recovery lane — both
-//               landed on 136/68/223 by coincidence. Re-measured via
-//               --check on this tree (three lanes above already merged +
-//               this one): 137/68/224.
-const FLOORS = { node: 137, smoke: 68, disk: 224 };
+//   2026-09-15  FIFTEENTH collision: the adjuster-board cross-tenant
+//               cache-leak lane (tests/analytics-card-cache-account-switch.
+//               test.js + tests/adjuster-board-handler-tenancy.test.js, both
+//               pure-Node) independently adds two node suites from the
+//               original 133/68/220 base. Re-measured via --check on this
+//               tree (three lanes above already merged + these two new
+//               suites): 138/68/225.
+//   2026-09-17  SIXTEENTH collision: the esign rotation/optional-fields/
+//               revoked-message lane (tests/esign-envelope-guards.test.js,
+//               new; tests/esign-setup-placement.test.js, modified) merged
+//               against a main that had moved far ahead through this
+//               session's own batch of PRs (#1600-#1610). Re-measured via
+//               --check on the merged tree rather than trusting either
+//               side's literal.
+const FLOORS = { node: 154, smoke: 68, disk: 242 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

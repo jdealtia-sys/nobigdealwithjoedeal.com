@@ -131,6 +131,26 @@
     return url;
   }
 
+  // shareSSR wiring (2026-09-16): SMS/email bodies want the rich-preview
+  // card at /share/<token> (functions/share-ssr.js — validates the same
+  // portal_tokens/{token} doc this mints, renders branded OG/Twitter-card
+  // meta so iMessage/WhatsApp/etc. show a real preview instead of a bare
+  // URL, then hands off to the real /pro/portal.html?token=<token> via its
+  // own "View full project →" button). Deliberately scoped to just this
+  // helper's two callers (smsForLead, emailForLead) — copyForLead and
+  // previewForLead keep resolveUrl's direct portal.html link: an ambiguous-
+  // destination copy shouldn't force the extra hop, and the rep's own
+  // preview should show the real page, not the preview card.
+  function _asShareUrl(portalUrl) {
+    try {
+      const u = new URL(portalUrl);
+      const token = u.searchParams.get('token');
+      return token ? u.origin + '/share/' + encodeURIComponent(token) : portalUrl;
+    } catch (_) {
+      return portalUrl;
+    }
+  }
+
   // ─── Copy ───────────────────────────────────────────────────────
   // Mirror of Wave 40's clipboard-with-fallbacks logic. Three layers:
   //   1. navigator.clipboard.writeText (modern, requires user gesture)
@@ -210,7 +230,7 @@
       return;
     }
     try {
-      const url = await resolveUrl(lead.id);
+      const url = _asShareUrl(await resolveUrl(lead.id));
       const firstName = String(lead.firstName || '').trim();
       const greeting = firstName ? `Hi ${firstName}, ` : 'Hi, ';
 
@@ -283,7 +303,7 @@
       return;
     }
     try {
-      const url = await resolveUrl(lead.id);
+      const url = _asShareUrl(await resolveUrl(lead.id));
       const firstName = String(lead.firstName || '').trim();
       const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
 

@@ -90,7 +90,12 @@
         && typeof d.storagePath === 'string' && !!d.storagePath,
       shareUrl: (typeof d.shareUrl === 'string' && /^https?:/i.test(d.shareUrl)) ? d.shareUrl : '',
       reportNumber: (typeof d.reportNumber === 'string' && d.reportNumber) ? d.reportNumber : '',
-      deleted: d.deleted === true
+      deleted: d.deleted === true,
+      // Documents shelf (2026-09-16): gates whether an UPLOADED row appears
+      // in the homeowner portal (functions/portal.js's getHomeownerPortalView
+      // — generated rows are always visible there, no flag needed). Same
+      // default-closed opt-in shape as photos' sharedWithHomeowner.
+      sharedWithHomeowner: d.sharedWithHomeowner === true
     };
   }
 
@@ -219,6 +224,19 @@
                 : 'Create a no-login link the homeowner or adjuster can open on a phone') + '"'
             + ' style="background:none;border:0;cursor:pointer;font:inherit;">'
             + (doc.shareUrl ? 'Copy link' : 'Share link') + '</button>'
+          : '')
+      // Uploaded (non-generated) rows only — generated documents are always
+      // homeowner-visible by construction, no toggle needed. Legacy
+      // (top-level collection) rows are excluded, same reasoning as
+      // `shareable` above: this flag lives on the lead subcollection.
+      + (!doc.generated && !doc.legacy
+          ? '<button type="button" class="doc-btn" data-doc-homeowner-share="' + esc(doc.id) + '"'
+            + ' title="' + (doc.sharedWithHomeowner
+                ? 'Stop showing this in the homeowner\'s portal'
+                : 'Show this in the homeowner\'s portal Documents card') + '"'
+            + ' style="background:none;border:0;cursor:pointer;font:inherit;'
+            + (doc.sharedWithHomeowner ? 'color:var(--green,#2e9e5b);' : '') + '">'
+            + (doc.sharedWithHomeowner ? '✓ Shared' : 'Share with homeowner') + '</button>'
           : '')
       + '<button type="button" class="btn" data-action="deleteCustomerDoc"'
       + ' data-arg="' + esc(doc.id) + '" data-arg2="' + label + '"'
@@ -448,6 +466,42 @@
     if (!btn) return;
     e.preventDefault();
     shareLeadDocument(btn.getAttribute('data-doc-share'), btn);
+  });
+
+  // Documents shelf (2026-09-16): flip sharedWithHomeowner on an UPLOADED
+  // row. Generated rows need no toggle — functions/portal.js's
+  // getHomeownerPortalView shows them unconditionally. A rep-uploaded file
+  // could be anything (internal notes, adjuster correspondence), so this
+  // defaults closed and is opt-in per document — same shape as photo-review.js's
+  // bulk photo-share action, just single-row and persistent (shows current
+  // state, not a one-shot button).
+  async function toggleHomeownerShare(docId, btn) {
+    if (!docId || !window._customerId) return;
+    var entry = (window._customerDocs || []).filter(function (d) { return d.id === docId; })[0];
+    if (!entry || entry.legacy) return; // legacy rows aren't offered the button; guard anyway
+    var next = !entry.sharedWithHomeowner;
+    if (btn) btn.disabled = true;
+    try {
+      await window.updateDoc(
+        window.doc(window.db, 'leads', window._customerId, LEAD_SUB, docId),
+        { sharedWithHomeowner: next, updatedAt: new Date().toISOString() }
+      );
+      if (typeof showToast === 'function') {
+        showToast(next ? 'Shared with the homeowner' : 'No longer shown to the homeowner', 'success');
+      }
+      await refresh();
+    } catch (e) {
+      console.warn('toggleHomeownerShare failed:', e && e.message);
+      if (typeof showToast === 'function') showToast('Could not update sharing: ' + (e.message || 'unknown'), 'error');
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest && e.target.closest('[data-doc-homeowner-share]');
+    if (!btn) return;
+    e.preventDefault();
+    toggleHomeownerShare(btn.getAttribute('data-doc-homeowner-share'), btn);
   });
 
   window.NBDCustomerDocs = {

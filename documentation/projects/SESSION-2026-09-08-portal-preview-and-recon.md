@@ -322,3 +322,40 @@ Three of the top five are **mounting code that already exists**:
   be worse than the gap
 - `/pro/ai-tree`'s enforced-vs-Report-Only `frame-ancestors` contradiction
 - the preview-channel CORS hole above
+
+## Dated correction (2026-09-16)
+
+A follow-up session re-verified every "Survivors worth the next session" and
+growth-shortlist item against current code (not just re-reading this note)
+before acting on any of it — three of the six survivors listed above have
+since been closed, in two separate PRs on the same day:
+
+- **The custom-stage-Won rating bug (line 266-267) was already fixed**, by
+  the 2026-09-08 change `progressKeyFor`'s own comment in `functions/portal.js`
+  describes — `submitCustomerRating` and `getHomeownerPortalView` now resolve
+  a lead's progress key through the SAME function, so a custom stage with
+  role `won` can no longer disagree with itself between "the card says done"
+  and "the submit gate says not done." Nothing left to fix here; this line
+  was already stale when this correction was written.
+- **The homeowner-self-upload-announced-as-rep bug (line 270-271) was still
+  live** and is now fixed: `functions/portal.js` ships a photo's `source`
+  field, and `docs/pro/js/portal.js`'s live-update diff excludes
+  `source:'homeowner'` photos before firing the "from your rep" banner.
+  `tests/portal-photo-self-announce-2026-09-16.test.js`.
+- **"Portal views are never recorded" (line 264-265) was half true**: a raw
+  "Opened portal" line was already wired into the rep-facing activity feed
+  (`customerAuditEvents`), but the three headline indicators a rep actually
+  watches — `customer-engagement-score.js`'s tier chip (the literal source
+  of the "waiting for the customer to open it" string quoted above),
+  `customer-viewed-chip.js`, and `crm-pipeline.js`'s kanban badge — were all
+  wired to `estimate.viewedAt` only, a separate signal from the standalone
+  estimate-preview link that a portal-only open never touches. Fixed:
+  `getHomeownerPortalView` now stamps `lead.lastPortalOpenAt` on a genuine
+  open, and all three consumers fold it in as an equal "viewed" signal.
+  `tests/portal-view-tracking-2026-09-16.test.js`.
+
+Still open from this note's lists, confirmed still true by the same recon:
+the print-stylesheet gap (line 258-259), the warranty-certificate
+naming/date bug (line 268-269), the in-flight-upload-vs-poll race (line
+272-273), and the before/after-slider timer leak (line 274-275) — none of
+these were touched by this correction.

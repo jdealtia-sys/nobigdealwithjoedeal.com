@@ -69,12 +69,13 @@ const el = {
   msg: $('suMsg'), msgTitle: $('suMsgTitle'), msgBody: $('suMsgBody'),
   zoomCtl: $('suZoomCtl'), zoomIn: $('suZoomIn'), zoomOut: $('suZoomOut'), zoomFit: $('suZoomFit'), zoomPct: $('suZoomPct'),
   signerName: $('suSignerName'), signerEmail: $('suSignerEmail'),
-  save: $('suSave'), send: $('suSend'), status: $('suStatus'),
+  save: $('suSave'), send: $('suSend'), status: $('suStatus'), void: $('suVoid'),
   sent: $('suSent'), sentClose: $('suSentClose'), sentNote: $('suSentNote'),
   link: $('suLink'), copy: $('suCopy'), open: $('suOpen'),
 };
 
 let uid = null;
+let currentStatus = 'draft';
 let pdfDoc = null;
 let pdfBytes = null;
 let scale = 1, fitScale = 1;
@@ -95,6 +96,12 @@ function status(text, bad) {
   el.status.textContent = text;
   el.status.classList.toggle('bad', !!bad);
   el.status.hidden = false;
+}
+// A live token only exists once the envelope is sent and before it's signed —
+// voiding a draft (no link exists yet) or a completed/already-voided envelope
+// is meaningless, and voidEsignEnvelope itself rejects 'completed'.
+function updateVoidVisibility() {
+  el.void.hidden = currentStatus !== 'sent' && currentStatus !== 'viewed';
 }
 
 /* ── render ────────────────────────────────────────────────────────────── */
@@ -462,11 +469,32 @@ el.send.addEventListener('click', async () => {
       ? `Emailed to ${el.signerEmail.value.trim()}. The link expires in 14 days and can only be used once.`
       : 'Link ready — text it to the signer or hand them the phone. It expires in 14 days and can only be used once.';
     el.sent.hidden = false;
+    currentStatus = 'sent';
+    updateVoidVisibility();
     status('Sent.');
   } catch (e) {
     status(e && e.message ? e.message : 'Could not send.', true);
   }
   el.send.disabled = false;
+});
+
+el.void.addEventListener('click', async () => {
+  // nbdConfirm is a real DOM modal; the raw-confirm fallback is the house
+  // idiom for pages that do not load standalone-compat.js.
+  // tests/pwa-confirm-guard.test.js holds this line.
+  const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+  if (!(await ask('Void this link? The signer will no longer be able to open or sign it. You can send a fresh link afterward.'))) return;
+  el.void.disabled = true;
+  try {
+    await httpsCallable(fns, 'voidEsignEnvelope')({ envelopeId });
+    currentStatus = 'voided';
+    updateVoidVisibility();
+    el.sent.hidden = true;
+    status('Link voided. Send a new one whenever you’re ready.');
+  } catch (e) {
+    status(e && e.message ? e.message : 'Could not void this link.', true);
+  }
+  el.void.disabled = false;
 });
 
 el.sentClose.addEventListener('click', () => { el.sent.hidden = true; });
@@ -553,6 +581,8 @@ onAuthStateChanged(auth, async (user) => {
     el.signerEmail.value = d.signerEmail || '';
     await openBytes(bytes, d.title);
     idle();
+    currentStatus = d.status || 'draft';
+    updateVoidVisibility();
     if (d.status && d.status !== 'draft') {
       status(`This envelope is already ${d.status}. Sending again will revoke the old link and issue a new one.`, true);
     }

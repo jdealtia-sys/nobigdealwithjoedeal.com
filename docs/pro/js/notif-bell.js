@@ -435,6 +435,47 @@
       });
     });
 
+    // ── Portal-open fresh-viewing signal (2026-09-16) ──
+    // estimate.viewedAt only fires from the standalone estimate-view.html
+    // link. A homeowner who opens the MAIN portal instead (functions/
+    // portal.js's getHomeownerPortalView, which stamps lead.lastPortalOpenAt
+    // on a genuine open — same signal customer-viewed-chip.js and
+    // customer-engagement-score.js were extended to read) never lit this
+    // bell before, even though it is the same "customer is engaged right
+    // now" moment the estimate-view signal above exists to catch.
+    // Skips a lead that already got a fresh-view item above from an
+    // estimate view — one bell per lead per fresh window, not one per
+    // signal source, and the estimate-specific item is the more precise one
+    // to show when both fired.
+    const freshViewLeadIds = new Set(
+      items.filter(it => it.type === 'fresh-view').map(it => it.leadId)
+    );
+    leads.forEach(lead => {
+      if (!lead || freshViewLeadIds.has(lead.id)) return;
+      const stage = (lead.stage || '').toLowerCase();
+      if (stage === 'closed' || stage === 'lost' || stage === 'complete') return;
+      // Same "already responded" skip as the estimate loop above — a portal
+      // open after the customer already signed/declined is stale, not a
+      // fresh engagement cue.
+      if (estimates.some(e => e && e.leadId === lead.id && e.respondedAt)) return;
+      const openedAt = toDate(lead.lastPortalOpenAt);
+      if (!openedAt) return;
+      const ageMs = now.getTime() - openedAt.getTime();
+      if (ageMs <= 0 || ageMs > FRESH_VIEW_WINDOW_MS) return;
+      items.push({
+        id:       `fresh-view:portal:${lead.id}`,
+        leadId:   lead.id,
+        type:     'fresh-view',
+        severity: 'high',
+        icon:     '🔥',
+        title:    'Customer viewing your portal',
+        text:     leadName(lead),
+        sub:      'opened ' + relativeTime(openedAt),
+        ts:       openedAt,
+        href:     `/pro/customer.html?id=${encodeURIComponent(lead.id)}`,
+      });
+    });
+
     // ── Server-persisted notifications (2026-07-07 single-owner merge) ──
     // Union the Firestore `notifications` feed (hydrated into
     // window._notifications by crm-snooze.js) into the derived list.

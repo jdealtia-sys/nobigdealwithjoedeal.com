@@ -1336,9 +1336,22 @@
     // nbd_last_uid is in the purge KEEP set, so it survives the wipe.
     try {
       const _lastUid = localStorage.getItem('nbd_last_uid');
-      if (_lastUid && _lastUid !== user.uid
-          && window.NBDAuth && typeof window.NBDAuth.purgeAccountStorage === 'function') {
-        window.NBDAuth.purgeAccountStorage();
+      if (_lastUid && _lastUid !== user.uid) {
+        if (window.NBDAuth && typeof window.NBDAuth.purgeAccountStorage === 'function') {
+          window.NBDAuth.purgeAccountStorage();
+        }
+        // localStorage-only purge misses IN-MEMORY module caches. The
+        // analytics ('board') cards memoize their callable response forever
+        // once populated, so without this a same-tab account switch renders
+        // the PRIOR tenant's cached carrier/adjuster or AI-texting data into
+        // the newly-authenticated session — the callable's own companyId
+        // scoping can't stop this because the network call never happens.
+        if (window.AdjusterTacticCard && typeof window.AdjusterTacticCard._clearCache === 'function') {
+          window.AdjusterTacticCard._clearCache();
+        }
+        if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard._clearCache === 'function') {
+          window.AiTextingStatsCard._clearCache();
+        }
       }
       localStorage.setItem('nbd_last_uid', user.uid);
     } catch (_) { /* best-effort; never block boot on a storage error */ }

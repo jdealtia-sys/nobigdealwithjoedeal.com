@@ -97,6 +97,7 @@ Module helpers re-exported by `Object.assign(exports, …)` and therefore reacha
 | `visualizerImageGen` | onRequest | FLUX.1 Kontext via Replicate, two-tier model selection — `flux-kontext-pro` (~$0.04/call, default for non-shingle edits) / `flux-kontext-max` (~$0.08/call, default for shingle edits: NS/HDZ/UHDZ/Camelot II); gated by `VISUALIZER_IMAGEGEN_ENABLED` (default OFF); **corrected 2026-09-14: 5/hr/IP**, not 15/hr — `visualizer-image-gen.js:645` notes 15/hr was launch-only tuning mode, tightened to 5/hr once quality was confirmed |
 | `saveFunnelProgress` | onRequest | Anonymous funnel-step persistence (rate-limited; feeds runAbandonRecovery) |
 | `getHomeownerPortalView` | onRequest | Portal token validation, IP rate-limit, length check |
+| `getPortalDocumentHtml` | onRequest | Portal token; re-derives getHomeownerPortalView's exact generated/sharedWithHomeowner visibility gate server-side per docId (a client can't widen access by guessing one), lead-prefix confinement + 5 MB cap mirroring `getDocumentHtml`'s (documents shelf, 2026-09-16) |
 | `getEstimateForView` | onRequest | Portal token validation; stamps first/last-viewed engagement fields |
 | `uploadHomeownerPhoto` | onRequest | Portal token; 10 photos/lead/day, 8 MB cap, jpeg/png/webp only |
 | `sendPortalMessage` | onRequest | Portal token; 30 msgs/token/day, 2000-char cap, per-IP limit |

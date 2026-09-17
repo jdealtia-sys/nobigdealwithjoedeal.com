@@ -149,8 +149,14 @@ console.log('\nSOURCE CONTRACT — the real file actually has the shape this mir
   const txBody = txStart >= 0 ? src.slice(txStart, txStart + 1800) : '';
   const txEnd = txBody.indexOf('\n      });');
   const insideTx = txEnd >= 0 ? txBody.slice(0, txEnd) : txBody;
-  ok('the deal_rooms write is a tx.set(...) INSIDE the transaction body (the fix)',
-    /tx\.set\(\s*db\.doc\(`deal_rooms\//.test(insideTx));
+  // 2026-09-16: the write moved from tx.set(db.doc(`deal_rooms/...`), {...}, {merge:true})
+  // to tx.update(dealRoomRef, {...}) against a ref bound earlier in the block
+  // (see tests/deal-room-delete-no-resurrection-2026-09-16.test.js) — update()
+  // rejects on a missing doc instead of silently creating one. Either write
+  // form satisfies THIS test's property (same transaction, not a separate write).
+  ok('the deal_rooms write is INSIDE the transaction body (the fix)',
+    /tx\.set\(\s*db\.doc\(`deal_rooms\//.test(insideTx)
+    || (/dealRoomRef\s*=\s*db\.doc\(`deal_rooms\//.test(insideTx) && /tx\.update\(dealRoomRef,/.test(insideTx)));
   ok('the deal_rooms write is not a separate, non-transactional db.doc(...).set(...) after the transaction resolves (the pre-fix bug shape)',
     !/\n\s*await db\.doc\(`deal_rooms\/\$\{info\.dealId\}`\)\.set\(/.test(src));
 }

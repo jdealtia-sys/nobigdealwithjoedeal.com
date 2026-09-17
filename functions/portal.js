@@ -460,6 +460,48 @@ function progressKeyFor(lead) {
   return progressKey;
 }
 
+// ONE owner for "when did each homeowner-facing milestone first happen?".
+// Indexes lead.stageHistory (array of {from, to, timestamp, user}, written by
+// commitStageChange in docs/pro/js/stage-write.js) by mapping each entry's
+// destination stage through STAGE_TO_PROGRESS, keeping the EARLIEST
+// timestamp per milestone bucket — mirrors the "first entry wins" fix
+// already shipped on the rep side (docs/pro/js/customer-tasks-ui.js:446-455):
+// a bounce-back re-entry into an earlier stage must not overwrite the date
+// the lead first reached a later milestone.
+//
+// A tenant CUSTOM stage (not a key in STAGE_TO_PROGRESS) has no per-history-
+// entry role recorded — stageRole is stamped on the LEAD doc at write time,
+// not inside the historyEvent itself — so there is no way to know which
+// milestone a historical custom-stage entry belonged to. Those entries are
+// skipped for dating purposes; progressKeyFor's live role fallback still
+// resolves the CURRENT position for them, just without a per-step date.
+//
+// timestamp is written as new Date().toISOString() (stage-write.js), never
+// a Firestore Timestamp, so plain string comparison is chronological — same
+// "ship the raw value, format client-side" call already made for
+// scheduledDate below.
+function milestoneDatesFor(lead) {
+  const dates = {};
+  const history = Array.isArray(lead && lead.stageHistory) ? lead.stageHistory : [];
+  for (const h of history) {
+    if (!h || !h.to || typeof h.timestamp !== 'string') continue;
+    const key = STAGE_TO_PROGRESS[h.to];
+    if (!key) continue;
+    if (!(key in dates) || h.timestamp < dates[key]) dates[key] = h.timestamp;
+  }
+  return dates;
+}
+
+// ONE owner for "is this leads/{id}/documents row visible to the
+// homeowner?" (documents shelf, 2026-09-16). Used BOTH to build the shelf
+// list below and by getPortalDocumentHtml to re-check a specific docId
+// before returning bytes — the exact "two gates for one invariant" drift
+// progressKeyFor's own comment above describes, avoided by having one
+// function instead of two independently-written filters.
+function _isDocVisibleToHomeowner(d) {
+  return !!d && d.deleted !== true && (d.generated === true || d.sharedWithHomeowner === true);
+}
+
 // ── Homeowner-upload signed-URL refresh ─────────────────────────────
 // uploadHomeownerPhoto bakes a signed URL into the photo doc with a 7-day
 // expiry (the per-request max). Its own comment predicted the consequence and
@@ -598,7 +640,7 @@ exports.getHomeownerPortalView = onRequest(
     // limit(50) caps the gallery — generous for a real project,
     // tight enough that a misclick can't dump 500 photos to the
     // homeowner page in one fetch.
-    const [leadSnap, repSnap, estSnap, photoSnap] = await Promise.all([
+    const [leadSnap, repSnap, estSnap, photoSnap, docSnap, envSnap, invSnap] = await Promise.all([
       db.doc(`leads/${tok.leadId}`).get(),
       db.doc(`users/${tok.ownerUid}`).get(),
       db.collection('estimates')
@@ -610,6 +652,25 @@ exports.getHomeownerPortalView = onRequest(
         .where('userId', '==', tok.ownerUid)
         .where('sharedWithHomeowner', '==', true)
         .limit(50)
+        .get(),
+      // Unfiltered + unordered, same as the rep-side reader
+      // (docs/pro/js/customer-documents.js) — no composite index required,
+      // so it cannot fail closed the way an index-less filtered query does.
+      // The generated/shared split happens in memory below.
+      db.doc(`leads/${tok.leadId}`).collection('documents').get(),
+      // Signed non-contract paperwork (change orders, inspection reports —
+      // anything routed through esign.html rather than the main BoldSign
+      // contract embed above). Top-level collection, own leadId field.
+      db.collection('esign_envelopes')
+        .where('leadId', '==', tok.leadId)
+        .where('status', '==', 'completed')
+        .limit(20)
+        .get(),
+      // Balance due (2026-09-16). Top-level collection, same
+      // where('leadId', ...) pattern invoice-pipeline.js already queries by.
+      db.collection('invoices')
+        .where('leadId', '==', tok.leadId)
+        .limit(20)
         .get()
     ]);
 
@@ -760,12 +821,105 @@ exports.getHomeownerPortalView = onRequest(
       scheduledDate: /^\d{4}-\d{2}-\d{2}$/.test(String(lead.scheduledDate || ''))
         ? lead.scheduledDate
         : null,
+      // {inspected: <ISOString>, estimate_sent: ..., ...} — only keys the
+      // lead has actually reached carry a date; see milestoneDatesFor above.
+      milestoneDates: milestoneDatesFor(lead),
     };
 
     // Refresh any homeowner-upload URL that is dead or nearly dead before
     // it reaches the gallery. Rep-uploaded photos carry permanent variant
     // URLs in `urls` and are untouched.
     const _freshUrls = await _refreshHomeownerPhotoUrls(photoSnap.docs, Date.now());
+
+    // Documents shelf (2026-09-16). Two visibility rules on leads/{id}/documents:
+    //   - generated === true (document-generator.js output: contract, estimate,
+    //     invoice, warranty, etc.) is ALWAYS shown — these are customer-facing
+    //     document types by construction, same set functions/render-pdf.js's
+    //     TEMPLATES map serves.
+    //   - anything else (a rep camera/file/DnD upload — could be internal
+    //     notes, adjuster correspondence, anything) defaults CLOSED and needs
+    //     an explicit sharedWithHomeowner === true, same opt-in shape as the
+    //     photo gallery's sharedWithHomeowner filter above.
+    //
+    // A generated row persists its content as HTML at `htmlPath`, never a
+    // direct URL — functions/document-view.js's header explains why a signed
+    // Storage URL is wrong for HTML specifically (it would execute
+    // same-origin as storage.googleapis.com, unlike a PDF or image). Those
+    // rows carry viaHtml:true instead of a url; the client fetches the bytes
+    // through getPortalDocumentHtml below, which re-derives this EXACT
+    // visibility gate server-side from the token before returning anything —
+    // a client can't widen its own access by guessing a docId that wasn't in
+    // the list it was handed.
+    //
+    // An uploaded row already carries a plain `url` (getDownloadURL, written
+    // by customer-signed-doc-upload.js / customer-dnd-upload.js) — the SAME
+    // field the rep-facing customer.html already links directly, so surfacing
+    // it here is not a new privacy exposure, just the same link reaching the
+    // person the document is about.
+    const _visibleDocRows = docSnap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(_isDocVisibleToHomeowner);
+    const _generatedDocs = _visibleDocRows.map(d => {
+      const url = typeof d.url === 'string' && /^https:\/\//i.test(d.url) ? d.url : null;
+      return {
+        id: d.id,
+        name: d.name || d.filename || d.typeName || 'Document',
+        date: d.uploadedAt?.toDate?.()?.toISOString()
+          || d.createdAt?.toDate?.()?.toISOString()
+          || (typeof d.date === 'string' ? d.date : null),
+        url,
+        viaHtml: !url && typeof d.htmlPath === 'string' && !!d.htmlPath,
+      };
+    }).filter(d => d.url || d.viaHtml); // nothing safe to show → drop it
+
+    // Signed non-contract paperwork (change orders, inspection reports —
+    // anything routed through esign.html rather than the main BoldSign
+    // contract embed above). These ARE plain PDFs in Storage (signed.pdf,
+    // application/pdf) — the HTML-execution concern above doesn't apply, so
+    // a short-lived signed URL is the right, standard tool here, same as
+    // _refreshHomeownerPhotoUrls above.
+    const _esignDocs = (await Promise.all(envSnap.docs.map(async (d) => {
+      const e = d.data();
+      if (typeof e.signedPath !== 'string' || !e.signedPath) return null;
+      try {
+        const [url] = await getStorage().bucket().file(e.signedPath).getSignedUrl({
+          action: 'read', expires: Date.now() + HOMEOWNER_URL_TTL_MS,
+        });
+        return {
+          id: d.id,
+          name: e.title || 'Signed document',
+          date: e.signedAt?.toDate?.()?.toISOString() || null,
+          url,
+          viaHtml: false,
+        };
+      } catch (err) {
+        logger.warn('esign envelope signed-url mint failed', { envelopeId: d.id, err: err && err.message });
+        return null;
+      }
+    }))).filter(Boolean);
+
+    const _portalDocuments = _generatedDocs.concat(_esignDocs)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    // Balance due / pay (2026-09-16), READ-ONLY. Surfaces data that already
+    // exists — never mints a new payment link. stripePaymentLink is written
+    // by docs/pro/js/invoice-pipeline.js only after a rep calls
+    // createStripePaymentLink (functions/stripe.js), and is cleared back to
+    // null by markPaid; there is no path here for a homeowner to charge
+    // themselves without a rep having sent a link first. Picks the most
+    // recently created invoice that still has a balance — most jobs have
+    // exactly one, but this doesn't assume that.
+    const _unpaidInvoice = invSnap.docs
+      .map(d => d.data())
+      .filter(inv => Number(inv.balanceDue) > 0)
+      .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0))[0] || null;
+    const _balance = _unpaidInvoice ? {
+      amountCents: Math.round(Number(_unpaidInvoice.balanceDue) * 100),
+      stripePaymentLink: typeof _unpaidInvoice.stripePaymentLink === 'string' && /^https:\/\//i.test(_unpaidInvoice.stripePaymentLink)
+        ? _unpaidInvoice.stripePaymentLink
+        : null,
+    } : null;
+
     const view = {
       homeowner: {
         firstName: lead.firstName || '',
@@ -870,7 +1024,14 @@ exports.getHomeownerPortalView = onRequest(
           urls: p.urls || null,
           url:  _freshUrls.get(d.id) || p.url || null,
           phase: p.phase || 'During',
-          caption: p.homeownerCaption || ''
+          caption: p.homeownerCaption || '',
+          // 2026-09-16 (photo self-announce fix): source, not exposed for
+          // display (the gallery shows no origin badge either way), only so
+          // the client's live-update diff can tell "a rep just shared this"
+          // from "I just uploaded this myself" before firing a toast. Same
+          // internal-field-redaction posture as the rest of this view —
+          // this is the one internal field that actually needs to travel.
+          source: p.source === 'homeowner' ? 'homeowner' : 'rep',
         };
       }),
       // D-2.7: auto-pair before/after photos by location. The portal
@@ -878,6 +1039,12 @@ exports.getHomeownerPortalView = onRequest(
       // Pairing rule: same `location`, one phase='Before' + one
       // phase='After', most-recent of each wins. Empty when no pairs.
       photoPairs: _pairBeforeAfter(photoSnap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      // Contract/estimate/invoice/warranty/etc + any rep-shared upload +
+      // signed ancillary (esign) paperwork — see the build above.
+      documents: _portalDocuments,
+      // null when there's no outstanding invoice — most jobs, most of the
+      // time. See the build above for why this never mints a new link.
+      balance: _balance,
       tokenInfo: {
         daysRemaining: tok.expiresAt
           ? Math.max(0, Math.ceil((tok.expiresAt.toMillis() - Date.now()) / 86_400_000))
@@ -915,7 +1082,120 @@ exports.getHomeownerPortalView = onRequest(
       : { uses: FieldValue.increment(1), lastSeenAt: FieldValue.serverTimestamp() }
     ).catch(() => {});
 
+    // 2026-09-16 (view-tracking fix): this open-tracking write existed
+    // already, but ONLY on portal_tokens/{token} — nothing rep-facing reads
+    // that doc, so a genuine open never moved any indicator a rep actually
+    // watches. Those indicators (customer-engagement-score.js,
+    // customer-viewed-chip.js, crm-pipeline.js's kanban badge) all key off
+    // estimate.viewedAt instead — a SEPARATE signal from a different flow
+    // (getEstimateForView, the standalone /pro/estimate-view.html link) that
+    // never fires just because the homeowner opened the main portal. Stamp
+    // the LEAD doc too, on a genuine open only, so those three consumers can
+    // read it for free off the same lead object they already have loaded —
+    // no new query, no new subscription.
+    if (!isPoll) {
+      db.doc(`leads/${tok.leadId}`).update({ lastPortalOpenAt: FieldValue.serverTimestamp() }).catch(() => {});
+    }
+
     res.status(200).json(view);
+  }
+);
+
+// ═══════════════════════════════════════════════════════════════
+// getPortalDocumentHtml — fetch a generated document's HTML, portal-token
+// gated (2026-09-16, documents shelf).
+// ═══════════════════════════════════════════════════════════════
+//
+// Mirrors functions/document-view.js's getDocumentHtml BYTE-FOR-BYTE in how
+// it reads the object (download via admin SDK, size-cap, return the string
+// for a sandboxed client-side render) — that file's header explains why a
+// signed Storage URL is wrong for this content (HTML fetched from
+// storage.googleapis.com executes same-origin there). The only thing that
+// differs is the authorization check: getDocumentHtml is Firebase-Auth-only
+// (a rep on customer.html); a homeowner in the token-gated portal has no
+// Firebase session, so this checks the portal token instead — same model
+// getHomeownerPortalView/uploadHomeownerPhoto/requestCallback all already
+// use for "no-login homeowner, but still authorized."
+//
+// The visibility check is NOT "does this docId exist under this lead" — it
+// re-derives the EXACT same generated===true || sharedWithHomeowner===true
+// gate getHomeownerPortalView used to decide whether to list this document
+// at all. A docId a homeowner was never shown (an un-shared upload, or one
+// from a different lead) is refused even with a valid, unexpired token —
+// the token proves WHICH lead, not blanket access to everything under it.
+const MAX_PORTAL_DOC_HTML_BYTES = 5 * 1024 * 1024; // matches document-view.js's cap
+
+exports.getPortalDocumentHtml = onRequest(
+  {
+    region: 'us-central1',
+    cors: CORS_ORIGINS,
+    maxInstances: 30,
+    concurrency: 40,
+    timeoutSeconds: 20,
+    memory: '256MiB',
+  },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).end(); return; }
+    if (!(await httpRateLimit(req, res, 'portal-doc-html:ip', 30, 60_000))) return;
+
+    const { token, docId } = req.body || {};
+    if (typeof token !== 'string' || !/^[A-Za-z0-9]{10,64}$/.test(token)) {
+      res.status(400).json({ error: 'Invalid token' });
+      return;
+    }
+    if (typeof docId !== 'string' || !docId) {
+      res.status(400).json({ error: 'docId required' });
+      return;
+    }
+
+    const db = getFirestore();
+    try {
+      const tokSnap = await db.doc(`portal_tokens/${token}`).get();
+      if (!tokSnap.exists) { res.status(404).json({ error: 'Invalid link' }); return; }
+      const tok = tokSnap.data();
+      if (tok.expiresAt && tok.expiresAt.toMillis && tok.expiresAt.toMillis() < Date.now()) {
+        res.status(410).json({ error: 'This link has expired' });
+        return;
+      }
+
+      const docSnap = await db.doc(`leads/${tok.leadId}/documents/${docId}`).get();
+      if (!docSnap.exists) { res.status(404).json({ error: 'Document not found' }); return; }
+      const meta = docSnap.data() || {};
+
+      // Re-derive getHomeownerPortalView's exact gate — see
+      // _isDocVisibleToHomeowner above.
+      if (!_isDocVisibleToHomeowner(meta)) {
+        res.status(403).json({ error: 'Not shared' });
+        return;
+      }
+      const htmlPath = typeof meta.htmlPath === 'string' ? meta.htmlPath : null;
+      if (!htmlPath) { res.status(404).json({ error: 'This document has no HTML on file' }); return; }
+
+      // Same lead-prefix confinement as getDocumentHtml — htmlPath is
+      // client-written, so without this a malformed/tampered row could
+      // point anywhere in the bucket.
+      if (!/^documents\/[^/]+\/[^/]+\//.test(htmlPath) || htmlPath.split('/')[2] !== tok.leadId) {
+        logger.error('[getPortalDocumentHtml] htmlPath outside lead prefix', { leadId: tok.leadId, docId, htmlPath });
+        res.status(500).json({ error: 'Document path is not readable' });
+        return;
+      }
+
+      const file = getStorage().bucket().file(htmlPath);
+      const [objectMeta] = await file.getMetadata();
+      if (Number(objectMeta.size) > MAX_PORTAL_DOC_HTML_BYTES) {
+        res.status(413).json({ error: 'Document is too large to open here' });
+        return;
+      }
+      const [buf] = await file.download();
+      res.status(200).json({
+        html: buf.toString('utf8'),
+        name: meta.name || meta.filename || meta.typeName || 'Document',
+      });
+    } catch (err) {
+      if (err && err.code === 404) { res.status(404).json({ error: 'Document file is no longer stored' }); return; }
+      logger.error('[getPortalDocumentHtml] failed', { docId, err: err && err.message });
+      res.status(500).json({ error: 'Could not read the document' });
+    }
   }
 );
 
