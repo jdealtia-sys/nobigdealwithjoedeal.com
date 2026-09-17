@@ -6150,6 +6150,13 @@
     </div>
     <div class="m-jd-tab-body" id="mJdTabDocuments" role="tabpanel" aria-labelledby="documents" hidden>
       <div class="m-jd-empty">No documents yet.</div>
+      <!-- Same ids customer.html's Documents tab uses for signed-document
+           upload (camera capture / file browse) — customer-signed-doc-upload.js's
+           uploadSignedDoc()/handleSignedDocUpload() are reused unmodified;
+           duplicating ids across two pages that are never both loaded at
+           once is the same safe pattern the Messages tab (repMsg*) uses. -->
+      <input type="file" id="signedDocFileInput" accept="image/*,.pdf" capture="environment" style="display:none;">
+      <input type="file" id="signedDocBrowseInput" accept="image/*,.pdf,.doc,.docx" style="display:none;">
     </div>
     <!-- Messages — same repMsg* ids customer.html's Messages tab uses.
          customer-realtime.module.js's mountMessages() looks these up via

@@ -150,7 +150,11 @@
       // _mountDocumentsHub) reads leads/{id}/documents through this same
       // store customer.html uses — one reader, not a second copy of the
       // fetch/normalize logic. Version matches customer.html's own tag.
-      'js/customer-documents.js?v=1'
+      'js/customer-documents.js?v=1',
+      // Same tab's "scan/upload a signed document" rows (2026-09-17) —
+      // uploadSignedDoc/handleSignedDocUpload are the exact functions
+      // customer.html's Documents tab uses; no second upload path.
+      'js/customer-signed-doc-upload.js?v=1'
     ],
     // Estimate engine (PR 2c). The revenue-critical builder + its product/
     // catalog data. Only needed when the rep builds an estimate, opens the
