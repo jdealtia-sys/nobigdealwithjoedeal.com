@@ -137,6 +137,15 @@ async function buildRotatedForm() {
     await page.waitForSelector('#suDrop', { state: 'visible', timeout: 20000 });
     ok('page boots with no JS error', errs.length === 0, errs.join(' | '));
 
+    // 2026-09-17: steer reps who already have a generated document toward
+    // its own Send for Signature button (verified, no re-upload) instead of
+    // this general upload-a-PDF tool.
+    ok('the "sign a generated doc instead" hint is visible with a real lead',
+      await page.isVisible('#suGeneratedHint'));
+    const hintHref = await page.getAttribute('#suGeneratedHintLink', 'href');
+    ok('the hint links to THIS lead\'s Documents tab, not a bare fragment',
+      hintHref === '/pro/customer.html?id=LEAD1#documentsTab', hintHref);
+
     await page.setInputFiles('#suFile', tmp);
     await page.waitForSelector('.es-page canvas', { timeout: 25000 });
     ok('choosing a PDF renders it for placement', true);
