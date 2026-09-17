@@ -913,8 +913,15 @@ async function loadCustomerData(id) {
       document.getElementById('timelineList').innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></div>No activity yet</div>';
     }
     
-    // Load photos into overview grid
-    try { await loadPhotos(id); } catch (e) {
+    // Load photos into BOTH the overview grid (#photoList) and the
+    // phase-grouped grid (#photosByPhase, normally loaded later by
+    // loadNewPortalSections below) — one call, one shared fetch (see
+    // loadAllCustomerPhotos), instead of the two separate loaders each
+    // running their own getDocs() for the same lead at different points in
+    // this same page-load sequence. Fetching #photosByPhase's data here
+    // also means it starts loading earlier than before (it used to wait
+    // until loadNewPortalSections ran near the end of this function).
+    try { await loadAllCustomerPhotos(id); } catch (e) {
       console.error('Photos load failed:', e);
       var pl = document.getElementById('photoList');
       if (pl) pl.innerHTML = '<div class="empty"><div class="empty-icon">No photos yet</div></div>';
@@ -1579,6 +1586,42 @@ function _photoQueryScopes(leadId) {
 // constraints these return are interchangeable with window.query on this page.
 window._photoQueryScopes = _photoQueryScopes;
 
+// Shared raw fetch (2026-09-17): loadPhotos() (#photoList, below) and
+// customer-tasks-ui.js's loadPhotosByPhase() (#photosByPhase) each ran
+// their own independent getDocs() against the identical
+// _photoQueryScopes(leadId) query — every lifecycle event that needs both
+// views (page open, upload complete) cost two Firestore reads for the same
+// data. In-flight de-dup below collapses genuinely concurrent callers —
+// loadAllCustomerPhotos() further down is the only caller that fires both
+// at once — into one real fetch. loadPhotos() and loadPhotosByPhase() keep
+// their own independent transform, render, and (for the phase grid)
+// IndexedDB cache untouched, so calling either alone — the delete-refresh
+// call sites in customer-tasks-ui.js do exactly this — behaves exactly as
+// before.
+const _inflightPhotoFetch = new Map();
+function _fetchPhotosRaw(leadId) {
+  const uid = auth.currentUser?.uid;
+  if (!uid) return Promise.resolve([]);
+  const key = uid + ':' + leadId;
+  if (_inflightPhotoFetch.has(key)) return _inflightPhotoFetch.get(key);
+  const run = (async () => {
+    const snap = await getDocs(query(collection(db, 'photos'), ..._photoQueryScopes(leadId)));
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  })();
+  _inflightPhotoFetch.set(key, run);
+  // .then(cleanup, cleanup), not .finally(cleanup): .finally()'s derived
+  // promise re-rejects when `run` rejects, and since nothing awaits that
+  // derived promise, a failed fetch would surface as an unhandled
+  // rejection. Passing the same cleanup as BOTH handlers here runs it
+  // either way while letting the derived promise settle (fulfilled), not
+  // reject — `run` itself (returned below) still carries the real
+  // success/failure to whichever caller awaits it.
+  const cleanup = () => { if (_inflightPhotoFetch.get(key) === run) _inflightPhotoFetch.delete(key); };
+  run.then(cleanup, cleanup);
+  return run;
+}
+window._fetchPhotosRaw = _fetchPhotosRaw;
+
 // Team visibility for ESTIMATES (audit 2026-08-02): the three estimate reads
 // on this page hard-scoped to the signed-in uid, so a company_admin/manager
 // opening a rep's job saw "No estimates yet" — while the dashboard shell
@@ -1608,19 +1651,19 @@ async function _getEstimateDocsForLead(leadId) {
 
 async function loadPhotos(leadId) {
   try {
-    const photoSnap = await getDocs(
-      query(collection(db, 'photos'), ..._photoQueryScopes(leadId))
-    );
+    const raw = await _fetchPhotosRaw(leadId);
 
-    if (photoSnap.empty) {
+    if (!raw.length) {
       window._customerPhotos = [];
       renderCustomerPhotoStrip();
       return;
     }
 
-    window._customerPhotos = photoSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .sort(nbdComparePhotos);
+    // .slice() before sorting: a concurrent loadPhotosByPhase() call for the
+    // same lead can be awaiting this SAME in-flight promise (see
+    // _fetchPhotosRaw), so `raw` may be a shared array reference — sorting
+    // in place would reorder the array out from under that other caller.
+    window._customerPhotos = raw.slice().sort(nbdComparePhotos);
 
     renderCustomerPhotoStrip();
   } catch (e) {
@@ -1632,6 +1675,30 @@ async function loadPhotos(leadId) {
       </div>`;
   }
 }
+// Exported (2026-09-17 — was missing): customer-tasks-ui.js's delete
+// handlers call this to refresh #photoList after removing a photo from the
+// phase grid. They referenced a bare `loadPhotos(...)`, but this function
+// is module-scoped here and customer-tasks-ui.js is a separate classic
+// script — that call threw ReferenceError every time, silently swallowed
+// by an empty catch block, so the overview strip never actually refreshed
+// after a delete despite the surrounding comments saying it would.
+window.loadPhotos = loadPhotos;
+
+// The only genuinely concurrent caller of loadPhotos()/loadPhotosByPhase() —
+// used at the two lifecycle points where a homeowner/rep needs BOTH
+// #photoList and #photosByPhase to reflect the same event (initial page
+// load, upload complete), so _fetchPhotosRaw's in-flight de-dup actually
+// collapses to one getDocs() here. Delete-refresh call sites intentionally
+// keep calling loadPhotos()/loadPhotosByPhase() standalone — they only ever
+// need one side refreshed, and de-dup is a no-op (harmless) when nothing
+// else is concurrently fetching the same lead's photos.
+async function loadAllCustomerPhotos(leadId) {
+  await Promise.all([
+    loadPhotos(leadId),
+    window.loadPhotosByPhase ? window.loadPhotosByPhase(leadId) : Promise.resolve(),
+  ]);
+}
+window.loadAllCustomerPhotos = loadAllCustomerPhotos;
 
 
 
@@ -2567,8 +2634,9 @@ window.uploadPhotos = async function() {
     // Force a full close — the queue is done, so the background-safe
     // guard in closeUploadModal sees no in-flight items and clears.
     closeUploadModal();
-    if (window.loadPhotosByPhase) await window.loadPhotosByPhase(window._customerId);
-    try { await loadPhotos(window._customerId); } catch(e) {}
+    // One shared fetch feeds both grids instead of two sequential,
+    // independent getDocs() calls for the same just-uploaded lead's photos.
+    try { await loadAllCustomerPhotos(window._customerId); } catch(e) {}
 
     // Reload timeline to show photo upload events
     const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
