@@ -56,6 +56,28 @@
     if (cfg && typeof cfg.tierLabel === 'function') return cfg.tierLabel(key);
     return ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[key] || key;
   }
+  // Tier-appropriateness signal (GBB backlog, 2026-09-17). Every catalog
+  // entry in estimate-catalog-xactimate.js already self-declares a tier
+  // (good/better/best/any) but nothing in the real add-to-scope path ever
+  // compared it against the job's own state.tier — a rep could add ANY
+  // item to a job of ANY tier with zero feedback, which is exactly the
+  // "tier at random" complaint the GBB source-of-truth fix (PR #1615) only
+  // half-solved (that fix pointed the PRINTED tier at the real estimate;
+  // it did nothing about the MATERIALS under it). 'any' items (underlayment,
+  // flashing, permits, etc.) are tier-neutral by design and never flag.
+  // Internal, rep-only labels here — _v2TierLabel() above is the CUSTOMER-
+  // facing name and would be a confusing mismatch against the raw
+  // good/better/best language the tier picker itself uses.
+  function _v2TierMismatch(itemTier) {
+    return !!itemTier && itemTier !== 'any' && itemTier !== state.tier;
+  }
+  function _v2TierBadgeHtml(itemTier) {
+    if (!itemTier || itemTier === 'any') return '';
+    const mismatch = _v2TierMismatch(itemTier);
+    const cls = 'tier-pill' + (mismatch ? ' mismatch' : '');
+    const title = mismatch ? ' title="This job is priced ' + state.tier + ' tier"' : '';
+    return '<span class="' + cls + '"' + title + '>' + itemTier + '</span>';
+  }
   // ASYNC since 2026-09-06. The old comment here claimed _custIdPrefix()
   // "already returns 'NBD' for the platform tenant and a derived prefix for
   // everyone else" — true only AFTER company-profile hydration. Read
@@ -508,6 +530,20 @@
         background:var(--orange,#BD5728); border:none; color:var(--accent-fg,#fff);
         padding:4px 10px; font-size:10px; font-weight:700;
         cursor:pointer; border-radius:3px; letter-spacing:.05em;
+      }
+      /* Tier badge — every catalog item's own good/better/best/any grade,
+         rendered wherever the item appears (browse, ✓ Selected, scope
+         review) so a rep can see tier at a glance instead of guessing. */
+      .tier-pill {
+        display:inline-block; font-size:8px; font-weight:700; letter-spacing:.06em;
+        text-transform:uppercase; padding:1px 5px; border-radius:3px;
+        color:var(--m,#888); border:1px solid var(--br,#2a2f35); vertical-align:middle;
+      }
+      .tier-pill.mismatch {
+        color:var(--orange,#BD5728); border-color:var(--orange,#BD5728);
+      }
+      .tier-warn {
+        color:var(--orange,#BD5728); font-size:10px; margin-top:3px; clear:both;
       }
       .v2-scope-item {
         background:var(--bg,#0a0c0f); border-left:3px solid var(--orange,#BD5728);
@@ -1227,6 +1263,17 @@
 
   function addToScope(code) {
     if (state.scope.find(s => s.code === code)) return;  // Already in scope
+    // Steer, don't block — same call as the esign re-upload fix (PR #1614):
+    // still let the add through (a rep may have a real reason to mix), just
+    // surface the mismatch immediately instead of silently pricing wrong.
+    const cat = window.NBD_XACT_CATALOG;
+    const item = cat && typeof cat.find === 'function' ? cat.find(code) : null;
+    if (item && _v2TierMismatch(item.tier) && typeof window.showToast === 'function') {
+      window.showToast(
+        '"' + (item.name || code) + '" is a ' + item.tier + '-tier item — this job is priced ' + state.tier + ' tier',
+        'warning'
+      );
+    }
     state.scope.push({ code });
     state._reopenedClean = false;   // 3B: edit → re-resolve live, stop replaying
     render();
@@ -2400,7 +2447,7 @@
       return `
         <div class="v2-item" data-action="add-to-scope" data-code="${esc(item.code)}" ${inScope ? 'style="border-color:var(--green,#065f46);background:color-mix(in srgb, var(--green,#065f46) 12%, var(--bg,#0a0c0f));"' : ''}>
           <div style="flex:1;min-width:0;">
-            <div class="code">${esc(item.code)}</div>
+            <div class="code">${esc(item.code)} ${_v2TierBadgeHtml(item.tier)}</div>
             <div class="name">${esc((item.name || '').substring(0, 60))}${(item.name || '').length > 60 ? '…' : ''}</div>
           </div>
           <div class="cost">
@@ -2450,7 +2497,8 @@
         qty: line ? (Number(line.quantity) || 0) : null,
         unit: (line && line.unit) || (item && item.unit) || '',
         total: line ? lineRetail(line, markupPct) : null,
-        overridden: !!(line && line.qtyOverridden)
+        overridden: !!(line && line.qtyOverridden),
+        tier: (line && line.tier) || (item && item.tier) || null
       });
     });
     (state.passThru || []).forEach(p => {
@@ -2474,9 +2522,10 @@
         return `
         <div class="v2-item" data-code="${esc(r.code)}" style="border-color:var(--green,#2ecc8a);background:color-mix(in srgb, var(--green,#2ecc8a) 10%, var(--bg,#0a0c0f));">
           <div style="flex:1;min-width:0;">
-            <div class="code">${esc(r.code)}${r.passThru ? ' · PASS-THRU' : ''}</div>
+            <div class="code">${esc(r.code)}${r.passThru ? ' · PASS-THRU' : ''} ${_v2TierBadgeHtml(r.tier)}</div>
             <div class="name">${esc((r.name || '').substring(0, 60))}${(r.name || '').length > 60 ? '…' : ''}</div>
             <div style="font-size:10px;color:var(--m,#98a0ab);margin-top:2px;">${qtyStr}${r.overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
+            ${_v2TierMismatch(r.tier) ? '<div class="tier-warn">⚠ ' + esc(r.tier) + '-tier item on a ' + esc(state.tier) + '-tier job</div>' : ''}
           </div>
           <div class="cost" style="display:flex;align-items:center;gap:8px;">
             <div style="text-align:right;">
@@ -2566,6 +2615,7 @@
           <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
           <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
           ${lineNote ? `<div class="line-note" style="font-size:11px;color:var(--m,#9ca3af);font-style:italic;margin-top:2px;">📝 ${escLocal(lineNote)}</div>` : ''}
+          ${_v2TierMismatch(line.tier) ? `<div class="tier-warn">⚠ ${escLocal(line.tier)}-tier item on a ${escLocal(state.tier)}-tier job</div>` : ''}
         </div>
       `;
     }).join('');
