@@ -131,6 +131,7 @@ Verified by the smoke test "every admin function in FUNCTIONS_INDEX has a role/a
 | `setStorageCors` | onRequest | `requireAuth({ adminOnly: true })` | One-time CORS config |
 | `integrationStatus` | onCall | `claims.role === 'admin'` | Integration health check (depends on every integration secret) |
 | `getAdminAnalytics` | onCall | `claims.role === 'admin'` | Cross-tenant analytics |
+| `getAiUsageAnalytics` | onCall | `claims.role === 'admin'` | Real claudeProxy usage aggregation for /admin/analytics.html (replaces SAMPLE DATA) |
 | `rotateAccessCodes` | onCall | `requireTeamAdmin` | Access-code rotation |
 | `createTeamMember` | onCall | `requireTeamAdmin` (admin / company_admin / owner) | Team management |
 | `createTeamInvite` | onCall | `requireTeamAdmin` | Pillar 4 — server-side invite create so plan seat limits hold |

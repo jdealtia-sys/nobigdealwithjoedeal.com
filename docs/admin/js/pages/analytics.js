@@ -1,8 +1,17 @@
-// NOTE: this page renders mock analytics only (see loadAnalytics). The old
-// nbd-ai-proxy WORKER_URL constant was dead (never fetched) and was removed —
-// it only advertised the retired worker in publicly-fetchable JS.
-
 let autoRefreshTimer = null;
+
+// Lazy-loaded Firebase Functions handle, same pattern as admin-manager.js's
+// callable() helper — this page is a classic (non-module) script, so a
+// dynamic import() picks up the default app already initialized by
+// analytics-gate.js's module rather than re-initializing a second one.
+async function callable(name) {
+  if (!window._functions || !window._httpsCallable) {
+    const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+    window._functions = mod.getFunctions();
+    window._httpsCallable = mod.httpsCallable;
+  }
+  return window._httpsCallable(window._functions, name);
+}
 
 // F-03: custom-claim gate, no email comparison. The previous check
 // used string match on two hardcoded admin emails (`demo@nbdpro.com`
@@ -31,70 +40,55 @@ window.addEventListener('auth-ready', async () => {
 
   loadAnalytics();
 
-  // Auto-refresh every 30 seconds
-  autoRefreshTimer = setInterval(loadAnalytics, 30000);
+  // Auto-refresh every 60 seconds — halves steady-state callable load
+  // against getAiUsageAnalytics's 90/hr rate limit vs. the old 30s cadence.
+  autoRefreshTimer = setInterval(loadAnalytics, 60000);
 });
 
 async function loadAnalytics() {
   try {
-    // TODO: Call worker endpoint to fetch KV analytics data
-    // For now, show mock data until worker endpoint is built
-    
-    const now = new Date();
-    const mockData = {
-      today: {
-        requests: 247,
-        tokens: 52840,
-        cost: 0.0158,
-        errors: 3,
-        rateLimits: 1,
-        lastHour: 18
-      },
-      hourly: generateMockHourlyData(),
-      topUsers: [
-        // Placeholder examples only — do NOT reintroduce real admin
-        // emails here. This page is publicly fetchable JS. (F-04)
-        { email: 'user-a@example.com', requests: 142, tokens: 31200, cost: 0.0094 },
-        { email: 'user-b@example.com', requests: 89, tokens: 18400, cost: 0.0055 },
-        { email: 'user-c@example.com', requests: 16, tokens: 3240, cost: 0.0009 }
-      ],
-      features: {
-        'ask-joe': { requests: 198, tokens: 44200, cost: 0.0133 },
-        'vault-analyzer': { requests: 32, tokens: 6800, cost: 0.0020 },
-        'property-intel': { requests: 17, tokens: 1840, cost: 0.0005 }
-      }
-    };
-    
+    const getAiUsageAnalytics = await callable('getAiUsageAnalytics');
+    const { data } = await getAiUsageAnalytics();
+
     // Update stats
-    document.getElementById('requestsToday').textContent = mockData.today.requests.toLocaleString();
-    document.getElementById('requestsLastHour').textContent = mockData.today.lastHour;
-    document.getElementById('tokensToday').textContent = mockData.today.tokens.toLocaleString();
-    document.getElementById('avgTokens').textContent = Math.round(mockData.today.tokens / mockData.today.requests);
-    document.getElementById('costToday').textContent = `$${mockData.today.cost.toFixed(4)}`;
-    document.getElementById('projectedCost').textContent = `$${(mockData.today.cost * 30).toFixed(2)}`;
-    
-    const successRate = ((mockData.today.requests - mockData.today.errors) / mockData.today.requests * 100).toFixed(1);
-    document.getElementById('successRate').textContent = `${successRate}%`;
-    document.getElementById('successRate').className = 'stat-value ' + (successRate >= 99 ? 'green' : successRate >= 95 ? 'orange' : 'red');
-    document.getElementById('errorCount').textContent = mockData.today.errors;
-    document.getElementById('rateLimitCount').textContent = mockData.today.rateLimits;
-    
+    document.getElementById('requestsToday').textContent = data.today.requests.toLocaleString();
+    document.getElementById('requestsLastHour').textContent = data.today.lastHour;
+    document.getElementById('tokensToday').textContent = data.today.tokens.toLocaleString();
+    document.getElementById('avgTokens').textContent = data.today.requests
+      ? Math.round(data.today.tokens / data.today.requests) : 0;
+    document.getElementById('costToday').textContent = `$${data.today.cost.toFixed(4)}`;
+    document.getElementById('projectedCost').textContent = `$${(data.today.cost * 30).toFixed(2)}`;
+
+    // errors/rateLimits have no real backing data yet — claudeProxy only
+    // persists successful calls (failures go to Cloud Logging only). Show
+    // that honestly rather than a fabricated number or a fake 100% rate.
+    const successRateEl = document.getElementById('successRate');
+    if (data.today.errors == null) {
+      successRateEl.textContent = '—';
+      successRateEl.className = 'stat-value';
+    } else {
+      const successRate = data.today.requests
+        ? ((data.today.requests - data.today.errors) / data.today.requests * 100).toFixed(1)
+        : '100.0';
+      successRateEl.textContent = `${successRate}%`;
+      successRateEl.className = 'stat-value ' + (successRate >= 99 ? 'green' : successRate >= 95 ? 'orange' : 'red');
+    }
+    document.getElementById('errorCount').textContent = data.today.errors ?? 'not tracked';
+    document.getElementById('rateLimitCount').textContent = data.today.rateLimits ?? 'not tracked';
+
     // Render chart
-    renderChart(mockData.hourly);
-    
+    renderChart(data.hourly);
+
     // Render top users
-    renderTopUsers(mockData.topUsers);
-    
+    renderTopUsers(data.topUsers);
+
     // Render features
-    renderFeatures(mockData.features);
-    
+    renderFeatures(data.features);
+
     // Update timestamp
-    // Honest labeling (2026-08-10 audit): every number on this page is
-    // fabricated sample data — the aggregation endpoint was never built
-    // (claudeProxy DOES log real usage server-side; wiring it is the fix).
-    // A bare "Last refreshed" timestamp made the fakes look live.
-    document.getElementById('lastRefresh').textContent = `SAMPLE DATA — usage endpoint not built yet (nothing on this page is real). Rendered ${now.toLocaleTimeString()}`;
-    
+    const now = new Date();
+    document.getElementById('lastRefresh').textContent = `Last refreshed ${now.toLocaleTimeString()} · trailing 24h`;
+
   } catch (error) {
     console.error('Analytics load error:', error);
     const el = document.getElementById('chartContainer');
@@ -104,19 +98,6 @@ async function loadAnalytics() {
     box.textContent = 'Failed to load analytics: ' + (error && error.message ? error.message : 'unknown error');
     el.appendChild(box);
   }
-}
-
-function generateMockHourlyData() {
-  const data = [];
-  const now = new Date();
-  for (let i = 23; i >= 0; i--) {
-    const hour = new Date(now.getTime() - i * 3600000);
-    data.push({
-      hour: hour.getHours(),
-      requests: Math.floor(Math.random() * 20) + 5
-    });
-  }
-  return data;
 }
 
 function renderChart(hourlyData) {

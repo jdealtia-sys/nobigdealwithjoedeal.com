@@ -4,6 +4,7 @@
  * Uses Firebase custom claims, not a Firestore role field.
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js';
 import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 
 const firebaseConfig = {
@@ -16,6 +17,19 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+// getAiUsageAnalytics declares enforceAppCheck:true, matching every other
+// admin-only callable's config — but nothing under docs/admin/ bootstrapped
+// App Check until now, so that config was never actually exercised from
+// this page. window.__NBD_APP_CHECK_KEY is set by dashboard-appcheck-config.js,
+// loaded before this module in analytics.html's <head>.
+try {
+  if (typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+  }
+} catch (_) {}
 const auth = getAuth(app);
 
 onAuthStateChanged(auth, async (user) => {
