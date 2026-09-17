@@ -364,20 +364,49 @@
     fix needed in `marketing-polish-contract.test.js`'s "nav collapse at
     1024" check, which only scanned inline page text — now also accepts the
     link.
-    **16 more blocks surveyed, not yet touched** (see
-    `docs/dev/globals-tranche3-plan.md`-style census — full inventory in the
-    2026-09-17 session transcript, not yet written to its own doc): 6 more
-    small no-conflict blocks (nav-logo text/layout, nav-wordmark guard,
-    nav-collapse normalize, a11y focus/reduced-motion, iOS-zoom fix; ~211 KB
-    combined) are queued as the obvious next slice — **but a markup grep
-    found the nav-logo-text-targeting rules among them are DEAD CSS on every
-    marketing page**: `.nav-logo-text` CSS text appears in 227 marketing
-    files, but the actual `class="nav-logo-text"` markup it targets exists
-    in ZERO of them (all 8 real uses are under `docs/pro/` or
-    `docs/sites/free-guide/`, out of scope) — the shared nav-standard
-    partial only ever emits a bare `<img>`. Next slice should verify that
-    fully and DELETE rather than extract those rules — bigger win, zero
-    behavior risk. Five blocks (footer contrast, footer social icons,
+    **Slice 2 shipped 2026-09-17** (same day, different session turn):
+    deleted the dead `.nav-logo-text`-scoped declarations from 3 of the
+    blocks flagged above (nav-logo text color, nav-logo layout, nav-wordmark
+    guard) across all 220 pages that carry them —
+    `scripts/strip-dead-nav-logo-text.js`, a one-shot script (not CI-wired,
+    same class as the historical `fix-*.js` migration scripts), byte-exact
+    matched (zero variants in any of the 3 blocks, confirmed against the
+    census) so no fuzzy-match risk. **Correction to slice 1's own
+    write-up**: "DELETE rather than extract — bigger win, zero behavior
+    risk" undersold the danger. It is NOT a whole-block delete — each of
+    the 3 blocks mixes dead `.nav-logo-text` rules with LIVE plain
+    `.nav-logo` rules (real markup), and some pages (e.g. `our-work.html`)
+    carry a SECOND, competing hand-authored `.nav-logo`/`.nav-logo img`
+    definition with different pixel values that the injected block's
+    `!important` + higher specificity currently wins over — a blind block
+    delete would have silently changed which definition renders. The script
+    strips only the `.nav-logo-text`-scoped lines, leaves every
+    `.nav-logo`-scoped line exactly where it was, and separately verifies
+    (post-transform) that no targeted marker's byte-exact block failed to
+    match. Verified: full local gate suite green + real headless-Chromium
+    screenshots at desktop and the 768px breakpoint (confirmed the
+    surviving `.nav-logo img{height:50px!important}` mobile-shrink rule
+    still computes to 50px).
+    **A 4th and 5th `.nav-logo-text` location remain, deliberately
+    untouched**: a `typography-normalize` block's `@media(min-width:1025px)
+    and (max-width:1440px)` section also carries 2 dead `.nav-logo-text`
+    rules (that block has 3 minor-drift variant groups — not safe for
+    byte-exact matching without more work, see below), and several pages
+    (e.g. `careers.html`) carry their own hand-authored base
+    `.nav-logo-badge`/`.nav-logo-text` styles in their page-specific
+    `<style>` block (also dead, also out of scope — not marker-delimited,
+    so not part of this census at all).
+    **Genuine "which definition currently wins" question for a future
+    session, not this one**: the live `.nav-logo`/`.nav-logo img` rules left
+    behind in blocks 1-2 are STILL duplicated (~197-220 copies) and could in
+    principle also be consolidated into `nbd-nav-base.css` — but only after
+    resolving the competing-definition overlap with pages' own hand-authored
+    NAV sections (which currently lose the cascade fight silently). Treat as
+    its own slice with its own verification, not a quick follow-on.
+    **14 more blocks (of the original 17) surveyed, not yet touched**: 3
+    more small no-conflict blocks (nav-collapse normalize, a11y
+    focus/reduced-motion, iOS-zoom fix; ~117 KB) are still a plausible next
+    mechanical slice. Five blocks (footer contrast, footer social icons,
     sitewide readability v2, trust-icon fix, blog-template shim) already
     have one-shot INJECT-ONLY generator scripts from when they first
     shipped (not CI-wired) — extracting them needs those scripts updated
