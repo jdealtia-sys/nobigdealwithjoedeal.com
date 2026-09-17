@@ -960,6 +960,12 @@
     }
     _run();
   }
+  // Exported: the mobile job-detail Documents tab's "Generate a document"
+  // picker (dashboard-actions.js _mJdOpenDocCreate) reuses this SAME
+  // staging+prereq+DocPreflight chain instead of a second copy, and needs
+  // the prerequisite labels to build its type list.
+  window._generateDocWithPreflight = _generateDocWithPreflight;
+  window._DASH_DOC_PREREQUISITES = _DASH_DOC_PREREQUISITES;
 
   // explicitLeadId (2026-09-15): the kanban card's next-action chip calls
   // this directly (crm-pipeline.js wireKanbanCardListeners) with the

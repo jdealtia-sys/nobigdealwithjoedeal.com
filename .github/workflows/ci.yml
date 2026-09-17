@@ -867,6 +867,38 @@ jobs:
           node esign-setup-void-2026-09-16.test.js
           node esign-signature-reachable.test.js
 
+  # Same "wired-individually" contract as esign-suites above: a plain node
+  # script that spins its own static server + drives Chromium directly, no
+  # playwright.config.js baseURL involved. Separate job (not folded into
+  # esign-suites) because it isn't an esign suite — it gates
+  # customer-realtime.module.js's mountMessages() mount/cleanup lifecycle
+  # (2026-09-17, mobile job-detail Messages tab): that a re-mount after
+  # cleanup() doesn't double-fire replyToPortalMessage, and that BOTH the
+  # desktop (#msgUnreadBadge) and mobile (#mJdMsgBadge) unread badges update
+  # from one real onSnapshot render pass. No functions/ deps needed (no
+  # pdf-lib usage), so it skips that install step esign-suites has.
+  mobile-realtime-suite:
+    name: Mobile realtime suite (Chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      - name: Install test deps
+        run: |
+          cd tests
+          npm install --silent --no-audit --no-fund
+      - name: Install Playwright chromium
+        run: |
+          cd tests
+          npx playwright install --with-deps chromium
+      - name: Run mobile realtime suite
+        run: |
+          cd tests
+          node customer-realtime-mount-lifecycle.test.js
+
   # CRITICAL RECIPE NOTE: tests/playwright.config.js defaults baseURL to
   # PRODUCTION — PLAYWRIGHT_BASE_URL must stay pinned to the hosting
   # emulator here or this job smoke-tests the live site. Advisory on

@@ -114,6 +114,7 @@ const CUSTOMER_EXTRACTED_SHARDS = [
   'customer-edit-modal.js',
   'customer-voice-intelligence.module.js',
   'customer-realtime.module.js',
+  'customer-realtime-bootstrap.module.js',
 ];
 function readCustomer() {
   const html = read(path.join(ROOT, 'docs/pro/customer.html'));

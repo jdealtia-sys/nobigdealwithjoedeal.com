@@ -151,6 +151,8 @@
      ═══════════════════════════════════════════════════════════════ -->
 <!-- Nav + print CSS — extracted to css/dashboard-nav.css (Rock 4 Phase 2e). -->
 <link rel="stylesheet" href="css/dashboard-nav.css?v=1">
+<!-- Mobile job-detail Voice Intel tab (mirrors customer.html's #voiceIntelRoot). -->
+<link rel="stylesheet" href="css/voice-intelligence.css?v=1">
 
 <!-- NAV HTML -->
 <nav id="nbd-pro-nav">
@@ -5613,6 +5615,10 @@
 <script defer src="js/customer-estimate-rows.js?v=1"></script>
 <script defer src="js/customer-estimate-hub.js?v=1"></script>
 <script defer src="js/customer-photo-hub.js?v=1"></script>
+<!-- Mobile job-detail Voice Intel tab. voice-intelligence.js's initVoiceIntel
+     is an ES export; this bridge exposes it as window.VoiceIntel for the
+     classic dashboard-actions.js mount/unmount wiring to call. -->
+<script type="module" src="js/voice-intel-dashboard-bridge.module.js?v=1"></script>
 <script defer src="js/estimate-preview.js?v=1"></script>
 <script defer src="js/dashboard-widgets.js?v=4"></script>
 <script defer src="js/dashboard-ui.js?v=3"></script>
@@ -6116,6 +6122,8 @@
       <button class="m-jd-tab" data-tab="estimates" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="estimates">Estimates</button>
       <button class="m-jd-tab" data-tab="photos" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="photos">Photos</button>
       <button class="m-jd-tab" data-tab="documents" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="documents">Documents</button>
+      <button class="m-jd-tab" data-tab="messages" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="messages">Messages<span id="mJdMsgBadge" style="display:none;background:var(--orange, #A14A22);color:var(--accent-fg);font-size:10px;padding:1px 6px;border-radius:8px;margin-left:4px;font-weight:700;"></span></button>
+      <button class="m-jd-tab" data-tab="voice" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="voice">Voice Intel</button>
       <button class="m-jd-tab" data-tab="details" role="tab" aria-selected="false" data-action="call" data-fn="_mJdSwitchTab" data-arg="details">Details</button>
     </div>
     <div class="m-jd-tab-body" id="mJdTabActivity" role="tabpanel" aria-labelledby="activity">
@@ -6142,6 +6150,26 @@
     </div>
     <div class="m-jd-tab-body" id="mJdTabDocuments" role="tabpanel" aria-labelledby="documents" hidden>
       <div class="m-jd-empty">No documents yet.</div>
+    </div>
+    <!-- Messages — same repMsg* ids customer.html's Messages tab uses.
+         customer-realtime.module.js's mountMessages() looks these up via
+         plain document.getElementById(), unscoped — see that file's own
+         comment on why duplicating ids across two different pages is safe. -->
+    <div class="m-jd-tab-body" id="mJdTabMessages" role="tabpanel" aria-labelledby="messages" hidden>
+      <div id="repMsgThread" style="max-height:52vh;min-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:14px;background:var(--bg, #0a1424);border-radius:8px;border:1px solid var(--br, #2a3344);margin-bottom:14px;">
+        <div id="repMsgEmpty" style="color:var(--m);font-size:13px;text-align:center;padding:32px 12px;">No messages yet. The homeowner can message you from their portal link.</div>
+      </div>
+      <textarea id="repMsgText" rows="3" maxlength="2000" placeholder="Reply to the homeowner…" style="width:100%;padding:12px;border-radius:8px;border:1px solid var(--br, #2a3344);background:var(--bg, #0a1424);color:inherit;font:inherit;font-size:14px;box-sizing:border-box;resize:vertical;margin-bottom:10px;"></textarea>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <button id="repMsgSend" type="button" class="btn btn-orange" disabled style="opacity:0.55;">Send reply</button>
+        <span id="repMsgStatus" style="font-size:12px;color:var(--m);"></span>
+      </div>
+    </div>
+    <!-- Voice Intel — mounts the SAME initVoiceIntel() customer.html uses,
+         via the voice-intel-dashboard-bridge.module.js window.VoiceIntel
+         shim, into this empty container. -->
+    <div class="m-jd-tab-body" id="mJdTabVoice" role="tabpanel" aria-labelledby="voice" hidden>
+      <div id="mJdVoiceIntelRoot"></div>
     </div>
     <div class="m-jd-tab-body" id="mJdTabDetails" role="tabpanel" aria-labelledby="details" hidden>
       <div class="m-jd-detail-row"><span class="m-jd-detail-k">Damage</span><span class="m-jd-detail-v" id="mJdDmg">—</span></div>

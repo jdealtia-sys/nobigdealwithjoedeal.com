@@ -1149,6 +1149,12 @@ function openMobileJobDetail(leadId) {
 
   window._cardDetailLeadId = leadId;
 
+  // Tear down Messages/Voice Intel's live Firestore listener if it's still
+  // mounted for a DIFFERENT lead — see dashboard-actions.js's
+  // _mJdTeardownRealtimeTabs comment for why this can't wait for the rep to
+  // revisit those tabs.
+  if (typeof window._mJdTeardownRealtimeTabs === 'function') window._mJdTeardownRealtimeTabs(leadId);
+
   // ── Status pill (uses the same stageLabel/stageColor as the desktop modal) ──
   const rawStage = lead._stageKey || lead.stage || 'new';
   const stageEl = $('mJdStatus');

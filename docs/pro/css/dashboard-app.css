@@ -606,14 +606,27 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 /* Tabs — JobNimbus 3-tab pattern */
 .m-jd-tabs{
   display:flex;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
   border-bottom:1px solid var(--br);
   background:var(--bg);
   position:sticky; top:calc(44px + env(safe-area-inset-top, 0px));
   z-index:1;
 }
+.m-jd-tabs::-webkit-scrollbar{ display:none; }
+/* 2026-09-17: was flex:1 (equal-width, forced to fit all tabs on screen at
+   once) — broke the moment a 7th tab (Voice Intel) landed: at 375px it
+   wrapped to two lines and crowded its own unread badge onto a second line.
+   flex:1 assumes the tab COUNT stays small forever; "full CRM in your
+   phone" means it won't. A horizontally-scrollable strip (natural width per
+   tab, no forced squeeze) is the pattern that survives an 8th, 9th tab
+   without another CSS fire drill — same idiom as iOS Mail's account
+   switcher, not something invented for this file. */
 .m-jd-tab{
-  flex:1; background:transparent; border:none;
-  padding:14px 8px; cursor:pointer;
+  flex:0 0 auto; white-space:nowrap;
+  background:transparent; border:none;
+  padding:14px 14px; cursor:pointer;
   font-family:'Barlow Condensed',sans-serif;
   font-size:12px; font-weight:700; letter-spacing:.08em;
   text-transform:uppercase; color:var(--m);
@@ -646,6 +659,18 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 .m-jd-act-item-t{ font-size:13px; font-weight:700; color:var(--t); }
 .m-jd-act-item-s{ font-size:11px; color:var(--m); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .m-jd-act-item-chev{ flex-shrink:0; color:var(--m); font-size:18px; }
+/* Documents tab secondary actions (share/homeowner-toggle/delete) — a
+   sibling row under the primary tappable .m-jd-act-item, not nested inside
+   it (no interactive-in-interactive, no tap-target conflict). */
+.m-jd-doc-actions{ display:flex; gap:8px; flex-wrap:wrap; padding:0 4px; }
+.m-jd-doc-action{
+  background:none; border:1px solid var(--br); border-radius:8px;
+  color:var(--m); font-size:11px; font-weight:600; padding:6px 10px;
+  min-height:var(--tap-min, 32px); cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+.m-jd-doc-action:active{ background:color-mix(in srgb, var(--t) 8%, transparent); }
+.m-jd-doc-action--danger{ color:var(--red, #e85454); border-color:color-mix(in srgb, var(--red, #e85454) 40%, transparent); }
 .m-jd-detail-row{
   display:flex; justify-content:space-between; align-items:flex-start;
   gap:14px; padding:10px 0;
