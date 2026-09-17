@@ -4966,4 +4966,65 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
     /\.m-jd-doc-actions\{/.test(css) && /\.m-jd-doc-action\{/.test(css));
 }
 
+section('Mobile job-detail: homeowner portal activity + communication log (2026-09-17)');
+{
+  const actions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  const widgets = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  const html = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+  const css = read(path.join(ROOT, 'docs/pro/css/dashboard-app.css'));
+
+  // The Activity tab's estimates/stage-history list (openMobileJobDetail,
+  // shipped #1081) is real and was NOT a stub — an earlier research pass
+  // this session wrongly flagged the whole tab as empty. What genuinely
+  // never existed: the homeowner-PORTAL audit log customer.html's own
+  // Timeline tab shows under "Customer Activity" (customerAuditEvents).
+  assert('dashboard.html: the Activity tab carries a homeowner-portal-activity container',
+    /id="mJdCustomerActivityFeed"/.test(html));
+  assert("_mJdSwitchTab mounts the portal-activity feed on switching to 'activity'",
+    /if \(tab === 'activity'\) _mountCustomerActivityFeed\(\);/.test(actions));
+
+  const feedFn = actions.slice(actions.indexOf('function _mountCustomerActivityFeed'), actions.indexOf('// Communication Log for the Details tab'));
+  assert('_mountCustomerActivityFeed is defined and reads the CURRENT overlay lead',
+    feedFn.length > 0 && /window\._cardDetailLeadId/.test(feedFn));
+  assert('_mountCustomerActivityFeed queries the SAME customerAuditEvents collection/shape loadCustomerActivity uses (leadId + ownerUid, orderBy createdAt desc, limit 50)',
+    /collection\(window\.db, 'customerAuditEvents'\)/.test(feedFn) &&
+    /where\('leadId', '==', leadId\)/.test(feedFn) &&
+    /where\('ownerUid', '=='/.test(feedFn) &&
+    /orderBy\('createdAt', 'desc'\)/.test(feedFn) &&
+    /limit\(50\)/.test(feedFn));
+  assert('_mountCustomerActivityFeed discards a stale response if the overlay lead changed mid-fetch',
+    /window\._cardDetailLeadId !== leadId\) return;/.test(feedFn));
+  assert('_mountCustomerActivityFeed caches per-lead via the host dataset (same convention as _mountDocumentsHub)',
+    /host\.dataset\.loadedFor === leadId\) return;/.test(feedFn) && /host\.dataset\.loadedFor = leadId;/.test(feedFn));
+
+  // Details tab: Communication Log (email_log/sms_log send history) —
+  // distinct from the Messages tab's live two-way homeowner chat.
+  assert('dashboard.html: the Details tab carries a Communication Log container',
+    /id="mJdCommsLog"/.test(html));
+  assert("_mJdSwitchTab mounts the comms log on switching to 'details'",
+    /if \(tab === 'details'\) _mountCommsLog\(\);/.test(actions));
+
+  const commsFn = actions.slice(actions.indexOf('function _mountCommsLog'), actions.lastIndexOf('// Bring the tab row to the top'));
+  assert('_mountCommsLog is defined', commsFn.length > 0);
+  assert('_mountCommsLog scopes by team thread (role/companyId) vs individual uid, same as loadCommunicationLog',
+    /const teamThread = !!\(companyId && \(role === 'company_admin'/.test(commsFn));
+  assert('_mountCommsLog reads both email_log and sms_log, same collections as the desktop Contact tab',
+    /collection\(window\.db, 'email_log'\)/.test(commsFn) && /collection\(window\.db, 'sms_log'\)/.test(commsFn));
+  assert('_mountCommsLog caches per-lead via the host dataset',
+    /host\.dataset\.loadedFor === leadId\) return;/.test(commsFn) && /host\.dataset\.loadedFor = leadId;/.test(commsFn));
+
+  // Both new panels must be re-fetched on every overlay open (a stale
+  // dataset flag from the PREVIOUS lead must never survive to the next
+  // one) — same contract Documents already established.
+  const openMobileFn2 = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
+                                       widgets.indexOf('window.openMobileJobDetail'));
+  assert('openMobileJobDetail clears the portal-activity feed\'s cache flag on every open',
+    /mJdCustomerActivityFeed[\s\S]{0,200}delete actFeedBody\.dataset\.loadedFor/.test(openMobileFn2));
+  assert('openMobileJobDetail clears the comms log\'s cache flag on every open',
+    /mJdCommsLog[\s\S]{0,200}delete commsBody\.dataset\.loadedFor/.test(openMobileFn2));
+
+  assert('.m-jd-act-section-title styling exists for the new sub-section headers',
+    /\.m-jd-act-section-title\{/.test(css));
+}
+
 };
