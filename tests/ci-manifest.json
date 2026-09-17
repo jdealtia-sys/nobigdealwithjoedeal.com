@@ -90,6 +90,7 @@
     "notif-bell-merge.test.js",
     "orphan-sweep-parser.test.js",
     "ourwork-deeplink-contract.test.js",
+    "ourwork-detail-pages.test.js",
     "pdf-render-retention.test.js",
     "prefix-reservation.test.js",
     "push-lead-call-phone.test.js",

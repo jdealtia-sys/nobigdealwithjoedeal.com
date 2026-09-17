@@ -304,6 +304,16 @@ function generate(prevLastmod, warn) {
   const tier1Areas = areaSlugs.filter((s) => TIER_1_AREAS.has(s));
   const tier2Areas = areaSlugs.filter((s) => !TIER_1_AREAS.has(s));
 
+  // Our Work project detail pages (scripts/build-projects.mjs generates one
+  // per live project into docs/our-work/<slug>.html). No curated list here —
+  // every file present is a live project by construction (that generator's
+  // own stale-file cleanup removes anything that stops being live).
+  const ourWorkDetailSlugs = dropNoindexed(
+    listHtml(path.join(DOCS, 'our-work')),
+    (slug) => path.join(DOCS, 'our-work', slug + '.html'),
+    'our-work/'
+  );
+
   const lines = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">');
@@ -355,6 +365,12 @@ function generate(prevLastmod, warn) {
   lines.push('  <!-- Blog Posts (homeowner-facing — /pro/blog/* B2B posts live elsewhere) -->');
   for (const slug of mainBlogSlugs) {
     lines.push(entry(urlFor('blog/' + slug), 'monthly', '0.6'));
+  }
+  lines.push('');
+
+  lines.push('  <!-- Our Work project detail pages -->');
+  for (const slug of ourWorkDetailSlugs) {
+    lines.push(entry(urlFor('our-work/' + slug), 'monthly', '0.6'));
   }
   lines.push('');
 

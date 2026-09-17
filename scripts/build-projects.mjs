@@ -47,7 +47,7 @@
  * Publish procedure: documentation/runbooks/PUBLISH-PROJECT.md
  */
 
-import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -56,6 +56,7 @@ const DATA = path.join(ROOT, 'docs', 'assets', 'data', 'projects.json');
 const HTML = path.join(ROOT, 'docs', 'our-work.html');
 const SERVICES_DIR = path.join(ROOT, 'docs', 'services');
 const WALL = path.join(ROOT, 'docs', 'assets', 'data', 'homeowner-wall.json');
+const DETAIL_DIR = path.join(ROOT, 'docs', 'our-work');
 const CHECK = process.argv.includes('--check');
 
 // Key = /services/<key>.html hub page = filter value = strip target.
@@ -215,6 +216,7 @@ const card = (p) => {
             ${pills}
           </div>
           <button type="button" class="project-view">View photos &rarr;</button>
+          <a class="project-view" href="/our-work/${esc(p.slug)}" style="display:inline-block;text-decoration:none;margin-left:8px;">View full project &rarr;</a>
         </div>
       </div>`;
 };
@@ -366,6 +368,131 @@ ${matches.map((p) => stripCard(p, service)).join('\n\n')}
 
 const STRIP_RE = /<!-- OURWORK-STRIP-START service="([a-z-]+)" -->[\s\S]*?<!-- OURWORK-STRIP-END -->/g;
 
+// ── Per-project detail pages (docs/our-work/<slug>.html) ────────
+// Fully generated from the same projects.json entry as the listing card —
+// deliberately not hand-authored, so there is one editing surface and no
+// new drift class. Reuses project-cards.css (already shared by the
+// listing gallery + hub strips) for the photo grid instead of inventing a
+// second page-specific stylesheet, given how much duplicated inline CSS
+// this site already carries (see documentation/projects/WEEKLY_CADENCE.md
+// backlog item 10).
+const detailPhotoCard = (ph) => {
+  const webp = webpFor(ph.src);
+  const img = `<img src="${esc(ph.src)}" alt="${esc(ph.alt)}" loading="lazy" decoding="async" width="400" height="300" style="width:100%;height:200px;object-fit:cover;border-radius:10px;display:block;">`;
+  return `      <figure style="margin:0;">
+        ${webp ? `<picture><source srcset="${esc(webp)}" type="image/webp">${img}</picture>` : img}
+        <figcaption style="font-size:.75rem;color:var(--gray,#5d6673);margin-top:6px;">${esc(ph.alt)}</figcaption>
+      </figure>`;
+};
+
+const DETAIL_ORIGIN = 'https://nobigdealwithjoedeal.com';
+
+const detailSchema = (p) => {
+  const graph = [
+    {
+      '@type': 'BreadcrumbList',
+      '@id': `${DETAIL_ORIGIN}/our-work/${p.slug}#breadcrumbs`,
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${DETAIL_ORIGIN}/` },
+        { '@type': 'ListItem', position: 2, name: 'Our Work', item: `${DETAIL_ORIGIN}/our-work` },
+        { '@type': 'ListItem', position: 3, name: p.title, item: `${DETAIL_ORIGIN}/our-work/${p.slug}` },
+      ],
+    },
+    {
+      '@type': 'Service',
+      '@id': `${DETAIL_ORIGIN}/our-work/${p.slug}#service`,
+      name: p.title,
+      serviceType: SERVICES[p.services[0]],
+      provider: { '@id': `${DETAIL_ORIGIN}/#org` },
+      areaServed: p.city,
+      description: p.description,
+      image: `${DETAIL_ORIGIN}${p.hero}`,
+    },
+  ];
+  if (p.priceLow != null) {
+    graph[1].offers = { '@type': 'AggregateOffer', lowPrice: p.priceLow, highPrice: p.priceHigh, priceCurrency: 'USD' };
+  }
+  return { '@context': 'https://schema.org', '@graph': graph };
+};
+
+const detailPage = (p) => {
+  const price = priceLine(p);
+  const metaBits = [esc(p.city)];
+  if (p.year) metaBits.push(esc(String(p.year)));
+  if (p.duration) metaBits.push(esc(p.duration));
+  const pills = p.services.map((s) => `<a href="/services/${s}">${esc(SERVICES[s])}</a>`).join('\n    ');
+  const descMeta = String(p.description).slice(0, 155);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>${esc(p.title)} — ${esc(p.city)} | No Big Deal Home Solutions</title>
+<meta name="description" content="${esc(descMeta)}">
+<link rel="canonical" href="${DETAIL_ORIGIN}/our-work/${esc(p.slug)}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="${esc(p.title)}">
+<meta property="og:description" content="${esc(descMeta)}">
+<meta property="og:url" content="${DETAIL_ORIGIN}/our-work/${esc(p.slug)}">
+<meta property="og:image" content="${DETAIL_ORIGIN}${esc(p.hero)}">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/images/apple-touch-icon.png">
+<link rel="stylesheet" href="/assets/css/nbd-fonts.css">
+<link rel="stylesheet" href="/assets/css/project-cards.css?v=1">
+<link rel="stylesheet" href="/assets/css/nbd-icons.css">
+<script type="application/ld+json">${JSON.stringify(detailSchema(p))}</script>
+<style>
+:root{--navy-dark:#12223d;--orange:#bd5728;--gray:#5d6673;--light-gray:#e8e5e0;--off-white:#f5f3ef}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff}
+a{color:inherit}
+.nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
+.nbd-skip:focus{left:0}
+.pd-wrap{max-width:1000px;margin:0 auto;padding:32px 5% 64px;}
+.pd-crumb{font-size:.78rem;margin-bottom:18px;}
+.pd-crumb a{color:var(--orange);text-decoration:none;font-weight:700;}
+.pd-hero{width:100%;max-height:480px;object-fit:cover;border-radius:14px;display:block;margin-bottom:24px;}
+.pd-title{font-family:'Bebas Neue',sans-serif;font-size:2.4rem;color:var(--navy-dark);letter-spacing:.5px;margin-bottom:8px;}
+.pd-price{font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:#A14A22;margin-bottom:14px;}
+.pd-meta{font-size:.85rem;color:var(--gray);margin-bottom:20px;}
+.pd-desc{font-size:1rem;line-height:1.7;color:#333;margin-bottom:32px;max-width:720px;}
+.pd-services{margin-bottom:32px;display:flex;flex-wrap:wrap;gap:8px;}
+.pd-photos{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:32px;}
+.pd-back{display:inline-block;margin-top:8px;font-weight:700;color:#A14A22;text-decoration:none;}
+@media(max-width:768px){.pd-title{font-size:1.9rem}}
+</style>
+</head>
+<body><a class="nbd-skip" href="#main">Skip to content</a>
+<!-- nbd:partial nav-standard cta_href="/#contact" -->
+<!-- /nbd:partial nav-standard -->
+<!-- nbd:partial mobile-nav-standard cta_href="/#contact" -->
+<!-- /nbd:partial mobile-nav-standard -->
+<main id="main">
+  <div class="pd-wrap">
+    <nav class="pd-crumb" aria-label="Breadcrumb"><a href="/our-work">&larr; Back to Our Work</a></nav>
+    ${heroImg(p, 'pd-hero')}
+    <span class="project-tag">${esc(p.tag)}</span>
+    <h1 class="pd-title">${esc(p.title)}</h1>${price ? `
+    <div class="pd-price">${esc(price)}</div>` : ''}
+    <div class="pd-meta">${PIN_SVG} ${metaBits.join(' · ')}</div>
+    <p class="pd-desc">${esc(p.description)}</p>
+    <div class="pd-services">
+    ${pills}
+    </div>
+    <div class="pd-photos">
+${p.photos.map(detailPhotoCard).join('\n')}
+    </div>
+    <a class="pd-back" href="/our-work">&larr; See more of our work</a>
+  </div>
+</main>
+<!-- nbd:partial footer-standard crumb_service_href="/our-work" crumb_service_name="Our Work" crumb_city_href="/areas/cincinnati-oh" crumb_city_name="Cincinnati, OH" -->
+<!-- /nbd:partial footer-standard -->
+</body>
+</html>
+`;
+};
+
 // ── Homeowner-wall manifest (derived, drift-proof) ──────────────
 // Same live projects feed the homepage "Real Roofs. Real Neighbors." wall
 // (docs/assets/js/homeowner-wall.js: entries need image+alt, name optional,
@@ -401,6 +528,67 @@ const stampFile = (file, transform, required) => {
   writeFileSync(file, out);
   return 1;
 };
+
+// 1b. Per-project detail pages (docs/our-work/<slug>.html) — new files, so
+// there's no marker region to diff against; compare rendered output to
+// whatever (if anything) is on disk today.
+//
+// detailPage() always emits EMPTY nbd:partial regions (nav-standard,
+// mobile-nav-standard, footer-standard) — this generator doesn't own that
+// content, apply-partials.js does. Carrying over whatever's already filled
+// in there (if anything) before diffing/writing keeps the two generators
+// from fighting: without this, every run here would revert the nav/footer
+// to empty and every run of apply-partials.js would refill it, forever.
+const PARTIAL_NAMES = ['nav-standard', 'mobile-nav-standard', 'footer-standard'];
+function carryOverPartials(freshHtml, existingHtml) {
+  if (!existingHtml) return freshHtml;
+  let out = freshHtml;
+  for (const name of PARTIAL_NAMES) {
+    const re = new RegExp(`(<!--\\s*nbd:partial\\s+${name}[^>]*-->\\r?\\n)([\\s\\S]*?)(<!--\\s*/nbd:partial\\s+${name}\\s*-->)`);
+    const existingMatch = existingHtml.match(re);
+    if (!existingMatch) continue; // never applied yet — leave the fresh (empty) region as-is
+    // Normalize to LF before splicing into freshHtml (also LF) — toEol()
+    // does one \n -> destination-EOL pass over the whole file afterward;
+    // splicing in content that might already be CRLF would double-convert
+    // it into the lone-CR corruption CLAUDE.md warns about.
+    const carried = existingMatch[2].replace(/\r\n/g, '\n');
+    out = out.replace(re, (_m, open, _emptyBody, close) => `${open}${carried}${close}`);
+  }
+  return out;
+}
+
+let detailWritten = 0, detailDeleted = 0;
+{
+  const liveSlugsSet = new Set(live.map((p) => p.slug));
+  const existingFiles = existsSync(DETAIL_DIR)
+    ? readdirSync(DETAIL_DIR).filter((f) => f.endsWith('.html'))
+    : [];
+
+  for (const p of live) {
+    const file = path.join(DETAIL_DIR, `${p.slug}.html`);
+    const rel = path.relative(ROOT, file);
+    const cur = existsSync(file) ? readFileSync(file, 'utf8') : null;
+    const eol = cur && cur.includes('\r\n') ? '\r\n' : '\n';
+    const out = carryOverPartials(detailPage(p), cur);
+    const wanted = toEol(out, eol);
+    if (cur === wanted) continue;
+    if (CHECK) { stale.push(rel); continue; }
+    if (!existsSync(DETAIL_DIR)) mkdirSync(DETAIL_DIR, { recursive: true });
+    writeFileSync(file, wanted);
+    detailWritten++;
+  }
+
+  // Stale-file cleanup: a removed or re-slugged project must not leave a
+  // dead, unlinked, still-200 page behind.
+  for (const f of existingFiles) {
+    const slug = f.replace(/\.html$/, '');
+    if (liveSlugsSet.has(slug)) continue;
+    const rel = path.relative(ROOT, path.join(DETAIL_DIR, f));
+    if (CHECK) { stale.push(`${rel} (orphaned — no longer a live project slug)`); continue; }
+    unlinkSync(path.join(DETAIL_DIR, f));
+    detailDeleted++;
+  }
+}
 
 // 1. our-work.html (both regions; missing markers are fatal — page contract)
 stampFile(HTML, (src, eol) => {
@@ -451,7 +639,7 @@ for (const f of readdirSync(SERVICES_DIR)) {
 
 if (CHECK) {
   if (!stale.length) {
-    console.log(`build-projects --check: ${live.length} live project(s), ${stripCount} hub strip(s) — all stamped surfaces clean.`);
+    console.log(`build-projects --check: ${live.length} live project(s), ${stripCount} hub strip(s), ${live.length} detail page(s) — all stamped surfaces clean.`);
     process.exit(0);
   }
   console.error(`build-projects --check: stale generated surfaces vs assets/data/projects.json:
@@ -462,4 +650,4 @@ and commit ALL stamped files.`);
   process.exit(1);
 }
 
-console.log(`OK: ${live.length} live project(s) stamped — gallery + schema in docs/our-work.html, ${stripCount} hub strip(s), homeowner-wall.json (${Math.min(live.length, 12)} entries)${all.length - live.length ? ` (${all.length - live.length} staged for a future date)` : ''}`);
+console.log(`OK: ${live.length} live project(s) stamped — gallery + schema in docs/our-work.html, ${stripCount} hub strip(s), ${detailWritten} detail page(s) written (${detailDeleted} orphaned deleted), homeowner-wall.json (${Math.min(live.length, 12)} entries)${all.length - live.length ? ` (${all.length - live.length} staged for a future date)` : ''}`);
