@@ -4227,6 +4227,47 @@ section('Mobile job-detail Documents tab (leads/{id}/documents parity)');
 
   assert('script-loader.js: docgen bundle carries customer-documents.js (lazy, not a second eager tag)',
     /docgen:\s*\[[\s\S]{0,700}customer-documents\.js/.test(loader));
+
+  // 2026-09-17, same day as ship — Jo: "I love that we added a document
+  // section... but no generate new doc or upload button so we can see it's
+  // empty but do nothing about it." The Generate/Scan/Upload rows were only
+  // built inside the docs.length branch; a rep with ZERO documents on a
+  // lead (the exact moment they'd want to add one) saw "No documents yet"
+  // and nothing else. actionRows must now be built once and used by BOTH
+  // branches.
+  assert('_mountDocumentsHub builds its action rows once, before branching on docs.length (not only inside the populated branch)',
+    /const actionRows = genBtn \+ scanBtn \+ uploadBtn;[\s\S]{0,40}if \(!docs\.length\)/.test(mountFn));
+  assert('the EMPTY-documents branch still renders actionRows, not just the empty message',
+    /if \(!docs\.length\) \{[\s\S]{0,120}actionRows[\s\S]{0,120}No documents yet/.test(mountFn));
+  assert('the populated-documents branch renders the SAME actionRows (not a second, divergent set)',
+    /host\.innerHTML = '<div class="m-jd-act-list">' \+ actionRows \+ docs\.map/.test(mountFn));
+
+  assert('a "Scan a signed document" row dispatches uploadSignedDoc(\'camera\') through the registry',
+    /data-action="call" data-fn="uploadSignedDoc" data-arg="camera"/.test(mountFn));
+  assert('an "Upload a file" row dispatches uploadSignedDoc(\'file\') through the registry',
+    /data-action="call" data-fn="uploadSignedDoc" data-arg="file"/.test(mountFn));
+  assert('_mountDocumentsHub wires the signed-upload file inputs on every mount (idempotent)',
+    /_mJdWireSignedUploadInputs\(\);/.test(mountFn));
+
+  const wireFn = actions.slice(actions.indexOf('function _mJdWireSignedUploadInputs'), actions.indexOf('// Mobile "Generate a document" entry point'));
+  assert('_mJdWireSignedUploadInputs is defined and targets the same ids dashboard.html declares',
+    /signedDocFileInput/.test(wireFn) && /signedDocBrowseInput/.test(wireFn));
+  assert('the wiring is guarded so repeated tab visits never stack duplicate change listeners',
+    /dataset\.mJdWired/.test(wireFn));
+  assert('a change event reuses handleSignedDocUpload from customer-signed-doc-upload.js, not a second upload path',
+    /window\.handleSignedDocUpload\(el\)/.test(wireFn));
+  assert('after the upload settles, the mobile panel re-fetches and repaints (success or failure)',
+    /delete host\.dataset\.loadedFor/.test(wireFn) && /_mountDocumentsHub\(\);/.test(wireFn));
+
+  assert('uploadSignedDoc is registered in __NBD_CALL_REGISTRY (bare window.X exports never dispatch — see _mJdSwitchTab\'s own registry block)',
+    /uploadSignedDoc: \(\.\.\.args\) => \(typeof window\.uploadSignedDoc === 'function'\) && window\.uploadSignedDoc\(\.\.\.args\)/.test(actions));
+
+  assert('dashboard.html declares the two hidden signed-doc file inputs with the ids the wiring targets',
+    /id="signedDocFileInput"[^>]*capture="environment"/.test(html) &&
+    /id="signedDocBrowseInput"/.test(html));
+
+  assert('script-loader.js: docgen bundle also carries customer-signed-doc-upload.js',
+    /docgen:\s*\[[\s\S]{0,900}customer-signed-doc-upload\.js/.test(loader));
 }
 
 section('Customer-surface sweep — blockers caught in review (regression pins)');

@@ -1422,10 +1422,8 @@ function _mountDocumentsHub() {
     // overlay) — a slow load must not paint the wrong customer's documents.
     if (window._cardDetailLeadId !== leadId) return;
     host.dataset.loadedFor = leadId;
-    if (!docs.length) {
-      host.innerHTML = '<div class="m-jd-empty">No documents yet.</div>';
-      return;
-    }
+
+    _mJdWireSignedUploadInputs();
 
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
       { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
@@ -1434,13 +1432,36 @@ function _mountDocumentsHub() {
     // View anchor/button itself (nested interactive elements, plus a tap
     // target conflict on a 375px screen), so secondary actions render as a
     // sibling row underneath the primary tappable one, not inside it.
+    //
+    // REGRESSION (Jo, same day as ship): these action rows only rendered
+    // in the docs.length branch below — an empty Documents tab showed
+    // "No documents yet" with no way to DO anything about it. They're
+    // built once, up here, so both branches (empty and populated) show
+    // Generate/Scan/Upload — the exact actions a rep needs BEFORE any
+    // document exists, not just after.
     const genBtn = '<button type="button" class="m-jd-act-item" data-action="call" data-fn="_mJdOpenDocCreate">'
       + '<span class="m-jd-act-item-ico">➕</span>'
       + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">Generate a document</span></span>'
       + '<span class="m-jd-act-item-chev">›</span></button>';
+    const scanBtn = '<button type="button" class="m-jd-act-item" data-action="call" data-fn="uploadSignedDoc" data-arg="camera">'
+      + '<span class="m-jd-act-item-ico">📷</span>'
+      + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">Scan a signed document</span></span>'
+      + '<span class="m-jd-act-item-chev">›</span></button>';
+    const uploadBtn = '<button type="button" class="m-jd-act-item" data-action="call" data-fn="uploadSignedDoc" data-arg="file">'
+      + '<span class="m-jd-act-item-ico">📤</span>'
+      + '<span class="m-jd-act-item-body"><span class="m-jd-act-item-t">Upload a file</span></span>'
+      + '<span class="m-jd-act-item-chev">›</span></button>';
+    const actionRows = genBtn + scanBtn + uploadBtn;
+
+    if (!docs.length) {
+      host.innerHTML = '<div class="m-jd-act-list">' + actionRows + '</div>'
+        + '<div class="m-jd-empty">No documents yet.</div>';
+      return;
+    }
+
     // Wrapped in .m-jd-act-list (same class the Activity tab uses) so rows
     // get real spacing via its gap:8px — .m-jd-act-item alone has none.
-    host.innerHTML = '<div class="m-jd-act-list">' + genBtn + docs.map(d => {
+    host.innerHTML = '<div class="m-jd-act-list">' + actionRows + docs.map(d => {
       const icon = d.generated ? '📝' : '📄';
       const title = esc(d.typeName || d.name || 'Document');
       const dateStr = d.date ? d.date.toLocaleDateString() : '';
@@ -1502,6 +1523,33 @@ async function _mJdDeleteDoc(docId, label) {
   const host = document.getElementById('mJdTabDocuments');
   if (host) delete host.dataset.loadedFor;
   _mountDocumentsHub();
+}
+
+// One-time wiring for the two hidden signed-document file inputs (see
+// dashboard.html — same signedDocFileInput/signedDocBrowseInput ids
+// customer.html uses). uploadSignedDoc(mode) (the click target, dispatched
+// through the registry below) just opens the matching picker; the actual
+// upload happens in handleSignedDocUpload(input) from
+// customer-signed-doc-upload.js, reused as-is. That file has no page of its
+// own to repaint afterward — customer.html's own Documents surfaces listen
+// to NBDCustomerDocs directly, but this mobile panel is a plain fetch-once
+// render, so the change listener re-runs _mountDocumentsHub after the
+// upload settles (success or failure — either way the list should show the
+// truth). Guarded per-element so repeated tab visits don't stack listeners.
+function _mJdWireSignedUploadInputs() {
+  ['signedDocFileInput', 'signedDocBrowseInput'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.mJdWired) return;
+    el.dataset.mJdWired = '1';
+    el.addEventListener('change', async () => {
+      if (typeof window.handleSignedDocUpload === 'function') {
+        await window.handleSignedDocUpload(el);
+      }
+      const host = document.getElementById('mJdTabDocuments');
+      if (host) delete host.dataset.loadedFor;
+      _mountDocumentsHub();
+    });
+  });
 }
 
 // Mobile "Generate a document" entry point.
@@ -2011,6 +2059,10 @@ window.openLeadDetail = openLeadDetail;
     _mJdOpenDocCreate: _mJdOpenDocCreate,
     _mJdCloseDocTypeSheet: _mJdCloseDocTypeSheet,
     _mJdPickDocType: _mJdPickDocType,
+    // uploadSignedDoc is customer-signed-doc-upload.js's own global
+    // (loaded via the docgen bundle) — registered here, not redefined,
+    // same convention _mJdDeleteDoc uses for window.deleteCustomerDoc.
+    uploadSignedDoc: (...args) => (typeof window.uploadSignedDoc === 'function') && window.uploadSignedDoc(...args),
   });
 })();
 
