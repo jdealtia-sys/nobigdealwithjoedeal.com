@@ -73,9 +73,14 @@ section('NBDIDBCache — IndexedDB offline-first cache');
 
   // Single projection function — guarantees cache hit + fresh
   // fetch produce identical objects (no flicker on revalidate).
+  // 2026-09-17: fetchFresh's own getDocs()+forEach() was replaced by
+  // customer-bootstrap.module.js's shared, in-flight-deduped
+  // _fetchPhotosRaw(leadId) (the loadPhotos()/loadPhotosByPhase() fetch-
+  // unification) — photoDocToView still runs as a .map() over that raw
+  // array, so it's still the one and only Firestore→view projection.
   assert('photoDocToView is the single Firestore→view projection',
     /function photoDocToView\(id, d\)/.test(customer)
-    && /list\.push\(photoDocToView\(doc\.id, doc\.data\(\)\)\)/.test(customer));
+    && /raw\.map\(function \(d\) \{ return photoDocToView\(d\.id, d\); \}\)/.test(customer));
 
   // urls + storagePath must round-trip through the cache so the
   // <img srcset> render path keeps working from cached entries.

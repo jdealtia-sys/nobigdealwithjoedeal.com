@@ -1010,7 +1010,12 @@ window.applyBulkPhotoDelete = async function() {
     updatePhotoStats();
     renderPhotoGrid();
     if (!window.NBDStore) updateBulkBarUI();
-    try { await loadPhotos(window._customerId); } catch(e) {}
+    // window.loadPhotos, not a bare reference — this is a classic script,
+    // loadPhotos is module-scoped in customer-bootstrap.module.js and only
+    // reachable via its window export (2026-09-17: the bare form here threw
+    // ReferenceError, silently swallowed below, so #photoList never
+    // actually refreshed after a delete until now).
+    try { await window.loadPhotos(window._customerId); } catch(e) {}
 
     if (window.showToast) window.showToast('✓ Deleted ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's'), 'success');
   } catch (err) {
@@ -1185,18 +1190,15 @@ window.loadPhotosByPhase = async function(leadId) {
   if (!uid) return;
 
   const fetchFresh = async function () {
-    const photosRef = window.collection(window.db, 'photos');
-    // Team visibility (matches loadPhotos()'s #photoList query, customer-
-    // bootstrap.module.js:1563-1572): a hard leadId+userId scope returns
-    // EMPTY for a company_admin/manager/viewer opening a teammate's lead —
-    // the exact bug window._photoQueryScopes was already fixed and exported
-    // for (its own comment: "so a fourth hand-rolled copy" doesn't repeat
-    // this). This was the third hand-rolled copy; now there are none.
-    const q = window.query(photosRef, ...window._photoQueryScopes(leadId));
-    const snap = await window.getDocs(q);
-    const list = [];
-    snap.forEach(function (doc) { list.push(photoDocToView(doc.id, doc.data())); });
-    return list;
+    // Shared fetch (2026-09-17, customer-bootstrap.module.js) — was its own
+    // getDocs() here (team visibility matches loadPhotos()'s #photoList
+    // query via window._photoQueryScopes, "the third hand-rolled copy; now
+    // there are none" per that fix's own comment). Now routes through the
+    // same in-flight-deduped fetch loadPhotos() uses, so the two loaders
+    // share one Firestore read when loadAllCustomerPhotos() fires both —
+    // this function's own IndexedDB caching below is unchanged.
+    const raw = await window._fetchPhotosRaw(leadId);
+    return raw.map(function (d) { return photoDocToView(d.id, d); });
   };
 
   // Cache layer is opt-in — if NBDIDBCache failed to load (CSP
@@ -1688,8 +1690,9 @@ window.deletePhoto = async function(photoId) {
     updatePhotoStats();
     renderPhotoGrid();
 
-    // Also refresh overview photos
-    try { await loadPhotos(window._customerId); } catch(e) {}
+    // Also refresh overview photos. window.loadPhotos, not a bare reference
+    // — see the bulk-delete handler's comment above for why.
+    try { await window.loadPhotos(window._customerId); } catch(e) {}
 
     if (window.showToast) window.showToast('Photo deleted', 'success');
   } catch (error) {
@@ -2310,11 +2313,18 @@ window.closeDocUploadModal = function() {
 };
 
 // ── Load all new sections when customer loads ───
+// loadPhotosByPhase used to run in this bundle too. It now runs earlier,
+// alongside loadPhotos(), via customer-bootstrap.module.js's
+// loadAllCustomerPhotos() (called right after the customer doc loads) —
+// one shared fetch feeds both #photoList and #photosByPhase instead of
+// each loader running its own independent getDocs(). loadNewPortalSections
+// has exactly one caller (customer-bootstrap.module.js's loadCustomerData),
+// in that same page-load sequence, so removing it here doesn't leave any
+// other caller without a phase-grid load.
 window.loadNewPortalSections = async function(leadId) {
   try {
     await Promise.all([
       window.loadProjectTimeline(leadId),
-      window.loadPhotosByPhase(leadId),
       window.loadInvoices(leadId),
       window.loadReports(leadId),
       window.loadCommunicationLog(leadId)
