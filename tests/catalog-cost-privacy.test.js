@@ -196,13 +196,6 @@ const STRICT_EXEMPT = {
          '("a cost with no paired labor is not swept").',
     allow: /County,?\s*(?:OH|KY)/,
   },
-  'admin/js/pages/analytics.js': {
-    why: 'Claude API spend on MOCK admin dashboard data (cost: 0.0158 against ' +
-         'tokens/requests). Vendor spend on our own AI calls, not a contractor ' +
-         'cost basis, and these particular figures are placeholders — the file ' +
-         'already carries a do-not-put-real-data-here note (F-04).',
-    allow: /tokens|requests|cost:\s*0\b/,
-  },
   'pro/js/pages/pro-analytics.js': {
     why: 'AI-usage accumulator initialisers ({ requests: 0, tokens: 0, cost: 0 }). ' +
          'Zero-valued seeds for a per-model token-spend rollup.',

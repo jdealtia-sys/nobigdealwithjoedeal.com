@@ -114,6 +114,11 @@ exports.listTeamMembers            = adminHandlers.listTeamMembers;
 const aiTextingStatsHandlers = require('./handlers/ai-texting-stats');
 exports.getAiTextingStats          = aiTextingStatsHandlers.getAiTextingStats;
 
+// Real claudeProxy usage aggregation for /admin/analytics.html (replaces
+// the page's SAMPLE DATA mock).
+const aiUsageAnalyticsHandlers = require('./handlers/ai-usage-analytics');
+exports.getAiUsageAnalytics        = aiUsageAnalyticsHandlers.getAiUsageAnalytics;
+
 // idea #2 follow-up: company-wide adjuster-tactic board (collectionGroup scan
 // over recordings, bucketed by carrier/adjuster from the call summaries).
 const adjusterBoardHandlers = require('./handlers/adjuster-board');

@@ -85,6 +85,36 @@ section('Wave C3: admin analytics');
   assert('loadAnalytics renders KPI tiles', /function loadAnalytics/.test(adm));
 }
 
+section('Admin AI-usage endpoint: real aggregation replaces SAMPLE DATA');
+{
+  const src = read(path.join(FUNCTIONS, 'handlers/ai-usage-analytics.js'));
+  assert('getAiUsageAnalytics exported', /exports\.getAiUsageAnalytics\s*=/.test(src));
+  assert('platform-admin gated with the role === \'admin\' idiom',
+    /const isPlatformAdmin = request\.auth\.token\.role === 'admin'/.test(src));
+  assert('rate-limited per-uid under its own callable name',
+    /callableRateLimit\(request,\s*'getAiUsageAnalytics'/.test(src));
+  assert('reads the real api_usage collection, not a mock',
+    /db\.collection\('api_usage'\)/.test(src));
+  assert('bounds the read with a cap, not an unbounded scan',
+    /\.limit\(READ_CAP\)/.test(src));
+  assert('errors/rateLimits are reported as untracked, not fabricated',
+    /errors:\s*null.*not tracked, not fabricated/.test(src));
+  assert('documented in FUNCTIONS_INDEX.md',
+    /getAiUsageAnalytics/.test(read(path.join(FUNCTIONS, 'FUNCTIONS_INDEX.md'))));
+
+  const page = read(path.join(ROOT, 'docs/admin/js/pages/analytics.js'));
+  assert('SAMPLE DATA mock is gone', !/SAMPLE DATA/.test(page) && !/mockData/.test(page));
+  assert('calls the real callable', /callable\('getAiUsageAnalytics'\)/.test(page));
+
+  const gate = read(path.join(ROOT, 'docs/admin/js/pages/analytics-gate.js'));
+  assert('App Check is bootstrapped on the admin analytics page (was missing entirely)',
+    /initializeAppCheck\(/.test(gate));
+
+  const html = read(path.join(ROOT, 'docs/admin/analytics.html'));
+  assert('App Check config script loads before the Firebase init module',
+    /dashboard-appcheck-config\.js[\s\S]*?analytics-gate\.js/.test(html));
+}
+
 section('Admin: one-tap Run Migrations (client surface for the runMigrations callable)');
 {
   const adm = read(path.join(PRO_JS, 'admin-manager.js'));
