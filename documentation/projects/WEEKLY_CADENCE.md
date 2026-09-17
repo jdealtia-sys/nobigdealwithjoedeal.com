@@ -258,16 +258,41 @@
    brief](PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md) ·
    [audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
 2. **Lexington launch ops (Jo, ~15 min)** — the site claims Central KY as of
-   2026-08-25: (a) add Lexington, Georgetown, Nicholasville, Winchester,
-   Richmond, Versailles to the Google Business Profile service area; (b) confirm
-   Lexington–Fayette / local permit or licensing requirements before the first
-   job; (c) text the Lexington caller `/areas/lexington-ky` + the two posts
-   ([session note Part 2](SESSION-2026-08-25-lexington-call-posts.md))
+   2026-08-25: **PARTIALLY DONE, verified 2026-09-17** — (a) GBP service
+   area: **PARTIAL, unconfirmed** — the profile was at the 20/20 hard cap, so
+   only Lexington was added (swapped for Hyde Park, 2026-08-31); the five ring
+   towns (Georgetown, Nicholasville, Winchester, Richmond, Versailles) were
+   never added (cap-blocked, deliberate — they stay website-only) and even
+   the Lexington edit's Google "pending" review was never confirmed
+   afterward ([POSTING-LOG](../marketing/POSTING-LOG.md) 2026-08-31 entry ·
+   [gbp-services-2026-09-03](../marketing/gbp-services-2026-09-03.md)'s
+   "carried item": "Nobody has confirmed it since" — still true, nothing
+   later touches it); (b) confirm Lexington–Fayette / local permit or
+   licensing requirements before the first job — **STILL OPEN**,
+   [LEXINGTON-CONTRACTOR-SETUP](../runbooks/LEXINGTON-CONTRACTOR-SETUP.md)'s
+   5-item checklist is 0/5 checked and the one open legal question (permit
+   needed for a like-for-like reroof?) is unanswered — no call to Building
+   Inspection (859-258-3770) recorded; (c) text the Lexington caller
+   `/areas/lexington-ky` + the two posts — **STILL OPEN**, carried unstruck
+   through the 08-25 and 08-26 Jo queues, then dropped from every later
+   handoff with no DONE mark ([session note Part
+   2](SESSION-2026-08-25-lexington-call-posts.md))
 3. Jobs-posting **phase 2**: admin "Post a Job" form + PR bot (roadmap in
-   [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md))
-4. **Dead-functions wire-or-retire lane** — 7 deployed exports with no
-   caller (list + playbook in the 2026-08-10 audit note §Open items); needs
-   Jo's per-function call, then CL8-style retirement or UI wiring
+   [NEXT_SESSION-2026-08-10](NEXT_SESSION-2026-08-10.md)) — **re-verified
+   2026-09-17, still open**: none of the roadmap's deliverables exist
+   (`docs/admin/post-job.html`, a `draftProjectPR` function, a restamp-bot
+   workflow) and the roadmap's own gate — "only build it once the phone-
+   template habit proves posting volume (>1-2/month) justifies it" — has no
+   evidence of being passed.
+4. ~~**Dead-functions wire-or-retire lane**~~ **DONE, verified 2026-09-17** —
+   the 7 named functions (plus an 8th, `sendTeamInviteEmail`, retired
+   separately) went through both steps of the CL8 playbook already: source
+   retired 2026-08-11 (PR #1200, "retire 7 dead functions") and the actual
+   deployed Cloud Run instances console-deleted 2026-09-04 on Jo's
+   instruction ([STABILITY-AUDIT-2026-09-04](../audit/STABILITY-AUDIT-2026-09-04.md)
+   — fleet 179→171, re-confirmed zero-orphan in `functions/FUNCTIONS_INDEX.md`'s
+   2026-09-14 re-enumeration). This line was the last place the resolution
+   hadn't been reflected.
 5. Firestore offline persistence (after Jo's decision)
 6. Classic-wizard deletion (once Jo's gates clear)
 7. ~~**Rules-test coverage** — zero assertions for /invoices, /storm_proofs,
@@ -313,19 +338,46 @@
 9. Functions cold-start increment 2 (lazy export proxies)
 10. Inline-CSS dedup phase 2 (~2.7 MB; needs generator design)
 11. /our-work/<slug> detail pages (needs build-sitemap rule) + Haiku blurb drafter
-12. Globals Tranche 3 plan · 404 full-chrome · emulator widening · Swath admin UI
-13. Blog publish sessions (one per draft, after Jo's edits)
+12. **Globals Tranche 3** ~~plan~~ **PARTIALLY EXECUTED, then stalled** —
+    verified 2026-09-17: the dependency-ordered plan
+    ([globals-tranche3-plan.md](../../docs/dev/globals-tranche3-plan.md),
+    2026-08-31, PR #1304) shipped T3-0, T3-A slice 1, T3-M + the "freed
+    15"/"bonus eight" (PRs #1316/#1319/#1326/#1338–#1342 through 2026-09-02:
+    25/36 map-dispatch names now registry-only) — but T3-B (177 names), T3-C
+    (176 names), T3-D (131-name band → NBD-prefixed APIs) and T3-E
+    (spine-disposition docs) are untouched since, zero `T3-` commits after
+    2026-09-02 · **404 full-chrome** (unchanged — `docs/404.html` is still a
+    bespoke centered card, zero `<nav>`/`<footer>`/`nbd:partial` markers) ·
+    **emulator widening** (unchanged — `ci.yml:773,791` still gates
+    `NBD_EMU_FUNCTIONS` to `@stranger`/`@gauntlet` only, 2 of 6 shards;
+    comment still calls it "future work once boot cost is addressed") ·
+    **Swath admin UI** (unchanged — `getSwathReport`/`getSwathUsage` in
+    `functions/integrations/swath.js` have zero callers under `docs/pro/`;
+    the 2026-09-17 handoff confirms "explicitly deferred")
+13. Blog publish sessions (one per draft, after Jo's edits) — **1 of 3 DONE
+    2026-08-17** (financing post, PR #1224 — now
+    `docs/blog/roof-financing-cincinnati-explained.html`); the other 2 are
+    **blocked on Jo, not on a session**: `documentation/drafts/what-hail-
+    damage-looks-like-cincinnati.html` (9 unresolved `JO:` markers — needs 3
+    inspection photos + storm anecdote) and `documentation/drafts/what-a-
+    real-roof-inspection-report-looks-like.html` (10 unresolved `JO:`
+    markers — needs 3 redacted report screenshots); see
+    [drafts README](../drafts/README.md).
 
 *(2026-08-10: "rate-limit-policy adopt-vs-delete" left this list — ADOPTED;
 guardHttp/guardCallable now live on claudeProxy, validateAccessCode,
 getGoogleReviews, adminAI.)*
 
-*(2026-09-17: items 7b–7e above re-verified against `main` with direct code/
-test evidence (not just re-reading old handoffs) — three of four turned out
-already shipped in earlier sessions but never checked off here, which is
-exactly the kind of rot this list is supposed to prevent. Items 1–6 and
-8–13 were NOT re-verified this pass — don't assume this edit vouches for
-them; they're exactly as trustworthy as they were before.)*
+*(2026-09-17: items 7b–7e re-verified earlier the same day; items 2, 3, 4,
+5, 6, 9, 10, 12, 13 re-verified in a second pass, all against `main` with
+direct code/test evidence, not just re-reading old handoffs. Four items (2,
+4, 12, 13) turned out to need correcting — 4 was fully resolved and never
+checked off (exactly the rot this list exists to prevent), 2/12/13 were
+each partially — not fully — done. Five items (3, 5, 6, 9, 10) were checked
+and confirmed accurate as already worded, no change needed. Items 1, 8, and
+11 were NOT re-verified this pass — 1 is tracked live in the cost-rotation
+ledger, 8 and 11 are queued for this same session's build lane — don't
+assume this edit vouches for them beyond that.)*
 
 ---
 
