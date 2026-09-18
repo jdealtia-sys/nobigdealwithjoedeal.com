@@ -696,8 +696,15 @@ Rules:
       to: phone,
       message: body,
       leadId: lead.id,
+      leadStage: typeof lead.stage === 'string' ? lead.stage : undefined,
+      source: 'smart-followup-sms',
       forceHandoff: !!opts.forceHandoff,
     });
+    // 'acted' is the rep's response to the SUGGESTION (the local stats that
+    // tune future confidence), not a delivery record — a text queued in the
+    // offline outbox (mode 'queued', success:true) is still the rep acting on
+    // it. Nothing here stamps the lead as contacted; the result, including
+    // mode 'queued', goes back to the caller unchanged.
     if (result && result.success) recordOutcome(lead.id, 'acted', s);
     return result || { success: false, error: 'send-failed' };
   }

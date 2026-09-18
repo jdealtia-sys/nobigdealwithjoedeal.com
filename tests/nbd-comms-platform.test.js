@@ -265,7 +265,10 @@ const tick = () => new Promise((r) => setImmediate(r));
   }
   {
     const h = await sms(offline);
-    ok('offline / network failure (status 0) still hands off — deferred product decision',
+    // This sandbox loads nbd-comms.js WITHOUT sms-outbox.js, i.e. the "no
+    // outbox on this page / no IndexedDB" fallback. With the outbox loaded,
+    // offline texts are queued instead — tests/sms-outbox-client.test.js.
+    ok('offline / network failure (status 0) with NO outbox on the page keeps the pre-outbox handoff',
       h.result.mode === 'sms' && h.smsLinks.length === 1);
   }
   {

@@ -2229,7 +2229,16 @@
         }
       }
     } catch (_) { /* storage unavailable — sign out anyway */ }
-    return signOut(auth).then(() => window.location.replace("/pro/login.html"));
+    // Queued offline texts (homeowner numbers + message text in IndexedDB,
+    // docs/pro/js/sms-outbox.js) never outlive the session that wrote them.
+    // Bounded inside purgeSmsOutbox (2s), so sign-out cannot hang on it.
+    const purgeSms = (window.NBDAuth && typeof window.NBDAuth.purgeSmsOutbox === 'function')
+      ? window.NBDAuth.purgeSmsOutbox()
+      : Promise.resolve(window.NBDSmsOutbox && typeof window.NBDSmsOutbox.purgeAll === 'function'
+        ? window.NBDSmsOutbox.purgeAll() : false);
+    return Promise.resolve(purgeSms).catch(() => false)
+      .then(() => signOut(auth))
+      .then(() => window.location.replace("/pro/login.html"));
   };
 
   // (Removed the window.activateMyAccount console helper: it setDoc'd directly
