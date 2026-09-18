@@ -742,13 +742,46 @@ export const NBDAuth = {
       }
       drop.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
     } catch (_) { /* best-effort; never block on a storage error */ }
+    // The offline SMS outbox holds homeowner phone numbers and message text
+    // in IndexedDB until they are sent (docs/pro/js/sms-outbox.js). Same
+    // shared-device rule as the keys above: gone on sign-out and on account
+    // switch. Returned so logout() can wait for it; other callers need not.
+    return NBDAuth.purgeSmsOutbox();
+  },
+
+  /**
+   * Delete every queued text on this device (all accounts). Uses the outbox
+   * module when this page loaded it (it also clears the tray), otherwise
+   * deletes its database directly — a page that never loaded the outbox can
+   * still be holding one from an earlier page. Resolves true/false, never
+   * rejects, and gives up after 2s so a blocked delete cannot stall sign-out.
+   */
+  purgeSmsOutbox() {
+    const work = new Promise((resolve) => {
+      try {
+        const ob = window.NBDSmsOutbox;
+        if (ob && typeof ob.purgeAll === 'function') {
+          Promise.resolve(ob.purgeAll()).then((ok) => resolve(!!ok), () => resolve(false));
+          return;
+        }
+        if (!window.indexedDB || typeof window.indexedDB.deleteDatabase !== 'function') { resolve(true); return; }
+        const req = window.indexedDB.deleteDatabase('nbd-sms-outbox-db');
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => resolve(false);
+        req.onblocked = () => resolve(false);
+      } catch (_) { resolve(false); }
+    });
+    const cap = new Promise((resolve) => setTimeout(() => resolve(false), 2000));
+    return Promise.race([work, cap]);
   },
 
   /**
    * Sign out and redirect
    */
   async logout(redirect = '/pro/login.html') {
-    this.purgeAccountStorage();
+    // Awaited (bounded inside) so the queued-text purge finishes before the
+    // navigation below can cut its IndexedDB transaction off.
+    try { await this.purgeAccountStorage(); } catch (_) {}
     try {
       await signOut(_auth);
     } catch(e) { console.warn('Logout error:', e.message); }

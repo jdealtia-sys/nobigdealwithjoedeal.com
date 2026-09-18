@@ -803,6 +803,19 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     }
   }
 
+  // A deal text queued offline (sms-outbox.js) is stamped SENT when the outbox
+  // actually sends it, and only if the deal has not moved on in the meantime.
+  const DEAL_SMS_SOURCE = 'deal-sms';
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('nbd:sms-outbox-sent', (ev) => {
+      const d = ev && ev.detail;
+      if (!d || d.source !== DEAL_SMS_SOURCE || typeof d.sourceRef !== 'string') return;
+      const deal = dealRooms.find(x => x.id === d.sourceRef);
+      if (!deal || (deal.status && deal.status !== DEAL_STATUS.DRAFT)) return;
+      updateDeal(deal.id, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
+    });
+  }
+
   async function sendViaSMS(dealId) {
     const deal = _findDeal(dealId);
     if (!deal || !deal.customerPhone) {
@@ -825,7 +838,15 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
           to: deal.customerPhone,
           message: msg,
           leadId: deal.leadId || null,
+          source: DEAL_SMS_SOURCE,
+          sourceRef: dealId,
         });
+        // Offline: stored in the outbox, NOT sent. No SENT stamp (it feeds
+        // close-rate analytics) until the outbox actually sends it — see the
+        // 'nbd:sms-outbox-sent' listener below. NBDComms already toasted.
+        if (result && result.success && result.mode === 'queued') {
+          return;
+        }
         if (result && result.success) {
           updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
           return;

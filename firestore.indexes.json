@@ -616,6 +616,15 @@
       ]
     },
     {
+      "_comment": "Offline SMS outbox (functions/sms-functions.js queuedSendGate): where('toDigits','==',key).where('date','>',queuedAt-60s).orderBy('date','desc').limit(25) — did anyone text this number, or did the homeowner text back, since a queued text was written? toDigits is stamped on every sms_log row by logSMSToFirestore. Without this composite the query throws FAILED_PRECONDITION and every queued text answers 503 outbox_unverified (fails closed: nothing is sent, texts stay in Pending texts).",
+      "collectionGroup": "sms_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "toDigits", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "lead_documents",
       "queryScope": "COLLECTION",
       "fields": [

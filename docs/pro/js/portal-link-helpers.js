@@ -233,6 +233,17 @@
     return true;
   }
 
+  // A portal-link text queued offline (sms-outbox.js) becomes a share when
+  // the outbox actually sends it — never at queue time.
+  const PORTAL_SMS_SOURCE = 'portal-share-sms';
+  if (typeof window.addEventListener === 'function') {
+    window.addEventListener('nbd:sms-outbox-sent', (ev) => {
+      const d = ev && ev.detail;
+      if (!d || d.source !== PORTAL_SMS_SOURCE || typeof d.sourceRef !== 'string' || !d.sourceRef) return;
+      _recordShare(d.sourceRef, 'sms');
+    });
+  }
+
   // ─── SMS ────────────────────────────────────────────────────────
   // Mirror of Wave 41's prefilled-body + sms: handoff. Bails with a
   // toast when the lead has no phone (since there's no phone on the
@@ -282,7 +293,15 @@
           to: lead.phone || phone,
           message: body,
           leadId: lead.id,
+          leadStage: typeof lead.stage === 'string' ? lead.stage : undefined,
+          source: PORTAL_SMS_SOURCE,
+          sourceRef: lead.id,
         });
+        // Offline: stored in the outbox, NOT sent — not a share yet. The
+        // 'nbd:sms-outbox-sent' listener records it when the text goes.
+        if (result && result.success && result.mode === 'queued') {
+          return;
+        }
         if (result && result.success) {
           _recordShare(lead.id, 'sms');
           return;
