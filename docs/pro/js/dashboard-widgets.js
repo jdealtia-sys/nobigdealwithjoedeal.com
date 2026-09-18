@@ -539,7 +539,8 @@ async function openPhotoFor(leadId, addr){
   document.getElementById('photoModalAddr').textContent=addr;
   document.getElementById('photoGridModal').innerHTML='<div style="font-size:12px;color:var(--m);padding:10px;text-align:center;">Loading...</div>';
   modal.classList.add('open');
-  const photos=await window._getPhotos(leadId);
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+  const photos=await window.__NBD_CALL_REGISTRY._getPhotos(leadId);
   renderPhotoGrid(photos);
 }
 
@@ -600,11 +601,13 @@ async function uploadPhotos(input){
 
   showToast('Uploading '+valid.length+' photo(s)...');
   let uploaded = 0;
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not bare window globals.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
   for(const f of valid){
-    const url = await window._uploadPhoto(currentPhotoLeadId,f);
+    const url = await _nbdReg._uploadPhoto(currentPhotoLeadId,f);
     if(url) uploaded++;
   }
-  const photos=await window._getPhotos(currentPhotoLeadId);
+  const photos=await _nbdReg._getPhotos(currentPhotoLeadId);
   renderPhotoGrid(photos);
   // Invalidate the photo-count cache so the Photos Near Me list
   // re-sorts this lead to the top (it just gained photos).

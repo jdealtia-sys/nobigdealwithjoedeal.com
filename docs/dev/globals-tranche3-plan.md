@@ -77,10 +77,18 @@ uses literal `window['name']` bracket dispatch.
 - The smoke `T1_NAMES` off-window walk **scans comments** — a stale
   `window.X` in a comment fails the walk (bit us at
   `dashboard-bootstrap.module.js:3883`).
+- **`globals-xref.js`'s census only scans `docs/pro/**`** — a converted
+  name's consumers under `tests/e2e/*.spec.js` (Playwright specs, which
+  read `window.X` directly against a real live browser page) are
+  structurally invisible to it. Bit us 2026-09-18: the dashboard-widgets.js
+  photo modal edge's `_uploadPhoto` was also read by
+  `tests/e2e/pro-authed.spec.js`, caught only by adversarial review, not
+  the census. **After grepping `docs/` for a name about to convert, also
+  grep `tests/e2e/` before trusting "single consumer."**
 
 Per-name proof before converting, unchanged from Tranche 2: (1) file-grep JS,
 (2) grep HTML + generated-markup string literals, (3) registry/allowlist +
-`window[…]` dispatch-path check.
+`window[…]` dispatch-path check, **(4) grep `tests/e2e/*.spec.js`**.
 
 ## Keep-as-API — the spine is mostly DONE or NEVER, not TODO
 
@@ -321,7 +329,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
 | dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
 | dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
-| long tail (1–3-name edges) | ~130 |
+| dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR TBD); see note below** |
+| long tail (1–3-name edges) | ~128 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -702,6 +711,42 @@ Convert edge-by-edge; each edge is one natural PR:
 > margin, not an open-ended loosening; a complementary new assertion in
 > `dashboard.test.js` independently catches any regression back to the old
 > `window.X` shape regardless.
+
+> ### Update 2026-09-18 — the dashboard-widgets.js photo modal edge (PR TBD)
+>
+> An eighth long-tail edge: `_uploadPhoto`, `_getPhotos` — the dashboard's
+> lead-detail photo modal (distinct from the customer.html photo pipeline
+> converted earlier in this session — separate code paths, separate pages).
+> Same clean shape as the pins/zones/estimate edges: anonymous arrow
+> expressions, zero self-references, single consumer.
+>
+> **A real gap the normal census can't see, caught by adversarial review:**
+> `tests/e2e/pro-authed.spec.js` — a Playwright spec driving a REAL browser
+> — read `window._uploadPhoto` directly in two places (a `waitForFunction`
+> readiness gate and the actual upload call inside `page.evaluate()`).
+> `globals-xref.js`'s census only scans `docs/pro/**`, so a converted
+> name's consumers under `tests/e2e/` are invisible to it — this is a
+> **structural blind spot in the census itself**, not a one-off miss, and
+> is worth remembering for every future T3-C/T3-D slice: after grepping
+> `docs/`, also grep `tests/e2e/` for any name about to be converted.
+> Fixed by rewiring both spec call sites to
+> `window.__NBD_CALL_REGISTRY._uploadPhoto` — this exact failure mode has
+> precedent in this migration (`8f220368`, the "T3 bonus eight" PR,
+> rewired the same spec file for a different name for the same reason).
+>
+> Verification: two rounds. The first adversarial-review agent found the
+> `pro-authed.spec.js` gap (everything else clean). A second, narrower
+> agent then specifically re-verified the applied fix — independently
+> re-derived that the registry entry really does exist and that
+> `dashboard-bootstrap.module.js` really does load on whatever page the
+> spec drives (traced `loginAs()` → `/pro/dashboard.html` →
+> `dashboard-bootstrap.module.js` loads and populates the registry before
+> the spec's readiness gate runs), confirmed the two edits are exact
+> (same args, same order, nothing else in either code block disturbed),
+> and reran the repo-wide grep for zero remaining `window._uploadPhoto`/
+> `window._getPhotos` literals (excluding a known-stale worktree checkout
+> under `.claude/worktrees/`, not part of the tracked tree). Both rounds
+> reran `check-js-syntax` and `tests/smoke.test.js` (4157/4157) green.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if

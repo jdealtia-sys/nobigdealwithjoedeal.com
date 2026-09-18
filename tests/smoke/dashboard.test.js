@@ -3154,7 +3154,9 @@ section('Globals Tranches 0+1: converted names stay off window');
     'missingClaimFields', 'subTypeLabel', 'subTypeOptionsFor',
     // Tranche 3 T3-C (2026-09-18): the pipeline-builder.js edge. STAGE_ROLE
     // is a rename-on-export (imported as ROLE, registered as STAGE_ROLE).
-    'applyPipelineConfig', 'resolvePipelineConfig', 'STAGE_ROLE'];
+    'applyPipelineConfig', 'resolvePipelineConfig', 'STAGE_ROLE',
+    // Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal edge.
+    '_uploadPhoto', '_getPhotos'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -4011,6 +4013,24 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('pipeline-builder.js\'s two applyPipelineConfig call sites (reset + save) both read off the registry',
     (pipelineBuilderSrc.match(/_nbdReg\.applyPipelineConfig\(\)/g) || []).length === 2
     && !/window\.applyPipelineConfig\(/.test(pipelineBuilderSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal
+  // edge off dashboard-bootstrap.module.js ──
+  const dashWidgetsSrc = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+  for (const n of ['_uploadPhoto', '_getPhotos']) {
+    assert('dashboard-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootReg));
+    assert('dashboard-bootstrap.module.js no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  assert('_uploadPhoto and _getPhotos are real declarations now',
+    /async function _uploadPhoto\(leadId, file\) \{/.test(bootReg) && /async function _getPhotos\(leadId\) \{/.test(bootReg));
+  assert('dashboard-widgets.js\'s photo-badge opener reads _getPhotos off the registry, not bare window',
+    /window\.__NBD_CALL_REGISTRY\._getPhotos\(leadId\)/.test(dashWidgetsSrc));
+  assert('dashboard-widgets.js\'s upload handler reads both _uploadPhoto and _getPhotos off the registry, not bare window',
+    /_nbdReg\._uploadPhoto\(currentPhotoLeadId,f\)/.test(dashWidgetsSrc)
+    && /_nbdReg\._getPhotos\(currentPhotoLeadId\)/.test(dashWidgetsSrc)
+    && !/window\._uploadPhoto\(/.test(dashWidgetsSrc) && !/window\._getPhotos\(/.test(dashWidgetsSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred

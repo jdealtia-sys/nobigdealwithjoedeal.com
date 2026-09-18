@@ -733,8 +733,8 @@ section('Customer page: invoices load (team-scope + createdAt sort)');
 section('Photo modal: _getPhotos is team-scoped (badge vs gallery parity)');
 {
   const src = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
-  const fn = src.slice(src.indexOf('window._getPhotos ='),
-                       src.indexOf('window._getPhotos =') + 1400);
+  const fn = src.slice(src.indexOf('async function _getPhotos(leadId)'),
+                       src.indexOf('async function _getPhotos(leadId)') + 1400);
   // The modal path was userId-only while the badge/_photoCache read dual-scope,
   // so managers saw a count then an empty gallery. Must now add the companyId
   // scope for company readers, deduped, mirroring _photoCache.

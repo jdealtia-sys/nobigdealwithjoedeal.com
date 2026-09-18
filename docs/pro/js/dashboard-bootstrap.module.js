@@ -4274,7 +4274,9 @@
   // `photos/{uid}/{...}`. The old `photos/{leadId}/...` path
   // hits the default-deny rule and returns permission-denied —
   // root cause of "upload failed" errors reported by users.
-  window._uploadPhoto = async (leadId, file) => {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer bare window globals.
+  async function _uploadPhoto(leadId, file) {
     try {
       const uid = window._user?.uid;
       if (!uid) throw new Error('Not signed in');
@@ -4292,9 +4294,9 @@
         companyId: (window._userClaims && window._userClaims.companyId) || uid});
       return url;
     } catch(e) { console.error('Upload failed',e); return null; }
-  };
+  }
 
-  window._getPhotos = async (leadId) => {
+  async function _getPhotos(leadId) {
     try {
       const uid = window._user?.uid;
       if (!uid) return [];
@@ -4319,7 +4321,7 @@
       }
       return out;
     } catch(e) { console.warn('[_getPhotos] load failed:', e && e.message); return []; }
-  };
+  }
 
   // ── SETTINGS ───────────────────────────────────
   // Populate the Profile tab from the saved user doc. The boot-time
@@ -5854,4 +5856,8 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   applyPipelineConfig: applyPipelineConfig,
   resolvePipelineConfig: resolvePipelineConfig,
   STAGE_ROLE: ROLE,
+  // Globals Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo
+  // modal edge.
+  _uploadPhoto: _uploadPhoto,
+  _getPhotos: _getPhotos,
 });
