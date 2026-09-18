@@ -167,6 +167,10 @@
     "analytics-card-cache-account-switch.test.js",
     "adjuster-board-handler-tenancy.test.js",
     "customer-audit-integrity.test.js",
+    "d2d-followup-sms-optout.test.js",
+    "portal-share-no-double-send.test.js",
+    "unloaded-cache-gates.test.js",
+    "failopen-destructive-false-success-2026-09-18.test.js",
     "pipeline-builder-hydration.test.js",
     "map-views-hydration.test.js",
     "lead-trades-unknown.test.js"

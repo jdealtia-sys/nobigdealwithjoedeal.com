@@ -3680,17 +3680,28 @@
     } catch(e) { console.warn('saveLeadCoords failed:', e && e.code); }
   };
 
+  // Resolves true ONLY when the soft-delete write landed (or the lead is a
+  // local-only 'd-' draft with nothing server-side), false when it failed or
+  // the rules denied it — same contract as _deleteZone. Until 2026-09-18 this
+  // swallowed the error and resolved undefined, so confirmDeleteLead toasted
+  // "Lead moved to Deleted bin" for a viewer whose write the leads update rule
+  // had refused. The local re-render sits OUTSIDE the write's try on purpose:
+  // a renderLeads exception after a successful write is not a failed delete.
   async function _deleteLead(id) {
-    try {
-      if(!id.startsWith('d-')) {
+    if (!id) return false;
+    if (!String(id).startsWith('d-')) {
+      try {
         await updateDoc(doc(db,'leads',id), {
           deleted: true,
           deletedAt: serverTimestamp()
         });
-      }
+      } catch(e) { console.error('deleteLead error:', e && e.code, e); return false; }
+    }
+    try {
       window._leads = (window._leads||[]).filter(l=>l.id!==id);
       renderLeads(window._leads);
-    } catch(e) { console.error('deleteLead error:', e); }
+    } catch(e) { console.warn('deleteLead re-render:', e); }
+    return true;
   }
 
   window._restoreLead = async (id) => {
@@ -3699,10 +3710,15 @@
     } catch(e) { console.error('restoreLead error:', e); }
   };
 
+  // Same true/false contract as _deleteLead: the trash drawer's "Remove"
+  // (crm-portal-bridge.js permanentDeleteLead) toasts "Permanently deleted"
+  // only on === true, so a denied or failed deleteDoc must say so here rather
+  // than resolve like a success.
   window._permanentDeleteLead = async (id) => {
-    try {
-      if(!id.startsWith('d-')) await deleteDoc(doc(db,'leads',id));
-    } catch(e) { console.error('permanentDelete error:', e); }
+    if (!id) return false;
+    if (String(id).startsWith('d-')) return true; // local-only: nothing server-side
+    try { await deleteDoc(doc(db,'leads',id)); return true; }
+    catch(e) { console.error('permanentDelete error:', e && e.code, e); return false; }
   };
 
   async function _loadDeletedLeads() {
