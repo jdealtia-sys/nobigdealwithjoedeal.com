@@ -291,7 +291,7 @@
   };
 
   // ── Job type field toggle ──
-  window.toggleInsuranceFields = function() {
+  function toggleInsuranceFields() {
     const jt = document.getElementById('lJobType')?.value || '';
     const ins = document.getElementById('insuranceFieldsBlock');
     const fin = document.getElementById('financeFieldsBlock');
@@ -315,16 +315,16 @@
     // Smart stage dropdown — hide irrelevant track optgroups based on jobType
     window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
     // Sub-type + trades row: visible only when a job type is set
-    window.refreshSubTypeAndTrades && window.refreshSubTypeAndTrades(jt);
+    refreshSubTypeAndTrades(jt);
     // Next Actions panel: refreshes whenever job type or stage changes
     window.renderNextActionsPanel && window.renderNextActionsPanel();
-  };
+  }
 
   // ── Sub-type + trades row population ──
   // Sub-type options come from SUB_TYPES[jobType]. Trades is a fixed list
   // of multi-select chips; the selection lives on the chip's data-selected
   // attribute and is read on save. Both hide together until job type is set.
-  window.refreshSubTypeAndTrades = function(jobType) {
+  function refreshSubTypeAndTrades(jobType) {
     const row = document.getElementById('lSubTypeRow');
     if (!row) return;
     if (!jobType) { row.style.display = 'none'; return; }
@@ -350,7 +350,7 @@
           data-action="tradeChip">${t.icon || ''} ${t.label}</button>
       `).join('');
     }
-  };
+  }
 
   // ── Stage select population ──
   // #lStage ships as a STATIC <option> list in dashboard.html, so a tenant
@@ -452,7 +452,7 @@
   };
 
   // Reflect a saved trades array onto the chip UI
-  window.setSelectedTrades = function(trades) {
+  function setSelectedTrades(trades) {
     const group = document.getElementById('lTradesGroup');
     if (!group) return;
     const set = new Set(Array.isArray(trades) ? trades : []);
@@ -463,7 +463,7 @@
       b.style.color = on ? 'var(--accent-fg)' : 'var(--m)';
       b.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
     });
-  };
+  }
 
   // ── Next Actions panel ──
   // Driven by STAGE_ACTIONS in crm-stages.js. Renders the context-aware
@@ -1210,9 +1210,9 @@
   // Attach listener after DOM ready
   document.addEventListener('DOMContentLoaded', () => {
     const jtSel = document.getElementById('lJobType');
-    if (jtSel) jtSel.addEventListener('change', window.toggleInsuranceFields);
+    if (jtSel) jtSel.addEventListener('change', toggleInsuranceFields);
     const stSel = document.getElementById('lStage');
-    if (stSel) stSel.addEventListener('change', window.toggleInsuranceFields);
+    if (stSel) stSel.addEventListener('change', toggleInsuranceFields);
 
     // Drop "?" help icons next to high-impact labels. The helper is
     // defer-loaded so we retry a couple times until it's available.
@@ -3660,7 +3660,7 @@
     } catch(e) { console.warn('saveLeadCoords failed:', e && e.code); }
   };
 
-  window._deleteLead = async (id) => {
+  async function _deleteLead(id) {
     try {
       if(!id.startsWith('d-')) {
         await updateDoc(doc(db,'leads',id), {
@@ -3671,7 +3671,7 @@
       window._leads = (window._leads||[]).filter(l=>l.id!==id);
       renderLeads(window._leads);
     } catch(e) { console.error('deleteLead error:', e); }
-  };
+  }
 
   window._restoreLead = async (id) => {
     try {
@@ -3685,14 +3685,14 @@
     } catch(e) { console.error('permanentDelete error:', e); }
   };
 
-  window._loadDeletedLeads = async () => {
+  async function _loadDeletedLeads() {
     try {
       const uid = window._user?.uid;
       if (!uid) return;
       const snap = await getDocs(query(collection(db,'leads'), where('userId','==',uid), where('deleted','==',true)));
       return snap.docs.map(d => ({id:d.id,...d.data()}));
     } catch(e) { return []; }
-  };
+  }
 
   // ── ESTIMATES ──────────────────────────────────
   async function loadEstimates() {
@@ -4073,7 +4073,7 @@
   // that gets saved goes into a `reports` collection scoped by userId.
   // The Rep Report Generator UI calls these helpers; the viewer lists
   // them in the My Reports history panel.
-  window._loadReports = async () => {
+  async function _loadReports() {
     try {
       const uid = window._user?.uid;
       if (!uid) { window._reports = []; return []; }
@@ -4090,9 +4090,9 @@
       window._reports = [];
       return [];
     }
-  };
+  }
 
-  window._saveReport = async (data) => {
+  async function _saveReport(data) {
     const uid = window._user?.uid;
     if (!uid) throw new Error('Not signed in');
     // The /reports create rule REQUIRES companyId (string, non-empty, equal to
@@ -4113,7 +4113,7 @@
         companyId,
         createdAt: serverTimestamp()
       });
-      await window._loadReports();
+      await _loadReports();
       return ref2.id;
     } catch (e) {
       // Rethrow rather than swallowing. Returning null made a rules rejection
@@ -4124,19 +4124,19 @@
       console.error('[Reports] saveReport failed:', e);
       throw e;
     }
-  };
+  }
 
-  window._deleteReport = async (id) => {
+  async function _deleteReport(id) {
     try {
       if (!id) return false;
       await deleteDoc(doc(db, 'reports', id));
-      await window._loadReports();
+      await _loadReports();
       return true;
     } catch (e) {
       console.error('[Reports] deleteReport failed:', e);
       return false;
     }
-  };
+  }
   // ── END REPORTS CRUD HELPERS ──────────────────
 
   // ── PINS ───────────────────────────────────────
@@ -5784,4 +5784,12 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _loadBillingInfo: _loadBillingInfo,
   _loadNotifSettings: _loadNotifSettings,
   _loadProfileSettings: _loadProfileSettings,
+  toggleInsuranceFields: toggleInsuranceFields,
+  refreshSubTypeAndTrades: refreshSubTypeAndTrades,
+  setSelectedTrades: setSelectedTrades,
+  _deleteLead: _deleteLead,
+  _loadDeletedLeads: _loadDeletedLeads,
+  _saveReport: _saveReport,
+  _deleteReport: _deleteReport,
+  _loadReports: _loadReports,
 });

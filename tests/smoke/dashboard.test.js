@@ -3113,7 +3113,17 @@ section('Globals Tranches 0+1: converted names stay off window');
     // walk scans comments — the :3883 lesson).
     'toggleDebugConsole', 'toggleRecentDropdown', 'toggleDismissedNotifications',
     'toggleNotificationDropdown', 'toggleNeedsAttention', 'toggleShowSnoozed',
-    'toggleStaleShares', 'toggleEngagementSort'];
+    'toggleStaleShares', 'toggleEngagementSort',
+    // Tranche 3 T3-C (2026-09-17): the crm-portal-bridge.js edge (5) and the
+    // rep-report-generator.js edge (4 of the 5 verified names — _reports is
+    // a data cache, not a callable, deliberately left off window via a
+    // rep-report-generator.js-local cache instead of a registry entry; see
+    // the T3-C assertion block below). None of these 9 were ever
+    // markup-dispatched or allowlisted — a straight window-export-to-
+    // registry graduation for real ES-module-to-classic-script calls.
+    'toggleInsuranceFields', 'refreshSubTypeAndTrades', 'setSelectedTrades',
+    '_deleteLead', '_loadDeletedLeads',
+    '_saveReport', '_deleteReport', '_loadReports'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3745,10 +3755,10 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // touched at all (_loadAccessInfo, _loadBillingInfo, _loadNotifSettings,
   // _loadProfileSettings — no prior tranche, still auto-globals). Rewiring
   // ui.js's reads to the registry unblocked graduating all six together.
-  const T3D_NAMES = ['_loadCompanySettings', '_loadCompanyProfileSettings',
+  const T3C_UI_EDGE_NAMES = ['_loadCompanySettings', '_loadCompanyProfileSettings',
     '_loadAccessInfo', '_loadBillingInfo', '_loadNotifSettings', '_loadProfileSettings'];
   const uiJsSrc = read(path.join(PRO_JS, 'ui.js'));
-  for (const n of T3D_NAMES) {
+  for (const n of T3C_UI_EDGE_NAMES) {
     assert('dashboard-bootstrap registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
       new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootRegBlock));
     assert('allowlist no longer carries ' + n + ' (T3-C — registry replaced it)',
@@ -3758,6 +3768,52 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('ui.js switchSettingsTab reads ' + n + ' off the registry, not bare window.' + n,
       new RegExp('_nbdReg\\.' + n + '\\b').test(uiJsSrc) && !new RegExp('window\\.' + n + '\\s*\\(').test(uiJsSrc));
   }
+
+  // ── Tranche 3 T3-C (2026-09-17): crm-portal-bridge.js + rep-report-
+  // generator.js edges ──
+  // Two more one-consumer edges off dashboard-bootstrap.module.js, re-derived
+  // from scratch after the plan doc's original "5" / "4" / "4" estimates
+  // proved partly wrong on inspection: crm-portal-bridge.js's 5 held up
+  // exactly; rep-report-generator.js's 4 held up as 3 real functions plus
+  // _reports, a data cache (not a callable) deliberately routed through a
+  // rep-report-generator.js-local cache instead of the registry — see below;
+  // the third candidate edge (crm-pipeline.js) turned out to have ZERO
+  // convertible names (misattributed T3-D-cluster ownership plus a genuine
+  // _dragId shared-mutable-state landmine) and was not attempted.
+  const T3C_PORTAL_BRIDGE_NAMES = ['toggleInsuranceFields', 'refreshSubTypeAndTrades',
+    'setSelectedTrades', '_deleteLead', '_loadDeletedLeads'];
+  const T3C_REPORT_GEN_NAMES = ['_saveReport', '_deleteReport', '_loadReports'];
+  const crmPortalBridgeSrc = read(path.join(PRO_JS, 'crm-portal-bridge.js'));
+  const repReportGenSrc = read(path.join(PRO_JS, 'rep-report-generator.js'));
+  for (const n of [...T3C_PORTAL_BRIDGE_NAMES, ...T3C_REPORT_GEN_NAMES]) {
+    assert('dashboard-bootstrap registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootRegBlock));
+    assert('allowlist never carried ' + n + ' (T3-C — no markup dispatch, pure cross-file call)',
+      !new RegExp("'" + n + "'").test(stateSrc));
+    assert('dashboard-bootstrap no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  for (const n of T3C_PORTAL_BRIDGE_NAMES) {
+    assert('crm-portal-bridge.js reads ' + n + ' off the registry, not bare window.' + n,
+      new RegExp('_nbdReg\\.' + n + '\\b|__NBD_CALL_REGISTRY\\.' + n + '\\b').test(crmPortalBridgeSrc)
+        && !new RegExp('window\\.' + n + '\\b').test(crmPortalBridgeSrc));
+  }
+  for (const n of ['_saveReport', '_deleteReport', '_loadReports']) {
+    assert('rep-report-generator.js reads ' + n + ' off the registry, not bare window.' + n,
+      new RegExp('_nbdReg\\.' + n + '\\b').test(repReportGenSrc)
+        && !new RegExp('window\\.' + n + '\\b').test(repReportGenSrc));
+  }
+  // _reports is a data cache, not a callable — it can't go through the call
+  // registry the way the 3 functions above do. rep-report-generator.js keeps
+  // its own local cache (populated from _loadReports()'s return value, not
+  // by re-reading window._reports) instead; dashboard-bootstrap.module.js's
+  // _loadReports still sets window._reports as a harmless, now-unread,
+  // internal implementation detail — deliberately left in place rather than
+  // touched for no behavioral gain.
+  assert('rep-report-generator.js no longer reads window._reports directly',
+    !/window\._reports\b/.test(repReportGenSrc));
+  assert('rep-report-generator.js caches its own report list locally',
+    /_reportsCache/.test(repReportGenSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred
