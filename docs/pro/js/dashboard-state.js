@@ -368,8 +368,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  __NBD_CALL_REGISTRY, off window. Do NOT re-add.)
   // Misc directly-callable global referenced in surveyed onclicks
   'goTo',
-  // step-3: smart-calendar refresh button
-  'loadSmartCalendar',
+  // (step-3 smart-calendar refresh button: loadSmartCalendar → __NBD_CALL_REGISTRY
+  //  via smart-calendar.js, Tranche 3 T3-C 2026-09-18 — off window. Do NOT re-add.)
   // (cdaOpenVoicemail → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   // ── CSP onchange/oninput sweep (Phase C.6) ──
   // The prefs-boot toggle wrappers that used to live here (Phase C.6:
@@ -387,7 +387,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // draw recalc, the comparison-file handler and the two historical-
   // imagery sliders — into the registry; see the drawing-cluster note
   // higher up.)
-  'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
+  'updateEstCalc', 'calcTierPrices',
+  // (toggleInsuranceOverlay → __NBD_CALL_REGISTRY via dashboard-insurance-
+  //  overlay-toggle.js, Globals Tranche 3 T3-C 2026-09-18 — off window. Do NOT re-add.)
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
   // (filterPhotoLeads, handleDocUpload, updateCalEmbed → __NBD_CALL_REGISTRY,
   //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)

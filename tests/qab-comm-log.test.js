@@ -79,7 +79,11 @@ function parseAnchors(html, parent) {
   return out;
 }
 
-function run({ withLogger = true, lead = { id: 'L1', firstName: 'Dana', phone: '(555) 010-2020', email: 'd@x.test' } } = {}) {
+// loggerOn: where the page's logCommunication lives. 'registry' is the real
+// shape since Globals Tranche 3 T3-C (2026-09-18) — customer-bootstrap.module.js
+// registers it on __NBD_CALL_REGISTRY, not window. 'window' plants a stale
+// window.logCommunication ONLY, to prove the bar no longer reads it.
+function run({ withLogger = true, loggerOn = 'registry', lead = { id: 'L1', firstName: 'Dana', phone: '(555) 010-2020', email: 'd@x.test' } } = {}) {
   const head = makeEl('head');
   const body = makeEl('body');
   const logged = [];
@@ -105,10 +109,12 @@ function run({ withLogger = true, lead = { id: 'L1', firstName: 'Dana', phone: '
     },
   };
   if (withLogger) {
-    win.logCommunication = (leadId, type, content) => {
+    const logCommunication = (leadId, type, content) => {
       logged.push({ leadId, type, content });
       return Promise.resolve('ok');
     };
+    if (loggerOn === 'window') win.logCommunication = logCommunication;
+    else win.__NBD_CALL_REGISTRY = { logCommunication };
   }
   win.window = win;
   vm.runInContext(QAB, vm.createContext(win));
@@ -166,6 +172,23 @@ for (const [proto, type] of [['tel:', 'call'], ['sms:', 'sms'], ['mailto:', 'ema
   let threw = false;
   try { if (handler) handler.fn({ target: anchor }); } catch (e) { threw = true; }
   ok('no logger present → does not throw (navigation must never break)', !threw);
+}
+
+// ── 5. Reads the registry, not window (Globals Tranche 3 T3-C) ────────
+{
+  // A stale window.logCommunication must NOT be picked up: the real logger is
+  // registry-only now, and a window read would silently drop every quick-bar
+  // tap from the Comm Log the moment nothing re-exports it.
+  const { bar, logged } = run({ loggerOn: 'window' });
+  const anchor = bar.children.find((a) => (a.attrs.href || '').startsWith('tel:'));
+  const handler = bar._listeners.find((l) => l.type === 'click' && l.capture);
+  let threw = false;
+  try { if (handler) handler.fn({ target: anchor }); } catch (e) { threw = true; }
+  ok('a window-only logCommunication is ignored (registry is the only source)',
+    !!handler && !threw && logged.length === 0, JSON.stringify(logged));
+  ok('source reads logCommunication off __NBD_CALL_REGISTRY, never window',
+    /_nbdReg\.logCommunication\(leadId, type, label\)/.test(QAB)
+    && !/window\.logCommunication\b/.test(QAB));
 }
 
 console.log('\n──────────────────────────────');
