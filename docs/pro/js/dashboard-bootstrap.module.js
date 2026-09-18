@@ -138,15 +138,17 @@
   window.isJobStage = isJobStage;
   window.isTerminalStage = isTerminalStage;
   window.VIEW_JOBS_BOARD = VIEW_JOBS_BOARD;
-  window.STAGE_ROLE = ROLE;
-  window.resolvePipelineConfig = resolvePipelineConfig; // used by the Phase-2 pipelines builder
+  // STAGE_ROLE/resolvePipelineConfig/applyPipelineConfig: registered in
+  // __NBD_CALL_REGISTRY at the end of this file (Globals Tranche 3 T3-C,
+  // 2026-09-18) instead of bare window globals — the Phase-2 pipelines
+  // builder (pipeline-builder.js) is their sole consumer.
 
   // ── Phase 1: apply a per-tenant pipeline config over the built-in defaults ──
   // Config lives at companyProfile.pipelines (owner/admin-writable). No config →
   // early-return, so current tenants (none configured yet) are byte-identical.
   // When a config exists it re-points the stage globals + re-renders. Exposed so
   // the Phase-2 builder can re-apply immediately after a save.
-  window.applyPipelineConfig = function applyPipelineConfig() {
+  function applyPipelineConfig() {
     const raw = window._companyProfile && window._companyProfile.pipelines;
     // A config counts only if it has at least one override; `{stages:{},views:{}}`
     // (what "Reset to defaults" writes) is NOT a config. Crucially, when there's
@@ -215,7 +217,7 @@
       try { window.buildKanbanColumns(window._currentViewKey || vk); } catch (_) {}
     }
     if (typeof window.renderLeads === 'function') { try { window.renderLeads(); } catch (_) {} }
-  };
+  }
   window.stageOptionsForType = stageOptionsForType;
   window.inferJobType = inferJobType;
   window.JOB_TYPES = JOB_TYPES;
@@ -1647,7 +1649,7 @@
     // so docs work even if this hangs.
     if (typeof window._loadCompanyProfile === 'function') {
       window._loadCompanyProfile()
-        .then(() => { if (window.applyPipelineConfig) window.applyPipelineConfig(); })
+        .then(() => { applyPipelineConfig(); })
         .catch(() => {});
     }
     // Pre-warm the notification-settings cache from Firestore so a rep
@@ -5845,4 +5847,11 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   missingClaimFields: missingClaimFields,
   subTypeLabel: subTypeLabel,
   subTypeOptionsFor: subTypeOptionsFor,
+  // Globals Tranche 3 T3-C (2026-09-18): the pipeline-builder.js edge.
+  // STAGE_ROLE is a rename-on-export (the imported binding is ROLE, the
+  // public name pipeline-builder.js reads is STAGE_ROLE) — key differs
+  // from value here, unlike every other entry in this block.
+  applyPipelineConfig: applyPipelineConfig,
+  resolvePipelineConfig: resolvePipelineConfig,
+  STAGE_ROLE: ROLE,
 });
