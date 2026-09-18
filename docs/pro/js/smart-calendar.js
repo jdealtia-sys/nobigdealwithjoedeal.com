@@ -581,8 +581,12 @@ let _NBD_SC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     window.addEventListener('nbd:leads-loaded', refresh);
   }
 
-  // Expose for cmd palette + manual refresh.
-  window.loadSmartCalendar = loadSmartCalendar;
+  // Registered, not window-exported (Globals Tranche 3 T3-C, 2026-09-18):
+  // the schedule view's manual-refresh button (data-fn, resolved registry-
+  // first by dashboard-ui.js _nbdResolveCall) and dashboard-bootstrap.
+  // module.js's open-schedule lead action both read it off the registry.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { loadSmartCalendar: loadSmartCalendar });
   // Pure forecast helpers, exposed for tests/smart-calendar-forecast.test.js
   // (no DOM, no network — fetchForecast takes an injected fetch/store).
   window.NBDForecast = {

@@ -291,9 +291,11 @@ function goTo(name, params = {}) {
   // Force-exit bulk-select mode whenever leaving the kanban — otherwise a
   // bulk selection started on the CRM bleeds into the next view's click
   // handlers (e.g. tapping a prospect card opens a checkbox toggle instead
-  // of the detail modal). Audit fix H4.
-  if (name !== 'crm' && window._bulkMode && typeof window.exitBulkMode === 'function') {
-    window.exitBulkMode();
+  // of the detail modal). Audit fix H4. exitBulkMode is registry-only
+  // (crm-portal-bridge.js, Globals Tranche 3 T3-C); a missing entry is a no-op.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (name !== 'crm' && window._bulkMode && _nbdReg && typeof _nbdReg.exitBulkMode === 'function') {
+    _nbdReg.exitBulkMode();
   }
 
   // Update URL hash (without triggering hashchange event)

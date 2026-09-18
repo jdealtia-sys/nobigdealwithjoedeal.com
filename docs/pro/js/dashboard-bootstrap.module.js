@@ -670,14 +670,16 @@
 
   // Scheduling chips land the rep on the Today's Schedule timeline.
   // goTo('schedule') is the call smart-calendar.js wraps to repaint itself;
-  // loadSmartCalendar is the direct fallback for pages without the nav helper.
+  // loadSmartCalendar is the direct fallback for pages without the nav helper
+  // (registry-only — smart-calendar.js registers it, Globals Tranche 3 T3-C).
   function _actionOpenSchedule() {
     const hasNav  = typeof window.goTo === 'function';
-    const hasCal  = typeof window.loadSmartCalendar === 'function';
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    const hasCal  = !!(_nbdReg && typeof _nbdReg.loadSmartCalendar === 'function');
     if (!hasNav && !hasCal) return false;
     if (typeof window.closeLeadModal === 'function') window.closeLeadModal();
     if (hasNav) window.goTo('schedule');
-    else window.loadSmartCalendar();
+    else _nbdReg.loadSmartCalendar();
     return true;
   }
 
@@ -2923,8 +2925,10 @@
         }
       }
       // Append the D2D "Doors Verified" data-quality card (async, self-fetching;
-      // only renders when the rep has knocks).
-      if (typeof window.renderDoorsVerifiedCard === 'function') window.renderDoorsVerifiedCard();
+      // only renders when the rep has knocks). Registry-only — analytics-kpi.js
+      // registers it (Globals Tranche 3 T3-C); a missing entry is a no-op.
+      const _nbdReg = window.__NBD_CALL_REGISTRY;
+      if (_nbdReg && typeof _nbdReg.renderDoorsVerifiedCard === 'function') _nbdReg.renderDoorsVerifiedCard();
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);

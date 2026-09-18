@@ -55,7 +55,13 @@ const PERIODS = PERIODS_RAW.map(F.normalizePeriod);
 
 console.log('\nLOAD');
 ok('smart-calendar.js evaluates and exposes window.NBDForecast', !!F && typeof F.pickPeriod === 'function');
-ok('window.loadSmartCalendar is still exposed (the existing contract)', typeof win.loadSmartCalendar === 'function');
+// Globals Tranche 3 T3-C (2026-09-18): the refresh entry point moved off window
+// into __NBD_CALL_REGISTRY (the schedule refresh button's data-fn and
+// dashboard-bootstrap.module.js's open-schedule action both resolve it there).
+ok('loadSmartCalendar is registered in __NBD_CALL_REGISTRY (the refresh contract)',
+   !!win.__NBD_CALL_REGISTRY && typeof win.__NBD_CALL_REGISTRY.loadSmartCalendar === 'function');
+ok('loadSmartCalendar is no longer exposed on window (Globals Tranche 3 T3-C)',
+   !Object.prototype.hasOwnProperty.call(win, 'loadSmartCalendar'));
 
 console.log('\nPOINT KEYS — one forecast per ~1 km, never per appointment');
 {
