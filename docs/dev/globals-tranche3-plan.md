@@ -142,7 +142,10 @@ bracket dispatch. Largest owner clusters:
 `dashboard-actions.js` (33), `customer-tasks-ui.js` (**DONE 2026-09-18,
 PR #1657 — whole-file wrap, re-derived to 93 total names / ~60 genuinely
 private; see update below**),
-`dashboard-ui.js` (24 of 27), `dashboard-bootstrap.module.js` (23 of 25),
+`dashboard-ui.js` (24 of 27 — **wrong unit, re-derived 2026-09-18 to 57
+function declarations + 34 consts; prep #1672 MERGED, whole-file wrap #1673
+OPEN and HELD for Jo; see the part-5 update below**),
+`dashboard-bootstrap.module.js` (23 of 25),
 `ui.js` (17 of 18), `customer-bootstrap.module.js` (15),
 `crm-portal-bridge.js` (11), `estimates.js` (10 of 13),
 `maps-routing.js` (8), `dashboard-connect-tab.js` (**DONE 2026-09-18, PR
@@ -329,7 +332,7 @@ Convert edge-by-edge; each edge is one natural PR:
 
 | Edge (assigner → consumer) | Names |
 |---|---|
-| dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637)** |
+| dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637); the 7th, `_loadEstimateDefaultsV2`, shipped 2026-09-18 (PR #1662) — edge closed, 7 of 7** |
 | customer-tasks-ui.js → customer-bootstrap.module.js | 6 — **re-derived to 5, NOT a safe T3-C shape; DONE anyway 2026-09-18 (PR #1657) via the whole-file T3-A wrap below — these 5 keep their existing window exports untouched, only the file's other ~60 genuinely-private names moved off window** |
 | customer-bootstrap.module.js → customer-tasks-ui.js | 5 — **re-derived to 8, 4 shipped 2026-09-18; see note below** |
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
@@ -344,7 +347,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR #1652); see note below** |
 | dashboard-actions.js → dashboard-widgets.js (realtime teardown) | 1 of 4 — **shipped 2026-09-18 (PR #1653); other 3 need T3-A-style IIFE-wrapping first, see note below** |
 | dashboard-actions.js → dashboard-widgets.js (prospect ops, T3-A) | 4 — **shipped 2026-09-18 (PR #1655), the flagged 3 from above + confirmPromoteProspect; see note below** |
-| long tail (1–3-name edges) | ~123 |
+| long tail (1–3-name edges) | ~~about 123~~ — **fully triaged 2026-09-18 (part 5)**: all 22 CONVERT_NOW names shipped (#1662, #1664, #1666, #1668, #1669, #1670). What remains in band 1 is NEEDS_IIFE_FIRST 16 / LANDMINE 21 / FALSE_EDGE 8 / KEEP_AS_API 78 (+3 `dashboard-ui.js` names left to its T3-A census) — **no one-consumer edge is left that converts without IIFE work or a dispatcher change first.** Per-name reasons in the part-5 update below; don't re-triage |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -1060,6 +1063,320 @@ Convert edge-by-edge; each edge is one natural PR:
 > environment gap, unrelated to this change) — and confirmed zero lone-CR
 > bytes / w/crlf EOL on both touched files.
 
+> ### Update 2026-09-18 (part 5) — fresh census, the band-1 long tail fully
+> triaged (all 22 convertible names shipped), dashboard-ui.js prepped (#1672)
+> and wrapped but HELD (#1673)
+>
+> **Fresh census** (`node scripts/globals-xref.js docs/pro out.json`):
+>
+> | Run | Total assigned `window.*` | Band 0 / 1 / 2–5 / 6+ |
+> |---|---|---|
+> | Session start, `main` @ `4007bbbd` | **762** | **399 / 148 / 142 / 73** |
+> | After this session's merges, `main` @ `d4e5b202` | **751** | 409 / 127 / 141 / 74 |
+>
+> The delta is fully accounted for:
+> - **−23:** the 22 names shipped below plus the deleted
+>   `_loadEstimateDefaults` alias.
+> - **+12:** #1672's new explicit `window.X = X;` lines, now visible to
+>   the census: `updateBreadcrumb`, `_hydrateViewTemplate`,
+>   `loadCalSettings`, `renderAcDrop`, `hideAcDrop`, `closeUploadDoc`,
+>   `applyTheme`, `dsRenderFloors`, `dsBuildThemeGrid`,
+>   `getCrmSecHeaderEnabled`, `toggleMapSidebar` and `_nbdResolveMapped`.
+>   These are not new globals. They were implicit classic-script
+>   auto-globals, which the census cannot see.
+> - `mobileNav`, `toggleMobileMore` and `closeMobileMore` were already
+>   counted, because `dashboard-actions.js` and `mobile-nav-customizer.js`
+>   carry explicit writes for them.
+>
+> All 22 shipped names are absent from the re-run.
+>
+> **The band-1 long tail is now fully triaged.** Two triage slices
+> (dashboard-side, everything-else) put **145 of the 148** band-1 names into
+> buckets, each with a per-name proof: JS grep, HTML and generated markup,
+> dispatch paths, and `tests/e2e`. The 3 left unbucketed are all assigned by
+> `dashboard-ui.js` (`_nbdInitThemeStack`, `_syncKanbanPrefControls`,
+> `_photoSearchQuery`, the last with a `dashboard-state.js` twin), so they
+> belong to the T3-A census below. An adversarial verifier re-checked every
+> CONVERT_NOW row: 22 confirmed, 0 refuted.
+>
+> | Bucket | Names | Status |
+> |---|---|---|
+> | CONVERT_NOW | 22 | **All shipped this session** (per PR below) |
+> | NEEDS_IIFE_FIRST | 16 | Owner is a top-level classic script, so the name is an auto-global whatever the export line says |
+> | LANDMINE | 21 | Hidden consumers the census can't see; converting as a one-consumer edge breaks something silently |
+> | FALSE_EDGE | 8 | The "edge" is a comment, a data slot, or two files that never share a page |
+> | KEEP_AS_API | 78 | Namespaced singletons, data slots, SDK re-exports, config, devtools recovery |
+>
+> **Shipped, per PR** (merge order: #1669, #1662, #1664, #1668, #1670, #1666;
+> each PR body carries the full per-name proof and mutation table):
+> - **#1669 (3):** `refreshStageOptions`, `_generateDocWithPreflight`,
+>   `partitionLeadsByColumn`. The owner is `dashboard-bootstrap.module.js`;
+>   the consumers are `crm-leads.js`, `dashboard-actions.js` and
+>   `crm-pipeline.js`. Trap fixed in passing: `openLeadModal`'s hoisted
+>   `var _nbdReg` sat *below* the new first use, so it read `undefined` and
+>   silently skipped the tenant stage rebuild. The declaration moved up and
+>   a pin now guards the order.
+> - **#1662 (1):** `_loadEstimateDefaultsV2`. This closes the
+>   `dashboard-bootstrap.module.js → ui.js` edge at 7 of 7, including its
+>   in-module poll and reset callers. The derived `window._loadEstimateDefaults`
+>   alias had zero readers repo-wide, so it was deleted, not rewired. `ui.js`
+>   reads the registry inline, because `switchSettingsTab`'s hoisted
+>   `_nbdReg` is still `undefined` on the synchronous path.
+> - **#1664 (5):** from `crm-portal-bridge.js`, `exitBulkMode`,
+>   `toggleBulkMode` and `scrollToFollowUps`; from `analytics-kpi.js`,
+>   `renderDoorsVerifiedCard`; from `smart-calendar.js`, `loadSmartCalendar`.
+>   `loadSmartCalendar` was removed from `_NBD_CALL_ALLOWLIST`, and its
+>   `tests/e2e/pro-authed.spec.js` read was rewired.
+> - **#1668 (4):** `nbdSyncSizeBtns`, `renderProductLibrary`,
+>   `renderJobTemplatesLibrary` and `toggleInsuranceOverlay`. The overlay
+>   file was IIFE-wrapped; it is re-executed by template hydration, and a vm
+>   test runs it twice. Its allowlist entry was removed. The two
+>   render-alias `else if` fallbacks are dead in practice and were left in
+>   place (optional follow-up).
+> - **#1670 (7):** `renderCoverHero`, `loadPhotosByPhase`,
+>   `loadNewPortalSections`, `setupContactTab`, `loadCommunicationLog` and
+>   `logGeneratedDoc` from `customer-tasks-ui.js`, which was only possible
+>   after #1657's wrap. Their registry block sits at the **top** of the IIFE
+>   behind the `||` guard, because `customer-bootstrap.module.js` has a
+>   top-level await, so either file can run first. The 7th is
+>   `logCommunication`: `customer-bootstrap.module.js →
+>   customer-quick-action-bar.js`.
+> - **#1666 (2):** `_photoReportOptions` (a rename-on-register of
+>   `photo-report.js`'s `_reportOptions`) and `bootAnalytics`, the **first
+>   registry use on `analytics.html`**. A pin keeps `pro-analytics.js`
+>   loaded as `type="module"`; a classic load would silently re-globalise
+>   it.
+>
+> **Do not re-triage these. The per-name reasons, as the triage recorded
+> them:**
+>
+> *NEEDS_IIFE_FIRST (16), grouped by the file that needs the T3-A wrap:*
+> - **`dashboard-api.js`** (no IIFE anywhere): `_gdprExport` (markup
+>   `data-fn` plus allowlist), and `_revokePortalLink` with
+>   `_sharePortalLink`. Convert those two together, because
+>   `_revokePortalLink` self-calls `window._sharePortalLink`.
+> - **`crm-pipeline.js`** (resolve the `_dragId` bare global first):
+>   `changeLeadType`. The `crm.js:58` line is only a redundant re-export.
+> - **`crm-snooze.js`**: `checkAndCreateNeedsFieldNotifications`.
+> - **`crm-leads.js`**: `closeLeadModal`. It is also a
+>   `_NBD_MODAL_CLOSE_FNS` value, and the bootstrap module's Escape handler
+>   calls it bare.
+> - **`dashboard-widgets.js`**: `closeMobileJobDetail` (three bare,
+>   `typeof`-guarded calls in `dashboard-actions.js`, which would fail
+>   silently once scoped) and `refreshCardDetailChips`.
+> - **`tools.js`**: `qaUseMyLocation` (markup `data-fn` plus allowlist).
+> - **`maps-customers.js`**: `refreshCustomersLayer` and `nbdRepList`.
+>   `nbdRepList` is an alias of `_custRepCats`, itself an auto-global, so
+>   dropping the alias leaves the same callable on `window`.
+> - **`ui.js`**: `showPhotosSkeleton` (exported twice).
+> - **`estimates.js`**: `getLineItems` and `showEstimateTypeSelector`. The
+>   file is lazy, behind `window[fnName]` stubs, so any wrap must keep every
+>   stub-dispatched name on `window`.
+> - **`product-library.js`**'s top-level tail (~971–1072):
+>   `syncRatesFromProductLibrary`. The wrap must keep the `window.R` and
+>   `NBD_ESTIMATE_PRODUCT_MAP` writes.
+> - **`customer-photo-report-generator.js`** (no IIFE): `loadNotes`. This
+>   file needs its own census first, because its siblings are consumed
+>   cross-file and through customer.html's window-walking dispatcher.
+>
+> *LANDMINE (21):*
+> - **String-keyed lazy stubs:** `assignEstimateAction`. Taking it off
+>   `window` leaves the stub installed permanently (a toast loop). Make
+>   `_lazyEstimate` and `withEstimates` registry-aware first.
+> - **Generated markup dispatched by customer.html's window-walking
+>   `_nbdCustomerActionDispatch`:** `deleteCustomerDoc`,
+>   `toggleJobChecklistItem`, `openClaimEditor`. Blocked until that
+>   dispatcher is registry-aware.
+> - **The census missed a bare cross-file caller**, so these are really
+>   2-consumer T3-D names:
+>   - `deleteLead`: `crm-pipeline.js`'s kanban `delete-lead` action.
+>   - `openLeadDetail`: `crm-pipeline.js`'s card click, smoke MUST-STAY.
+>   - `nbdRenderFontGrid`: `dashboard-billing-tab.js:153`, inside a
+>     re-executed template script.
+> - **Twin assigners on two pages, plus string or bare dispatch:**
+>   `getCustomerDocData` (the doc-generation data bridge) and `viewEstimate`.
+>   Leave both.
+> - **Rebound per tenant at runtime by `applyPipelineConfig`:**
+>   `isLostStage`, `stageColor`, `stageOptionsForType`. They are read off
+>   the live slot. Leave them with the stage spine (T3-D).
+> - **`switchSettingsTab`:** an 8-assigner wrapper chain. A hook/event API
+>   is its own design.
+> - **`toggleTradeChip`:** its consumer is in `dashboard-ui.js`, and the
+>   e2e `fnCheck` reads `window`.
+> - **`_tenantFilePrefix`:** an e2e spec reads `window`, a smoke pin checks
+>   the `= async function` shape, and in-file window self-refs feed the
+>   tenant-branded filenames used across many files (the NBD-leak gate
+>   class).
+> - **`loadTimeline`:** 7 bare or guarded sites across 2 files. Scoping it
+>   means ReferenceErrors plus silently skipped refreshes.
+> - **`initDrawMap`:** `waitForMapFn` polls `window[fnName]`; it also has
+>   e2e and smoke must-stay pins.
+> - **`makeLeadFromSearch`:** bare `typeof`-guarded callers in three
+>   delegates fed by generated `data-*-action` markup, plus the e2e globals
+>   snapshot.
+> - **`nbdNavToggle`:** three twin implementations on three pages plus
+>   markup dispatch. Resolve ownership per page first.
+> - **`renderKPIRow`:** bare `typeof`-guarded calls from the bootstrap
+>   module, and e2e reads `window`.
+> - **`searchDraw`:** dispatched twice through markup (`data-fn` and
+>   `data-enter-action`), with a bare call in `widgets.js`; a documented
+>   export.
+>
+> *FALSE_EDGE (8):*
+> - **`_mJdAct`:** the real consumer is in the same file, across IIFEs. It
+>   is a viable intra-file slice later, but it is heavily smoke-pinned as a
+>   slice-end anchor.
+> - **`_repBookingUrl`:** the only "consumer" hits are comments, and the
+>   files never share a page, so it has zero external consumers. Make it
+>   T3-A-private later. It is also part of the fail-open ownership
+>   decision, see below.
+> - **`_reports`:** data, already dispositioned.
+> - **`checkPrerequisites`:** the "consumer" is a comment. The dashboard
+>   polyfill for it is dead code.
+> - **`tradesLabel`:** the files never share a page. Latent display defect:
+>   customer.html document data uses the raw `lead.trades.join(', ')`.
+> - **`_project`:** data, and the files never share a page. **Latent defect,
+>   worth its own look:** `offline-manager.js:419` builds a
+>   `projects/undefined` queued-write replay URL on customer.html and
+>   login.html.
+> - **`sendMessage`:** a name collision across two pages.
+> - **`_knocks`:** a JSDoc mention of a twin-written data cache.
+>
+> *KEEP_AS_API (78):*
+> - **Devtools recovery:** `__nbdGstaticTest`, `__nbdHardReset`.
+> - **Config:** `__NBD_RELEASE`, `__NBD_VAPID_KEY`.
+> - **Firebase SDK re-exports:** `disableNetwork`, `enableNetwork`,
+>   `increment`, `onSnapshot`, `sendPasswordResetEmail`, `arrayRemove`,
+>   `uploadBytesResumable`.
+> - **Data slots:** `_brandOverride`, `_DASH_DOC_PREREQUISITES`,
+>   `_leadsRawCount`, `_loadLeadsRetryAttempt`, `_photoCountByLead`,
+>   `_photoCountsLoaded`, `_photosOnlyWithPhotos`, `_subscription`,
+>   `_zones`, `TRADES`, `NBD_THEME_ENGINE`, `_academyCourses`,
+>   `_academyRetailTree`, `_bookingAsk`, `_bookingCustomerName`,
+>   `_bookingUrl`, `_currentStage`, `_uploadPhase`, `_d2dHailLayer`,
+>   `_firestore`, `_integrationStatus`, `_lastTrainingResult`,
+>   `NBD_CATEGORIES`, `NBD_ESTIMATE_PRODUCT_MAP`, `NBD_INSURANCE_TREE`,
+>   `NBD_JOB_TEMPLATES`, `NBD_UNITS`.
+> - **House singletons:** `AnalyticsKPI`, `CrmListView`,
+>   `CustomerMessages`, `DecisionEngine`, `Expenses`, `Forecasting`,
+>   `HelpIcon`, `InspectionReportEngine`, `LeadSourceROI`,
+>   `MoneyDashboard`, `NBDReports`, `NBDRepos`, `NBDServerAggregates`,
+>   `NBDServerNotifs`, `NBDVoicemail`, `NBDVoiceMemo`, `OnboardingTour`,
+>   `Prospects`, `ReferralRewards`, `RepOS`, `TalkTank`, `VoiceIntel`,
+>   `ClaimCore`, `EmailDrip`, `EntityResolver`, `EstimateSupplement`,
+>   `LocalAuthorityBlueprint`, `NBDBeforeAfter`, `NBDFlags`,
+>   `NbdGlobalSearch`, `NBDPhotoQueueRecovery`, `nbdPrompt`,
+>   `NBDQuickCaptureInbox`, `NBDSentry`, `NBDSignedUrl`, `PhotoAI`,
+>   `PhotoAIClassifier`, `PhotoSmartIngest`, `RealDealAdmin`,
+>   `StaleShares`.
+>
+> **dashboard-ui.js T3-A: prep MERGED (#1672); the wrap is OPEN and HELD
+> (#1673).** A census ran before any edit (acorn parse, every name checked
+> against the whole repo including `tests/e2e`). It corrected the numbers
+> this plan carried:
+> - **57 top-level function declarations + 34 top-level consts** (no
+>   top-level `var`/`let`/`class`). The "24 of 27" in the T3-A cluster list
+>   above counted explicit `window.X =` lines, which is the wrong unit for a
+>   whole-file wrap. 16 functions already had a same-name explicit export,
+>   plus the `_syncKanbanPrefControls` alias. The other 41 were on
+>   `window` only implicitly.
+> - **Pre-wrap IIFE coverage was 8.6%, not ~15%**: the 11 existing IIFEs
+>   covered 229 of 2,668 lines.
+> - **14 implicit names have real outside consumers** that
+>   `globals-xref.js` cannot see (bare or `window.`-qualified), so they
+>   needed explicit exports before any wrap:
+>   - `updateBreadcrumb` and `_hydrateViewTemplate`: called bare and
+>     unguarded in `goTo()`, so every navigation would throw.
+>   - `loadCalSettings`, `renderAcDrop`, `hideAcDrop`.
+>   - `closeUploadDoc`: without it, a successful upload would report
+>     "Upload failed".
+>   - `applyTheme`, `dsRenderFloors`, `dsBuildThemeGrid`,
+>     `getCrmSecHeaderEnabled`, `mobileNav`.
+>   - `toggleMobileMore`: the live More button once the customizer
+>     re-renders the bottom nav. The call is `typeof`-guarded, so it would
+>     break silently.
+>   - `closeMobileMore`.
+>   - `toggleMapSidebar`: the REQUIRED @audit `fnCheck` reads it.
+> - **Two resolution flips a wrap would cause:**
+>   - **`showToast`.** `ui.js` owns the global, and this file's legacy
+>     `#toast`-queue copy would *shadow* it for its ~24 bare in-file calls.
+>     Turning it into a const would make `ui.js:680` a SyntaxError.
+>     Resolved by deleting the legacy copy and `processToastQueue`.
+>   - **`mobileNav`.** `mobile-nav-customizer.js:346` replaces
+>     `window.mobileNav`, and the delegate's bare call would bind to the
+>     local original. Resolved by calling `window.mobileNav(target)` first,
+>     with a local fallback.
+> - **The wrap removes an accidental re-execution guard.** Unwrapped, the 34
+>   top-level consts made a second execution a redeclaration SyntaxError
+>   that aborted cleanly. Inside an IIFE, a second run would bind the
+>   document-level delegates twice, so every `data-fn` click would fire
+>   twice. The replacement is an explicit
+>   `__NBD_LOADED['dashboard-ui']` load-once guard as the IIFE's first
+>   statement.
+>
+> **#1672 (merged, zero behaviour).** It adds one block of plain
+> `window.X = X;` lines at the top of the file, above the eager hydrate
+> (the first load-time throw point). The block covers the 14 names plus
+> `_nbdResolveMapped`, a documented test seam for
+> `globals-surface-snapshot.spec.js`. The typeof-guarded form is banned
+> by FWD_GUARD, so the lines use the plain form.
+> - **Proof:** a local emulator `@globals` snapshot over all 57 declared
+>   names (131 names, 170 keys) showed **0/170 keys changed**, and the
+>   `@audit` report was identical.
+> - 5/5 mutations went RED.
+>
+> **#1673 (OPEN, HELD for Jo's explicit go-ahead).** CI is 22/22 green and
+> 3 reviewers approved.
+> - **The change:** a whole-file IIFE with no re-indent, CRLF kept and no
+>   `'use strict'`. It also adds the load-once guard, deletes the legacy
+>   `showToast`, rewires `mobileNav`, and adds 21 new `T1_NAMES`.
+> - **`@globals` A → B:** exactly **24 names flip to `'undefined'`**, as
+>   predicted. They are the 21 newly private names, `closeHdrMobileMenu` and
+>   `restoreCrmSecondary` (already in `T1_NAMES`), and `processToastQueue`
+>   (deleted).
+> - **The prediction had been corrected before the run.** It was not "25
+>   to `'missing'`": an absent property reads as `'undefined'`, and
+>   `initAllAutocomplete` keeps its window slot through the dead spyglass
+>   wrapper.
+> - **Everything else is unchanged:** the `showToast`/`mobileNav`
+>   fingerprints, every export, the resolver and all 36 `__map_*` entries.
+>   The result was deterministic across 3 runs, and 18/18 mutations went
+>   RED.
+> - **Review nits to carry if it merges:**
+>   - The `DU_T3A_PRIVATE` pin checks only left-hand-side forms. An alias
+>     export (`window._openTips = openTips`) or
+>     `Object.assign(window, { … })` both stay green; reviewers reproduced
+>     both.
+>   - The spyglass wrapper's `_origInit` is now `undefined`. That is dead
+>     code; the window surface is unchanged.
+>   - `dashboard-main.js:31` still lists `showToast`, alongside the stale
+>     comments named in the PR body.
+>   - #1672's "still declares function X" pin is a textual column-0 regex.
+>   - FWD_GUARD misses a `typeof`-guarded re-export that has a trailing
+>     comment. That is unchanged and flagged in both PRs.
+>
+> **Recurring lesson: parallel T3 PRs collide in two places in
+> `tests/smoke/dashboard.test.js`. Plan for it before opening the next
+> batch.**
+> 1. **`T1_NAMES`.** Every PR adds names. Appending at the shared array tail
+>    conflicts every time, so insert beside the owner's existing group
+>    instead. All six PRs above did.
+> 2. **Appended assertion blocks.** Suppose two PRs each append a
+>    `{ … }` block after the same anchor. Both new blocks end in an
+>    identical closing `}` line, so git factors that shared brace *out* of
+>    the conflict hunk as common context. The conflict region then holds
+>    block A's body and block B's body with only **one** closing brace
+>    between them and the rest of the file. A naive "take both" union
+>    leaves A's block unclosed, so B nests inside it. The union needs an
+>    **explicit block close** inserted between the two bodies. Better
+>    still, give each block its own anchor.
+>
+> The same class hits `tests/ci-manifest.json` and the `FLOORS` literal in
+> `scripts/run-test-manifest.js` whenever two lanes add suites. The fix
+> there: union the entries, then re-measure FLOORS with `--check` on the
+> merged tree; never hand-add. See
+> [FAIL-OPEN-SWEEP-2026-09-18](../../documentation/audit/FAIL-OPEN-SWEEP-2026-09-18.md).
+
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
 the edge is a real API).
@@ -1083,6 +1400,9 @@ the edge is a real API).
 > `window._loadEstimateDefaults = function() { return
 > window._loadEstimateDefaultsV2(); }` alias. Converting it needs its own
 > slice — rewiring the self-references too, not just the `ui.js` edge.
+> **Done 2026-09-18 (part 5), PR #1662**: self-references rewired to direct
+> calls, the alias deleted (zero readers), `ui.js` reads the registry
+> inline — see the part-5 update above.
 
 **T3-D — the 2–5 band proper (131 names → NBD-prefixed singleton APIs).**
 Owner-cluster order, biggest coherent API first:

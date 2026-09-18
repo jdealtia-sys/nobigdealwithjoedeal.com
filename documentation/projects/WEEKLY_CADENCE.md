@@ -125,6 +125,29 @@
 
 ## One-off queue — Jo (decisions & console; newest first, check off here when done)
 
+- [ ] **Decide: booking and review links go by WHO you are, not by what the
+      brand says (added 2026-09-18).** Today the CRM decides "this account is
+      NBD" from brand text. Before a company's profile has loaded, that text
+      *is* NBD's, so another company's homeowner could get your Cal.com
+      booking link, your sign-off and your Google-review link. The check runs
+      every time a customer page is opened from the dashboard. Nobody is
+      harmed yet, because prod has one company, but signup is open.
+      The proposed fix checks identity instead: your account (uid or
+      companyId = owner) gets the house links, and anyone else gets their own
+      or nothing. **The side effect needs your OK:** your two non-owner logins,
+      **jdeal.tia@gmail.com** and **demo@nobigdeal.pro**, would stop showing
+      the house booking and review links. Each would need its own Cal.com
+      username and review link set in Settings. Say yes and a session builds
+      it. Details:
+      [FAIL-OPEN-SWEEP-2026-09-18](../audit/FAIL-OPEN-SWEEP-2026-09-18.md)
+      §Deferred.
+- [ ] **Go / no-go on PR #1673 (added 2026-09-18)**, the `dashboard-ui.js`
+      whole-file IIFE wrap (Globals Tranche 3). It is 22/22 green and three
+      reviewers approved it. It is held only because the part-4 brief asked
+      for your explicit OK on this file. The zero-behaviour prep, #1672, is
+      already merged. Evidence:
+      [globals-tranche3-plan.md](../../docs/dev/globals-tranche3-plan.md)
+      part-5 update.
 - [ ] **Grant `roles/iam.serviceAccountTokenCreator` on the compute SA (~2 min,
       GCP Console → IAM)** — the same item as the older "IAM fix" below, now
       the highest-leverage console task there is: `signImageUrl` has no
@@ -132,10 +155,18 @@
       carries a permanent public URL) cannot start until it lands. Then tell a
       session; it probes `POST /signImageUrl` and starts the cutover.
       Context: [NEXT_SESSION-2026-09-03](NEXT_SESSION-2026-09-03.md).
-- [ ] **Turn on branch protection for `main` (~2 min)** — verified OFF on
-      2026-09-02 (`gh api …/branches/main/protection` → 404, no rulesets), so
-      CODEOWNERS enforces nothing and every merge deploys immediately.
-      Require at least the `Smoke tests` and `Firestore rules tests` checks.
+- [x] **~~Turn on branch protection for `main`~~ ALREADY ON: this item was
+      STALE (verified 2026-09-18 with `gh api …/branches/main/protection`).**
+      Classic protection is on. PRs are required (0 approvals), and so are 7
+      checks: `Smoke tests`, `Unit suites (manifest)`, `Site integrity`,
+      `Node syntax check`, `Secret scan`, `Firestore rules tests` and
+      `Functions parse + dep install`. The 2026-09-02 "404, OFF" reading no
+      longer holds.
+      One gap remains: `enforce_admins` is **false**, so an admin push skips
+      the rule. That is how part 4's direct push to `main` got through.
+- [ ] **Optional (~1 min): tick "Include administrators"** on the `main`
+      branch-protection rule (repo Settings → Branches), so admin pushes can't
+      skip the required checks either.
 - [ ] **Cloud Storage backup (OPS_AUDIT P0 #2)** — Object Versioning on
       `nobigdeal-pro.firebasestorage.app` + a daily Storage Transfer to a
       second bucket; photos and signed contracts are unrecoverable today.
@@ -216,7 +247,24 @@
       anecdote, report screenshots) — [drafts README](../drafts/README.md);
       each cleared post = one agent publish session *(was "3 drafts": the
       financing post published 2026-08-17, PR #1224; corrected 2026-08-25)*
-- [ ] **TAMKO real pricing** — 8 SKUs still carry GAF-mirrored placeholders
+- [ ] **TAMKO real pricing**: 8 SKUs still carry GAF-mirrored placeholders.
+      *(Detail added 2026-09-18.)* Each of these is marked
+      `PLACEHOLDER PRICING mirrored from GAF …` in
+      `docs/pro/js/product-data.js`:
+      - **Shingles:** TAMKO Heritage, Titan XT, StormFighter Flex, HailGuard.
+      - **Underlayment:** Synthetic Guard Underlayment, Moisture Guard
+        Ice & Water.
+      - **Accessories:** Hip & Ridge Shingles, Perforated Shingle Starter.
+
+      Also price the **Heritage Repair Bundle** (`shingle_016`). Its notes
+      don't carry the placeholder flag, but it is the repair-scale companion
+      of the placeholder-priced Heritage, so its sell prices need the same
+      confirmation.
+
+      StormFighter Flex and HailGuard are special-order only (0 supplier
+      results), so they need your special-order price. For Titan XT, Hip &
+      Ridge and Starter, cost is already in the cost book and only the
+      **sell** prices are missing.
 - [ ] **kie.ai visualizer flip** (config-only) —
       [VISUALIZER-KIE-PROVIDER](../runbooks/VISUALIZER-KIE-PROVIDER.md)
 - [ ] **www → apex 301** (~2 min) then **DMARC** `p=none` + rua, tighten after
@@ -257,6 +305,28 @@
    pasting it is what closes the item ([Phase-2
    brief](PHASE2-PUBLISHED-COST-BASIS-BRIEF-2026-08-18.md) ·
    [audit 2026-08-10](../audit/SITE-AUDIT-LOOSE-ENDS-2026-08-10.md))
+
+   **2026-09-18: step 1 is DONE, and the item now waits on Jo filling the
+   worksheets.**
+   - `--catalog all --worksheet` wrote `.local/rotation-labor.{json,csv}`,
+     `.local/rotation-xact.{json,csv}` and `.local/rotation-v2.{json,csv}` in
+     the main checkout. `.local/` is gitignored, and the cost-privacy guard
+     asserts it stays that way.
+   - Row counts: **labor 66, xact 277, v2 28**. xact is **277, not the 276**
+     quoted above and in `cost-rotation.js`'s header.
+   - **Jo:** fill the blank columns with current real figures:
+     - labor: `rate`, `hoursPerUnit`, `crewSize`
+     - xact: `materialCost`, `laborCost`
+     - v2: `cost`, `labor`
+
+     A blank keeps the existing, leaked value, and the tool reports it.
+     `--apply` reads the **`.json`**. The `.csv` holds the same rows for
+     spreadsheet editing, so if you fill the CSV, a session folds it back
+     into the JSON.
+   - Then, per catalog: `node scripts/cost-rotation.js --catalog <labor|xact|v2>
+     --apply .local/rotation-<id>.json`, then `node scripts/import-cost-rotation.js
+     --catalog <id> --company <companyId> --yes`, then paste the printed
+     `rotation:` block into `tests/cost-basis-ledger.js`.
 2. **Lexington launch ops (Jo, ~15 min)** — the site claims Central KY as of
    2026-08-25: **PARTIALLY DONE, verified 2026-09-17** — (a) GBP service
    area: **PARTIAL, unconfirmed** — the profile was at the 20/20 hard cap, so
@@ -403,10 +473,11 @@
     resolving the competing-definition overlap with pages' own hand-authored
     NAV sections (which currently lose the cascade fight silently). Treat as
     its own slice with its own verification, not a quick follow-on.
-    **14 more blocks (of the original 17) surveyed, not yet touched**: 3
+    **14 more blocks (of the original 17) surveyed, not yet touched**: ~~3
     more small no-conflict blocks (nav-collapse normalize, a11y
     focus/reduced-motion, iOS-zoom fix; ~117 KB) are still a plausible next
-    mechanical slice. Five blocks (footer contrast, footer social icons,
+    mechanical slice.~~ *(Wrong: re-measured 2026-09-18 at 7,081 B on 33
+    pages. See "Slice 3" below for what shipped instead.)* Five blocks (footer contrast, footer social icons,
     sitewide readability v2, trust-icon fix, blog-template shim) already
     have one-shot INJECT-ONLY generator scripts from when they first
     shipped (not CI-wired) — extracting them needs those scripts updated
@@ -422,6 +493,84 @@
     accessibility-motivated per-page overrides (`docs/inspect.html`'s
     `--orange-dark`, `the-pledge`/`free-tools`/`book`/`free-roof`'s extra
     tokens) need human design review before touching, not just automation.
+
+    **Slice 3, 2026-09-18: the plan above was WRONG, and what shipped
+    instead.** A re-census counted from source across 295 non-`/pro` HTML
+    pages, using LF bytes as the deploy serves them. The "3 small no-conflict
+    blocks, ~117 KB" are really **7,081 B on 33 pages**, about 16× smaller:
+    - nav-collapse: 17 pages, 3,442 B
+    - iOS-zoom: 10 pages, 1,615 B
+    - a11y: 6 pages, 2,024 B
+
+    Two of the three are redundant copies of CSS that shared sheets already
+    supply, so they were *stripped*, not extracted. The re-census also found
+    where the real bytes are.
+    - **3a, [#1671](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1671)
+      (merged).** Stripped **204** redundant inline `<style>` blocks
+      (~31.5 KB as git stores it):
+      - trust-icon fix × 181, re-declared by `nbd-icons.css`, which links
+        after the block
+      - a11y × 6, duplicated by `nbd-mobile.css`
+      - nav-collapse × 17, covered by `nbd-nav-base.css`, the last stylesheet
+        on those pages
+
+      `scripts/strip-redundant-inline-css.js` is one-shot and checks a
+      precondition per page. `fix-trust-icons.js` is now **guarded**: it
+      skips pages that link `nbd-icons.css`. Computed styles were identical
+      on all 204 pages; screenshots, focus rings and reduced-motion were
+      checked. Residual risk: on those 17 pages nothing backstops the nav if
+      the `nbd-nav-base.css` link ever moves earlier, because
+      `ensure-nav-css.js` checks that the link exists, not where it sits.
+    - **3b, [#1674](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1674)
+      (merged, verified live after deploy).** `nbd-readability-v2` was
+      extracted to `/assets/css/nbd-readability.css` and **linked IN PLACE**
+      on **186** pages, saving ~446 KB of HTML for one 3.4 KB cached sheet.
+      - `scripts/ensure-readability-css.js` runs in assert mode in CI. It
+        fails on any byte-exact inline re-injection, or on a page carrying
+        both the link and the marker.
+      - `fix-typography-and-footer.js` `injectTypography` is guarded.
+      - `index.html`'s variant stays inline on purpose.
+      - "In place" is load-bearing. A control that moved the link before
+        `</head>` changed computed styles on 39 of 70 page@width combos,
+        because equal-specificity `!important` ties flipped against
+        `nbd-mobile.css`.
+      - A census expectation was corrected along the way. The block's
+        wide-desktop nav padding is *already* out-cascaded on 171 pages
+        today, by `nbd-mobile.css`'s unconditional padding rule. Whether it
+        should apply is a design question, not a migration one.
+    - **Next candidates** (the census's "LATER" list):
+      - The **7-block contiguous run** (footer contrast … readability) is
+        byte-identical on 157 pages, and one link would save ~958 KB. That
+        figure was measured *before* 3b and includes the readability block
+        3b already extracted. An estimated ~570 KB remains (958 KB minus
+        157 × 2,462 B); re-measure before planning it. It also needs 3 stale generators guarded, and it
+        swallows the nav-logo/nav-responsive overlap.
+      - Then by bytes: **social ~180 KB**, **nav-responsive-fix v3
+        ~157 KB**, **footer contrast ~151 KB**, **typography normalize
+        ~142 KB** (canonical group), `.nbd-skip` ~47 KB (no marker),
+        shrink-logo ~33 KB and the blog shim ~20 KB.
+      - The wins are fewer places to edit, fewer Report-Only CSP
+        `style-src` violations, and smaller repo/deploy bytes. Wire savings
+        are small, because the HTML is already compressed.
+    - **Not safe to touch:**
+      - **iOS-zoom.** On 10 pages it is the only live `!important` source of
+        16px inputs. Folding it into `nbd-mobile.css` would be a site-wide
+        design change.
+      - **Never remove-then-append** (the `ensure-nav-css.js` /
+        `ensure-icon-css.js` write path) for any block that sits before
+        `nbd-mobile.css` or `nbd-icons.css`: footer contrast, social,
+        typography normalize, nav-responsive-fix v3. Replace in place only.
+      - **Five inject-only generators** carry stale pre-palette CSS and
+        re-stamp at the end of `<head>`, where they win the cascade. Guard
+        each one before re-running it or migrating its block:
+        - guarded: `fix-trust-icons.js` (#1671), `fix-typography-and-footer.js`
+          `injectTypography` (#1674)
+        - still unguarded: `fix-footer-contrast.js`,
+          `add-social-footer-strip.js`, `fix-blog-templates.js`
+      - **No whole-block strip of footer contrast**: 9 of its 13
+        declarations are live.
+      - **Hands off** `unified-nav injected` (19 per-template shapes, and
+        `url()`s that would re-base) and the per-template `:root` subsets.
 11. ~~/our-work/<slug> detail pages~~ **DONE, PR #1632 (2026-09-17)** —
     `scripts/build-projects.mjs` generates one standalone page per live
     project with its own Service/BreadcrumbList JSON-LD, wired into
@@ -587,6 +736,27 @@
     (157/157 node suites), and all 13 standalone customer-page test
     files individually (0 failed each). This closes out both whole-file
     T3-A candidates flagged this session.
+    **2026-09-18 (part 5): the band-1 long tail is fully triaged and every
+    convertible name has shipped.** The current state, and the per-name
+    reasons, live in the
+    [plan doc's part-5 update](../../docs/dev/globals-tranche3-plan.md).
+    Read that before starting the next slice, not the running counts in this
+    item. The **census re-run went 762 → 751** assigned globals. **145 of the
+    148 band-1 names are bucketed**, and all **22 CONVERT_NOW** names shipped
+    in #1662, #1664, #1666, #1668, #1669 and #1670. **What remains** is
+    NEEDS_IIFE_FIRST 16, LANDMINE 21, FALSE_EDGE 8 and KEEP_AS_API 78; no
+    one-consumer edge is left that converts without IIFE work or a dispatcher
+    change first. For **`dashboard-ui.js` T3-A**, the zero-behaviour prep
+    (**#1672**) merged, and the whole-file wrap (**#1673**) is 22/22 green
+    with 3 approvals and **held for Jo's go-ahead** (it is in Jo's queue
+    above). **Next-slice candidates** are the NEEDS_IIFE_FIRST owner wraps
+    (`dashboard-api.js`, `dashboard-widgets.js`, `maps-customers.js`,
+    `crm-leads.js`, `crm-snooze.js`, `tools.js`), and making customer.html's
+    window-walking `_nbdCustomerActionDispatch` registry-aware, which
+    unblocks 3 LANDMINEs. **Recurring merge lesson:** parallel T3 PRs collide
+    in `T1_NAMES` and in appended assertion blocks. Git factors the shared
+    closing brace out of the conflict hunk, so a naive union needs an
+    explicit block close.
     · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
