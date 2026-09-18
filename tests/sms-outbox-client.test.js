@@ -495,7 +495,9 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
       await h.ob.enqueue({ uid: 'rep-1', to: '555-010' + (i % 10) + ' ext', body: 'msg ' + i });
     }
     // Another user's rows (before an account-switch purge) never count.
-    await h.ob.enqueue({ uid: 'rep-2', to: '5550100199', body: 'theirs' });
+    let otherQueued = true;
+    try { await h.ob.enqueue({ uid: 'rep-2', to: '5550100199', body: 'theirs' }); } catch (_) { otherQueued = false; }
+    ok('the cap is per user: another account\'s 1st text is accepted next to rep-1\'s 50', otherQueued);
     const r = await h.comms.sendSMS(SMS);
     ok('51st: success:false, mode "platform" (a refusal consumers must not re-handle), error "outbox-full"',
       r.success === false && r.mode === 'platform' && r.error === 'outbox-full', JSON.stringify(r));
@@ -663,6 +665,25 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('…and the text is POSTed exactly once', h.posts.length === 1, String(h.posts.length));
   }
   {
+    // A text stored while a run is already under way (the run read the queue
+    // before it existed) still goes: joining a run schedules ONE trailing run.
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const h = loadPage({ online: false, respond: async (b) => { if (b.body === 'first') await gate; return OK200(); } });
+    await booted(h);
+    await h.ob.enqueue({ uid: 'rep-1', to: '5135550001', body: 'first', createdAt: Date.now() - MIN });
+    h.window.navigator.onLine = true;
+    const run = h.ob.flush('a');
+    await wait(10);
+    await h.ob.enqueue({ uid: 'rep-1', to: '5135550002', body: 'late', createdAt: Date.now() });
+    h.ob.flush('b');                 // joins the run in progress
+    release();
+    await run;
+    await until(() => h.posts.length === 2 && h.rows().length === 0);
+    ok('a text stored mid-run is sent by the trailing run, not left for the next "online"',
+      h.posts.map((p) => p.body.body).join(',') === 'first,late' && h.rows().length === 0, h.posts.map((p) => p.body.body).join(','));
+  }
+  {
     // Two tabs, same origin: shared IndexedDB and localStorage, no Web Locks.
     const disk = newDisk();
     const LS = {};
@@ -677,7 +698,9 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     t1.window.navigator.onLine = true; t2.window.navigator.onLine = true;
     const f1 = t1.ob.flush('tab1');
     await wait(10);
-    const f2 = await t2.ob.flush('tab2');
+    // Raced against a timer: a second tab that does NOT stand down would sit
+    // on the gated fetch forever — that must fail this assertion, not hang.
+    const f2 = await Promise.race([t2.ob.flush('tab2'), wait(300).then(() => ({ skipped: 'no — it flushed too' }))]);
     release();
     await f1;
     ok('two tabs (localStorage lease): the second tab stands down while the first flushes', f2.skipped === 'busy', JSON.stringify(f2));
@@ -724,7 +747,7 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     t1.window.navigator.onLine = true; t2.window.navigator.onLine = true;
     const f1 = t1.ob.flush('a');
     await wait(10);
-    const f2 = await t2.ob.flush('b');
+    const f2 = await Promise.race([t2.ob.flush('b'), wait(300).then(() => ({ skipped: 'no — it flushed too' }))]);
     release(); await f1;
     ok('navigator.locks (ifAvailable): the second tab stands down', f2.skipped === 'busy' && t1.posts.length + t2.posts.length === 1, JSON.stringify(f2));
   }
@@ -916,10 +939,32 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('…and gives up after its bound instead of stalling sign-out', ok3 === false, String(ok3));
   }
   {
-    ok('purgeAccountStorage (logout + account switch) purges the outbox',
-      /purgeAccountStorage\(\)\s*\{[\s\S]*?return NBDAuth\.purgeSmsOutbox\(\);\s*\}/.test(AUTH_SRC));
-    ok('logout() awaits purgeAccountStorage before signOut',
-      /async logout\([^)]*\)\s*\{[\s\S]{0,300}await this\.purgeAccountStorage\(\)[\s\S]{0,200}await signOut\(_auth\)/.test(AUTH_SRC));
+    // purgeAccountStorage + logout, lifted out of the ES module and RUN.
+    const order = [];
+    const LSK = { nbd_leads_cache: '1', 'nbd-theme': 'dark' };
+    const lsStub = {
+      get length() { return Object.keys(LSK).length; },
+      key: (i) => Object.keys(LSK)[i],
+      removeItem: (k) => { delete LSK[k]; },
+    };
+    let finishPurge;
+    const NBDAuthStub = {
+      purgeSmsOutbox: () => { order.push('sms-purge-start'); return new Promise((r) => { finishPurge = () => { order.push('sms-purge-done'); r(true); }; }); },
+    };
+    const purgeSrc = extractBlock(AUTH_SRC, 'purgeAccountStorage() {');
+    const logoutSrc = extractBlock(AUTH_SRC, "async logout(redirect = '/pro/login.html') {");
+    const win = { location: { replace: (u) => order.push('redirect:' + u) } };
+    const auth = new Function('NBDAuth', 'localStorage', 'signOut', '_auth', 'window',
+      'return ({ ' + purgeSrc + ',\n' + logoutSrc + ' });')(
+      NBDAuthStub, lsStub, async () => { order.push('signOut'); }, {}, win);
+    const p = auth.logout();
+    await wait(5);
+    ok('purgeAccountStorage (logout + account switch) purges the SMS outbox too',
+      order[0] === 'sms-purge-start' && !('nbd_leads_cache' in LSK) && LSK['nbd-theme'] === 'dark', order.join(','));
+    ok('logout() does not sign out while the outbox purge is still running', order.join(',') === 'sms-purge-start', order.join(','));
+    finishPurge();
+    await p;
+    ok('…then signs out and redirects', order.join(',') === 'sms-purge-start,sms-purge-done,signOut,redirect:/pro/login.html', order.join(','));
   }
   {
     // dashboard _signOut: the purge must COMPLETE before signOut() runs.
@@ -959,11 +1004,27 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     const disk = newDisk();
     const a = loadPage({ online: false, disk });
     await booted(a);
-    await a.ob.enqueue({ uid: 'rep-2', to: '5135550009', body: 'not mine', createdAt: Date.now() - MIN });
+    const other = await a.ob.enqueue({ uid: 'rep-2', to: '5135550009', body: 'not mine', createdAt: Date.now() - MIN });
     a.window.navigator.onLine = true;
     await a.ob.flush('t');
     ok('a flush never sends another user\'s record', a.posts.length === 0);
     ok('list() never returns another user\'s record', (await a.ob.list('rep-1')).length === 0);
+    await a.ob.discard(other.id);
+    await a.ob.sendNow(other.id);
+    await a.ob.editAndSend(other.id, 'rewritten by someone else');
+    ok('discard() / sendNow() / editAndSend() by id cannot touch another user\'s record',
+      rowsOn(disk).some((r) => r.id === other.id && r.status === 'queued' && r.body === 'not mine')
+      && rowsOn(disk).filter((r) => r.uid === 'rep-2').length === 1 && a.posts.length === 0,
+      JSON.stringify(rowsOn(disk).map((r) => [r.uid, r.body])));
+    // Another account's leftover with the SAME number and words, older than
+    // this rep's: it must neither swallow this rep's text as a "duplicate"
+    // nor hold it back in the per-recipient queue.
+    await a.ob.enqueue({ uid: 'rep-2', to: '5135550009', body: 'same words', createdAt: Date.now() - 3 * MIN });
+    await a.ob.enqueue({ uid: 'rep-1', to: '5135550009', body: 'same words', createdAt: Date.now() - 2 * MIN });
+    await a.ob.flush('t2');
+    ok('another account\'s identical older text never collapses or blocks this rep\'s',
+      a.posts.length === 1 && a.posts[0].body.body === 'same words' && !rowsOn(disk).some((r) => r.uid === 'rep-1'),
+      JSON.stringify(rowsOn(disk).map((r) => [r.uid, r.status, r.heldReason])));
   }
 
   // ═══ 7. consumers ═════════════════════════════════════════════════════
@@ -994,17 +1055,19 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('invoice SMS queued: the invoice is NEVER written "sent"', !writes.some((w) => w.data.status === 'sent'), JSON.stringify(writes));
     ok('…its send lock is released back to "draft"', writes.some((w) => w.data.status === 'draft') && status === 'draft');
     ok('…and the text carries source "invoice-sms" + the invoice id', win._smsArgs.source === 'invoice-sms' && win._smsArgs.sourceRef === 'inv-1');
-    (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail: { source: 'invoice-sms', sourceRef: 'inv-1' } }));
+    const fire = (detail) => (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail }));
+    const n0 = writes.length;
+    fire({ source: 'deal-sms', sourceRef: 'inv-1' });           // someone else's text, same id
+    await wait(5);
+    ok('the listener ignores other sources (the invoice stays unsent)', writes.length === n0 && status === 'draft');
+    fire({ source: 'invoice-sms', sourceRef: 'inv-1' });
     await wait(5);
     ok('when the outbox actually sends it, the invoice is marked "sent" then', status === 'sent');
     status = 'paid';
     const n = writes.length;
-    (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail: { source: 'invoice-sms', sourceRef: 'inv-1' } }));
+    fire({ source: 'invoice-sms', sourceRef: 'inv-1' });
     await wait(5);
     ok('…but never over a paid/void/already-sent invoice', writes.length === n && status === 'paid');
-    (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail: { source: 'deal-sms', sourceRef: 'inv-1' } }));
-    await wait(5);
-    ok('…and ignores other sources', writes.length === n);
   }
   {
     // close-board.js sendViaSMS + its listener, lifted out with their deps.
