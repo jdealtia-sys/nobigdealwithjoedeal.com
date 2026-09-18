@@ -562,7 +562,7 @@
     for the 11 private names (zero hits), and actually ran
     `tests/stripe-connect-ui.test.js` themselves (101/101 green) rather
     than trusting a claimed count. `tests/smoke.test.js` now 4184/4184.
-    **A twelfth PR same day (PR TBD)** was the second and biggest
+    **A twelfth PR same day (PR #1657)** was the second and biggest
     whole-file wrap — `customer-tasks-ui.js` (2521 lines, 93 total
     top-level names). A background census agent built the full consumer
     inventory before any edit was attempted, confirming this file's
