@@ -177,6 +177,7 @@
     "careers-posting-parked.test.js",
     "leads-loaded-account-switch.test.js",
     "failopen-destructive-false-success-2026-09-18.test.js",
+    "close-board-per-uid-storage-2026-09-18.test.js",
     "pipeline-builder-hydration.test.js",
     "map-views-hydration.test.js",
     "lead-trades-unknown.test.js",
