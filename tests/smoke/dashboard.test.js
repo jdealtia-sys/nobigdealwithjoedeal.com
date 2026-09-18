@@ -3918,9 +3918,18 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\._renameEstimate\(id, trimmed\)/.test(estCrmOpsSrc));
   assert('estimate-crm-ops.js\'s deleteEstimateAction reads _deleteEstimate off the registry, not bare window',
     /_nbdReg\._deleteEstimate\(id\)/.test(estCrmOpsSrc));
-  assert('estimate-crm-ops.js\'s two _assignEstimateToLead call sites (unassign + lead-row pick) both read off the registry',
-    (estCrmOpsSrc.match(/window\.__NBD_CALL_REGISTRY\._assignEstimateToLead\(/g) || []).length === 2
-    && !/window\._assignEstimateToLead\(/.test(estCrmOpsSrc));
+  // 2026-09-18 (Fix broken Assign on customer-page estimate hub): the two
+  // call sites originally read window.__NBD_CALL_REGISTRY._assignEstimateToLead
+  // directly with no existence guard. _assignEstimateToLead is registered only
+  // by THIS file (dashboard-bootstrap.module.js), which customer.html never
+  // loads, so clicking Assign there threw an unhandled rejection instead of
+  // showing an error. Now guarded like _deleteEstimate/_renameEstimate above.
+  assert('estimate-crm-ops.js\'s two _assignEstimateToLead call sites (unassign + lead-row pick) both read off the registry, guarded like _deleteEstimate/_renameEstimate',
+    (estCrmOpsSrc.match(/_nbdReg\._assignEstimateToLead\(estimateId, (null|lead\.id)\)/g) || []).length === 2
+    && !/window\._assignEstimateToLead\(/.test(estCrmOpsSrc)
+    && !/window\.__NBD_CALL_REGISTRY\._assignEstimateToLead\(/.test(estCrmOpsSrc));
+  assert('both _assignEstimateToLead call sites guard on typeof before calling (customer.html has no _assignEstimateToLead registered)',
+    (estCrmOpsSrc.match(/typeof _nbdReg\._assignEstimateToLead !== 'function'/g) || []).length === 2);
 
   // ── Tranche 3 T3-C (2026-09-18): the crm-leads.js edge off
   // dashboard-bootstrap.module.js ──
