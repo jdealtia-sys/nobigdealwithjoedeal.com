@@ -103,18 +103,20 @@ function openLeadModal(){
   // that empty string over the stored stage. editLead assigns #lStage BEFORE
   // it calls us, so by now an unknown key has already collapsed to '' —
   // recover the intended value from the in-memory lead and hand it over.
-  if (typeof window.refreshStageOptions === 'function') {
+  // Both stage-picker helpers below are registry-only (Globals Tranche 3
+  // T3-C, 2026-09-18), not bare window globals. Registry missing (module
+  // failed) → the static built-in option list stays, as before.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (_nbdReg && typeof _nbdReg.refreshStageOptions === 'function') {
     const stEl = document.getElementById('lStage');
     let want = stEl?.value || '';
     if (!want && isEdit) {
       const editing = (window._leads || []).find(l => l && l.id === document.getElementById('lEditId').value);
       if (editing) want = editing._stageKey || editing.stage || '';
     }
-    window.refreshStageOptions(want || 'new');
+    _nbdReg.refreshStageOptions(want || 'new');
   }
   // Apply smart stage dropdown filter based on current jobType
-  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-  var _nbdReg = window.__NBD_CALL_REGISTRY;
   if (_nbdReg && typeof _nbdReg.filterStageDropdownByJobType === 'function') {
     _nbdReg.filterStageDropdownByJobType(jtEl?.value || '');
   }
@@ -335,7 +337,19 @@ async function saveLead(){
       jobType: document.getElementById('lJobType')?.value || '',
       subType: document.getElementById('lSubType')?.value || '',
       // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-      trades: (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.getSelectedTrades === 'function') ? window.__NBD_CALL_REGISTRY.getSelectedTrades() : [],
+      // OMIT `trades` when the chip state is UNKNOWN, same rule as `stage`
+      // above: this payload is spread straight into updateDoc on an edit, so
+      // a `[]` stand-in overwrote the lead's stored trades with nothing. That
+      // happened when the registry helper was missing (a stale cached
+      // bootstrap) AND on a normal load whenever the chips were never drawn —
+      // getSelectedTrades() now returns null for that (a lead with job type
+      // "Not Set" never renders them). A user who deliberately clears every
+      // chip still gets a real [] and saves it.
+      ...(() => {
+        const _t = (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.getSelectedTrades === 'function')
+          ? window.__NBD_CALL_REGISTRY.getSelectedTrades() : null;
+        return Array.isArray(_t) ? { trades: _t } : {};
+      })(),
       source: document.getElementById('lSource')?.value || '',
       // Referral-code redemption: the code this lead was referred with (if any).
       // Stamped raw + uppercased; the server-side onReferralLeadWrite trigger

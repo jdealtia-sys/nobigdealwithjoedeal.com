@@ -82,20 +82,33 @@
   async function signOutEverywhere(el) {
     if (inFlight) return;
 
-    var okToGo = true;
-    if (window.nbdModal && typeof window.nbdModal.confirm === 'function') {
-      okToGo = await window.nbdModal.confirm({
-        title: 'Sign out everywhere?',
-        body: 'This signs out every device on your account — your phone and '
-            + 'tablet included, not just this browser. Anyone already signed '
-            + 'in loses access the next time their session refreshes, within '
-            + 'an hour at most. You will need to sign in again here.',
-        okLabel: 'Sign out everywhere',
-        cancelLabel: 'Cancel',
-        danger: true
-      });
-    }
-    if (!okToGo) return;
+    // Fail CLOSED: no answer is a no. This started as `true`, so with the
+    // modal helper missing (nbd-modal.js failed to load) one tap revoked
+    // every device with no prompt at all. The fallback mirrors
+    // storm-center.js confirmDeleteZone — the native confirm, reached through
+    // nbdConfirm first so the iOS-PWA modal still wins where it exists — and
+    // only an explicit `true` proceeds.
+    var title = 'Sign out everywhere?';
+    var body = 'This signs out every device on your account — your phone and '
+        + 'tablet included, not just this browser. Anyone already signed '
+        + 'in loses access the next time their session refreshes, within '
+        + 'an hour at most. You will need to sign in again here.';
+    var okToGo = false;
+    try {
+      if (window.nbdModal && typeof window.nbdModal.confirm === 'function') {
+        okToGo = await window.nbdModal.confirm({
+          title: title,
+          body: body,
+          okLabel: 'Sign out everywhere',
+          cancelLabel: 'Cancel',
+          danger: true
+        });
+      } else {
+        var ask = window.nbdConfirm || function (m) { return Promise.resolve(typeof window.confirm === 'function' ? window.confirm(m) : false); };
+        okToGo = await ask(title + '\n\n' + body);
+      }
+    } catch (_) { okToGo = false; }
+    if (okToGo !== true) return;
 
     inFlight = true;
     var label = el && el.textContent;

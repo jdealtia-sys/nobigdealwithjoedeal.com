@@ -4671,18 +4671,26 @@
       follow_up_date: knock.followUpDate ? formatDate(knock.followUpDate) : 'soon',
     });
 
-    // Try NBDComms first
+    // Try NBDComms first. NBDComms owns the WHOLE outcome on this path:
+    //   success:true  + mode:'platform' → Twilio sent it.
+    //   success:true  + mode:'sms'      → NBDComms already opened Messages
+    //                                     itself (paid-gate / A2P / 429 / network).
+    //   success:false                   → NBDComms REFUSED (403 opt-out/forbidden,
+    //                                     401) and already toasted why.
+    // Never open sms: here. This used to reopen Messages with the body
+    // prefilled on every success:false, i.e. only on the refusals, so a
+    // homeowner who replied STOP was one tap from getting the text anyway
+    // (the exact handoff nbd-comms.js declines: "would still text").
     if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
       window.NBDComms.sendSMS(phone, body, knock.id).then(result => {
-        if (result.success) {
+        if (result && result.success && result.mode === 'platform') {
           const nameDisplay = knock.homeowner || 'contact';
           window.showToast?.(`Text sent to ${nameDisplay}`, 'ok');
-        } else {
-          // Fallback on failure
-          const cleanPhone = phone.replace(/[^0-9+]/g, '');
-          window.open(`sms:${cleanPhone}?body=${encodeURIComponent(body)}`, '_blank');
-          window.showToast?.('Opening SMS...', 'info');
         }
+      }).catch(e => {
+        // Fail closed: opt-out status is unknown, so no Messages handoff.
+        console.warn('[D2D] sendFollowUpSMS failed', e);
+        window.showToast?.('Could not send text', 'error');
       });
     } else {
       // Fallback: sms: link

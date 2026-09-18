@@ -17,12 +17,38 @@
  *   resolvePipelineConfig, STAGE_ROLE, applyPipelineConfig — plus the
  *   still-bare window._saveCompanyProfile, window._companyProfile,
  *   window.KANBAN_VIEWS.
+ *
+ * HYDRATION GATE (2026-09-18). companyProfile.pipelines is a TENANT-WIDE
+ * board config, and window._companyProfile holds the bare NBD defaults (no
+ * `pipelines` key at all) until _loadCompanyProfile's getDoc succeeds — which
+ * it may never do this session (a failed read leaves _companyProfileLoaded
+ * unset; there is no cache on a fresh device). The builder used to snapshot
+ * _cfg from whatever was in memory when the tab opened, so opening it early
+ * seeded {stages:{},views:{}}, and the first edit + Save setDoc-merged that
+ * back: empty nested maps REPLACE on a merge write, so every custom stage
+ * and every per-view order was wiped for every rep. Now:
+ *   - openBuilder awaits _loadCompanyProfile() when the profile isn't
+ *     loaded, then snapshots (await-then-require, the _tenantFilePrefix
+ *     pattern in company-profile.js).
+ *   - loadCfg records WHETHER its snapshot came from a loaded profile
+ *     (_cfgHydrated). A save-time `_companyProfileLoaded === true` check
+ *     alone is not enough: the profile can finish loading AFTER a pre-
+ *     hydration snapshot, and the stale defaults would still be written
+ *     (same trap as _countyInputsResolved in dashboard-bootstrap).
+ *   - render() shows no editor for an unhydrated snapshot, and save()
+ *     (which Reset also goes through) refuses unless BOTH the snapshot and
+ *     the live profile are hydrated.
  */
 (function () {
   'use strict';
 
   var ROOT_ID = 'pipelineBuilderRoot';
   var _cfg = null;      // working config (raw overrides), cloned from companyProfile.pipelines
+  // true ONLY when _cfg was cloned from a definitively-loaded profile
+  // (window._companyProfileLoaded === true at snapshot time). Set in loadCfg.
+  var _cfgHydrated = false;
+  var _loading = false; // openBuilder is awaiting _loadCompanyProfile()
+  var _openSeq = 0;     // latest openBuilder call wins (a stale load can't re-render over a newer open)
   var _dirty = false;
   var _wired = false;   // root-level delegate installed once
   var _drag = null;     // active drag payload { view, stage } during row reorder
@@ -37,8 +63,13 @@
   // Owner (doc keyed by uid → no companyId claim, or companyId===uid) or
   // company_admin/admin may edit; everyone else sees it read-only (matches the
   // companyProfile firestore rule so a denied save never surprises them).
+  // Claims not loaded yet (window._userClaims unset until getIdTokenResult
+  // resolves) means UNKNOWN, not "solo owner": fail closed to read-only. A
+  // real solo owner still passes once the claims object (no companyId) lands.
+  // The companyProfile rule is the real backstop; this only keeps the UI honest.
   function canEdit() {
-    var c = window._userClaims || {};
+    var c = window._userClaims;
+    if (!c || typeof c !== 'object') return false;
     var role = c.role || '';
     if (role === 'admin' || role === 'company_admin') return true;
     if (!c.companyId) return true; // solo owner (no companyId claim)
@@ -54,12 +85,26 @@
   var ROLE_LABEL = { new: 'New', active: 'Active', job: 'In Production', won: 'Won', lost: 'Lost' };
 
   function loadCfg() {
+    // Record hydration AT SNAPSHOT TIME — see the header. Never re-derive it
+    // later from the live flag: that would bless a defaults-seeded snapshot
+    // the moment the profile finished loading underneath it.
+    _cfgHydrated = window._companyProfileLoaded === true;
     var raw = (window._companyProfile && window._companyProfile.pipelines) || null;
     try { _cfg = raw ? JSON.parse(JSON.stringify(raw)) : { stages: {}, views: {} }; }
     catch (_) { _cfg = { stages: {}, views: {} }; }
     if (!_cfg.stages) _cfg.stages = {};
     if (!_cfg.views) _cfg.views = {};
   }
+
+  // The single write gate (save() — and so Reset — goes through it). BOTH
+  // halves are required: _cfgHydrated says the working copy was cloned from
+  // real data, _companyProfileLoaded says the live profile _saveCompanyProfile
+  // merges onto is real too. Same "never write a wipe from a stale page" rule
+  // as _resetEstimateDefaultsV2 / the custom-jurisdictions replace.
+  function writeReady() {
+    return _cfgHydrated === true && window._companyProfileLoaded === true && !!_cfg;
+  }
+  var NOT_LOADED_MSG = 'Still loading your saved pipelines — reopen Settings → Pipelines and try again.';
 
   function resolved() {
     // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
@@ -125,6 +170,15 @@
   function render() {
     var root = document.getElementById(ROOT_ID);
     if (!root) return;
+    if (_loading) { root.innerHTML = '<div style="padding:16px;color:var(--m);">Loading your saved pipelines…</div>'; return; }
+    // Unhydrated snapshot = the NBD defaults, not this tenant's pipelines.
+    // Showing them as an editor invites exactly the save that wipes the real
+    // config, and even read-only they'd look like "my custom stages are gone".
+    if (!_cfgHydrated) {
+      root.innerHTML = '<div style="padding:16px;color:var(--m);">Couldn\'t load your saved pipelines, so editing is turned off (the defaults must never overwrite your setup). '
+        + '<button type="button" class="btn btn-ghost" data-pb-action="retry" style="font-size:12px;padding:6px 12px;margin-left:6px;">↻ Retry</button></div>';
+      return;
+    }
     var res = resolved();
     if (!res) { root.innerHTML = '<div style="padding:16px;color:var(--m);">Pipeline engine not loaded yet — reopen this tab in a moment.</div>'; return; }
     var editable = canEdit();
@@ -137,7 +191,10 @@
       html += '<button type="button" class="btn btn-primary" data-pb-action="save" style="font-size:12px;padding:8px 14px;"' + (_dirty ? '' : ' disabled') + '>💾 Save changes</button>';
       html += '<button type="button" class="btn btn-ghost" data-pb-action="reset" style="font-size:12px;padding:8px 12px;">↺ Reset to defaults</button>';
     } else {
-      html += '<div style="font-size:11px;color:var(--m);font-style:italic;">Read-only — only the owner or a company admin can edit pipelines.</div>';
+      html += '<div style="font-size:11px;color:var(--m);font-style:italic;">'
+        + (window._userClaims ? 'Read-only — only the owner or a company admin can edit pipelines.'
+                              : 'Read-only until your account permissions load — reopen this tab in a moment.')
+        + '</div>';
     }
     html += '</div>';
 
@@ -202,9 +259,14 @@
   }
 
   // ── delegated handlers ──────────────────────────────────
+  // Edits only ever touch a hydrated working copy. render() never draws the
+  // controls otherwise; this also covers a stale or synthetic event.
+  function canMutate() { return _cfgHydrated === true && !!_cfg; }
+
   function onChange(e) {
     var t = e.target;
     if (!t || !t.getAttribute) return;
+    if (!canMutate()) return;
     var action = t.getAttribute('data-pb-action');
     if (action === 'rename') { setStageField(t.getAttribute('data-stage'), 'label', t.value); markDirtyLight(); }
     else if (action === 'recolor') { setStageField(t.getAttribute('data-stage'), 'color', t.value); render(); }
@@ -226,6 +288,13 @@
     var action = btn.getAttribute('data-pb-action');
     if (action === 'rename' || action === 'recolor' || action === 'role') return; // handled on change
     e.preventDefault();
+    if (action === 'retry') {
+      openBuilder().catch(function (err) { console.warn('[pipelines] open failed', err); });
+      return;
+    }
+    // save/reset carry their own gate (writeReady, inside save()); everything
+    // else edits the working copy and needs a hydrated one.
+    if (action !== 'save' && action !== 'reset' && !canMutate()) return;
     var res = resolved(); if (!res && action !== 'reset') return;
     var vk = btn.getAttribute('data-view');
     var key = btn.getAttribute('data-stage');
@@ -293,11 +362,17 @@
     } else if (action === 'save') {
       await save();
     } else if (action === 'reset') {
+      // Refuse BEFORE asking — don't make them confirm a reset that can't run.
+      if (!writeReady()) { toast(NOT_LOADED_MSG, 'error'); return; }
       var askReset = window.nbdConfirm || function (m) { return Promise.resolve(typeof confirm === 'function' ? confirm(m) : true); };
       if (!(await askReset('Reset ALL pipelines to the NBD defaults? Your custom stages + ordering will be removed.'))) return;
+      var _prevCfg = _cfg, _prevDirty = _dirty;
       _cfg = { stages: {}, views: {} };
       _dirty = true;
-      await save();
+      // Only force-clear the in-memory config below if the write LANDED. A
+      // refused or failed save used to fall through and blank the live board
+      // anyway (defaults until reload) while the server kept the old config.
+      if (!(await save())) { _cfg = _prevCfg; _dirty = _prevDirty; render(); return; }
       // save() persisted {stages:{},views:{}} (Firestore clears the nested maps),
       // but _saveCompanyProfile's deep-merge PRESERVES the old overrides in the
       // in-memory profile — so force it empty and re-apply defaults now, instead
@@ -319,9 +394,13 @@
     return key;
   }
 
+  // Resolves true only when the config was actually written.
   async function save() {
-    if (!canEdit()) { toast('Only the owner or a company admin can edit pipelines', 'error'); return; }
-    if (typeof window._saveCompanyProfile !== 'function') { toast('Cannot save right now', 'error'); return; }
+    // Hydration gate FIRST (see writeReady + the header): a working copy
+    // seeded from the NBD defaults must never reach the tenant-wide write.
+    if (!writeReady()) { toast(NOT_LOADED_MSG, 'error'); return false; }
+    if (!canEdit()) { toast('Only the owner or a company admin can edit pipelines', 'error'); return false; }
+    if (typeof window._saveCompanyProfile !== 'function') { toast('Cannot save right now', 'error'); return false; }
     var btn = document.querySelector('[data-pb-action="save"]');
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
@@ -333,10 +412,12 @@
       toast('Pipelines saved', 'ok');
       // Reload from the (now-merged) profile so the working copy matches server.
       loadCfg(); render();
+      return true;
     } catch (e) {
       console.warn('[pipelines] save failed', e);
       toast('Save failed: ' + ((e && e.message) || 'unknown'), 'error');
       if (btn) { btn.disabled = false; btn.textContent = '💾 Save changes'; }
+      return false;
     }
   }
 
@@ -371,6 +452,7 @@
     var target = row.getAttribute('data-stage');
     if (view !== payload.view || target === payload.stage) return;
     e.preventDefault();
+    if (!canMutate()) return;
     var res = resolved(); if (!res) return;
     var arr = ensureViewStages(view, res);
     var from = arr.indexOf(payload.stage);
@@ -392,6 +474,7 @@
     root.addEventListener('click', onClick);
     root.addEventListener('change', onChange);
     root.addEventListener('input', function (e) {
+      if (!canMutate()) return;
       if (e.target && e.target.getAttribute && e.target.getAttribute('data-pb-action') === 'rename') { setStageField(e.target.getAttribute('data-stage'), 'label', e.target.value); markDirtyLight(); }
     });
     root.addEventListener('dragstart', onDragStart);
@@ -400,10 +483,25 @@
     root.addEventListener('dragend', function () { _drag = null; _clearDropHints(root); });
   }
 
-  function openBuilder() {
-    loadCfg();
-    _dirty = false;
+  // Await-then-require (the _tenantFilePrefix pattern): if the profile isn't
+  // definitively loaded, show "Loading…", await _loadCompanyProfile() (which
+  // also RETRIES a read that failed at boot — a poll would just spin), then
+  // snapshot. loadCfg records whether that worked; render() and save() both
+  // honour it, so a failed load ends in a Retry prompt, never an editor.
+  async function openBuilder() {
+    var seq = ++_openSeq;
     wireRoot();
+    _dirty = false;
+    if (window._companyProfileLoaded !== true) {
+      _cfg = null; _cfgHydrated = false; _loading = true;
+      render();
+      try {
+        if (typeof window._loadCompanyProfile === 'function') await window._loadCompanyProfile();
+      } catch (_) { /* a failed load leaves the flag unset — handled below */ }
+      if (seq !== _openSeq) return; // a newer open owns the panel now
+    }
+    _loading = false;
+    loadCfg();
     render();
   }
 
@@ -429,7 +527,10 @@
     if (typeof _prev !== 'function' || _prev._pbWrapped) { return; }
     var wrapped = function (tab) {
       var r = _prev.apply(this, arguments);
-      if (tab === 'pipelines') { try { openBuilder(); } catch (e) { console.warn('[pipelines] open failed', e); } }
+      // openBuilder is async (it may await the profile load), so a try/catch
+      // here would never see its failures — attach the handler to the promise
+      // instead of leaving an unhandled rejection.
+      if (tab === 'pipelines') { openBuilder().catch(function (e) { console.warn('[pipelines] open failed', e); }); }
       return r;
     };
     wrapped._pbWrapped = true;

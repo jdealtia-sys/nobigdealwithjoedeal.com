@@ -1103,7 +1103,6 @@
 
   // ── Public API ──
   window.renderKPIRow = renderKPIRow;
-  window.renderDoorsVerifiedCard = renderDoorsVerifiedCard;
   window.renderD2DCommandCenter = renderD2DCommandCenter;
   window.computeKPIs = computeKPIs;
 
@@ -1121,6 +1120,12 @@
     // Exposed for unit testing the (pure) metric computation.
     _test: { computeFullAnalytics: computeFullAnalytics }
   };
+
+  // Globals Tranche 3 T3-C (2026-09-18): renderDoorsVerifiedCard is
+  // registry-only — its one caller is dashboard-bootstrap.module.js's
+  // loadLeads KPI-row timer, which reads it off __NBD_CALL_REGISTRY.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { renderDoorsVerifiedCard: renderDoorsVerifiedCard });
 
 })();
 
@@ -1147,7 +1152,9 @@
       try { localStorage.removeItem('nbd_crm_followup_hidden'); } catch (e) {}
       if (typeof window.goTo === 'function') window.goTo('crm');
       setTimeout(function () {
-        if (typeof window.scrollToFollowUps === 'function') window.scrollToFollowUps();
+        // Registry-only (crm-portal-bridge.js, Globals Tranche 3 T3-C).
+        var _nbdReg = window.__NBD_CALL_REGISTRY;
+        if (_nbdReg && typeof _nbdReg.scrollToFollowUps === 'function') _nbdReg.scrollToFollowUps();
       }, 300);
     }
   });

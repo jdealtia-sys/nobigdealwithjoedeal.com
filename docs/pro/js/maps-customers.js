@@ -155,9 +155,29 @@ function _custValLabel(v) { return v >= _CUST_VAL_CAP ? '$100k+' : (v >= 1000 ? 
 // by owner / company_admin — same gate as the pipelines builder) so the whole
 // team shares presets like "Hot Hail >$25k". Everyone can apply; only an
 // owner/admin can save or delete.
+//
+// HYDRATION GATE (2026-09-18). Save and delete are read-modify-writes of the
+// WHOLE array, and a merge write replaces arrays wholesale. Until
+// _loadCompanyProfile's getDoc succeeds (possibly never this session — a
+// failed read leaves _companyProfileLoaded unset), _companyProfile holds the
+// NBD defaults (no mapViews → []) or a stale device cache, so a save used to
+// overwrite every team view with just the new one. Both handlers now await
+// hydration, then REQUIRE it (_custViewsReady), re-read the list AFTER the
+// await, and _saveCustViews refuses on its own as a backstop.
+let _custRenderedViews = [];              // the list the View <select> was last built from
 function _loadCustViews() {
   const v = window._companyProfile && window._companyProfile.mapViews;
   return Array.isArray(v) ? v : [];
+}
+function _custViewName(v, i) { return (v && v.name) || ('View ' + (i + 1)); }
+const _CUST_VIEWS_LOADING_MSG = 'Shared views are still loading — try again in a moment';
+// Await-then-require, same shape as _tenantFilePrefix (company-profile.js):
+// awaiting also RETRIES a read that failed at boot.
+async function _custViewsReady() {
+  if (window._companyProfileLoaded !== true && typeof window._loadCompanyProfile === 'function') {
+    try { await window._loadCompanyProfile(); } catch (_) { /* flag stays unset — refused below */ }
+  }
+  return window._companyProfileLoaded === true;
 }
 function _custCanEditViews() {
   const c = window._userClaims || {};
@@ -167,6 +187,9 @@ function _custCanEditViews() {
   return window._user && c.companyId === window._user.uid; // owner keyed by uid
 }
 async function _saveCustViews(v) {
+  // Backstop for any caller that skipped _custViewsReady: never write the
+  // shared array unless it was read from a loaded profile.
+  if (window._companyProfileLoaded !== true) { if (typeof showToast === 'function') showToast(_CUST_VIEWS_LOADING_MSG, 'error'); return false; }
   if (typeof window._saveCompanyProfile !== 'function') { if (typeof showToast === 'function') showToast('Cannot save right now', 'error'); return false; }
   try { await window._saveCompanyProfile({ mapViews: v }); return true; }
   catch (e) { if (typeof showToast === 'function') showToast('Save failed: ' + ((e && e.message) || 'unknown'), 'error'); return false; }
@@ -437,10 +460,11 @@ function _renderCustPanel(counts) {
   // Saved views (presets, team-shared): apply for everyone; save/delete for
   // owner/admin only.
   const views = _loadCustViews();
+  _custRenderedViews = views.slice(); // what the <select> indexes point at (delete re-checks against it)
   const canEditViews = _custCanEditViews();
   html += '<div class="ncp-row"><span class="ncp-lbl">View</span>'
     + '<select data-cust-view><option value="">—</option>'
-    + views.map(function (v, i) { return '<option value="' + i + '">' + esc(v.name || ('View ' + (i + 1))) + '</option>'; }).join('')
+    + views.map(function (v, i) { return '<option value="' + i + '">' + esc(_custViewName(v, i)) + '</option>'; }).join('')
     + '</select>'
     + (canEditViews
         ? '<button type="button" class="ncp-iconbtn" data-cust-saveview title="Save current view (shared with the team)">＋</button>'
@@ -515,9 +539,13 @@ function _renderCustPanel(counts) {
         if (!_custCanEditViews()) { if (typeof showToast === 'function') showToast('Only an owner/admin can save shared views', 'info'); return; }
         const name = (typeof prompt === 'function') ? (prompt('Name this view — shared with your team (color-by + filters + value range):') || '').trim() : '';
         if (!name) return;
-        const list = _loadCustViews().slice();
-        list.push(Object.assign({ name: name.slice(0, 40) }, _custSnapshot()));
-        _saveCustViews(list).then(function (okSave) { if (okSave && typeof showToast === 'function') showToast('View saved (shared)', 'ok'); _renderCustPanel(); });
+        const snap = _custSnapshot(); // the panel state the user is saving, taken at click time
+        _custViewsReady().then(function (ready) {
+          if (!ready) { if (typeof showToast === 'function') showToast(_CUST_VIEWS_LOADING_MSG, 'error'); return; }
+          const list = _loadCustViews().slice(); // read AFTER hydration, never before
+          list.push(Object.assign({ name: name.slice(0, 40) }, snap));
+          _saveCustViews(list).then(function (okSave) { if (okSave && typeof showToast === 'function') showToast('View saved (shared)', 'ok'); _renderCustPanel(); });
+        });
         return;
       }
       const del = e.target && e.target.closest && e.target.closest('[data-cust-delview]');
@@ -526,9 +554,22 @@ function _renderCustPanel(counts) {
         const vsel = _custPanelEl.querySelector('[data-cust-view]');
         const idx = vsel && vsel.value !== '' ? parseInt(vsel.value, 10) : -1;
         if (idx < 0) { if (typeof showToast === 'function') showToast('Pick a view to delete', 'info'); return; }
-        const list = _loadCustViews().slice();
-        list.splice(idx, 1);
-        _saveCustViews(list).then(function () { _renderCustPanel(); });
+        // The index is into the list the <select> was BUILT from — possibly a
+        // pre-hydration cache. Pin the name the user actually picked, and only
+        // splice if the hydrated list still has that view at that index;
+        // otherwise a reordered/grown list would delete a different view.
+        const pickedName = _custRenderedViews[idx] ? _custViewName(_custRenderedViews[idx], idx) : null;
+        _custViewsReady().then(function (ready) {
+          if (!ready) { if (typeof showToast === 'function') showToast(_CUST_VIEWS_LOADING_MSG, 'error'); return; }
+          const list = _loadCustViews().slice(); // read AFTER hydration
+          if (pickedName === null || !list[idx] || _custViewName(list[idx], idx) !== pickedName) {
+            if (typeof showToast === 'function') showToast('Shared views changed — re-select the view and try again', 'info');
+            _renderCustPanel();
+            return;
+          }
+          list.splice(idx, 1);
+          _saveCustViews(list).then(function () { _renderCustPanel(); });
+        });
         return;
       }
       const gmaps = e.target && e.target.closest && e.target.closest('[data-cust-gmaps]');

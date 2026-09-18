@@ -771,7 +771,10 @@
       }
       // Best-effort exit from bulk mode now that the action's done.
       if (typeof window.clearBulkSelection === 'function') window.clearBulkSelection();
-      if (typeof window.toggleBulkMode === 'function' && window._bulkMode) window.toggleBulkMode();
+      // toggleBulkMode is registry-only (crm-portal-bridge.js, Globals Tranche 3
+      // T3-C). Absent on customer.html, where _bulkMode is never set — no-op.
+      const _nbdReg = window.__NBD_CALL_REGISTRY;
+      if (_nbdReg && typeof _nbdReg.toggleBulkMode === 'function' && window._bulkMode) _nbdReg.toggleBulkMode();
 
       // W73: include reason in toast so the rep gets confirmation
       // their categorization landed.

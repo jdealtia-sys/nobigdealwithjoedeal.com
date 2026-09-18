@@ -51,6 +51,12 @@ const k = win.computeKPIs();
 
 console.log('DASHBOARD KPIs — computeKPIs aggregation');
 ok('exposes computeKPIs', typeof win.computeKPIs === 'function');
+// Globals Tranche 3 T3-C (2026-09-18): the Doors Verified card is registry-only.
+// Running the real file proves the registration executes inside the IIFE that
+// declares the function (a registry line in the wrong scope throws at load).
+ok('registers renderDoorsVerifiedCard in __NBD_CALL_REGISTRY, not on window',
+  !!win.__NBD_CALL_REGISTRY && typeof win.__NBD_CALL_REGISTRY.renderDoorsVerifiedCard === 'function'
+    && !Object.prototype.hasOwnProperty.call(win, 'renderDoorsVerifiedCard'));
 ok('pipelineValue = active leads only (10k+20k = 30000), deleted excluded', k.pipelineValue === 30000);
 ok('monthlyRevenue = WON this month (30k+50k = 80000)', k.monthlyRevenue === 80000);
 ok('closeRate = closed/(closed+lost) = 2/3 = 67%', k.closeRate === 67);
