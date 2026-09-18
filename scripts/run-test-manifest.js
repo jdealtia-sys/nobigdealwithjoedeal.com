@@ -276,12 +276,34 @@ const RUNNABLE = ['node', 'smoke'];
 //               matching number that is not evidence, per this ledger's own
 //               rule. Re-measured via --check on the tree with BOTH lanes
 //               merged (this esign lane's own suite + anniversary-touch's):
+//   2026-09-18  fail-open FO-1 comms lane adds two node suites
+//               (tests/d2d-followup-sms-optout.test.js,
+//               tests/portal-share-no-double-send.test.js) on a 157/68/246
+//               origin/main base. SET from --check on this tree; parallel
+//               fail-open lanes branch from the same base, so re-measure on
+//               the merged tree rather than trusting this literal.
+//   2026-09-18  157/68/246 → 158/68/247, tests/unloaded-cache-gates.test.js
+//               (fail-open FO-4: sample data / CSV import / seat picker acting
+//               on an unloaded cache). MEASURED via --check on a branch cut
+//               from origin/main; sibling fail-open lanes cut the same day
+//               also move this line — whichever merges second re-measures.
+//   2026-09-18  FO-2 destructive-false-success lane adds one node suite
+//               (tests/failopen-destructive-false-success-2026-09-18.test.js)
+//               on a 157/68/246 main. MEASURED via --check on this tree; if
+//               a sibling fail-open lane lands first, re-measure the merged
+//               tree rather than adding +1 to its literal.
+//   2026-09-18  157/68/246 → 160/68/249, fail-open FO-3 lane (unhydrated
+//               companyProfile writes): tests/pipeline-builder-hydration,
+//               map-views-hydration, lead-trades-unknown. MEASURED via --check
+//               on a branch cut from origin/main at 4007bbbd. Sibling FO lanes
+//               cut from the same base will collide here — whichever merges
+//               second re-measures the merged tree, per the entries above.
 //   2026-09-18  157/68/246 → 158/68/247, SMS opt-out send-order lane
 //               (tests/sms-send-optout-order.test.js, node). MEASURED via
 //               --check on a branch cut from origin/main; other fail-open
 //               lanes are open in parallel, so whichever merges second
 //               re-measures the merged tree rather than adding +1.
-const FLOORS = { node: 158, smoke: 68, disk: 247 };
+const FLOORS = { node: 165, smoke: 68, disk: 254 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

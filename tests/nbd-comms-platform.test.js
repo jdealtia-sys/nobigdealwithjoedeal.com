@@ -307,8 +307,12 @@ const tick = () => new Promise((r) => setImmediate(r));
     r = await d2d({ success: false, mode: 'platform', error: 'optout_unverified' });
     ok('D2D: an optout_unverified refusal opens NO sms: link', r.opened.length === 0);
     r = await d2d({ success: false, mode: 'sms', error: 'no-body' });
-    ok('D2D: a local pre-flight failure (mode sms) keeps its sms: fallback',
-      r.opened.length === 1 && /^sms:/.test(r.opened[0]));
+    // #1660 (FO-1) made NBDComms own the whole outcome on this path: D2D never
+    // opens sms: after any NBDComms answer. no-recipient / no-body have nothing
+    // to send anyway (sendFollowUpSMS returns early without a phone and its
+    // templates always produce a body).
+    ok('D2D: a local pre-flight failure (mode sms) opens NO sms: link (nothing to send)',
+      r.opened.length === 0);
     r = await d2d({ success: true, mode: 'sms' });
     ok('D2D: a completed NBDComms handoff is not opened a second time', r.opened.length === 0);
   }
