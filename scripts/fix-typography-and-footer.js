@@ -16,6 +16,10 @@ const SKIP_DIRS = new Set(['admin', 'pro', 'sites', 'assets', 'deploy', 'tools']
 
 const TYPO_MARKER_OLD = '/* nbd-readability-v1 */';
 const TYPO_MARKER = '/* nbd-readability-v2 */';
+// 2026-09-18: the v2 rules now ship as a shared stylesheet, linked IN PLACE
+// of the old inline block by scripts/ensure-readability-css.js. TYPO_CSS
+// below is the stale pre-palette copy (#e8720c) — never re-inject it.
+const TYPO_LINK_HREF = '/assets/css/nbd-readability.css';
 const TYPO_CSS = `<style>
 ${TYPO_MARKER}
 /* Root + body floor: 16px + generous line-height */
@@ -76,6 +80,10 @@ function walk(dir, out = []) {
 
 function injectTypography(html) {
   if (html.includes(TYPO_MARKER)) return { html, changed: false };
+  // A page linking the extracted stylesheet is satisfied. Without this a
+  // re-run would append TYPO_CSS at the end of <head>, AFTER nbd-mobile.css,
+  // where its !important rules win every tie (the #1194 cascade pattern).
+  if (html.includes(TYPO_LINK_HREF)) return { html, changed: false };
   // Strip prior typo-fix versions so we don't stack blocks on re-run.
   const priorRe = /<style>\s*\/\* nbd-readability-v\d+ \*\/[\s\S]*?<\/style>\s*/g;
   html = html.replace(priorRe, '');

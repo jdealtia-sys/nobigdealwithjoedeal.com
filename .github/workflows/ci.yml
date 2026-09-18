@@ -245,6 +245,13 @@ jobs:
       # mobile hamburger/collapse never worked.
       - name: Check nav-CSS blocks (assert mode)
         run: node scripts/ensure-nav-css.js
+      # Readability-CSS extraction contract (2026-09-18): the nbd-readability-v2
+      # rules live in /assets/css/nbd-readability.css, linked IN PLACE of the
+      # old inline block (it sits before nbd-mobile.css, and moving it flips
+      # equal-specificity !important ties). Fails on a re-injected inline
+      # canonical copy or a page carrying both the link and the marker.
+      - name: Check readability-CSS extraction (assert mode)
+        run: node scripts/ensure-readability-css.js
       # Favicon contract (2026-09-13): two icons across every page, by
       # audience — the roof mark (/favicon.svg + /assets/images/apple-touch-icon.png)
       # for homeowner pages, NBD PRO (/pro/favicon.svg + /pro/img/nbd-icon-192.png)
