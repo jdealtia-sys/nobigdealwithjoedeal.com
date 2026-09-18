@@ -12,13 +12,25 @@
  * collections (Firestore rules: allow write: if false).
  *
  * Fallback: mailto: / sms: protocol handoff when:
- *   - not signed in / no token
- *   - App Check / network / rate-limit / paid-gate / opt-out failures
+ *   - network failure / offline (status 0)
+ *   - rate limit (429) / paid gate (402)
+ *   - SMS: Twilio failed after the opt-out check passed (code 'provider_error')
  *   - caller passes { forceHandoff: true }
  *
- * Returns { success, mode: 'platform'|'mailto'|'sms', id?, sid?, error? }.
+ * SMS NEVER hands off on 401, 403 (opted out — our register or Twilio's STOP
+ * list — or not allowed), or any other 5xx (e.g. 503 'optout_unverified': the
+ * opt-out register could not be read). A handoff pre-fills the text on the
+ * rep's phone, so it is a text to that person and may only follow a server
+ * answer that came after the opt-out check. functions/sms-functions.js runs
+ * that check before its paid gate and every limiter, which is what makes the
+ * 402/429 handoff safe. Offline (status 0) still hands off: opt-out status is
+ * unknown there, and that trade-off is an open product decision.
+ *
+ * Returns { success, mode: 'platform'|'mailto'|'sms', id?, sid?, error?, message? }.
  * Callers that mark invoices "sent" should treat mode:'platform' as delivered
- * and mode:'mailto'|'sms' as "rep initiated client handoff".
+ * and mode:'mailto'|'sms' as "rep initiated client handoff". success:false
+ * with mode:'platform' is a REFUSAL the rep has already been told about; an
+ * SMS caller must not follow it with its own sms: fallback or a re-send.
  *
  * Also defines window.EmailDrip — stage-change toast (opt-in review, no auto-send).
  *
@@ -145,6 +157,10 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const headers = await _authHeaders();
     if (!headers) return { ok: false, status: 401, error: 'not-authenticated' };
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    // An abort lands in the status-0 (offline) branch below, which SMS hands
+    // off. sendSMS bounds its opt-out read (functions/sms-optout.js
+    // READ_TIMEOUT_MS, 10s) so a slow register answers 503 before this fires.
+    // Keep this the larger of the two; tests/sms-optout-key.test.js checks it.
     const timeout = controller ? setTimeout(() => controller.abort(), 25000) : null;
     try {
       const res = await fetch(FUNCTIONS_BASE + '/' + fnName, {
@@ -154,12 +170,18 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         signal: controller ? controller.signal : undefined,
       });
       if (timeout) clearTimeout(timeout);
-      const data = await res.json().catch(() => ({}));
+      // `|| {}`: a JSON body of `null` would otherwise throw on data.error and
+      // land in the catch below as status 0 — the offline handoff.
+      const data = (await res.json().catch(() => null)) || {};
       if (!res.ok) {
         return {
           ok: false,
           status: res.status,
           error: data.error || ('HTTP ' + res.status),
+          // Machine-readable reason (e.g. 'opted_out', 'optout_unverified',
+          // 'provider_error'); null when the server sent none — including the
+          // framework's plain-text 500 for an uncaught throw.
+          code: (typeof data.code === 'string' && data.code) || null,
         };
       }
       return { ok: true, status: res.status, data: data };
@@ -263,11 +285,21 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
             sid: (plat.data && plat.data.sid) || null,
           };
         }
-        // Opt-out / forbidden: do not open device Messages (would still text).
-        if (plat.status === 403) {
-          const msg = plat.error || 'Cannot text this number (opted out or not allowed).';
+        // Refusals: do not open device Messages (would still text).
+        //   403 — opted out (our register, or Twilio's STOP list) / not allowed.
+        //   5xx other than 'provider_error' — the server could not show this
+        //         number is textable: 503 'optout_unverified', or the function
+        //         threw (a plain-text 500 with no code). Fail closed, as the
+        //         server does. 'provider_error' is Twilio failing AFTER the
+        //         opt-out check passed, so it still hands off below.
+        if (plat.status === 403 || (plat.status >= 500 && plat.code !== 'provider_error')) {
+          const msg = plat.status === 403
+            ? (plat.error || 'Cannot text this number (opted out or not allowed).')
+            : 'Could not confirm this number can be texted — nothing was sent. Try again in a moment.';
           if (window.showToast) window.showToast(msg, 'error');
-          return { success: false, mode: 'platform', error: plat.error || 'forbidden' };
+          // `error` is the machine code when the server sent one; `message` is
+          // what the rep was told (invoice-pipeline surfaces it).
+          return { success: false, mode: 'platform', error: plat.code || plat.error || 'forbidden', message: msg };
         }
         if (plat.status === 401) {
           if (window.showToast) window.showToast('Sign in again to send texts.', 'error');

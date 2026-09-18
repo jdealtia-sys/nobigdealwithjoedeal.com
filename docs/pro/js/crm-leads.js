@@ -335,7 +335,19 @@ async function saveLead(){
       jobType: document.getElementById('lJobType')?.value || '',
       subType: document.getElementById('lSubType')?.value || '',
       // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-      trades: (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.getSelectedTrades === 'function') ? window.__NBD_CALL_REGISTRY.getSelectedTrades() : [],
+      // OMIT `trades` when the chip state is UNKNOWN, same rule as `stage`
+      // above: this payload is spread straight into updateDoc on an edit, so
+      // a `[]` stand-in overwrote the lead's stored trades with nothing. That
+      // happened when the registry helper was missing (a stale cached
+      // bootstrap) AND on a normal load whenever the chips were never drawn —
+      // getSelectedTrades() now returns null for that (a lead with job type
+      // "Not Set" never renders them). A user who deliberately clears every
+      // chip still gets a real [] and saves it.
+      ...(() => {
+        const _t = (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.getSelectedTrades === 'function')
+          ? window.__NBD_CALL_REGISTRY.getSelectedTrades() : null;
+        return Array.isArray(_t) ? { trades: _t } : {};
+      })(),
       source: document.getElementById('lSource')?.value || '',
       // Referral-code redemption: the code this lead was referred with (if any).
       // Stamped raw + uppercased; the server-side onReferralLeadWrite trigger
