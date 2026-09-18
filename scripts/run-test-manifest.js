@@ -298,7 +298,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               on a branch cut from origin/main at 4007bbbd. Sibling FO lanes
 //               cut from the same base will collide here — whichever merges
 //               second re-measures the merged tree, per the entries above.
-const FLOORS = { node: 164, smoke: 68, disk: 253 };
+//   2026-09-18  157/68/246 → 158/68/247, SMS opt-out send-order lane
+//               (tests/sms-send-optout-order.test.js, node). MEASURED via
+//               --check on a branch cut from origin/main; other fail-open
+//               lanes are open in parallel, so whichever merges second
+//               re-measures the merged tree rather than adding +1.
+const FLOORS = { node: 165, smoke: 68, disk: 254 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
