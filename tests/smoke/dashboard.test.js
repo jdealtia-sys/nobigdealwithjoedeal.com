@@ -3142,6 +3142,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     // cache) and _DASH_DOC_PREREQUISITES (a static config object) were also
     // candidates but are DATA, not callables — stay on window.
     '_savePin', '_deletePin', '_saveZone', '_deleteZone',
+    // Tranche 3 T3-C (2026-09-18): the mobile doc-picker edge off
+    // dashboard-bootstrap.module.js, consumed by dashboard-actions.js's
+    // _mJdOpenDocCreate/_mJdPickDocType. Its data sibling
+    // _DASH_DOC_PREREQUISITES stays on window (see above).
+    '_generateDocWithPreflight',
     // Tranche 3 T3-C (2026-09-18): the estimate CRUD edge off
     // dashboard-bootstrap.module.js, consumed by estimate-crm-ops.js.
     // _duplicateEstimate was NOT a candidate (multiple consumers).
@@ -3150,6 +3155,9 @@ section('Globals Tranches 0+1: converted names stay off window');
     // dashboard-bootstrap.module.js. Zero HTML hits, zero prior test
     // coverage on either name.
     'filterStageDropdownByJobType', 'getSelectedTrades',
+    // ...and refreshStageOptions, the same edge's third name (openLeadModal's
+    // stage <select> rebuild), converted in a later PR.
+    'refreshStageOptions',
     // Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge. All three
     // are crm-stages.js imports bridged to a classic script; the "expose
     // to crm.js" comment nearby was stale for these two specifically —
@@ -3160,6 +3168,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 3 T3-C (2026-09-18): the pipeline-builder.js edge. STAGE_ROLE
     // is a rename-on-export (imported as ROLE, registered as STAGE_ROLE).
     'applyPipelineConfig', 'resolvePipelineConfig', 'STAGE_ROLE',
+    // Tranche 3 T3-C (2026-09-18): the crm-pipeline.js edge — another
+    // crm-stages.js import bridge, sole consumer renderLeads. crm-pipeline.js's
+    // _dragId implicit global is deliberately untouched.
+    'partitionLeadsByColumn',
     // Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal edge.
     '_uploadPhoto', '_getPhotos',
     // Tranche 3 T3-C (2026-09-18): the dashboard-actions.js -> dashboard-
@@ -3988,6 +4000,25 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.filterStageDropdownByJobType\(jtEl\?\.value \|\| ''\)/.test(crmLeadsSrc));
   assert('crm-leads.js reads getSelectedTrades off the registry, not bare window',
     /window\.__NBD_CALL_REGISTRY\.getSelectedTrades\(\)/.test(crmLeadsSrc) && !/window\.getSelectedTrades\(/.test(crmLeadsSrc));
+  // ...and refreshStageOptions, the same edge's third name (a later PR): was
+  // an anonymous window.X = function expression, now a real declaration.
+  assert('dashboard-bootstrap.module.js registers refreshStageOptions in __NBD_CALL_REGISTRY (T3-C)',
+    /\brefreshStageOptions:\s*refreshStageOptions\b/.test(bootRegBlock));
+  assert('dashboard-bootstrap.module.js no longer exposes window.refreshStageOptions (T3-C off window, dot or bracket form)',
+    !/window\.refreshStageOptions\s*=/.test(bootReg) && !/window\[\s*['"]refreshStageOptions['"]\s*\]/.test(bootReg));
+  assert('refreshStageOptions is a real declaration now',
+    /^  function refreshStageOptions\(keepValue\) \{/m.test(bootReg));
+  const openLeadModalFn = crmLeadsSrc.slice(crmLeadsSrc.indexOf('function openLeadModal('), crmLeadsSrc.indexOf('function closeLeadModal('));
+  assert('crm-leads.js\'s openLeadModal reads refreshStageOptions off the registry, not bare window',
+    /if \(_nbdReg && typeof _nbdReg\.refreshStageOptions === 'function'\) \{/.test(openLeadModalFn)
+    && /_nbdReg\.refreshStageOptions\(want \|\| 'new'\)/.test(openLeadModalFn)
+    && !/window\.refreshStageOptions\b/.test(crmLeadsSrc));
+  // `var _nbdReg` hoists: if the declaration sat BELOW the refreshStageOptions
+  // guard (where it was for filterStageDropdownByJobType), the guard would
+  // read `undefined` and silently skip the tenant-pipeline rebuild forever.
+  const _olmReg = openLeadModalFn.indexOf('var _nbdReg = window.__NBD_CALL_REGISTRY;');
+  assert('openLeadModal assigns _nbdReg BEFORE the refreshStageOptions guard reads it (hoisted-var trap)',
+    _olmReg !== -1 && _olmReg < openLeadModalFn.indexOf('typeof _nbdReg.refreshStageOptions'));
 
   // ── Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge off
   // dashboard-bootstrap.module.js ──
@@ -4039,6 +4070,22 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('pipeline-builder.js\'s two applyPipelineConfig call sites (reset + save) both read off the registry',
     (pipelineBuilderSrc.match(/_nbdReg\.applyPipelineConfig\(\)/g) || []).length === 2
     && !/window\.applyPipelineConfig\(/.test(pipelineBuilderSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the crm-pipeline.js edge off
+  // dashboard-bootstrap.module.js ──
+  // partitionLeadsByColumn is a crm-stages.js import bridged to a classic
+  // script (same shape as the warranty-claim.js edge). renderLeads is the
+  // sole consumer; its inline fallback bucketer (registry/entry missing)
+  // is unchanged. crm-pipeline.js's _dragId implicit global is NOT part of
+  // this edge and must stay exactly as it was.
+  const crmPipelineSrc = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  assert('dashboard-bootstrap.module.js registers partitionLeadsByColumn in __NBD_CALL_REGISTRY (T3-C)',
+    /\bpartitionLeadsByColumn:\s*partitionLeadsByColumn\b/.test(bootRegBlock));
+  assert('dashboard-bootstrap.module.js no longer exposes window.partitionLeadsByColumn (T3-C off window, dot or bracket form)',
+    !/window\.partitionLeadsByColumn\s*=/.test(bootReg) && !/window\[\s*['"]partitionLeadsByColumn['"]\s*\]/.test(bootReg));
+  assert('crm-pipeline.js\'s renderLeads reads partitionLeadsByColumn off the registry, not bare window',
+    /const _nbdReg = window\.__NBD_CALL_REGISTRY;\s*if \(_nbdReg && typeof _nbdReg\.partitionLeadsByColumn === 'function'\) \{\s*const _part = _nbdReg\.partitionLeadsByColumn\(list, stageKeys, \{/.test(crmPipelineSrc)
+    && !/window\.partitionLeadsByColumn\b/.test(crmPipelineSrc));
 
   // ── Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal
   // edge off dashboard-bootstrap.module.js ──
@@ -5403,10 +5450,23 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
   const genFn = actions.slice(actions.indexOf('function _mJdOpenDocCreate'), actions.indexOf('function _mJdPickDocType'));
   assert('_mJdOpenDocCreate builds its type list from window._DASH_DOC_PREREQUISITES — one catalog, not a second hand-written one',
     /window\._DASH_DOC_PREREQUISITES/.test(genFn) && /Object\.keys\(prereqs\)/.test(genFn));
-  assert('_mJdPickDocType runs the SAME staging+prereq+DocPreflight chain the desktop lead-card doc chips use (_generateDocWithPreflight), not a second implementation',
-    /window\._generateDocWithPreflight\(type, leadId\)/.test(actions));
-  assert('dashboard-bootstrap.module.js exports _generateDocWithPreflight + _DASH_DOC_PREREQUISITES for the mobile picker to reuse',
-    /window\._generateDocWithPreflight = _generateDocWithPreflight;/.test(bootstrap) &&
+  // Globals Tranche 3 T3-C (2026-09-18): _generateDocWithPreflight moved off
+  // window into dashboard-bootstrap.module.js's __NBD_CALL_REGISTRY block;
+  // both mobile-picker reads resolve it there (fail-closed: registry or entry
+  // missing → the picker toasts/returns, never a bare window read).
+  // _DASH_DOC_PREREQUISITES is DATA, not a callable — it stays on window.
+  const pickFn = actions.slice(actions.indexOf('function _mJdPickDocType'), actions.indexOf('// ── Messages + Voice Intel: mount-once-per-lead'));
+  assert('_mJdPickDocType runs the SAME staging+prereq+DocPreflight chain the desktop lead-card doc chips use (_generateDocWithPreflight via the registry), not a second implementation',
+    /_nbdReg\._generateDocWithPreflight\(type, leadId\)/.test(pickFn));
+  assert('_mJdOpenDocCreate and _mJdPickDocType both gate on the registry entry (fail-closed), never window._generateDocWithPreflight',
+    /!_nbdReg \|\| typeof _nbdReg\._generateDocWithPreflight !== 'function'/.test(genFn)
+    && /!_nbdReg \|\| typeof _nbdReg\._generateDocWithPreflight !== 'function'\) return;/.test(pickFn)
+    && !/window\._generateDocWithPreflight\b/.test(actions));
+  const bootRegBlockDocs = (bootstrap.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  assert('dashboard-bootstrap.module.js registers _generateDocWithPreflight in __NBD_CALL_REGISTRY (T3-C) and keeps _DASH_DOC_PREREQUISITES on window for the mobile picker',
+    /\b_generateDocWithPreflight:\s*_generateDocWithPreflight\b/.test(bootRegBlockDocs) &&
+    !/window\._generateDocWithPreflight\s*=/.test(bootstrap) &&
+    !/window\[\s*['"]_generateDocWithPreflight['"]\s*\]/.test(bootstrap) &&
     /window\._DASH_DOC_PREREQUISITES = _DASH_DOC_PREREQUISITES;/.test(bootstrap));
 
   // Every new data-fn button dispatches through __NBD_CALL_REGISTRY, the
