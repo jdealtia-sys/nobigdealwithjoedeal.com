@@ -315,8 +315,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
 | dashboard-bootstrap.module.js → rep-report-generator.js | 4 — **3 shipped 2026-09-18 (PR #1642); see note below** |
 | dashboard-bootstrap.module.js → crm-pipeline.js | 4 — **re-derived to 0, see note below; not attempted** |
-| dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR TBD); see note below** |
-| dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR TBD); see note below** |
+| dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
+| dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | long tail (1–3-name edges) | ~141 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -440,7 +440,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > fixed-offset test slices are brittle to any length change nearby, not just
 > to the specific line being asserted on.
 
-> ### Update 2026-09-18 — the pins + zones CRUD edges (PR TBD)
+> ### Update 2026-09-18 — the pins + zones CRUD edges (PR #1645)
 >
 > Two more one-consumer edges off `dashboard-bootstrap.module.js`, found via
 > the same fresh-census pass that turned up the customer.html edge above:
