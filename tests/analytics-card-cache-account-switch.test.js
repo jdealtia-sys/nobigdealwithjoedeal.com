@@ -42,7 +42,7 @@
  *
  * A storage exception skips the block outright, with the same result.
  * So the card clear now keys on the IN-MEMORY uid this tab's own callback
- * last reported (`_bindAnalyticsCardsToSession`, declared immediately above
+ * last reported (`_bindCachesToSession`, declared immediately above
  * onAuthStateChanged and called as the callback's first statement). The
  * localStorage purge deliberately stays keyed on nbd_last_uid — that state
  * IS shared, and purging on an in-memory switch would wipe prefs the new
@@ -102,9 +102,14 @@ function countOf(haystack, needle) {
 // every scenario throws, instead of silently testing nothing.
 const BOOTSTRAP_SRC = read('docs/pro/js/dashboard-bootstrap.module.js');
 
-const BINDER_START_ANCHOR = 'let _cardCacheSessionUid;';
-const BINDER_END_ANCHOR = 'if (prev !== undefined && prev !== uid) _clearAnalyticsCardCaches();';
-const BIND_CALL = '_bindAnalyticsCardsToSession(user ? user.uid : null);';
+// One binder serves BOTH in-memory caches — the card memos here and the lead
+// book from #1676 — collapsed when the second landed so a later change to what
+// counts as an account switch cannot update one and miss the other. The lifted
+// region therefore also carries _resetLeadsCache, which is harmless in this
+// harness: it only assigns to the fake `window` this suite passes in.
+const BINDER_START_ANCHOR = 'let _sessionUid;';
+const BINDER_END_ANCHOR = 'if (prev === undefined || prev === uid) return;';
+const BIND_CALL = '_bindCachesToSession(user ? user.uid : null);';
 const CALLBACK_ANCHOR = 'onAuthStateChanged(auth, async user => {';
 const REDIRECT_ANCHOR = 'if (!user) { window.location.replace("/pro/login.html"); return; }';
 const START_ANCHOR = "const _lastUid = localStorage.getItem('nbd_last_uid');";
@@ -112,8 +117,11 @@ const END_ANCHOR = '} catch (_) { /* best-effort; never block boot on a storage 
 
 const binderStartIdx = BOOTSTRAP_SRC.indexOf(BINDER_START_ANCHOR);
 const binderEndAnchorIdx = BOOTSTRAP_SRC.indexOf(BINDER_END_ANCHOR);
-// The end anchor is a brace-free one-line `if`, so the next `}` closes
-// _bindAnalyticsCardsToSession itself.
+// The end anchor is the binder's own brace-free first-tick guard, and every
+// statement after it is a brace-free call, so the next `}` closes
+// _bindCachesToSession itself. Anchoring on the guard rather than on the last
+// call keeps this extraction independent of the ORDER the two caches are
+// cleared in — only on the binder still existing.
 const binderCloseIdx = binderEndAnchorIdx === -1
   ? -1 : BOOTSTRAP_SRC.indexOf('}', binderEndAnchorIdx + BINDER_END_ANCHOR.length);
 const bindCallIdx = BOOTSTRAP_SRC.indexOf(BIND_CALL);
