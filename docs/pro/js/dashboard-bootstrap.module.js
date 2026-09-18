@@ -454,9 +454,17 @@
   // Read currently-selected trades as an array of values
   // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
   // Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+  //
+  // Returns null — UNKNOWN, not "none" — when no .trade-chip exists: the
+  // chips render only once refreshSubTypeAndTrades sees a non-empty job type
+  // (and window.TRADES), so editing a lead whose job type is "Not Set" never
+  // draws them and setSelectedTrades has nothing to reflect the stored trades
+  // onto. Returning [] there made saveLead wipe that lead's trades. The only
+  // caller (crm-leads.js saveLead) omits the key on null. Once the chips
+  // exist, a user who clears every one still gets [] and saves it.
   function getSelectedTrades() {
     const group = document.getElementById('lTradesGroup');
-    if (!group) return [];
+    if (!group || !group.querySelector('.trade-chip')) return null;
     return Array.from(group.querySelectorAll('.trade-chip[data-selected="1"]'))
       .map(b => b.dataset.value);
   }

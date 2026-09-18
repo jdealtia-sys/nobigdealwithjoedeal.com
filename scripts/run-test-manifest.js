@@ -292,7 +292,13 @@ const RUNNABLE = ['node', 'smoke'];
 //               on a 157/68/246 main. MEASURED via --check on this tree; if
 //               a sibling fail-open lane lands first, re-measure the merged
 //               tree rather than adding +1 to its literal.
-const FLOORS = { node: 161, smoke: 68, disk: 250 };
+//   2026-09-18  157/68/246 → 160/68/249, fail-open FO-3 lane (unhydrated
+//               companyProfile writes): tests/pipeline-builder-hydration,
+//               map-views-hydration, lead-trades-unknown. MEASURED via --check
+//               on a branch cut from origin/main at 4007bbbd. Sibling FO lanes
+//               cut from the same base will collide here — whichever merges
+//               second re-measures the merged tree, per the entries above.
+const FLOORS = { node: 164, smoke: 68, disk: 253 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
