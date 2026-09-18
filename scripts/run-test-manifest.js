@@ -276,7 +276,13 @@ const RUNNABLE = ['node', 'smoke'];
 //               matching number that is not evidence, per this ledger's own
 //               rule. Re-measured via --check on the tree with BOTH lanes
 //               merged (this esign lane's own suite + anniversary-touch's):
-const FLOORS = { node: 157, smoke: 68, disk: 246 };
+//   2026-09-18  157/68/246 → 160/68/249, fail-open FO-3 lane (unhydrated
+//               companyProfile writes): tests/pipeline-builder-hydration,
+//               map-views-hydration, lead-trades-unknown. MEASURED via --check
+//               on a branch cut from origin/main at 4007bbbd. Sibling FO lanes
+//               cut from the same base will collide here — whichever merges
+//               second re-measures the merged tree, per the entries above.
+const FLOORS = { node: 160, smoke: 68, disk: 249 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
