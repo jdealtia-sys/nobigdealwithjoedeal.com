@@ -510,11 +510,23 @@
     `docs/pro/**`, so `tests/e2e/pro-authed.spec.js` — a Playwright spec
     reading `window._uploadPhoto` directly — was invisible to it. Fixed
     (both the spec and the doc's own "per-name proof" checklist, which now
-    says to grep `tests/e2e/` too). T3-B has ~171 names left, T3-C has
-    ~125ish (21 more converted across today's 8 PRs, table miscounts
-    corrected in multiple directions — read the plan doc's table, not
-    this number, before starting the next slice); T3-D (131-name band →
-    NBD-prefixed APIs) and T3-E (spine-disposition docs) remain fully
+    says to grep `tests/e2e/` too). **A ninth PR same day** shipped the
+    first edge whose owner file wasn't a `*-bootstrap.module.js`:
+    `dashboard-actions.js`'s `_mJdTeardownRealtimeTabs` (real IIFE-scoped
+    declaration, joined an already-existing registry block in the same
+    IIFE) — but only 1 of that edge's 4 census candidates converted; the
+    other 3 sit in a top-level GAP between `dashboard-actions.js`'s
+    several separate IIFEs, needing T3-A-style IIFE-wrapping first, not a
+    quick add-on. Two more candidates ruled out the same round:
+    `dashboard-api.js` has no IIFE anywhere (same trap); `dashboard-load-
+    status-banner.js`'s `__nbdGstaticTest`/`__nbdHardReset` are
+    deliberate devtools-console recovery tools per the file's own header
+    comment — added to the permanent Keep-as-API list, never convert.
+    T3-B has ~171 names left, T3-C has ~124ish (22 more converted across
+    today's 9 PRs, table miscounts corrected in multiple directions —
+    read the plan doc's table, not this number, before starting the next
+    slice); T3-D (131-name band → NBD-prefixed APIs) and T3-E (spine-
+    disposition docs) remain fully
     untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/

@@ -1973,7 +1973,8 @@ function _mJdTeardownRealtimeTabs(newLeadId) {
     _voiceInstance = null; _voiceMountedFor = null;
   }
 }
-window._mJdTeardownRealtimeTabs = _mJdTeardownRealtimeTabs;
+// Registered in this IIFE's own __NBD_CALL_REGISTRY block below (Globals
+// Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
 
 // Recompute the job-detail hero from the same inputs openMobileJobDetail uses:
 // the rep-chosen cover wins, else the first cached photo.
@@ -2347,6 +2348,9 @@ window.openLeadDetail = openLeadDetail;
     // same convention _mJdDeleteDoc uses for window.deleteCustomerDoc.
     uploadSignedDoc: (...args) => (typeof window.uploadSignedDoc === 'function') && window.uploadSignedDoc(...args),
     _mJdQuickAddNote: _mJdQuickAddNote,
+    // Globals Tranche 3 T3-C (2026-09-18): dashboard-widgets.js's sole
+    // consumer of this teardown helper.
+    _mJdTeardownRealtimeTabs: _mJdTeardownRealtimeTabs,
   });
 })();
 

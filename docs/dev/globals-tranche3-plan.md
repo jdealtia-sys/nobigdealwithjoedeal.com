@@ -112,6 +112,14 @@ Do **not** burn sessions converting these 6+-consumer names:
   `nbdEsc`, `nbdConfirm`, `callClaude`, `NBDStore`. Done-equivalent.
 - **`standalone-compat.js` shims** (`open`, `confirm`, `nbdConfirm` twin):
   deliberate built-in wrappers. KEEP.
+- **`dashboard-load-status-banner.js`'s devtools recovery pair**
+  (`__nbdGstaticTest`, `__nbdHardReset`): the file's own header comment
+  says "Self-recovery globals stay on window so the user can fire them
+  from devtools if the on-page UI isn't reachable" — deliberately
+  window-exported so a rep (or Jo) can invoke them from the browser
+  console during an actual outage. Single-consumer per the census, but
+  NEVER convert — registry-only would defeat the exact scenario they
+  exist for.
 
 After subtracting keep-as-API, the genuine 6+ TODO residue is near zero —
 the spine is a state-store question, not a globals-hygiene question.
@@ -330,7 +338,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
 | dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
 | dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR #1652); see note below** |
-| long tail (1–3-name edges) | ~128 |
+| dashboard-actions.js → dashboard-widgets.js (realtime teardown) | 1 of 4 — **shipped 2026-09-18 (PR #1653); other 3 need T3-A-style IIFE-wrapping first, see note below** |
+| long tail (1–3-name edges) | ~127 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -747,6 +756,71 @@ Convert edge-by-edge; each edge is one natural PR:
 > `window._getPhotos` literals (excluding a known-stale worktree checkout
 > under `.claude/worktrees/`, not part of the tracked tree). Both rounds
 > reran `check-js-syntax` and `tests/smoke.test.js` (4157/4157) green.
+
+> ### Update 2026-09-18 — dashboard-actions.js as a NEW owner file: 1 of 4
+> names shipped, 3 flagged as a different (harder) class of work (PR #1653)
+>
+> A ninth long-tail edge, and the first time this session an edge's owner
+> file was something OTHER than `dashboard-bootstrap.module.js`/
+> `customer-bootstrap.module.js`: `dashboard-actions.js → dashboard-widgets.js`
+> (4 census candidates: `_mJdTeardownRealtimeTabs`, `absoluteDeleteProspect`,
+> `toggleProspectHidden`, `viewProspectOnMap`).
+>
+> **Only `_mJdTeardownRealtimeTabs` was safe to convert.** It was already a
+> real top-level `function` declaration (not an expression) sitting inside
+> one of `dashboard-actions.js`'s several IIFEs (re-derived from scratch,
+> not assumed: real column-0 `(function(){...})();` boundaries give one
+> IIFE spanning lines 1310–2355; both the declaration (1966) and the
+> existing `Object.assign(window.__NBD_CALL_REGISTRY, {...})` block it now
+> joins (2334–2354) sit inside it) — so deleting the redundant
+> `window.X = X;` line and adding an entry to that ALREADY-EXISTING
+> registry block (this IIFE has ~13 other T3-C-converted names in it from
+> earlier PRs) genuinely takes it off `window`.
+>
+> **The other 3 do NOT convert the same way — genuinely different problem,
+> not a quick add-on.** `dashboard-actions.js` is NOT one monolithic
+> IIFE — it's several separate IIFEs (57–262, 638–902, 936–948, 1141–1288,
+> 1310–2355, 2519–2600, 2621–2875) with real GAPS between them that are
+> still true top-level classic-script code. `absoluteDeleteProspect`
+> (2443), `toggleProspectHidden` (2402), `viewProspectOnMap` (2422) all
+> fall in the 2355–2519 gap — true top level, not IIFE-protected. Since
+> they're `window.X = function(){}` anonymous expressions with no separate
+> binding, converting them to plain declarations at that same top-level
+> spot would NOT take them off `window` — a bare classic-script function
+> declaration auto-globals regardless of the explicit assignment, same
+> trap as the reverse customer-tasks-ui.js edge earlier in this doc.
+> Genuinely fixing this needs T3-A-style IIFE-wrapping of that gap region
+> first (bigger, different risk profile — see the T3-A correction section
+> above for why "mechanically safe" undersold that work before). Not
+> attempted here; flagged for its own future slice.
+>
+> **Also investigated and ruled out this same round, faster dead ends
+> worth recording so a future session doesn't re-derive them:**
+> - `dashboard-api.js → dashboard-actions.js` (`_revokePortalLink`,
+>   `_sharePortalLink`, 2 names): `dashboard-api.js` has **no IIFE
+>   anywhere in the whole 523-line file** — same top-level-auto-global
+>   trap as above. Not attempted.
+> - `dashboard-load-status-banner.js → dashboard-actions.js`
+>   (`__nbdGstaticTest`, `__nbdHardReset`, 2 names): the WHOLE file is one
+>   IIFE (18–259), so these ARE technically convertible — but the file's
+>   own header comment says explicitly: *"Self-recovery globals stay on
+>   window so the user can fire them from devtools if the on-page UI isn't
+>   reachable."* These are deliberate devtools-console recovery tools for
+>   when the app itself is broken — converting them to registry-only would
+>   defeat their entire purpose (a rep typing `window.__nbdHardReset()` in
+>   devtools during an actual outage would get "not a function"). **Never
+>   convert — add to the Keep-as-API list**, not a temporarily-skipped
+>   candidate.
+>
+> Verification: one adversarial-review agent, focused specifically on
+> re-deriving the IIFE-boundary claim from scratch (given this exact file
+> has a documented history of a real ordering-trap landmine —
+> `_mJdOpenEstimate` — from adding a registry entry to the wrong IIFE) —
+> independently found the same 1310–2355 boundary via real column-0 marker
+> greps, confirmed both the declaration and the registry block sit inside
+> it, confirmed call-site ordering unchanged, confirmed no `_nbdReg`
+> scope collision with an unrelated function in the same consumer file,
+> and reran `check-js-syntax` and `tests/smoke.test.js` (4157/4157) green.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
