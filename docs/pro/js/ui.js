@@ -839,7 +839,11 @@ function switchSettingsTab(tab) {
     // DOMContentLoaded callback ran while these elements were still
     // stuck inside <template>. Calling them here is idempotent.
     if (typeof window.nbdRenderFontGrid === 'function') window.nbdRenderFontGrid();
-    if (typeof window.nbdSyncSizeBtns === 'function') window.nbdSyncSizeBtns();
+    // nbdSyncSizeBtns lives in __NBD_CALL_REGISTRY (dashboard-ui-prefs-
+    // boot.js), not on window — Globals Tranche 3 T3-C, 2026-09-18.
+    if (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.nbdSyncSizeBtns === 'function') {
+      window.__NBD_CALL_REGISTRY.nbdSyncSizeBtns();
+    }
     if (typeof window.nbdSyncModeToggle === 'function') window.nbdSyncModeToggle();
     // Shape & Depth segmented control active-state — same lazy-hydration
     // hook as the three calls above; nbdSyncShapeStyleBtns lives in

@@ -2952,6 +2952,16 @@ section('Globals Tranches 0+1: converted names stay off window');
     'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT',
     'nbdSetCrmAutoCollapseT', 'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
     'd2dSetDispoFilter', 'nbdSettingsUpdateCalcomPreview',
+    // Tranche 3 T3-C (2026-09-18): prefs-boot's size-button repaint hook
+    // (ui.js switchSettingsTab's only window read of this file) joined the
+    // same registry block. showToast/nbdRenderFontGrid stay window exports.
+    'nbdSyncSizeBtns',
+    // Tranche 3 T3-C (2026-09-18), same PR: the two lazy 'estimates'-bundle
+    // render aliases (product-library.js / job-templates-ui.js → dashboard-
+    // actions.js goTo fallbacks) and dashboard-insurance-overlay-toggle.js's
+    // one name (whole 7-line file IIFE-wrapped; #estMode data-on-after +
+    // dashboard-widgets.js viewEstimate). See the T3-C assertion block below.
+    'renderProductLibrary', 'renderJobTemplatesLibrary', 'toggleInsuranceOverlay',
     // Tranche 2c-3 (2026-07-07): the crm-portal-bridge.js bulk-ops /
     // deleted-drawer / delete-confirm markup handlers — module-scoped now
     // (whole file IIFE-wrapped), dispatched via __NBD_CALL_REGISTRY. NOT
@@ -3962,6 +3972,136 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       !new RegExp('window\\.' + n + '\\s*=\\s*' + n + '\\b').test(bootReg));
     assert('ui.js switchSettingsTab reads ' + n + ' off the registry, not bare window.' + n,
       new RegExp('_nbdReg\\.' + n + '\\b').test(uiJsSrc) && !new RegExp('window\\.' + n + '\\s*\\(').test(uiJsSrc));
+  }
+
+  // ── Tranche 3 T3-C (2026-09-18): estimates-bundle render aliases +
+  // settings/estimate view hooks ──
+  // Four single-consumer names, each a callable whose only reader already
+  // tolerated its absence: nbdSyncSizeBtns (prefs-boot → ui.js
+  // switchSettingsTab), renderProductLibrary / renderJobTemplatesLibrary
+  // (lazy 'estimates' bundle → dashboard-actions.js goTo fallbacks) and
+  // toggleInsuranceOverlay (a <script src> inside tpl-view-est → #estMode's
+  // data-on-after + dashboard-widgets.js viewEstimate). Off-window status is
+  // the T1_NAMES walk above; these pin the registry half of each edge.
+  // Block-scoped so its consts cannot collide with sibling T3-C blocks.
+  {
+    // nbdSyncSizeBtns: a real declaration inside prefs-boot's IIFE, joined to
+    // the file's ONE existing registry block (regBlock = that block). The
+    // IIFE body is not indented, so this text pin cannot tell inside-the-IIFE
+    // from top-level; the vm run at the end of this block owns the scope claim.
+    assert('prefs-boot declares nbdSyncSizeBtns as a function declaration (not a window-assigned expression)',
+      /^function nbdSyncSizeBtns\(\) \{/m.test(prefsBoot));
+    assert('prefs-boot registers nbdSyncSizeBtns in its __NBD_CALL_REGISTRY block (T3-C)',
+      /\bnbdSyncSizeBtns:\s*nbdSyncSizeBtns\b/.test(regBlock));
+    assert('ui.js switchSettingsTab reads nbdSyncSizeBtns off the registry, guarded (no-op if absent)',
+      /typeof window\.__NBD_CALL_REGISTRY\.nbdSyncSizeBtns === 'function'\) \{\s*window\.__NBD_CALL_REGISTRY\.nbdSyncSizeBtns\(\);/.test(uiJsSrc));
+    const t3cDashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+    assert('dashboard.html runs prefs-boot (registers nbdSyncSizeBtns) before ui.js (reads it)',
+      t3cDashRaw.indexOf('src="js/dashboard-ui-prefs-boot.js') !== -1
+        && t3cDashRaw.indexOf('src="js/dashboard-ui-prefs-boot.js') < t3cDashRaw.indexOf('src="js/ui.js'));
+
+    // renderProductLibrary / renderJobTemplatesLibrary: lazy-bundle consumer
+    // rule — the goTo branch must read the registry INSIDE the preload's
+    // .then (load → re-read), never a reference captured before the bundle
+    // arrived, and must no-op when the entry is absent (fail-closed).
+    const t3cDaSrc = read(path.join(PRO_JS, 'dashboard-actions.js'));
+    for (const [n, owner, view, ns] of [
+      ['renderProductLibrary', 'product-library.js', 'products', 'window._productLib'],
+      ['renderJobTemplatesLibrary', 'job-templates-ui.js', 'job-templates', 'window.JobTemplatesUI']]) {
+      const ownerSrc = read(path.join(PRO_JS, owner));
+      assert(owner + ' registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+        new RegExp('Object\\.assign\\(window\\.__NBD_CALL_REGISTRY, \\{ ' + n + ': render \\}\\);').test(ownerSrc));
+      assert(owner + ' guards the registry object instead of overwriting it (shared across the bundle)',
+        /window\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);/.test(ownerSrc));
+      const start = t3cDaSrc.indexOf("if(name==='" + view + "') {");
+      const branch = start === -1 ? '' : t3cDaSrc.slice(start, t3cDaSrc.indexOf('\n  }', start));
+      const thenAt = branch.indexOf('_lazyPreload.then(function () {');
+      const readAt = branch.indexOf('window.__NBD_CALL_REGISTRY.' + n + '()');
+      assert("goTo('" + view + "') reads " + n + ' off the registry only after the lazy bundle loads',
+        thenAt !== -1 && readAt > thenAt && branch.indexOf(ns + '.render()') > thenAt);
+      assert("goTo('" + view + "') calls " + n + ' only behind a typeof guard (absent entry = no-op)',
+        branch.indexOf("typeof window.__NBD_CALL_REGISTRY." + n + " === 'function') { ") !== -1);
+    }
+
+    // toggleInsuranceOverlay: the whole 1-name file is IIFE-wrapped so the
+    // declaration cannot auto-global; the Object.assign form is what wiring
+    // audit (d) reads to resolve #estMode's data-on-after.
+    const insToggleSrc = read(path.join(PRO_JS, 'dashboard-insurance-overlay-toggle.js'));
+    assert('dashboard-insurance-overlay-toggle.js is IIFE-wrapped (its function leaves window)',
+      /^\(function \(\) \{\r?$/m.test(insToggleSrc) && /\}\)\(\);$/.test(insToggleSrc.trimEnd()));
+    assert('dashboard-insurance-overlay-toggle.js registers toggleInsuranceOverlay (Object.assign form)',
+      /Object\.assign\(window\.__NBD_CALL_REGISTRY, \{ toggleInsuranceOverlay: toggleInsuranceOverlay \}\);/.test(insToggleSrc));
+    assert('allowlist no longer carries toggleInsuranceOverlay (T3-C — registry replaced it)',
+      !/'toggleInsuranceOverlay'/.test(stateSrc));
+    assert('dashboard.html still wires #estMode data-on-after to toggleInsuranceOverlay',
+      /id="estMode" data-on-change="calcTierPrices" data-on-after="toggleInsuranceOverlay"/.test(t3cDashRaw));
+    const t3cWidgetsSrc = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+    // Sliced to viewEstimate's own body, and the local _nbdReg binding is
+    // part of the match: no global _nbdReg exists anywhere under docs/, so a
+    // dropped binding would ReferenceError mid-viewEstimate.
+    const veStart = t3cWidgetsSrc.indexOf('function viewEstimate(id) {');
+    const veEnd = veStart === -1 ? -1 : t3cWidgetsSrc.slice(veStart).search(/\n\}\r?\n/);
+    const veBody = veEnd === -1 ? '' : t3cWidgetsSrc.slice(veStart, veStart + veEnd);
+    assert('dashboard-widgets.js viewEstimate binds _nbdReg to the registry and reads toggleInsuranceOverlay off it, guarded',
+      /(?:var|let|const) _nbdReg = window\.__NBD_CALL_REGISTRY;\s*if \(_nbdReg && typeof _nbdReg\.toggleInsuranceOverlay === 'function'\) \{\s*_nbdReg\.toggleInsuranceOverlay\(\);/.test(veBody));
+    // Behaviour, not just text: run the real file TWICE in one context (the
+    // tpl-view-est hydration re-executes it) with window === the global, so a
+    // leaked top-level declaration would show up as a window property.
+    const vm = require('vm');
+    const els = { estMode: { value: 'insurance' }, estInsuranceBlock: { style: { display: '' } } };
+    const keep = function () {};
+    const sb = { document: { getElementById: (id) => els[id] || null }, Object, __NBD_CALL_REGISTRY: { keep } };
+    sb.window = sb;
+    vm.createContext(sb);
+    vm.runInContext(insToggleSrc, sb);
+    vm.runInContext(insToggleSrc, sb);
+    const reg = sb.__NBD_CALL_REGISTRY;
+    const fn = reg && reg.toggleInsuranceOverlay;
+    assert('toggleInsuranceOverlay: re-execution keeps the existing registry (no clobber) and leaks nothing onto window',
+      typeof fn === 'function' && reg.keep === keep && !('toggleInsuranceOverlay' in sb));
+    let shown = '', hidden = '';
+    if (typeof fn === 'function') {
+      fn(); shown = els.estInsuranceBlock.style.display;
+      els.estMode.value = 'cash'; fn(); hidden = els.estInsuranceBlock.style.display;
+    }
+    assert('toggleInsuranceOverlay (via the registry) shows the insurance block for insurance, hides it for cash',
+      shown === 'block' && hidden === 'none', 'got ' + JSON.stringify([shown, hidden]));
+
+    // nbdSyncSizeBtns module scope, behaviourally: run the real prefs-boot
+    // with window === the global. A declaration hoisted out of the IIFE, or
+    // any window['nbdSyncSizeBtns'] re-export, lands as an own property of
+    // the global; the text pins above cannot see either. document/navigator
+    // are an inert Proxy (every read/call returns the stub), localStorage a
+    // Map.
+    const pbStub = new Proxy(function () {}, {
+      get: (t, k) => (k === Symbol.toPrimitive ? () => '' : typeof k === 'symbol' ? undefined : pbStub),
+      apply: () => pbStub, construct: () => pbStub, set: () => true,
+    });
+    const pbStore = new Map();
+    const pbSb = { document: pbStub, navigator: pbStub, localStorage: {
+      getItem: (k) => (pbStore.has(k) ? pbStore.get(k) : null),
+      setItem: (k, v) => { pbStore.set(k, String(v)); },
+      removeItem: (k) => { pbStore.delete(k); } } };
+    pbSb.window = pbSb;
+    vm.createContext(pbSb);
+    let pbErr = '';
+    try { vm.runInContext(prefsBoot, pbSb); } catch (e) { pbErr = String(e && e.message || e); }
+    const pbFn = pbSb.__NBD_CALL_REGISTRY && pbSb.__NBD_CALL_REGISTRY.nbdSyncSizeBtns;
+    assert('prefs-boot keeps nbdSyncSizeBtns off window (vm: not an own property of the global) and registers it',
+      !pbErr && !Object.prototype.hasOwnProperty.call(pbSb, 'nbdSyncSizeBtns') && typeof pbFn === 'function',
+      pbErr ? 'prefs-boot threw under the vm stubs: ' + pbErr : 'nbdSyncSizeBtns leaked onto window or is missing from the registry');
+    // …and the registry entry is the real repaint, not a placeholder.
+    const pbBtns = [{ dataset: { size: 'large' }, style: {} }, { dataset: { size: 'default' }, style: {} }];
+    let pbPainted = [], pbCallErr = '';
+    if (typeof pbFn === 'function') {
+      pbStore.set('nbd_ui_size', 'large');
+      pbSb.document = { querySelectorAll: (sel) => (sel === '.nbd-size-btn' ? pbBtns : []) };
+      try { pbFn(); } catch (e) { pbCallErr = String(e && e.message || e); }
+      pbPainted = pbBtns.map((b) => b.style.fontWeight);
+    }
+    assert('nbdSyncSizeBtns (via the registry) paints the saved size button active and the rest inactive',
+      !pbCallErr && pbPainted[0] === '800' && pbPainted[1] === '',
+      pbCallErr ? 'threw: ' + pbCallErr : 'got ' + JSON.stringify(pbPainted));
   }
 
   // ── Tranche 3 T3-C (2026-09-17): crm-portal-bridge.js + rep-report-
