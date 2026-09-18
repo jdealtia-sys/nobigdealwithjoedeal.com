@@ -3156,7 +3156,13 @@ section('Globals Tranches 0+1: converted names stay off window');
     // is a rename-on-export (imported as ROLE, registered as STAGE_ROLE).
     'applyPipelineConfig', 'resolvePipelineConfig', 'STAGE_ROLE',
     // Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal edge.
-    '_uploadPhoto', '_getPhotos'];
+    '_uploadPhoto', '_getPhotos',
+    // Tranche 3 T3-C (2026-09-18): the dashboard-actions.js -> dashboard-
+    // widgets.js Messages/Voice-Intel teardown edge. Already a real
+    // declaration (not an expression) inside dashboard-actions.js's
+    // customer-detail-action-bar IIFE — only the redundant window export
+    // line and the registry entry changed.
+    '_mJdTeardownRealtimeTabs'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -5194,9 +5200,10 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
 
   // Teardown: a listener mounted for lead A must not keep running once the
   // rep opens lead B without ever revisiting these tabs.
-  assert('_mJdTeardownRealtimeTabs is defined and exported for dashboard-widgets.js to call',
+  assert('_mJdTeardownRealtimeTabs is defined and registered in __NBD_CALL_REGISTRY for dashboard-widgets.js to call (Globals Tranche 3 T3-C)',
     /function _mJdTeardownRealtimeTabs\(newLeadId\)/.test(actions) &&
-    /window\._mJdTeardownRealtimeTabs = _mJdTeardownRealtimeTabs;/.test(actions));
+    /_mJdTeardownRealtimeTabs: _mJdTeardownRealtimeTabs,/.test(actions) &&
+    !/window\._mJdTeardownRealtimeTabs\s*=/.test(actions));
   assert('_mJdTeardownRealtimeTabs unmounts Messages/Voice ONLY when the lead actually changed',
     /_messagesMountedFor && _messagesMountedFor !== newLeadId/.test(actions) &&
     /_voiceMountedFor && _voiceMountedFor !== newLeadId/.test(actions));
@@ -5207,7 +5214,7 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
   const openMobileFn = widgets.slice(widgets.indexOf('function openMobileJobDetail'),
                                       widgets.indexOf('window.openMobileJobDetail'));
   assert('openMobileJobDetail calls the teardown on every open, before staging the new lead\'s data',
-    /window\._cardDetailLeadId = leadId;[\s\S]{0,1200}window\._mJdTeardownRealtimeTabs\(leadId\)/.test(openMobileFn));
+    /window\._cardDetailLeadId = leadId;[\s\S]{0,1200}_nbdReg\._mJdTeardownRealtimeTabs\(leadId\)/.test(openMobileFn));
 
   // customer-realtime.module.js refactor: pure export now, no top-level
   // side effect — importing mountMessages from the dashboard bridge must
