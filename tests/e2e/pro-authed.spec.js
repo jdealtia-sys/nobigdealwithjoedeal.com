@@ -1019,7 +1019,8 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     // bug in smart-calendar.js's manual-scheduled block).
     await page.waitForFunction(() =>
       typeof window.goTo === 'function'
-      && typeof window.loadSmartCalendar === 'function'
+      // Registry-only since Globals Tranche 3 T3-C (smart-calendar.js).
+      && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.loadSmartCalendar === 'function'
       && window._db && typeof window.getDocs === 'function'
       && typeof window.orderBy === 'function'
       && typeof window._saveLead === 'function', null, { timeout: 20_000 });
@@ -1100,7 +1101,7 @@ test.describe.serial('Authenticated destructive flows @shard2', () => {
     const inLeads = await page.waitForFunction(
       (id) => (window._leads || []).some(l => l && l.id === id), seeded.leadId, { timeout: 15_000 });
     expect(inLeads).toBeTruthy();
-    await page.evaluate(async () => { await window.loadSmartCalendar(); });
+    await page.evaluate(async () => { await window.__NBD_CALL_REGISTRY.loadSmartCalendar(); });
 
     const host = page.locator('#calUpcoming');
     await expect(host, 'manual-scheduled block rendered').toContainText('Scheduled today', { timeout: 10_000 });

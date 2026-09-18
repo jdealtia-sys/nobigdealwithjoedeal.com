@@ -214,6 +214,25 @@
     }
   }
 
+  // ─── In-flight guard ────────────────────────────────────────────
+  // smsForLead / emailForLead SEND (NBDComms → Twilio / Resend). There
+  // is no review step after the template pick, and on the one-template
+  // and ⭐-default paths there is no picker at all — so a double-tap on
+  // a share button (the caller surfaces don't disable themselves while
+  // a share is in flight) landing inside the async portal-token mint
+  // sent the homeowner the same text or email twice. Keyed per channel + lead so different
+  // leads / channels stay independent; cleared in `finally` so a throw
+  // or an early return can never wedge a lead's share button shut.
+  const _shareInFlight = new Set();
+  function _claimShare(key) {
+    if (_shareInFlight.has(key)) {
+      _toast('Already sending — one moment', 'info');
+      return false;
+    }
+    _shareInFlight.add(key);
+    return true;
+  }
+
   // ─── SMS ────────────────────────────────────────────────────────
   // Mirror of Wave 41's prefilled-body + sms: handoff. Bails with a
   // toast when the lead has no phone (since there's no phone on the
@@ -229,6 +248,8 @@
       _toast('No phone number on this customer', 'error');
       return;
     }
+    const flightKey = 'sms:' + lead.id;
+    if (!_claimShare(flightKey)) return;
     try {
       const url = _asShareUrl(await resolveUrl(lead.id));
       const firstName = String(lead.firstName || '').trim();
@@ -279,6 +300,8 @@
     } catch (e) {
       console.warn('[PortalLinkHelpers.smsForLead] failed', e);
       _toast('Couldn\'t prepare SMS: ' + (e.message || 'unknown'), 'error');
+    } finally {
+      _shareInFlight.delete(flightKey);
     }
   }
 
@@ -302,6 +325,8 @@
       _toast('No email on this customer', 'error');
       return;
     }
+    const flightKey = 'email:' + lead.id;
+    if (!_claimShare(flightKey)) return;
     try {
       const url = _asShareUrl(await resolveUrl(lead.id));
       const firstName = String(lead.firstName || '').trim();
@@ -368,6 +393,8 @@ Bookmark it; the link stays live as we work through the project.
     } catch (e) {
       console.warn('[PortalLinkHelpers.emailForLead] failed', e);
       _toast('Couldn\'t prepare email: ' + (e.message || 'unknown'), 'error');
+    } finally {
+      _shareInFlight.delete(flightKey);
     }
   }
 

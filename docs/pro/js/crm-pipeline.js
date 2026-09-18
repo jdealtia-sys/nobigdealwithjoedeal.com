@@ -315,10 +315,14 @@ function renderLeads(leads, filtered){
   setEl('dp-won', _stageCounts.closed);
   setEl('dp-lost', _stageCounts.lost);
 
-  // Show/hide Load Sample Data button (only when zero leads)
+  // Show/hide Load Sample Data button (only when a CONFIRMED load returned
+  // zero leads). `all` is [] while the first loadLeads() is in flight and
+  // after it fails, so gating on the count alone offered "Sample data" on
+  // an unloaded board — the same "not loaded ≠ empty" rule the diagnostic
+  // below and loadSampleData() itself (dashboard-actions.js) key off.
   const sampleBtn = document.getElementById('loadSampleDataBtn');
   if (sampleBtn) {
-    sampleBtn.style.display = (all.length === 0) ? 'inline-block' : 'none';
+    sampleBtn.style.display = (all.length === 0 && window._leadsLoaded === true) ? 'inline-block' : 'none';
   }
 
   // Show diagnostic panel ONLY if a successful load returned zero leads.
@@ -470,8 +474,11 @@ function renderLeads(leads, filtered){
     // "which lead lands in which column, and which have no column at all". The
     // board, the hidden-stage chip, and the unit test all share it so the
     // bucketing, the $ totals, and the chip's count can never drift apart.
-    if (typeof window.partitionLeadsByColumn === 'function') {
-      const _part = window.partitionLeadsByColumn(list, stageKeys, {
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window
+    // global; registry missing → the inline fallback below, as before.
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (_nbdReg && typeof _nbdReg.partitionLeadsByColumn === 'function') {
+      const _part = _nbdReg.partitionLeadsByColumn(list, stageKeys, {
         stageMeta: _META, normalize: _normalize, resolve: _resolve,
       });
       Object.assign(byStage, _part.columns);

@@ -291,9 +291,11 @@ function goTo(name, params = {}) {
   // Force-exit bulk-select mode whenever leaving the kanban — otherwise a
   // bulk selection started on the CRM bleeds into the next view's click
   // handlers (e.g. tapping a prospect card opens a checkbox toggle instead
-  // of the detail modal). Audit fix H4.
-  if (name !== 'crm' && window._bulkMode && typeof window.exitBulkMode === 'function') {
-    window.exitBulkMode();
+  // of the detail modal). Audit fix H4. exitBulkMode is registry-only
+  // (crm-portal-bridge.js, Globals Tranche 3 T3-C); a missing entry is a no-op.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (name !== 'crm' && window._bulkMode && _nbdReg && typeof _nbdReg.exitBulkMode === 'function') {
+    _nbdReg.exitBulkMode();
   }
 
   // Update URL hash (without triggering hashchange event)
@@ -557,20 +559,23 @@ function goTo(name, params = {}) {
   if(name==='products') {
     // PR 2c: product-library ships in the lazy 'estimates' bundle, which the
     // products view preloads (VIEW_BUNDLES). Chain the render on that preload
-    // so window._productLib exists when we read it.
+    // so window._productLib exists when we read it. The fallback render lives
+    // in __NBD_CALL_REGISTRY, not on window (Globals Tranche 3 T3-C,
+    // 2026-09-18) — read here, after the bundle load, never captured before.
     _lazyPreload.then(function () {
       const pc = document.getElementById('productLibraryContainer');
       if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
-      else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+      else if (pc && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderProductLibrary === 'function') { pc.innerHTML = window.__NBD_CALL_REGISTRY.renderProductLibrary(); }
     });
   }
   if(name==='job-templates') {
     // Job-template library rides the same lazy 'estimates' bundle as the
-    // products view (it resolves pricing through EstimateLogic).
+    // products view (it resolves pricing through EstimateLogic). Same
+    // registry-only fallback as the products branch above (T3-C, 2026-09-18).
     _lazyPreload.then(function () {
       const jc = document.getElementById('jobTemplatesContainer');
       if (jc && window.JobTemplatesUI) { jc.innerHTML = window.JobTemplatesUI.render(); }
-      else if (jc && typeof window.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.renderJobTemplatesLibrary(); }
+      else if (jc && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.__NBD_CALL_REGISTRY.renderJobTemplatesLibrary(); }
     });
   }
   if(name==='reports') {
@@ -760,6 +765,15 @@ async function saveZone() {
   showToast(`Zone "${name}" saved ✓`);
 }
 
+// `ok` below starts as "is this a local-only zone" — no id, or saveZone's 'd-'
+// fallback id, i.e. nothing server-side to delete (the same short-circuit as
+// _deleteZone in dashboard-bootstrap.module.js). It must NEVER start as true:
+// it was `let ok = true` until 2026-09-18, so a missing __NBD_CALL_REGISTRY.
+// _deleteZone entry skipped the server delete, removed a persisted zone from
+// the map as if it had succeeded, and it came back on reload and for every
+// teammate. A missing registry now fails CLOSED for server zones — the same
+// default deletePin uses in maps-overlays.js. Pinned behaviorally by
+// tests/failopen-destructive-false-success-2026-09-18.test.js.
 async function deleteZone(id) {
   // Ids are Firestore doc strings (or a 'd-' local fallback); compare loosely so
   // a numeric-vs-string mismatch from the list's data attr still matches.
@@ -770,7 +784,7 @@ async function deleteZone(id) {
   // teammate's zone in the list, but the /zones rule denies deleting it. The
   // old code removed it optimistically and it silently reappeared on reload.
   // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-  let ok = true;
+  let ok = !zone.id || String(zone.id).startsWith('d-');
   var _nbdReg = window.__NBD_CALL_REGISTRY;
   if (_nbdReg && typeof _nbdReg._deleteZone === 'function') { try { ok = await _nbdReg._deleteZone(zone.id); } catch (_) { ok = false; } }
   if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the owner or a company admin can remove this zone', 'error'); return; }
@@ -905,6 +919,17 @@ window.renderSavedZones = renderSavedZones;
 // SAMPLE DATA + damage-near-me overrides
 // ══════════════════════════════════════════════
 async function loadSampleData() {
+  // FAIL CLOSED on an unhydrated lead cache (mirrors pipeline-builder.js
+  // canDeleteStage). window._leads is [] both before the first loadLeads()
+  // resolves and after a failed first load (dashboard-bootstrap.module.js
+  // resets it to [] and leaves _leadsLoaded false), so the empty-book check
+  // below read "not loaded yet" as "account is empty" and seeded 13 demo
+  // leads + 6 tasks into a live tenant with no confirm. Only a confirmed
+  // load may be treated as empty.
+  if (window._leadsLoaded !== true) {
+    showToast("Your leads haven't finished loading yet — wait for the board to load, then try again.", 'error');
+    return;
+  }
   const leads = window._leads || [];
   if(leads.length > 0) {
     // Batch 2 (iOS PWA): native confirm() always returns true in standalone
@@ -1854,7 +1879,10 @@ function _mJdOpenDocCreate() {
   const leadId = window._cardDetailLeadId;
   if (!leadId) return;
   const prereqs = window._DASH_DOC_PREREQUISITES;
-  if (!prereqs || typeof window._generateDocWithPreflight !== 'function') {
+  // _generateDocWithPreflight is registry-only (Globals Tranche 3 T3-C,
+  // 2026-09-18), not a bare window global.
+  const _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!prereqs || !_nbdReg || typeof _nbdReg._generateDocWithPreflight !== 'function') {
     if (typeof showToast === 'function') showToast('Document generator unavailable — reload the page.', 'error');
     return;
   }
@@ -1892,8 +1920,9 @@ function _mJdCloseDocTypeSheet() {
 function _mJdPickDocType(type) {
   _mJdCloseDocTypeSheet();
   const leadId = window._cardDetailLeadId;
-  if (!leadId || typeof window._generateDocWithPreflight !== 'function') return;
-  window._generateDocWithPreflight(type, leadId);
+  const _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!leadId || !_nbdReg || typeof _nbdReg._generateDocWithPreflight !== 'function') return;
+  _nbdReg._generateDocWithPreflight(type, leadId);
 }
 
 // ── Messages + Voice Intel: mount-once-per-lead, torn down on lead change ──

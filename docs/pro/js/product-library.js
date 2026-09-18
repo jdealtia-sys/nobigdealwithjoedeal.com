@@ -920,7 +920,13 @@
     }
   };
 
-  window.renderProductLibrary = render;
+  // Globals Tranche 3 T3-C (2026-09-18): renderProductLibrary is registry-only
+  // (was a window alias of render). Its sole reader is dashboard-actions.js
+  // goTo('products'), which prefers _productLib.render() above and reads this
+  // entry only after the lazy 'estimates' bundle has loaded. Idempotent: this
+  // bundle also loads on customer.html, where the guard reuses the registry.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { renderProductLibrary: render });
 
   // ============================================================================
   // EVENT WIRING — CSP-safe delegates (inline on* never executes on /pro pages)
