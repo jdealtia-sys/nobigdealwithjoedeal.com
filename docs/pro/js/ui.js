@@ -970,8 +970,14 @@ function switchSettingsTab(tab) {
     // PR 2c: EstimateBuilderV2 ships in the lazy 'estimates' bundle. Load it
     // before reading its settings + the product/xactimate counts, so the tab
     // shows real values (not zeros) and saves against the real config.
+    // _loadEstimateDefaultsV2 lives in dashboard-bootstrap.module.js's
+    // __NBD_CALL_REGISTRY (Globals Tranche 3 T3-C, 2026-09-18), not on
+    // window. Resolved HERE, at call time, not via the _nbdReg below: that
+    // var is hoisted but still undefined when the EstimateBuilderV2-already-
+    // loaded branch runs this synchronously, which would silently no-op.
     var _runEstDefaults = function () {
-      if (typeof window._loadEstimateDefaultsV2 === 'function') window._loadEstimateDefaultsV2();
+      var _estReg = window.__NBD_CALL_REGISTRY;
+      if (_estReg && typeof _estReg._loadEstimateDefaultsV2 === 'function') _estReg._loadEstimateDefaultsV2();
     };
     if (window.EstimateBuilderV2) { _runEstDefaults(); }
     else if (window.ScriptLoader && window.ScriptLoader.loadBundle) { window.ScriptLoader.loadBundle('estimates').then(_runEstDefaults); }

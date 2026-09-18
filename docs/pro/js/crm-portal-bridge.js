@@ -575,7 +575,17 @@ async function confirmDeleteLead() {
   if (overlay) overlay.classList.remove('open');
   _pendingDeleteId = null;
   try {
-    await window.__NBD_CALL_REGISTRY._deleteLead(id);
+    // _deleteLead resolves true only when the soft-delete write landed. Check
+    // === true, not truthiness of "it resolved": an older callee resolved
+    // undefined after swallowing a denied write, and this toasted success for
+    // a lead that never left the board (e.g. a viewer, whom the leads update
+    // rule refuses). The card is untouched on failure — _deleteLead only
+    // drops it from window._leads after the write succeeds.
+    const ok = await window.__NBD_CALL_REGISTRY._deleteLead(id);
+    if (ok !== true) {
+      showToast('Could not delete this lead — your role may not allow it. It was not moved to the Deleted bin.', 'error');
+      return;
+    }
     showToast('Lead moved to Deleted bin');
     refreshTrashBadge();
   } catch(e) { showToast('Delete failed','error'); }
@@ -651,7 +661,17 @@ async function permanentDeleteLead(id, name) {
   if (!(await _ask(`Permanently delete "${name}"? This CANNOT be undone.`))) return;
   const card = document.getElementById('dc-'+id);
   if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
-  await window._permanentDeleteLead(id);
+  // _permanentDeleteLead resolves true only when deleteDoc succeeded. On
+  // anything else the lead is still in the trash: un-dim its card so it can
+  // be retried, and say it failed — never "Permanently deleted" for a
+  // homeowner record that still exists.
+  let ok = false;
+  try { ok = await window._permanentDeleteLead(id); } catch (e) { ok = false; }
+  if (ok !== true) {
+    if(card) { card.style.opacity=''; card.style.pointerEvents=''; }
+    showToast('Could not permanently delete this lead — your role may not allow it. It is still in the Deleted bin.', 'error');
+    return;
+  }
   showToast('Permanently deleted');
   refreshTrashBadge();
   await renderDeletedDrawer();

@@ -144,9 +144,21 @@
       // cron's automatic oldest-first restore. Only claimed members (active/
       // deactivated, have a uid) hold seats; pending invites + the owner never
       // appear here.
+      //
+      // Returns null when the cap is UNKNOWN. getPlan() defaults to 'free'
+      // (reps 1 ⇒ cap 0) until loadSubscription() succeeds, and a failed
+      // reload keeps the last plan but zeroes purchasedSeats — reading either
+      // as truth told the owner "You have N reps but your plan includes 0
+      // seats" and pushed them to bench reps, whose Auth accounts assignSeats
+      // then disables and whose tokens it revokes. Every caller treats null
+      // as "don't render / don't submit" (fail-closed sibling:
+      // dashboard-billing-tab.js renderBillingTab's `!info.loaded` branch).
+      // Owner/founder sessions are unaffected: billing-gate.js sets
+      // loaded=true on the owner path before any I/O.
       function _seatCap() {
         try {
           var pl = window.NBDBilling && window.NBDBilling.getPlan && window.NBDBilling.getPlan();
+          if (!pl || pl.loaded !== true) return null;
           var reps = pl && pl.limits ? pl.limits.reps : 1;
           if (reps === Infinity || reps == null) return Infinity;
           var base = reps <= 1 ? 0 : reps; // mirrors server seatLimitForPlan
@@ -154,7 +166,7 @@
           // matching the server's base + purchasedSeats at every cap site.
           var extra = pl && pl.purchasedSeats > 0 ? pl.purchasedSeats : 0;
           return base + extra;
-        } catch (_) { return Infinity; }
+        } catch (_) { return null; } // unknown, NOT unlimited: Infinity skipped _applySeats' cap check
       }
       function _renderSeatPanel(members, listEl) {
         var host = document.getElementById('teamSeatPanel');
@@ -171,6 +183,9 @@
           });
         }
         var cap = _seatCap();
+        // Plan unknown ⇒ no picker. (Must be explicit: `claimed.length > null`
+        // coerces null to 0 and would render the over-capacity copy.)
+        if (cap === null) { host.innerHTML = ''; host.style.display = 'none'; return; }
         var claimed = members.filter(function (m) { return m.uid && (m.status === 'active' || m.status === 'deactivated'); });
         var activeCount = claimed.filter(function (m) { return m.status === 'active'; }).length;
         var benched = claimed.length - activeCount;
@@ -201,17 +216,24 @@
       }
       function _updateSeatCount(host) {
         var cap = _seatCap();
+        var unknown = cap === null; // plan unloaded since the panel rendered
         var checked = host.querySelectorAll('input[data-seat-email]:checked').length;
-        var over = cap !== Infinity && checked > cap;
+        var over = !unknown && cap !== Infinity && checked > cap;
         var el = host.querySelector('#teamSeatCount');
-        if (el) { el.textContent = checked + ' of ' + (cap === Infinity ? '∞' : cap) + ' selected'; el.style.color = over ? 'var(--red,#e05252)' : ''; }
+        if (el) { el.textContent = checked + ' of ' + (unknown ? '?' : (cap === Infinity ? '∞' : cap)) + ' selected'; el.style.color = over ? 'var(--red,#e05252)' : ''; }
         var apply = host.querySelector('[data-team-action="applySeats"]');
-        if (apply) apply.disabled = over;
+        if (apply) apply.disabled = over || unknown;
       }
       async function _applySeats(host, btn) {
         var cap = _seatCap();
         var checked = Array.prototype.map.call(host.querySelectorAll('input[data-seat-email]:checked'),
           function (c) { return c.getAttribute('data-seat-email'); });
+        // Never submit against an unknown cap: every unchecked rep is benched
+        // (Auth disabled + tokens revoked) server-side.
+        if (cap === null) {
+          if (typeof showToast === 'function') showToast('Your plan is still loading — reopen the Team tab in a moment.', 'error');
+          return;
+        }
         if (cap !== Infinity && checked.length > cap) {
           if (typeof showToast === 'function') showToast('Select at most ' + cap + ' rep' + (cap === 1 ? '' : 's') + '.', 'error');
           return;
@@ -285,7 +307,9 @@
         // is excluded below. Gating is unaffected — owners bypass in
         // canUse/enforceGate/softGate regardless of the mirrored plan.
         var cardBilled = !!pl && pl.source === 'checkout';
-        if (!entitled || !cardBilled || !pl || pl.plan === 'free' || reps === Infinity || reps == null) {
+        // !pl.loaded: an unloaded plan has no trustworthy caps (and _seatCap()
+        // is null then, so the "included N" copy below would print 0).
+        if (!entitled || !cardBilled || !pl || !pl.loaded || pl.plan === 'free' || reps === Infinity || reps == null) {
           host.innerHTML = ''; host.style.display = 'none'; return;
         }
         host.style.display = '';
@@ -415,12 +439,28 @@
       // listener therefore never fires, the wrapper never installs, and
       // the owner card stays stuck on its 'JD'/'Loading...' placeholder.
       // Use a readyState guard (same idiom as dashboard-accessory-panel-init.js).
+      //
+      // Opening Team refreshes the billing plan FIRST (same as the Billing
+      // tab's hook), so a boot-time loadSubscription() failure doesn't leave
+      // the seat picker hidden (plan unknown ⇒ _seatCap() null) for the
+      // whole session. A plan read that never settles can't strand the
+      // roster: the fallback timer renders it anyway (picker stays hidden
+      // until the plan does load, which re-renders).
+      function _loadTeamAfterPlanRefresh() {
+        var B = window.NBDBilling;
+        if (!B || typeof B.loadSubscription !== 'function') { loadTeamMembers(); return; }
+        var fallback = setTimeout(loadTeamMembers, 8000);
+        var after = function () { clearTimeout(fallback); loadTeamMembers(); };
+        var p;
+        try { p = B.loadSubscription(); } catch (_) { after(); return; }
+        Promise.resolve(p).then(after, after);
+      }
       function _installTeamTabHook() {
         var _prev = window.switchSettingsTab;
         if (typeof _prev !== 'function') return;
         window.switchSettingsTab = function(tab) {
           _prev(tab);
-          if (tab === 'team') loadTeamMembers();
+          if (tab === 'team') _loadTeamAfterPlanRefresh();
         };
       }
       if (document.readyState === 'loading') {

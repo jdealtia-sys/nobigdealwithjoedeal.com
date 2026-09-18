@@ -186,6 +186,108 @@ check('K5  empty/garbage input yields no key rather than a junk one', () => {
     assert.strictEqual(r.key, '');
   });
 
+  // ── The bounded lookup (review of #1667) ──────────────────────────────
+  // sendSMS / sendD2DSMS pass { timeoutMs }. A read that never answers must
+  // reject — the caller turns that into 503 optout_unverified — instead of
+  // outliving the browser's 25s fetch abort, which the client hands off to
+  // device Messages like being offline.
+
+  // A db whose reads from the n-th one (1-based) on never settle.
+  function hangingDb(fromRead, seed) {
+    const store = new Map(Object.entries(seed || {}));
+    let reads = 0;
+    return {
+      reads: () => reads,
+      doc(p) {
+        return {
+          get() {
+            reads++;
+            if (reads >= fromRead) return new Promise(() => {});
+            return Promise.resolve({ exists: store.has(p), data: () => store.get(p) });
+          },
+        };
+      },
+    };
+  }
+  // Watchdog. Without it, an unbounded lookup leaves nothing on the event
+  // loop, and Node exits 0 halfway through the suite — a silent pass.
+  function within(promise, ms) {
+    let t;
+    const dog = new Promise((_, reject) => {
+      t = setTimeout(() => reject(new Error('HUNG: no answer within ' + ms + 'ms')), ms);
+    });
+    return Promise.race([promise, dog]).finally(() => clearTimeout(t));
+  }
+  async function rejection(promise) {
+    try { await promise; } catch (e) { return e; }
+    return null;
+  }
+  const activeTimers = () => (typeof process.getActiveResourcesInfo === 'function'
+    ? process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length : 0);
+
+  await checkAsync('K17 a bounded lookup whose read hangs rejects with code optout_read_timeout', async () => {
+    const t0 = Date.now();
+    const e = await within(rejection(OptOut.isOptedOut(hangingDb(1), '(859) 555-0134', { timeoutMs: 30 })), 2000);
+    assert.ok(e, 'expected a rejection, got a verdict');
+    assert.strictEqual(e.code, 'optout_read_timeout', 'got ' + (e && (e.code || e.message)));
+    assert.ok(Date.now() - t0 < 1000, 'rejected at the bound, not long after it');
+  });
+
+  await checkAsync('K18 the bound covers the whole lookup, not only its first read', async () => {
+    // Canonical key misses (read 1), the legacy '1'+key read hangs (read 2).
+    const db = hangingDb(2);
+    const e = await within(rejection(OptOut.isOptedOut(db, '(859) 555-0134', { timeoutMs: 30 })), 2000);
+    assert.strictEqual(db.reads(), 2, 'the second read is the one that hung');
+    assert.ok(e && e.code === 'optout_read_timeout', 'got ' + (e && (e.code || e.message)));
+  });
+
+  await checkAsync('K19 an options object with no usable timeoutMs still gets the default bound', async () => {
+    // A typo'd or missing option must not quietly remove the bound. The
+    // default is read from the export at call time; shorten it for the test.
+    const saved = OptOut.READ_TIMEOUT_MS;
+    OptOut.READ_TIMEOUT_MS = 30;
+    try {
+      for (const opts of [{}, { timeoutMs: undefined }, { timeoutMs: 0 }, { timeoutMs: -5 },
+        { timeoutMs: NaN }, { timeoutMs: 'soon' }, { timeoutMs: Infinity }, { timeOutMs: 30 }]) {
+        const e = await within(rejection(OptOut.isOptedOut(hangingDb(1), '8595550134', opts)), 2000);
+        assert.ok(e && e.code === 'optout_read_timeout',
+          JSON.stringify(opts) + ' → ' + (e ? (e.code || e.message) : 'a verdict'));
+      }
+    } finally {
+      OptOut.READ_TIMEOUT_MS = saved;
+    }
+  });
+
+  await checkAsync('K20 a bounded lookup that answers in time returns the verdict and leaves no timer', async () => {
+    const before = activeTimers();
+    const hit = await OptOut.isOptedOut(makeDb({ [C + '/8595550134']: { phone: '+18595550134' } }),
+      '(859) 555-0134', { timeoutMs: 5000 });
+    assert.strictEqual(hit.optedOut, true);
+    const miss = await OptOut.isOptedOut(makeDb(), '(859) 555-0134', { timeoutMs: 5000 });
+    assert.strictEqual(miss.optedOut, false);
+    assert.strictEqual(activeTimers(), before, 'the deadline timer must be cleared once the lookup answers');
+  });
+
+  await checkAsync('K21 a read error inside the bound still rejects as that read error', async () => {
+    const db = makeDb();
+    db._failNextGet();
+    const e = await within(rejection(OptOut.isOptedOut(db, '(859) 555-0134', { timeoutMs: 5000 })), 2000);
+    assert.ok(e && /emulated Firestore outage/.test(e.message), 'got ' + (e && e.message));
+  });
+
+  check('K22 the default bound is well under the browser client\'s fetch abort', () => {
+    // nbd-comms.js hands an aborted fetch off to device Messages. The server
+    // must answer 503 first, with room left for a cold start and auth.
+    const COMMS = fs.readFileSync(path.join(ROOT, 'docs', 'pro', 'js', 'nbd-comms.js'), 'utf8');
+    const m = COMMS.match(/setTimeout\(\(\) => controller\.abort\(\), (\d+)\)/);
+    assert.ok(m, 'could not find the fetch abort timer in nbd-comms.js');
+    const clientAbortMs = Number(m[1]);
+    assert.ok(Number.isFinite(OptOut.READ_TIMEOUT_MS) && OptOut.READ_TIMEOUT_MS > 0,
+      'READ_TIMEOUT_MS must be a positive number');
+    assert.ok(OptOut.READ_TIMEOUT_MS <= clientAbortMs - 10000,
+      `READ_TIMEOUT_MS ${OptOut.READ_TIMEOUT_MS} must leave >=10s under the client abort ${clientAbortMs}`);
+  });
+
   // ── Source contracts on the call sites ────────────────────────────────
   // The module being correct is worth nothing if sms-functions.js goes back
   // to hand-rolling the key.
