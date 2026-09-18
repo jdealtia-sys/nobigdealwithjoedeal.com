@@ -3144,7 +3144,14 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 3 T3-C (2026-09-18): the crm-leads.js edge off
     // dashboard-bootstrap.module.js. Zero HTML hits, zero prior test
     // coverage on either name.
-    'filterStageDropdownByJobType', 'getSelectedTrades'];
+    'filterStageDropdownByJobType', 'getSelectedTrades',
+    // Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge. All three
+    // are crm-stages.js imports bridged to a classic script; the "expose
+    // to crm.js" comment nearby was stale for these two specifically —
+    // warranty-claim.js is the real, sole consumer. Also loaded on
+    // customer.html, where all 3 call sites were already guarded and
+    // degrade gracefully — unchanged by this migration.
+    'missingClaimFields', 'subTypeLabel', 'subTypeOptionsFor'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3950,6 +3957,28 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.filterStageDropdownByJobType\(jtEl\?\.value \|\| ''\)/.test(crmLeadsSrc));
   assert('crm-leads.js reads getSelectedTrades off the registry, not bare window',
     /window\.__NBD_CALL_REGISTRY\.getSelectedTrades\(\)/.test(crmLeadsSrc) && !/window\.getSelectedTrades\(/.test(crmLeadsSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge off
+  // dashboard-bootstrap.module.js ──
+  // All three (missingClaimFields, subTypeLabel, subTypeOptionsFor) are
+  // crm-stages.js imports bridged to a classic script, not local
+  // declarations — the registry entry references the imported binding
+  // directly rather than a function declaration.
+  const warrantyClaimSrc = read(path.join(PRO_JS, 'warranty-claim.js'));
+  for (const n of ['missingClaimFields', 'subTypeLabel', 'subTypeOptionsFor']) {
+    assert('dashboard-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootReg));
+    assert('dashboard-bootstrap.module.js no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  assert('subTypeOptionsFor\'s in-module self-reference (refreshSubTypeAndTrades) reads the bare imported binding, not window',
+    /const options = subTypeOptionsFor\(jobType\);/.test(bootReg) && !/window\.subTypeOptionsFor\(/.test(bootReg));
+  assert('warranty-claim.js\'s promptIntake reads subTypeOptionsFor off the registry, not bare window',
+    /_nbdReg\.subTypeOptionsFor\('warranty'\)/.test(warrantyClaimSrc));
+  assert('warranty-claim.js\'s advanceClaimStatus reads missingClaimFields off the registry, not bare window',
+    /_nbdReg\.missingClaimFields\(extra \|\| \{\}, newStatus\)/.test(warrantyClaimSrc));
+  assert('warranty-claim.js\'s renderPanel reads subTypeLabel off the registry, not bare window',
+    /_nbdReg\.subTypeLabel\('warranty', claim\.reason\)/.test(warrantyClaimSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred

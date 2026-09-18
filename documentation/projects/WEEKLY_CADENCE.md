@@ -488,11 +488,19 @@
     `getSelectedTrades`, consumed by `crm-leads.js` — zero HTML hits, zero
     prior test coverage, one self-reference guard simplified to a bare call
     (safe — traced every caller, none can fire before module parse
-    completes). T3-B has ~171 names left, T3-C has ~141ish (13 more
-    converted across today's 5 PRs, table miscounts corrected in multiple
-    directions — read the plan doc's table, not this number, before
-    starting the next slice); T3-D (131-name band → NBD-prefixed APIs) and
-    T3-E (spine-disposition docs) remain fully untouched · **404
+    completes). **A sixth PR same day** shipped a new edge shape:
+    `missingClaimFields`/`subTypeLabel`/`subTypeOptionsFor`, consumed by
+    `warranty-claim.js` — these are imported bindings from `crm-stages.js`,
+    not local declarations, bridged to `window` only for classic-script
+    reach; corrected a stale "exposed for crm.js" comment (crm.js reads
+    none of that 14-name block). `warranty-claim.js` also loads on
+    customer.html where these 3 were already unavailable before this PR
+    too — already gracefully guarded, unchanged. T3-B has ~171 names left,
+    T3-C has ~138ish (16 more converted across today's 6 PRs, table
+    miscounts corrected in multiple directions — read the plan doc's
+    table, not this number, before starting the next slice); T3-D
+    (131-name band → NBD-prefixed APIs) and T3-E (spine-disposition docs)
+    remain fully untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·
