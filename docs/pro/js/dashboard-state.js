@@ -368,8 +368,8 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  __NBD_CALL_REGISTRY, off window. Do NOT re-add.)
   // Misc directly-callable global referenced in surveyed onclicks
   'goTo',
-  // step-3: smart-calendar refresh button
-  'loadSmartCalendar',
+  // (step-3 smart-calendar refresh button: loadSmartCalendar → __NBD_CALL_REGISTRY
+  //  via smart-calendar.js, Tranche 3 T3-C 2026-09-18 — off window. Do NOT re-add.)
   // (cdaOpenVoicemail → __NBD_CALL_REGISTRY, Tranche 2c-4a — cluster note above)
   // ── CSP onchange/oninput sweep (Phase C.6) ──
   // The prefs-boot toggle wrappers that used to live here (Phase C.6:

@@ -75,7 +75,8 @@ try {
   }
 } catch (_) {}
 // exportLeadsCSV is defined in tools.js
-// scrollToFollowUps re-exported by crm-portal-bridge.js (Tranche 2c-3).
+// scrollToFollowUps is registered in crm-portal-bridge.js's __NBD_CALL_REGISTRY
+// (Globals Tranche 3 T3-C, 2026-09-18) — no longer on window.
 window.kanbanFilter = kanbanFilter;
 window.kanbanFilterDebounced = kanbanFilterDebounced;
 window.clearCrmSearch = clearCrmSearch;
@@ -98,9 +99,11 @@ window.handleCardClick = handleCardClick;
 // handlers (selectAllVisibleLeads, openDeletedDrawer, confirmDeleteLead,
 // cancelDeleteConfirm, bulkSnoozeLeads, bulkMoveStage, bulkDelete,
 // bulkAssignSource/JobType/Damage/Carrier) register in __NBD_CALL_REGISTRY
-// there; the names with real cross-file consumers (closeDeletedDrawer,
-// toggleBulkMode, toggleCardSelection, clearBulkSelection, updateBulkToolbar,
-// restoreCrmSearch, refreshTrashBadge) are re-exported from that file. The
+// there; the names with real cross-file consumers (toggleCardSelection,
+// clearBulkSelection, updateBulkToolbar, restoreCrmSearch, refreshTrashBadge)
+// are re-exported from that file — closeDeletedDrawer, toggleBulkMode,
+// exitBulkMode and scrollToFollowUps have since moved into its registry
+// (Globals Tranche 3). The
 // bare re-exports that used to live here would ReferenceError now that the
 // names are module-scoped.
 // restoreLead and permanentlyDelete are defined in dashboard.html as _restoreLead and _permanentDeleteLead

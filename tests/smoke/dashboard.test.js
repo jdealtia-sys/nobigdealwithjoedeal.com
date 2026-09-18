@@ -2958,13 +2958,23 @@ section('Globals Tranches 0+1: converted names stay off window');
     // here: clearBulkSelection (lead-snooze.js calls it directly on window —
     // MUST-STAY, allowlisted like goToMyLocation) and this file's deliberate
     // window re-exports (editLead, deleteLead, showDeleteConfirm,
-    // toggleBulkMode, toggleCardSelection,
-    // updateBulkToolbar, scrollToFollowUps, restoreCrmSearch,
+    // toggleCardSelection, updateBulkToolbar, restoreCrmSearch,
     // refreshTrashBadge; closeDeletedDrawer graduated off window in the
-    // Tranche 3 dispatch-map slice, 2026-09-02).
+    // Tranche 3 dispatch-map slice, 2026-09-02; exitBulkMode, toggleBulkMode
+    // and scrollToFollowUps in T3-C, 2026-09-18 — see the next group).
     'selectAllVisibleLeads', 'openDeletedDrawer', 'confirmDeleteLead',
     'cancelDeleteConfirm', 'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete',
     'bulkAssignSource', 'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
+    // Tranche 3 T3-C (2026-09-18): the bulk-mode / follow-ups / analytics
+    // edge. crm-portal-bridge.js registers exitBulkMode (dashboard-actions.js
+    // goTo), toggleBulkMode (lead-snooze.js + the _NBD_TOGGLE_FNS.bulkMode
+    // map, registry-first) and scrollToFollowUps (analytics-kpi.js delegate);
+    // analytics-kpi.js registers renderDoorsVerifiedCard and smart-calendar.js
+    // registers loadSmartCalendar (both read by dashboard-bootstrap.module.js;
+    // loadSmartCalendar also left the allowlist — its data-fn resolves
+    // registry-first). See the T3-C bulk/follow-ups assertion block below.
+    'exitBulkMode', 'toggleBulkMode', 'scrollToFollowUps',
+    'renderDoorsVerifiedCard', 'loadSmartCalendar',
     // Tranche 2c-4a (2026-07-07): the dashboard-actions.js card-detail cluster
     // — 18 cda* / chip-picker / mobile photo-picker wrappers consolidated into
     // one IIFE and dispatched via __NBD_CALL_REGISTRY (see the "Globals Tranche
@@ -3453,13 +3463,87 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // from this file now that crm.js no longer provides it. (closeDeletedDrawer
   // left this list in the Tranche 3 dispatch-map slice, 2026-09-02 — its only
   // reach was the registry-first _NBD_MODAL_CLOSE_FNS entry; its inverted pin
-  // lives in the graduate block.)
+  // lives in the graduate block. toggleBulkMode and scrollToFollowUps left it
+  // in Tranche 3 T3-C, 2026-09-18 — their inverted pins are the block below.)
   for (const n of ['editLead', 'deleteLead', 'showDeleteConfirm',
-    'toggleBulkMode', 'toggleCardSelection',
-    'updateBulkToolbar', 'scrollToFollowUps', 'restoreCrmSearch',
+    'toggleCardSelection', 'updateBulkToolbar', 'restoreCrmSearch',
     'refreshTrashBadge']) {
     assert('crm-portal-bridge window-exports ' + n + ' (cross-file consumer)',
       new RegExp('window\\.' + n + ' = ' + n + ';').test(crmPortalBridge));
+  }
+
+  // ── Tranche 3 T3-C (2026-09-18): the bulk-mode / follow-ups / analytics
+  // edge ── five cross-file JS calls that used to go through window.X now read
+  // __NBD_CALL_REGISTRY. Every consumer keeps a typeof guard that turns a
+  // missing entry into a NO-OP (never a fallback to some other global), and
+  // the T1_NAMES walk above fails any window.X reference left under docs/.
+  // Owner halves: the registry entry is the ONLY way each consumer reaches
+  // the function now — lose it and bulk mode survives navigation (H4), the
+  // bulk-snooze never leaves select mode, the overdue-follow-ups KPI tap
+  // lands on the CRM without scrolling, the Doors Verified card never
+  // renders, and the schedule refresh button goes silently dead.
+  {
+    const regKeysOf = (src) => {
+      const keys = new Set();
+      for (const m of src.matchAll(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/g)) {
+        for (const k of m[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)/g)) keys.add(k[1] + '=' + k[2]);
+      }
+      return keys;
+    };
+    const t3cActions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+    const t3cSnooze = read(path.join(PRO_JS, 'lead-snooze.js'));
+    const t3cKpi = read(path.join(PRO_JS, 'analytics-kpi.js'));
+    const t3cCal = read(path.join(PRO_JS, 'smart-calendar.js'));
+    const t3cBoot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+    const t3cDash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+    // [name, owner src, owner label, consumer src, consumer label]
+    const T3C_BULK_EDGE = [
+      ['exitBulkMode', crmPortalBridge, 'crm-portal-bridge.js', t3cActions, 'dashboard-actions.js'],
+      ['toggleBulkMode', crmPortalBridge, 'crm-portal-bridge.js', t3cSnooze, 'lead-snooze.js'],
+      ['scrollToFollowUps', crmPortalBridge, 'crm-portal-bridge.js', t3cKpi, 'analytics-kpi.js'],
+      ['renderDoorsVerifiedCard', t3cKpi, 'analytics-kpi.js', t3cBoot, 'dashboard-bootstrap.module.js'],
+      ['loadSmartCalendar', t3cCal, 'smart-calendar.js', t3cBoot, 'dashboard-bootstrap.module.js'],
+    ];
+    for (const [n, ownerSrc, owner, consSrc, cons] of T3C_BULK_EDGE) {
+      assert(owner + ' registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C bulk/follow-ups edge)',
+        regKeysOf(ownerSrc).has(n + '=' + n));
+      assert(owner + ' no longer assigns window.' + n + ' (T3-C off window)',
+        !new RegExp('window\\.' + n + '\\s*=').test(ownerSrc));
+      // Per call site, not per file: the registry read must sit directly above
+      // THIS name's guard (dashboard-bootstrap.module.js has two consumer
+      // sites, so a file-wide match let either site's declaration satisfy
+      // both — drop one and that site throws a ReferenceError; the Doors-card
+      // one inside a setTimeout, so the card just never renders). The
+      // read must END at the registry (`\s*;`): `window.__NBD_CALL_REGISTRY
+      // || window` is the permissive-default class this tranche forbids. No
+      // reassignment of _nbdReg may sit between the read and the guard.
+      assert(cons + ' calls ' + n + ' off the registry behind a fail-closed typeof guard',
+        new RegExp('_nbdReg\\s*=\\s*window\\.__NBD_CALL_REGISTRY\\s*;'
+          + '(?:(?!_nbdReg\\s*(?:\\|\\||&&|\\?\\?)?=(?!=))[\\s\\S]){0,200}?'
+          + '_nbdReg && typeof _nbdReg\\.' + n + " === 'function'").test(consSrc)
+          && new RegExp('_nbdReg\\.' + n + '\\(').test(consSrc)
+          && !new RegExp('window\\.' + n + '\\b').test(consSrc));
+    }
+    // goTo's H4 force-exit must still only fire when LEAVING the kanban with
+    // bulk mode on — the registry read must not have widened or dropped that.
+    const goToBody = t3cActions.slice(t3cActions.indexOf('function goTo('),
+      t3cActions.indexOf('_hydrateViewTemplate(name);'));
+    assert('goTo force-exits bulk mode via the registry only when leaving crm with _bulkMode set (H4)',
+      /if \(name !== 'crm' && window\._bulkMode && _nbdReg && typeof _nbdReg\.exitBulkMode === 'function'\) \{\s*_nbdReg\.exitBulkMode\(\);/.test(goToBody));
+    // #bulkModeBtn reaches toggleBulkMode ONLY through the toggle map (resolved
+    // registry-first by _nbdResolveMapped) — the map entry must stay, and the
+    // name must not be re-added to the allowlist (the map IS its allowlist).
+    assert('_NBD_TOGGLE_FNS still routes bulkMode -> toggleBulkMode (its markup dispatch path)',
+      /bulkMode:\s*'toggleBulkMode'/.test(stateSrc)
+        && /data-action="toggle" data-target="bulkMode"/.test(t3cDash));
+    // loadSmartCalendar left _NBD_CALL_ALLOWLIST: the schedule view's refresh
+    // button resolves registry-first via _nbdResolveCall, so the registration
+    // replaced the allowlist entry. A stale re-add would be a window fallback
+    // for a name that is no longer on window.
+    assert('allowlist no longer carries loadSmartCalendar (registry replaced it)',
+      !/'loadSmartCalendar'/.test(stateSrc));
+    assert('schedule refresh button still dispatches loadSmartCalendar via data-fn',
+      /data-action="call" data-fn="loadSmartCalendar"/.test(t3cDash));
   }
 
   // ── Tranche 2c-4a: the dashboard-actions.js card-detail cluster ──
