@@ -474,11 +474,21 @@
     `deleteZone` defaults its delete-confirmed flag to fail-OPEN
     (`let ok = true`) if its guard ever fails, unlike `deletePin`'s
     fail-CLOSED default — pre-existing, not introduced by this PR, flagged
-    for a one-line fix later. T3-B has ~171 names left, T3-C has ~146ish (8
-    more converted across today's 3 PRs, table miscounts corrected in
-    multiple directions — read the plan doc's table, not this number,
-    before starting the next slice); T3-D (131-name band → NBD-prefixed
-    APIs) and T3-E (spine-disposition docs) remain fully untouched · **404
+    for a one-line fix later. **A fourth PR same day** shipped the estimate
+    CRUD edge: `_deleteEstimate`/`_renameEstimate`/`_assignEstimateToLead`,
+    consumed by `estimate-crm-ops.js` (loads on both dashboard.html and
+    customer.html). `_assignEstimateToLead`'s ~96-line money/pipeline stamp-
+    back body (jobValue guard, primaryEstimateId, the re-assign un-dangle
+    pass) verified byte-identical pre/post by two independent reviewers.
+    Surfaced (spawned as its own background task, not fixed here): the
+    live "👤 Assign" button on customer.html's estimate hub calls
+    `_assignEstimateToLead`, which only ever exists on dashboard.html —
+    silently no-ops on a customer page today, pre-existing bug. T3-B has
+    ~171 names left, T3-C has ~143ish (11 more converted across today's 4
+    PRs, table miscounts corrected in multiple directions — read the plan
+    doc's table, not this number, before starting the next slice); T3-D
+    (131-name band → NBD-prefixed APIs) and T3-E (spine-disposition docs)
+    remain fully untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·

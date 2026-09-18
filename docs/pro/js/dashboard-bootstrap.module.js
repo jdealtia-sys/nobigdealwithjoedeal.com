@@ -3895,7 +3895,9 @@
   // Delete an estimate by document id. Cascade: we don't have
   // child collections under an estimate, so a single deleteDoc is
   // enough. Called from the estimates list overflow menu.
-  window._deleteEstimate = async (id) => {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+  async function _deleteEstimate(id) {
     try {
       if (!id) return false;
       await deleteDoc(doc(db, 'estimates', id));
@@ -3905,7 +3907,7 @@
       console.error('Delete estimate error:', e);
       return false;
     }
-  };
+  }
 
   // Duplicate an existing estimate. Clones the document into a new
   // one with a new id and a "(copy)" name suffix so it shows up as
@@ -3941,7 +3943,9 @@
 
   // Rename an estimate in place — just writes back the name field.
   // Cheap and atomic.
-  window._renameEstimate = async (id, newName) => {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+  async function _renameEstimate(id, newName) {
     try {
       if (!id) return false;
       const name = String(newName || '').trim().substring(0, 120);
@@ -3953,7 +3957,7 @@
       console.error('Rename estimate error:', e);
       return false;
     }
-  };
+  }
 
   // Assign (or re-assign) an estimate to a customer/lead. Writes
   // leadId and also copies the lead's address/owner over for faster
@@ -3968,7 +3972,9 @@
   // before clobbering a rep-confirmed number). It's also the manual
   // remediation path for migration 005's reported skips — hand-assigning
   // an orphan must leave the same state a correctly-linked save would.
-  window._assignEstimateToLead = async (id, leadId) => {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+  async function _assignEstimateToLead(id, leadId) {
     try {
       if (!id) return false;
       // Snapshot the estimate BEFORE the write — the stamp-back needs its
@@ -4065,7 +4071,7 @@
       console.error('Assign estimate error:', e);
       return false;
     }
-  };
+  }
   // ── END ESTIMATE CRUD HELPERS ─────────────────
 
   // ── REPORTS CRUD HELPERS ──────────────────────
@@ -5806,4 +5812,11 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _deletePin: _deletePin,
   _saveZone: _saveZone,
   _deleteZone: _deleteZone,
+  // Globals Tranche 3 T3-C (2026-09-18): the estimate CRUD edge —
+  // estimate-crm-ops.js's renameEstimateAction/deleteEstimateAction/
+  // assignEstimateAction. _duplicateEstimate was NOT a candidate for this
+  // edge (multiple consumers, out of scope for a one-consumer T3-C slice).
+  _deleteEstimate: _deleteEstimate,
+  _renameEstimate: _renameEstimate,
+  _assignEstimateToLead: _assignEstimateToLead,
 });

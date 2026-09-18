@@ -92,8 +92,9 @@ section('Linkage invariant: unattached saves are warned; Assign stamps the pipel
 
   // _assignEstimateToLead must leave the same state a correctly-linked save
   // would — it's the manual remediation path for migration 005's skips.
+  // Globals Tranche 3 T3-C (2026-09-18): real declaration now, not window.X.
   const dash = readDashboard();
-  const at = dash.indexOf('window._assignEstimateToLead');
+  const at = dash.indexOf('async function _assignEstimateToLead(id, leadId)');
   const fn = dash.slice(at, at + 6000);
   assert('assign stamps primaryEstimateId + lastEstimateAt on a first-estimate lead',
     /primaryEstimateId: id,\s*lastEstimateAt: serverTimestamp\(\)/.test(fn));

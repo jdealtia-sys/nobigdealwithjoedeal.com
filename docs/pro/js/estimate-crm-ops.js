@@ -48,11 +48,13 @@ async function renameEstimateAction(id) {
   if (next === null) return;  // user hit Cancel
   const trimmed = String(next).trim();
   if (!trimmed) { showToast('Name cannot be empty', 'error'); return; }
-  if (typeof window._renameEstimate !== 'function') {
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!_nbdReg || typeof _nbdReg._renameEstimate !== 'function') {
     showToast('Rename not available', 'error');
     return;
   }
-  const ok = await window._renameEstimate(id, trimmed);
+  const ok = await _nbdReg._renameEstimate(id, trimmed);
   if (ok) showToast('\u2713 Renamed', 'success');
   else showToast('Failed to rename', 'error');
 }
@@ -75,11 +77,13 @@ async function deleteEstimateAction(id) {
   const label = src.name || src.addr || 'this estimate';
   const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
   if (!(await _ask('Delete "' + label + '"? This cannot be undone.'))) return;
-  if (typeof window._deleteEstimate !== 'function') {
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!_nbdReg || typeof _nbdReg._deleteEstimate !== 'function') {
     showToast('Delete not available', 'error');
     return;
   }
-  const ok = await window._deleteEstimate(id);
+  const ok = await _nbdReg._deleteEstimate(id);
   if (ok) showToast('\u2713 Estimate deleted', 'success');
   else showToast('Failed to delete', 'error');
 }
@@ -160,7 +164,8 @@ function showAssignLeadPicker(estimateId, estimate) {
       unassign.textContent = '✕ Unassign (leave without customer)';
       unassign.addEventListener('click', async () => {
         overlay.remove();
-        const ok = await window._assignEstimateToLead(estimateId, null);
+        // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+        const ok = await window.__NBD_CALL_REGISTRY._assignEstimateToLead(estimateId, null);
         if (ok) showToast('\u2713 Estimate unassigned', 'success');
       });
       results.appendChild(unassign);
@@ -187,7 +192,8 @@ function showAssignLeadPicker(estimateId, estimate) {
 
       row.addEventListener('click', async () => {
         overlay.remove();
-        const ok = await window._assignEstimateToLead(estimateId, lead.id);
+        // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+        const ok = await window.__NBD_CALL_REGISTRY._assignEstimateToLead(estimateId, lead.id);
         if (ok) showToast('\u2713 Assigned to ' + (lead.firstName || lead.address || 'customer'), 'success');
         else showToast('Failed to assign', 'error');
       });

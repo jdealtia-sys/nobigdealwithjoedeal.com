@@ -317,7 +317,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → crm-pipeline.js | 4 — **re-derived to 0, see note below; not attempted** |
 | dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
-| long tail (1–3-name edges) | ~141 |
+| dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR TBD); see note below** |
+| long tail (1–3-name edges) | ~138 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -484,6 +485,53 @@ Convert edge-by-edge; each edge is one natural PR:
 > byte-level EOL/CRLF scan on all 5 changed files per this repo's own
 > Windows-editing hazards (see CLAUDE.md) — clean, no lone-CR bytes, no
 > binary-flagged files.
+
+> ### Update 2026-09-18 — the estimate CRUD edge (PR TBD)
+>
+> A third long-tail edge off `dashboard-bootstrap.module.js`, same session:
+> `_deleteEstimate`, `_renameEstimate`, `_assignEstimateToLead` — consumed by
+> `estimate-crm-ops.js` (lazy-loaded via the `ScriptLoader.loadBundle('estimates')`
+> bundle on BOTH `dashboard.html` and `customer.html`). All 3 were anonymous
+> arrow expressions assigned directly to `window.X` with zero in-module
+> self-references, converted clean — same shape as the pins/zones edge above.
+> `_duplicateEstimate`, defined right alongside these three, was NOT a
+> candidate — it has multiple consumers, out of scope for a one-consumer
+> T3-C slice.
+>
+> `_assignEstimateToLead` is the money/pipeline-sensitive one: it links an
+> estimate to a lead and, on that lead's first estimate, stamps
+> `jobValue`/`primaryEstimateId`/`stage` (feeding Pipeline/KPI/Leaderboard),
+> guarded by `_canStampJobValue()` against a documented past bug ("zeroed a
+> live deal across every money surface"), plus an un-dangle pass that clears
+> the PREVIOUS lead's `primaryEstimateId` pointer on re-assign. This is a
+> **pure move** — only the function's opening/closing lines changed; the
+> ~96-line body (stamp-back branches, the jobValue guard, the un-dangle
+> condition) is byte-identical pre/post, verified independently by two
+> reviewers via zero-context diffs.
+>
+> **Deliberately NOT changed**: `_assignEstimateToLead`'s two consumer call
+> sites (an "Unassign" button and a lead-row click, both inside
+> `estimate-crm-ops.js`'s lead-picker modal) had — and keep — NO existence
+> guard, unlike `_deleteEstimate`/`_renameEstimate`'s
+> `typeof X !== 'function'` fallback-to-toast pattern. Adding a guard here
+> would be a real behavior change riding along on a "pure mechanical"
+> migration PR, so it wasn't done. This surfaced a genuine, PRE-EXISTING,
+> separately-flagged bug (not fixed in this PR, not caused by it): because
+> `_assignEstimateToLead` is only ever defined in
+> `dashboard-bootstrap.module.js`, which `customer.html` never loads, the
+> live "👤 Assign" button on `customer-estimate-hub.js`'s per-customer
+> estimate rows (line ~289) silently fails there today — click Unassign or
+> pick a lead, the modal closes, nothing happens, no error shown. Spawned as
+> its own background task (title: "Fix broken 'Assign' on customer-page
+> estimate hub") rather than folded into this migration PR.
+>
+> Verification: two independent adversarial-review agents — one general
+> correctness pass, one specifically on the money/data-integrity angle
+> (byte-for-byte body comparison via `git diff -U0`/`-U100`, the
+> `_canStampJobValue` guard in both stamp branches, the un-dangle condition)
+> — found zero bugs in either pass. Both reran `check-js-syntax`,
+> `tests/smoke.test.js` (4121/4121), `tests/estimate-hub-controls.test.js`
+> (12/12), and `run-test-manifest.js --bucket smoke` (68/68) green.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if

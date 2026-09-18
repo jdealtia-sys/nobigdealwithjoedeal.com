@@ -63,9 +63,10 @@ const HUB_CODE = decomment(HUB);
 
   // The underlying call really is destructive — pin that, so this test explains
   // itself if anyone wonders why the label matters.
+  // Globals Tranche 3 T3-C (2026-09-18): real declaration now, not window.X.
   const boot = read('dashboard-bootstrap.module.js');
   ok('_deleteEstimate is genuinely a hard delete (deleteDoc)',
-    /window\._deleteEstimate = async \(id\) => \{[\s\S]{0,300}deleteDoc\(doc\(db, 'estimates', id\)\)/.test(boot),
+    /async function _deleteEstimate\(id\) \{[\s\S]{0,300}deleteDoc\(doc\(db, 'estimates', id\)\)/.test(boot),
     'if this became a soft delete, the label could honestly go back to Archive');
 
   // The constraint that made relabel (not soft-delete) the right call. Scope
