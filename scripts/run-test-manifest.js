@@ -307,7 +307,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               (inline-CSS dedup slice 3a). MEASURED via --check on a branch
 //               cut from origin/main at 4007bbbd. Other slice-3 CSS lanes are
 //               open in parallel; whichever merges second re-measures.
-const FLOORS = { node: 166, smoke: 68, disk: 255 };
+//   2026-09-18  166/68/255 → 168/68/257, offline SMS outbox lane
+//               (tests/sms-outbox-client.test.js, sms-outbox-server.test.js,
+//               both node). MEASURED via --check on a branch cut from
+//               origin/main at d8be5a94; whichever lane merges second
+//               re-measures the merged tree rather than adding +2.
+const FLOORS = { node: 168, smoke: 68, disk: 257 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

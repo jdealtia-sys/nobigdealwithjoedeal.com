@@ -687,10 +687,57 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     }
   }
 
+  // Offline SMS outbox (sms-outbox.js). An invoice text sent while offline is
+  // STORED, not sent (NBDComms returns mode 'queued'), so sendInvoice leaves
+  // the invoice unsent. When the outbox later sends it — in any tab, on any
+  // page load, even before this lazy-loaded file is on the page — it keeps a
+  // receipt with the source/sourceRef given here, and this file applies it
+  // through NBDSmsOutbox.onSent() whenever it is loaded: the invoice is
+  // marked sent then, and only if it is still unsent. (An in-memory window
+  // event reached only listeners already loaded in the tab that flushed, so
+  // an invoice whose text went out stayed 'draft' and invited a re-send.)
+  const INVOICE_SMS_SOURCE = 'invoice-sms';
+
+  async function markInvoiceSentAfterQueuedSms(invoiceId) {
+    const db = getDb();
+    const ref = window.doc(db, 'invoices', invoiceId);
+    const snap = await window.getDoc(ref);
+    if (!snap.exists()) return false;
+    const status = (snap.data() || {}).status;
+    // Paid, void, or already sent another way: leave it alone.
+    if (status !== 'draft' && status !== 'sending') return false;
+    await window.updateDoc(ref, {
+      status: 'sent',
+      sentAt: new Date(),
+      updatedAt: new Date()
+    });
+    return true;
+  }
+
+  // Resolves → the receipt is applied (or had nothing to do) and deleted;
+  // throws → kept for the next drain (e.g. Firestore globals not up yet).
+  function _applyInvoiceSmsReceipt(d) {
+    if (!d || typeof d.sourceRef !== 'string' || !d.sourceRef) return false;
+    return markInvoiceSentAfterQueuedSms(d.sourceRef);
+  }
+  function _registerInvoiceSmsReceipts() {
+    const ob = window.NBDSmsOutbox;
+    if (!ob || typeof ob.onSent !== 'function') return false;
+    ob.onSent(INVOICE_SMS_SOURCE, _applyInvoiceSmsReceipt);
+    return true;
+  }
+  if (typeof window !== 'undefined' && !_registerInvoiceSmsReceipts()
+    && typeof window.addEventListener === 'function') {
+    // Loaded before sms-outbox.js: register when it announces itself.
+    window.addEventListener('nbd:sms-outbox-ready', _registerInvoiceSmsReceipts, { once: true });
+  }
+
   /**
    * Send invoice to customer
    * @param {string} invoiceId
    * @param {string} method - 'email' | 'sms' | 'portal'
+   * @returns {Promise<void|{queued: true, id: string|null}>} `{queued:true}` when
+   *   the SMS went to the offline outbox — the invoice is NOT marked sent.
    */
   async function sendInvoice(invoiceId, method) {
     const db = getDb();
@@ -782,12 +829,29 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             to: invoice.customerPhone || '',
             message: message,
             leadId: invoice.leadId || null,
+            // Lets the listener below find this invoice when a queued copy
+            // of the text is sent later by the offline outbox.
+            source: INVOICE_SMS_SOURCE,
+            sourceRef: invoiceId,
           });
           // A refusal (opted out / opt-out unverified) leaves the invoice
           // unsent. `message` is the sentence NBDComms showed the rep; `error`
           // is a machine code such as 'opted_out' when the server sent one.
           if (!smsResult || smsResult.success === false) {
             throw new Error((smsResult && (smsResult.message || smsResult.error)) || 'SMS send failed');
+          }
+          // Offline: the text is stored in the outbox, NOT sent. The invoice
+          // must not say 'sent' — release the lock back to draft and let the
+          // outbox receipt (_applyInvoiceSmsReceipt, via onSent) mark it sent
+          // when the text really goes. Not awaited: offline, a Firestore write does not resolve
+          // until the connection is back, and the lock self-expires anyway.
+          if (smsResult.mode === 'queued') {
+            Promise.resolve(window.updateDoc(invRef, {
+              status: 'draft',
+              sendingAt: null,
+              updatedAt: new Date()
+            })).catch((e) => console.warn('sendInvoice queued-lock release failed:', e && e.message));
+            return { queued: true, id: smsResult.id || null };
           }
         } else {
           throw new Error('SMS service not available');
@@ -1521,8 +1585,13 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         closeModal();
         try {
           showToast(`Sending invoice via ${method}...`, 'info');
-          await sendInvoice(invoiceId, method);
-          showToast('Invoice sent successfully', 'success');
+          const sent = await sendInvoice(invoiceId, method);
+          if (sent && sent.queued) {
+            // Stored in the offline outbox — nothing has reached the customer.
+            showToast('You\'re offline — the invoice text is queued (see Pending texts). The invoice stays unsent until the text goes.', 'info');
+          } else {
+            showToast('Invoice sent successfully', 'success');
+          }
         } catch (error) {
           showToast(`Error: ${error.message}`, 'error');
         }

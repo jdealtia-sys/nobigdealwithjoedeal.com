@@ -142,6 +142,12 @@ const mustCover = ['leads', 'estimates', 'photos', 'tasks', 'notes', 'communicat
 for (const c of mustCover) ok(`erasure/export covers PII collection "${c}"`, names.includes(c));
 ok('leads is recursive (subcollections cascade)', reg.find(c => c.name === 'leads').recursive === true);
 ok('invoices keyed on createdBy (documented exception)', reg.find(c => c.name === 'invoices').ownerField === 'createdBy');
+// sendSMS idempotency claims hold the rep's uid + the homeowner's phone key
+// (offline SMS outbox). They were missing from the registry at first.
+for (const c of ['sms_log', 'sms_client_ids']) {
+  const e = reg.find(x => x.name === c);
+  ok(`erasure/export covers "${c}" keyed on uid`, !!e && e.ownerField === 'uid');
+}
 ok('no duplicate collection entries', new Set(names).size === names.length);
 ok('storage prefixes are part of erasure (user files)', Array.isArray(userOwned.STORAGE_PREFIXES) && userOwned.STORAGE_PREFIXES.length > 0);
 

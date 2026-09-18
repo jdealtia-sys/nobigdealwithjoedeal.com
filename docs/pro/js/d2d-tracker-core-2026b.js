@@ -4674,7 +4674,9 @@
     // Try NBDComms first. NBDComms owns the WHOLE outcome on this path:
     //   success:true  + mode:'platform' → Twilio sent it.
     //   success:true  + mode:'sms'      → NBDComms already opened Messages
-    //                                     itself (paid-gate / A2P / 429 / network).
+    //                                     itself (paid-gate / A2P / 429).
+    //   success:true  + mode:'queued'   → offline: stored in the SMS outbox,
+    //                                     NOT sent; NBDComms already said so.
     //   success:false                   → NBDComms REFUSED (403 opt-out/forbidden,
     //                                     401) and already toasted why.
     // Never open sms: here. This used to reopen Messages with the body
@@ -4682,7 +4684,9 @@
     // homeowner who replied STOP was one tap from getting the text anyway
     // (the exact handoff nbd-comms.js declines: "would still text").
     if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
-      window.NBDComms.sendSMS(phone, body, knock.id).then(result => {
+      // No sourceRef: nothing stamps a knock when a queued follow-up goes
+      // out, and a sourceRef would leave an outbox receipt nobody applies.
+      window.NBDComms.sendSMS(phone, body, knock.id, { source: 'd2d-followup-sms' }).then(result => {
         if (result && result.success && result.mode === 'platform') {
           const nameDisplay = knock.homeowner || 'contact';
           window.showToast?.(`Text sent to ${nameDisplay}`, 'ok');

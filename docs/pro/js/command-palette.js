@@ -98,7 +98,21 @@
           // uses) so this genuinely ends the session rather than just navigating
           // away and leaving the rep signed in — which is what a bare redirect
           // to /pro/login.html would do; that page has no sign-out handling.
-          import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js')
+          //
+          // Queued offline texts (homeowner numbers + message text in
+          // IndexedDB, sms-outbox.js — customer.html loads it) are purged
+          // FIRST, like the dashboard's _signOut does: this path never reached
+          // nbd-auth.js's purge, so they outlived the session. Bounded, so a
+          // stuck purge cannot keep the rep signed in.
+          const ob = window.NBDSmsOutbox;
+          const purge = (ob && typeof ob.purgeAll === 'function')
+            ? Promise.race([
+              Promise.resolve().then(() => ob.purgeAll()).catch(() => false),
+              new Promise((r) => setTimeout(() => r(false), 2000)),
+            ])
+            : Promise.resolve(false);
+          purge
+            .then(() => import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js'))
             .then((m) => m.signOut(window.auth))
             .then(() => { window.location.href = '/pro/login.html'; })
             .catch((e) => {

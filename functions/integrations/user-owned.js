@@ -121,6 +121,11 @@ const FLAT_USER_COLLECTIONS = [
   { name: 'measurements', ownerField: 'ownerId' }, // HOVER roof measurements (address/geometry)
   { name: 'email_log',    ownerField: 'uid' },     // sent-email log (homeowner addresses)
   { name: 'sms_log',      ownerField: 'uid' },     // sent-SMS log (homeowner phone numbers)
+  // sendSMS idempotency claims (offline SMS outbox + live sends that carry a
+  // clientMsgId). Each doc holds the rep's uid and the homeowner's canonical
+  // phone key (toDigits). A Firestore TTL on expireAt deletes them after
+  // ~8 days anyway; erasure/export must not wait for that.
+  { name: 'sms_client_ids', ownerField: 'uid' },
   { name: 'api_usage',    ownerField: 'uid' },     // AI token-usage history
   // Calendar-feed subscription tokens (calendar-feed.js). Each doc is a bearer
   // credential that serves the rep's own schedule — homeowner names, addresses

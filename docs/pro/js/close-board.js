@@ -707,6 +707,32 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     }
   }
 
+  // A deal text queued offline (sms-outbox.js) is stamped SENT when the outbox
+  // actually sends it, and only if the deal has not moved on in the meantime.
+  // The send can happen in another tab or on a page load before this file is
+  // loaded (it comes with its view, via ScriptLoader), so the outbox keeps a
+  // receipt and hands it over here through onSent() whenever this loads.
+  const DEAL_SMS_SOURCE = 'deal-sms';
+  function _applyDealSmsReceipt(d) {
+    if (!d || typeof d.sourceRef !== 'string' || !d.sourceRef) return false;
+    // Drained before init() ran: the board's deals are still in localStorage.
+    if (!dealRooms.length) loadDealRooms();
+    const deal = dealRooms.find(x => x.id === d.sourceRef);
+    if (!deal || (deal.status && deal.status !== DEAL_STATUS.DRAFT)) return false;
+    updateDeal(deal.id, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
+    if (currentTab !== 'create') render();
+    return true;
+  }
+  function _registerDealSmsReceipts() {
+    const ob = window.NBDSmsOutbox;
+    if (!ob || typeof ob.onSent !== 'function') return false;
+    ob.onSent(DEAL_SMS_SOURCE, _applyDealSmsReceipt);
+    return true;
+  }
+  if (!_registerDealSmsReceipts() && typeof window.addEventListener === 'function') {
+    window.addEventListener('nbd:sms-outbox-ready', _registerDealSmsReceipts, { once: true });
+  }
+
   async function sendViaSMS(dealId) {
     const deal = dealRooms.find(d => d.id === dealId);
     if (!deal || !deal.customerPhone) {
@@ -729,7 +755,15 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
           to: deal.customerPhone,
           message: msg,
           leadId: deal.leadId || null,
+          source: DEAL_SMS_SOURCE,
+          sourceRef: dealId,
         });
+        // Offline: stored in the outbox, NOT sent. No SENT stamp (it feeds
+        // close-rate analytics) until the outbox actually sends it — see
+        // _applyDealSmsReceipt above. NBDComms already toasted.
+        if (result && result.success && result.mode === 'queued') {
+          return;
+        }
         if (result && result.success) {
           updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'sms' });
           return;
