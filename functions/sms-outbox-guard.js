@@ -17,8 +17,15 @@
  * Order inside sendSMS for a queued send (functions/sms-functions.js):
  *   auth → 'to' validation → opt-out register (unchanged, still first)
  *   → shape validation (400) → idempotency peek (200 duplicate / 409 in_flight)
+ *   → superseded originals (an edit: 409 in_flight / recent_outbound)
  *   → quiet hours → stale → competing activity → lead → paid gate / limiters
  *   → transactional idempotency claim → Twilio.
+ *
+ * The claim is not only a queued-send thing: a LIVE send that carries a
+ * clientMsgId (nbd-comms.js mints one before the attempt, and the outbox
+ * reuses it if the attempt dies with status 0) claims it too, so the replay
+ * of a live send that actually reached Twilio answers "duplicate" or
+ * "in_flight" instead of texting the homeowner a second time.
  */
 
 'use strict';
@@ -40,6 +47,18 @@ const SEND_WINDOW = Object.freeze({
 // queued text any more, it is a stale device.
 const MAX_QUEUE_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const FUTURE_SKEW_MS = 5 * 60 * 1000;
+
+// sms_client_ids claim docs carry `expireAt` = claim time + this, and a
+// Firestore TTL policy on that field (firestore.indexes.json fieldOverrides)
+// deletes them. A claim only has to outlive the last replay that could carry
+// its id, and validateQueuedFields refuses a queuedAt older than
+// MAX_QUEUE_AGE_MS — so one day past that is enough, and nothing (uid,
+// recipient key) is kept forever.
+const CLAIM_TTL_MS = MAX_QUEUE_AGE_MS + 24 * 60 * 60 * 1000;
+
+// An edit supersedes the text(s) it replaces. At most this many ids are
+// checked — an edit of an edit of an edit is already an odd day.
+const MAX_SUPERSEDES = 5;
 
 // queuedAt is the DEVICE clock and sms_log.date is the SERVER clock. Looking
 // back this much further than queuedAt means a clock that runs a minute fast
@@ -81,7 +100,7 @@ const HOLD_MESSAGES = Object.freeze({
   recent_inbound: 'Held: the homeowner texted since you queued this. Read their message first.',
   lead_gone: 'Held: this lead was deleted or is no longer yours.',
   lead_changed: 'Held: this lead changed stage after you queued this.',
-  in_flight: 'Held: this text is already being sent. Check the conversation before sending again.',
+  in_flight: 'Held: this text is being sent, or may already have gone out. Check the conversation before sending again.',
 });
 
 function nowMs() {
@@ -150,11 +169,22 @@ function validateQueuedFields(body, now) {
     }
     leadStageAtQueue = b.leadStageAtQueue;
   }
+  // An edited text names the ids it replaces (the original, and any earlier
+  // edit). Each must be a well-formed id that is not this text's own.
+  let supersedes = [];
+  if (b.supersedes != null) {
+    if (!Array.isArray(b.supersedes) || b.supersedes.length > MAX_SUPERSEDES
+      || !b.supersedes.every((id) => typeof id === 'string' && CLIENT_MSG_ID_RE.test(id) && id !== clientMsgId)) {
+      return { ok: false, error: 'supersedes must be a short list of earlier clientMsgIds' };
+    }
+    supersedes = b.supersedes.filter((id, i, a) => a.indexOf(id) === i);
+  }
   return {
     ok: true,
     clientMsgId,
     queuedAt,
     leadStageAtQueue,
+    supersedes,
     // Strict === true: a truthy string must not be an override.
     overrideStale: b.overrideStale === true,
     overrideActivity: b.overrideActivity === true,
@@ -176,11 +206,15 @@ function activitySince(queuedAt) {
  * `rows` are sms_log documents for the recipient's canonical key (toDigits).
  * Inbound rows (status 'received') store the SENDER in `to`, so the same key
  * finds both directions. Not competition:
- *   - failed sends (nothing reached the homeowner);
+ *   - failed sends (nothing reached the homeowner) — but NOT a failure whose
+ *     outcome is unknown (`deliveryUnknown`: the connection to Twilio broke
+ *     after the request left, so the homeowner may well have it);
  *   - this same text (its own clientMsgId);
- *   - the same rep's EARLIER queued texts (queued before this one) — the
- *     outbox flushes per recipient in order, so those are this text's
+ *   - the same rep's EARLIER queued texts (queued strictly before this one)
+ *     — the outbox flushes per recipient in order, so those are this text's
  *     predecessors in a sequence the rep wrote, not someone else's message.
+ *     Strictly: an EDIT keeps its original's queuedAt, so an original that
+ *     already went out has the same queuedAt as the edit and must count.
  * Everything else — any other rep, any live send, the AI-draft path — is.
  *
  * @returns {'recent_inbound'|'recent_outbound'|null} inbound wins: a reply
@@ -198,12 +232,12 @@ function evaluateActivityRows(rows, ctx) {
     // counts. The query already filtered on date; this re-check keeps the
     // rule self-contained.
     if (at != null && at <= since) continue;
-    if (r.status === 'failed') continue;
+    if (r.status === 'failed' && r.deliveryUnknown !== true) continue;
     if (r.clientMsgId && r.clientMsgId === ctx.clientMsgId) continue;
     const ownEarlierQueued = r.queued === true
       && r.uid === ctx.uid
       && typeof r.queuedAt === 'number'
-      && r.queuedAt <= ctx.queuedAt;
+      && r.queuedAt < ctx.queuedAt;
     if (ownEarlierQueued) continue;
     if (r.status === 'received') inbound = true;
     else outbound = true;
@@ -248,6 +282,44 @@ function claimDocId(uid, clientMsgId) {
   return String(uid) + '_' + String(clientMsgId);
 }
 
+/** The Date a claim doc made at `nowMs` may be TTL-deleted (see CLAIM_TTL_MS). */
+function claimExpireAt(nowMs) {
+  return new Date(nowMs + CLAIM_TTL_MS);
+}
+
+/**
+ * An edit names the text(s) it replaces. What their claims say about sending
+ * the edit now:
+ *   - a claim that is not 'sent' ('claimed' / 'unknown'): the original may be
+ *     on its way or may already be on the homeowner's phone → 'in_flight'
+ *     (never overridable — check the thread first);
+ *   - a 'sent' claim: the original already went → 'recent_outbound', the
+ *     same "someone already texted this number" the rep can answer with
+ *     "Send anyway" (a correction is a legitimate second text);
+ *   - no claim: the original never reached Twilio → null.
+ * @param {Array<object|null>} claims  claim doc data per superseded id, null when absent
+ */
+function supersededVerdict(claims) {
+  const list = (Array.isArray(claims) ? claims : []).filter(Boolean);
+  if (list.some((c) => c.status !== 'sent')) return 'in_flight';
+  if (list.length) return 'recent_outbound';
+  return null;
+}
+
+/**
+ * Did Twilio DEFINITELY not take the text? Only a Twilio REST answer with an
+ * HTTP 4xx status says so (bad number, 21610 unsubscribed, auth, 429) — the
+ * request was read and refused. A socket error (ECONNRESET, a timeout), a
+ * Twilio 5xx or an error with no HTTP status at all may have come AFTER
+ * Twilio accepted the message, so the claim must not be released for it.
+ */
+function isDefiniteProviderRejection(e) {
+  if (!e) return false;
+  const s = Number(e.status);
+  if (Number.isFinite(s) && s >= 400 && s < 500) return true;
+  return Number(e.code) === 21610;
+}
+
 /** Canonical last-10 key; identical to OptOut.optOutKey and lead.phoneDigits. */
 function recipientKey(phone) {
   return phoneDigits10(phone);
@@ -258,6 +330,8 @@ module.exports = {
   SEND_WINDOW,
   MAX_QUEUE_AGE_MS,
   FUTURE_SKEW_MS,
+  CLAIM_TTL_MS,
+  MAX_SUPERSEDES,
   ACTIVITY_SKEW_MS,
   ACTIVITY_SCAN_LIMIT,
   READ_TIMEOUT_MS,
@@ -276,5 +350,8 @@ module.exports = {
   isActivityOverridable,
   holdMessage,
   claimDocId,
+  claimExpireAt,
+  supersededVerdict,
+  isDefiniteProviderRejection,
   recipientKey,
 };

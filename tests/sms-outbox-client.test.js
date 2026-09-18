@@ -315,6 +315,8 @@ function loadPage(opts) {
       return r;
     },
     AbortController,
+    // A shared bus lets two "tabs" (two contexts) talk like BroadcastChannel.
+    BroadcastChannel: opts.bus || undefined,
     setTimeout: (fn, ms) => {
       // Long timers (the 25s fetch abort, the 60s retry) never fire here;
       // they are recorded so a test can assert one was scheduled.
@@ -339,6 +341,9 @@ function loadPage(opts) {
   if (opts.before) opts.before(window);
   const ctx = vm.createContext(window);
   vm.runInContext(COMMS_SRC, ctx, { filename: 'nbd-comms.js' });
+  // Scripts that load BEFORE sms-outbox.js on the real page (dashboard.html
+  // loads portal-link-helpers.js earlier).
+  (opts.preOutbox || []).forEach(([src, filename]) => vm.runInContext(src, ctx, { filename }));
   if (!opts.noOutbox) vm.runInContext(OUTBOX_SRC, ctx, { filename: 'sms-outbox.js' });
   const smsLinks = () => document._clicks.map((a) => String(a.href || '')).filter((h) => /^sms:/.test(h));
   return {
@@ -346,6 +351,21 @@ function loadPage(opts) {
     ob: window.NBDSmsOutbox, comms: window.NBDComms,
     fire: (type) => (winListeners[type] || []).forEach((fn) => fn({ type })),
     rows: () => rowsOn(disk),
+  };
+}
+
+// BroadcastChannel stand-in shared by every page built with the same bus.
+function makeBus() {
+  const chans = [];
+  return function FakeBroadcastChannel(name) {
+    const self = this;
+    self.name = name;
+    self.onmessage = null;
+    self.postMessage = (m) => chans
+      .filter((c) => c !== self && c.name === name)
+      .forEach((c) => setImmediate(() => { if (c.onmessage) c.onmessage({ data: m }); }));
+    self.close = () => {};
+    chans.push(self);
   };
 }
 
@@ -417,6 +437,45 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
       createdAt >= before - 5 && createdAt < before + 30, (createdAt - before) + 'ms after the call');
     ok('a retry flush is scheduled (no "online" event will come while the browser says online)',
       h.longTimers.some((t) => t.ms === 60000));
+    const live = (h.posts[0] || { body: {} }).body;
+    const rec = h.rows()[0] || {};
+    ok('the live attempt carried a clientMsgId, and the queued text keeps THAT id (the server may hold a claim on it)',
+      typeof live.clientMsgId === 'string' && /^[A-Za-z0-9_-]{16,64}$/.test(live.clientMsgId) && rec.id === live.clientMsgId && r.id === live.clientMsgId,
+      JSON.stringify({ live: live.clientMsgId, rec: rec.id }));
+    ok('…and is marked uncertain (the request left; it may have been sent)', rec.uncertain === true);
+    ok('…the live attempt itself was NOT marked queued (live sends keep the live path)', live.queued === undefined);
+  }
+  {
+    // The replay of that text reaches the server with the live attempt's id.
+    const answers = [new TypeError('Failed to fetch'), jsonRes(200, { success: true, duplicate: true, sid: 'SM-live' })];
+    const h = loadPage({ respond: (b, n) => answers[n - 1] || OK200() });
+    await booted(h);
+    const r = await h.comms.sendSMS(SMS);
+    await h.ob.flush('t');
+    ok('the replay reuses the live clientMsgId; a "duplicate" answer (the live send got through) removes it — no second text',
+      h.posts.length === 2 && h.posts[1].body.clientMsgId === h.posts[0].body.clientMsgId && h.posts[1].body.clientMsgId === r.id
+      && h.posts[1].body.queued === true && h.rows().length === 0, JSON.stringify(h.posts.map((p) => p.body.clientMsgId)));
+  }
+  {
+    const h = loadPage({ online: false });
+    await booted(h);
+    await h.comms.sendSMS(SMS);
+    ok('queued by the navigator.onLine pre-check (no request left): NOT uncertain', (h.rows()[0] || {}).uncertain === false);
+  }
+  {
+    // A page without the outbox sends no id: the live path exactly as before.
+    const h = loadPage({ noOutbox: true });
+    await h.comms.sendSMS(SMS);
+    ok('no outbox on the page → the live POST carries no clientMsgId', h.posts.length === 1 && !('clientMsgId' in h.posts[0].body));
+  }
+  {
+    // A live 409 'held' can only mean an outbox replay already claimed this
+    // attempt's id: in flight or sent. A handoff would be a second text.
+    const h = loadPage({ respond: () => jsonRes(409, { code: 'held', reason: 'in_flight', error: 'Held' }) });
+    await booted(h);
+    const r = await h.comms.sendSMS(SMS);
+    ok('a live 409 held is a REFUSAL — no sms: handoff, nothing queued',
+      r.success === false && r.mode === 'platform' && h.smsLinks().length === 0 && h.rows().length === 0, JSON.stringify(r));
   }
   {
     const abort = Object.assign(new Error('The operation was aborted'), { name: 'AbortError' });
@@ -522,8 +581,12 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('…with queued:true, clientMsgId = record id, queuedAt = createdAt, leadStageAtQueue',
       p.body.queued === true && p.body.clientMsgId === q.id && typeof p.body.queuedAt === 'number'
       && p.body.leadStageAtQueue === 'estimate' && p.body.to === SMS.to && p.body.body === SMS.message, JSON.stringify(p.body));
-    ok('…and no override flags on an automatic flush', !('overrideStale' in p.body) && !('overrideActivity' in p.body));
-    ok('sent → removed from the store', h.rows().length === 0);
+    ok('…and no override flags (or supersedes) on an automatic flush of an unedited text',
+      !('overrideStale' in p.body) && !('overrideActivity' in p.body) && !('supersedes' in p.body));
+    const left = h.rows();
+    ok('sent → the phone number and the message are gone from the store; only a receipt for its source is left',
+      left.length === 1 && left[0].status === 'sent' && left[0].to === '' && left[0].toDigits === '' && left[0].body === ''
+      && left[0].source === 'invoice-sms' && left[0].sourceRef === 'inv-7', JSON.stringify(left));
     const ev = h.events.find((e) => e.type === 'nbd:sms-outbox-sent');
     ok('fires nbd:sms-outbox-sent with source/sourceRef for the caller\'s listener',
       !!ev && ev.detail.id === q.id && ev.detail.source === 'invoice-sms' && ev.detail.sourceRef === 'inv-7' && ev.detail.leadId === 'lead-1');
@@ -591,6 +654,96 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     // A second flush still does not send A2 past the held A1.
     await h.ob.flush('again');
     ok('…and a later flush still does not send A2 past it', h.posts.length === 2);
+  }
+
+  console.log('4a. FLUSH — a text that may already have gone is asked about, not held locally');
+  {
+    // The reviewer's sequence: an attempt whose answer was lost (the server
+    // sent it), then the next flush 15+ minutes later.
+    const answers = [new TypeError('Failed to fetch'), jsonRes(200, { success: true, duplicate: true, sid: 'SM-lost' })];
+    const h = loadPage({ online: false, respond: (b, n) => answers[n - 1] || OK200() });
+    await booted(h);
+    const rec = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'lost answer', createdAt: Date.now() - 20 * MIN, source: 'invoice-sms', sourceRef: 'inv-9' });
+    // First attempt at 20 min would be held locally (never attempted); make it
+    // look like the answer was lost on an earlier, fresh attempt instead.
+    const table = h.disk.dbs['nbd-sms-outbox-db'].stores.outbox;
+    table.set(rec.id, Object.assign({}, table.get(rec.id), { createdAt: Date.now() - 2 * MIN }));
+    h.window.navigator.onLine = true;
+    await h.ob.flush('first');
+    const mid = h.rows()[0] || {};
+    ok('an attempt whose answer was lost goes back to "queued", attempts 1, marked uncertain',
+      mid.status === 'queued' && mid.attempts === 1 && mid.uncertain === true, JSON.stringify(mid));
+    table.set(rec.id, Object.assign({}, table.get(rec.id), { createdAt: Date.now() - 20 * MIN }));
+    await h.ob.flush('later');
+    ok('15+ min later it is NOT held "stale" locally: the server is asked (no overrides) and says "duplicate"',
+      h.posts.length === 2 && h.posts[1].body.clientMsgId === rec.id && !('overrideStale' in h.posts[1].body), JSON.stringify(h.posts.map((p) => p.body)));
+    const after = h.rows();
+    ok('…so it is recorded as SENT (a receipt for the invoice), not shown as unsent in the tray',
+      after.length === 1 && after[0].status === 'sent' && after[0].sourceRef === 'inv-9' && (await h.ob.list()).length === 0, JSON.stringify(after));
+  }
+  {
+    const h = loadPage({ online: false, respond: () => jsonRes(409, { code: 'held', reason: 'stale', error: 'Held' }) });
+    await booted(h);
+    await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'uncertain', createdAt: Date.now() - 30 * MIN, uncertain: true });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    const rec = h.rows()[0] || {};
+    ok('an uncertain stale text that did NOT go: the server holds it "stale" (one POST, no override)',
+      h.posts.length === 1 && !('overrideStale' in h.posts[0].body) && rec.status === 'held' && rec.heldReason === 'stale' && rec.uncertain === false,
+      JSON.stringify(rec));
+  }
+  {
+    // Edit carries the ids it replaces; an edit of an edit carries both.
+    const h = loadPage({ online: false, respond: () => jsonRes(409, { code: 'held', reason: 'recent_outbound', error: 'Held' }) });
+    await booted(h);
+    const orig = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'v1', createdAt: Date.now() - 20 * MIN });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');                                  // held stale locally, no POST
+    await h.ob.editAndSend(orig.id, 'v2');
+    const p1 = (h.posts[0] || { body: {} }).body;
+    ok('Edit → the edit names the original in supersedes (the server checks its claim)',
+      JSON.stringify(p1.supersedes) === JSON.stringify([orig.id]) && p1.clientMsgId !== orig.id && p1.queuedAt === orig.createdAt, JSON.stringify(p1));
+    const e1 = h.rows()[0];
+    await h.ob.editAndSend(e1.id, 'v3');
+    const p2 = (h.posts[1] || { body: {} }).body;
+    ok('…and an edit of the edit names both',
+      JSON.stringify(p2.supersedes) === JSON.stringify([orig.id, e1.id]), JSON.stringify(p2.supersedes));
+  }
+
+  console.log('4c-dup. DUPLICATES — a queued copy is never swallowed by a held one');
+  {
+    // Reviewer's case: A held "stale", then an identical fresh B is queued.
+    const h = loadPage({ online: false });
+    await booted(h);
+    const a = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'Same words', createdAt: Date.now() - 20 * MIN });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t1');                                  // A → held stale, no POST
+    ok('(setup) A is held stale without a POST', (h.rows()[0] || {}).heldReason === 'stale' && h.posts.length === 0);
+    const b = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'Same words', createdAt: Date.now() - MIN });
+    const s = await h.ob.flush('t2');
+    const byId = {}; h.rows().forEach((r) => { byId[r.id] = r; });
+    ok('an identical fresh queued B is SENT (one POST, B\'s id), not discarded as a duplicate of the held A',
+      h.posts.length === 1 && h.posts[0].body.clientMsgId === b.id, JSON.stringify(h.posts.map((p) => p.body.clientMsgId)));
+    ok('…and the held A is the one retired: "discarded", reason "duplicate", duplicateOf B (recorded)',
+      byId[a.id] && byId[a.id].status === 'discarded' && byId[a.id].heldReason === 'duplicate' && byId[a.id].duplicateOf === b.id && s.duplicates === 1,
+      JSON.stringify(byId[a.id]));
+  }
+  for (const [label, patch] of [
+    ['held in_flight (may be on their phone)', { status: 'held', heldReason: 'in_flight' }],
+    ['held after an attempt with no answer (uncertain)', { status: 'held', heldReason: 'quiet_hours', uncertain: true }],
+  ]) {
+    const h = loadPage({ online: false });
+    await booted(h);
+    const a = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'Same words', createdAt: Date.now() - 5 * MIN });
+    const table = h.disk.dbs['nbd-sms-outbox-db'].stores.outbox;
+    table.set(a.id, Object.assign({}, table.get(a.id), patch));
+    const b = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'Same words', createdAt: Date.now() - MIN });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    const byId = {}; h.rows().forEach((r) => { byId[r.id] = r; });
+    ok('older copy ' + label + ' → the NEWER queued copy is discarded, nothing sent',
+      h.posts.length === 0 && byId[b.id] && byId[b.id].status === 'discarded' && byId[b.id].duplicateOf === a.id
+      && byId[a.id] && byId[a.id].status === 'held', JSON.stringify(h.rows().map((r) => [r.id === a.id ? 'A' : 'B', r.status, r.heldReason])));
   }
 
   console.log('4b. FLUSH — each server answer lands in the right state; never a handoff');
@@ -772,6 +925,10 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     const modal = h.document.getElementById('nbd-sms-outbox-modal') || h.document.createElement('div');
     ok('tapping it opens the tray through nbdModal (.modal-bg + .open)',
       !!modal && modal.classList.contains('modal-bg') && modal.classList.contains('open'));
+    const card = modal.querySelector('[role]');
+    ok('the card carries BOTH card contracts: .modal (dashboard-app.css) and .modal-content (customer.html)',
+      !!card && card.getAttribute('role') === 'dialog' && card.classList.contains('modal') && card.classList.contains('modal-content'),
+      card && card.className);
     const row = modal.querySelector('[data-sms-outbox-row]');
     const txt = row ? row.textContent : '';
     ok('the row masks the number except the last 4', /\(•••\) •••-0134/.test(txt) && !/859/.test(txt), txt || ('modal: ' + modal.textContent));
@@ -792,6 +949,9 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('stale / quiet hours offer Send now (no activity override), Edit, Discard',
       acts('stale') === 'send,edit,discard' && acts('quiet_hours') === 'send,edit,discard');
     ok('lead_gone offers only Discard', acts('lead_gone') === 'discard');
+    ok('in_flight offers "Check again" (same id) and Discard — never Edit (a new id for the same words)',
+      acts('in_flight') === 'send,discard'
+      && I.actionsFor({ status: 'held', heldReason: 'in_flight' })[0][0] === 'Check again');
     ok('"Open in Messages" only after a 402 / 429 / provider_error',
       acts('plan_required').includes('handoff') && acts('rate_limited').includes('handoff') && acts('provider_error').includes('handoff')
       && !['stale', 'quiet_hours', 'recent_inbound', 'recent_outbound', 'lead_changed', 'lead_gone', 'in_flight'].some((r) => acts(r).includes('handoff')));
@@ -876,9 +1036,71 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     await h.ob.flush('t');
     const rec = h.rows()[0];
     ok('a 402 on the replay leaves it held (plan_required) and opens nothing', rec.heldReason === 'plan_required' && h.smsLinks().length === 0);
+    const postsBefore = h.posts.length;
+    let linksAtPost = -1;
+    const realFetch = h.window.fetch;
+    h.window.fetch = async (u, init) => { linksAtPost = h.smsLinks().length; return realFetch(u, init); };
     await h.ob.openInMessages(rec.id);
-    ok('"Open in Messages" (explicit tap) hands THAT text off and removes it',
+    const fresh = (h.posts[postsBefore] || { body: {} }).body;
+    ok('"Open in Messages" first re-asks the server (queued, the tap\'s overrideStale, NEVER overrideActivity), before any handoff',
+      h.posts.length === postsBefore + 1 && fresh.queued === true && fresh.clientMsgId === rec.id
+      && fresh.overrideStale === true && !('overrideActivity' in fresh) && linksAtPost === 0, JSON.stringify(fresh));
+    ok('…and on a FRESH 402 hands THAT text off and removes it',
       h.smsLinks().length === 1 && /body=plan$/.test(h.smsLinks()[0]) && h.rows().length === 0, JSON.stringify(h.smsLinks()));
+  }
+  // The stored verdict is never enough: the tray row may be days old.
+  const agedHandoff = async (fresh) => {
+    const answers = [jsonRes(402, { error: 'paid' })];
+    const h = loadPage({ online: false, respond: (b, n) => answers[n - 1] || fresh });
+    await booted(h);
+    const rec = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'aged', createdAt: Date.now() - MIN });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');                                    // → held plan_required
+    const table = h.disk.dbs['nbd-sms-outbox-db'].stores.outbox;
+    const DAY = 24 * 60 * MIN;
+    table.set(rec.id, Object.assign({}, table.get(rec.id), { heldAt: Date.now() - 3 * DAY, createdAt: Date.now() - 3 * DAY }));
+    const opened = await h.ob.openInMessages(rec.id);
+    return { h, rec, opened, after: h.rows()[0] || null };
+  };
+  {
+    const { h, opened, after } = await agedHandoff(jsonRes(403, { code: 'opted_out', error: 'STOP' }));
+    ok('3-day-old 402 hold, homeowner replied STOP since: the tap opens NOTHING and the text is discarded opted_out',
+      opened === false && h.smsLinks().length === 0 && after && after.status === 'discarded' && after.heldReason === 'opted_out', JSON.stringify(after));
+  }
+  {
+    const { h, opened, after } = await agedHandoff(jsonRes(409, { code: 'held', reason: 'quiet_hours', error: 'Held' }));
+    ok('tap at 21:30 ET (server: quiet_hours): opens NOTHING, held quiet_hours',
+      opened === false && h.smsLinks().length === 0 && after && after.heldReason === 'quiet_hours', JSON.stringify(after));
+    ok('…and the rep is told why', h.toasts.some((t) => /Not sent — Quiet hours/.test(t.msg)));
+  }
+  {
+    const { h, opened, after } = await agedHandoff(jsonRes(409, { code: 'held', reason: 'recent_inbound', error: 'Held' }));
+    ok('homeowner texted since (server: recent_inbound): opens NOTHING, held recent_inbound',
+      opened === false && h.smsLinks().length === 0 && after && after.heldReason === 'recent_inbound');
+  }
+  {
+    const { h, opened, after } = await agedHandoff(jsonRes(503, { code: 'optout_unverified', error: 'x' }));
+    ok('server could not check (503): opens NOTHING, stays held',
+      opened === false && h.smsLinks().length === 0 && after && after.status === 'held');
+  }
+  {
+    const { h, opened, after } = await agedHandoff(OK200());
+    ok('plan fixed since (server sends it): no handoff, the text went through the platform',
+      opened === false && h.smsLinks().length === 0 && after === null && h.toasts.some((t) => t.msg === 'Text sent'));
+  }
+  {
+    const { h, opened } = await agedHandoff(jsonRes(429, { error: 'limit' }));
+    ok('a FRESH 429 answer → hands off (the server ran every hold in that request)', opened === true && h.smsLinks().length === 1);
+  }
+  {
+    const h = loadPage({ online: false, respond: () => jsonRes(402, { error: 'paid' }) });
+    await booted(h);
+    const rec = await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'x', createdAt: Date.now() - MIN });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    h.window.navigator.onLine = false;
+    const n = h.posts.length;
+    ok('offline tap: no request, no handoff', (await h.ob.openInMessages(rec.id)) === false && h.posts.length === n && h.smsLinks().length === 0);
   }
   {
     const h = loadPage({ online: false, respond: () => jsonRes(409, { code: 'held', reason: 'recent_outbound', error: 'x' }) });
@@ -987,6 +1209,65 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('…then signs out and redirects', order.join(',') === 'purge-start,purge-done,signOut,redirect:/pro/login.html', order.join(','));
   }
   {
+    // Backstop: the page's Firebase Auth reports no user after a signed-in
+    // one (any sign-out path, or sign-out in another tab) → purge.
+    let listener = null;
+    const auth = { onAuthStateChanged: (cb) => { listener = cb; return () => {}; } };
+    const h = loadPage({ online: false, before: (w) => { w.auth = auth; } });
+    await booted(h);
+    await h.comms.sendSMS(SMS);
+    ok('(setup) a queued text and a registered auth listener', h.rows().length === 1 && typeof listener === 'function');
+    listener({ uid: 'rep-1' });
+    await wait(10);
+    ok('auth reporting the signed-in user purges nothing', h.rows().length === 1);
+    listener(null);
+    await until(() => h.rows().length === 0);
+    ok('auth dropping to NO user after a signed-in one purges the outbox (every sign-out path)', h.rows().length === 0);
+  }
+  {
+    let listener = null;
+    const auth = { onAuthStateChanged: (cb) => { listener = cb; return () => {}; } };
+    const disk = newDisk();
+    const seed = loadPage({ online: false, disk });
+    await booted(seed);
+    await seed.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'left behind' });
+    // A page whose user never resolved (still booting / signed out from the start).
+    const h = loadPage({ online: false, disk, user: null, before: (w) => { w.auth = auth; } });
+    await wait(15);
+    if (listener) listener(null);
+    await wait(15);
+    ok('a page that never had a user does not purge on an initial "no user"', rowsOn(disk).length === 1 && !!h.ob);
+  }
+  {
+    // command-palette.js "Sign Out" on customer.html: no _signOut, no
+    // nbd-auth.js — the SDK fallback. It must purge the outbox BEFORE signOut.
+    const CP_SRC = read('docs/pro/js/command-palette.js');
+    const start = CP_SRC.indexOf('} else if (window.auth) {');
+    const block = extractBlock(CP_SRC.slice(start + 2), 'else if (window.auth) {');
+    const body = block.slice(block.indexOf('{') + 1, block.lastIndexOf('}'))
+      .replace("import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js')", '__import()');
+    ok('command-palette fallback: the lifted block still imports the SDK signOut (the stub replaced it)', /__import\(\)/.test(body));
+    const run = async (purgeAll) => {
+      const order = [];
+      const win = {
+        auth: {}, location: { href: '' }, showToast: () => {},
+        NBDSmsOutbox: purgeAll ? { purgeAll: () => purgeAll(order) } : undefined,
+      };
+      const fastTimeout = (fn, ms) => setTimeout(fn, ms >= 1000 ? 20 : ms);
+      const __import = async () => ({ signOut: async () => { order.push('signOut'); } });
+      new Function('window', '__import', 'setTimeout', 'console', body)(win, __import, fastTimeout, QUIET);
+      await wait(80);
+      return { order, win };
+    };
+    const a = await run((order) => { order.push('purge-start'); return wait(10).then(() => { order.push('purge-done'); return true; }); });
+    ok('customer.html palette sign-out purges the SMS outbox, and only THEN signs out',
+      a.order.join(',') === 'purge-start,purge-done,signOut' && a.win.location.href === '/pro/login.html', a.order.join(','));
+    const b = await run((order) => { order.push('purge-start'); return new Promise(() => {}); });
+    ok('…a purge that never settles cannot keep the rep signed in (bounded)', b.order.join(',') === 'purge-start,signOut', b.order.join(','));
+    const c = await run(null);
+    ok('…and a page without the outbox signs out as before', c.order.join(',') === 'signOut');
+  }
+  {
     // Account switch: rep-1 leaves texts; rep-2 opens the page on the same device.
     const disk = newDisk();
     const a = loadPage({ online: false, disk });
@@ -1031,10 +1312,13 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
   console.log('7. CONSUMERS — mode "queued" is NOT sent');
   const QUEUED = { success: true, mode: 'queued', id: 'q-1' };
   {
-    // invoice-pipeline.js — runs for real; Firestore is a stub.
+    // invoice-pipeline.js — runs for real; Firestore is a stub. It loads
+    // BEFORE the outbox here (lazy on customer.html, any order on the
+    // dashboard), so it registers through the 'nbd:sms-outbox-ready' event.
     const writes = [];
     let status = 'draft';
     const listeners = {};
+    const handlers = {};
     const win = {
       console: QUIET,
       _db: { name: 'db' },
@@ -1055,63 +1339,131 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('invoice SMS queued: the invoice is NEVER written "sent"', !writes.some((w) => w.data.status === 'sent'), JSON.stringify(writes));
     ok('…its send lock is released back to "draft"', writes.some((w) => w.data.status === 'draft') && status === 'draft');
     ok('…and the text carries source "invoice-sms" + the invoice id', win._smsArgs.source === 'invoice-sms' && win._smsArgs.sourceRef === 'inv-1');
-    const fire = (detail) => (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail }));
-    const n0 = writes.length;
-    fire({ source: 'deal-sms', sourceRef: 'inv-1' });           // someone else's text, same id
-    await wait(5);
-    ok('the listener ignores other sources (the invoice stays unsent)', writes.length === n0 && status === 'draft');
-    fire({ source: 'invoice-sms', sourceRef: 'inv-1' });
-    await wait(5);
-    ok('when the outbox actually sends it, the invoice is marked "sent" then', status === 'sent');
+    ok('invoice-pipeline no longer stamps from the in-tab window event', !(listeners['nbd:sms-outbox-sent'] || []).length);
+    win.NBDSmsOutbox = { onSent: (src, fn) => { handlers[src] = fn; return true; } };
+    (listeners['nbd:sms-outbox-ready'] || []).forEach((fn) => fn({ type: 'nbd:sms-outbox-ready' }));
+    ok('loaded before the outbox: it registers an "invoice-sms" receipt handler when the outbox announces itself',
+      typeof handlers['invoice-sms'] === 'function');
+    const apply = handlers['invoice-sms'] || (async () => false);
+    await apply({ source: 'invoice-sms', sourceRef: 'inv-1' });
+    ok('applying the receipt (the outbox actually sent it) marks the invoice "sent" then', status === 'sent');
     status = 'paid';
     const n = writes.length;
-    fire({ source: 'invoice-sms', sourceRef: 'inv-1' });
-    await wait(5);
+    await apply({ source: 'invoice-sms', sourceRef: 'inv-1' });
     ok('…but never over a paid/void/already-sent invoice', writes.length === n && status === 'paid');
+    // Firestore not up yet: the handler must THROW so the receipt is kept.
+    const saved = win._db; win._db = null;
+    let threw = false;
+    try { await apply({ source: 'invoice-sms', sourceRef: 'inv-1' }); } catch (_) { threw = true; }
+    win._db = saved;
+    ok('…and throws (receipt kept for the next drain) while Firestore is not up', threw);
   }
   {
-    // close-board.js sendViaSMS + its listener, lifted out with their deps.
-    const listenerSrc = extractBlock(CB_SRC, "if (typeof window.addEventListener === 'function') {");
-    ok('close-board: the lifted listener is the outbox one', /nbd:sms-outbox-sent/.test(listenerSrc));
+    // invoice-pipeline.js sendInvoiceUI — the method-picker click the rep
+    // actually taps. A queued text must not toast "Invoice sent successfully".
+    const toastsUI = [];
+    const methodBtns = ['email', 'sms', 'portal'].map((m) => ({ dataset: { method: m }, onclick: null }));
+    const cancel = { onclick: null };
+    const mkEl = () => ({
+      id: '', className: '', style: {},
+      classList: { add() {}, remove() {}, contains() { return false; } },
+      addEventListener() {}, removeEventListener() {}, remove() {},
+      set innerHTML(v) { this._html = v; }, get innerHTML() { return this._html || ''; },
+      querySelector: (s) => (s === '#nbd-send-cancel' ? cancel : null),
+      querySelectorAll: (s) => (s === '.nbd-send-method' ? methodBtns : []),
+    });
+    const makeInvoiceWin = (smsResult) => {
+      let status = 'draft';
+      const win = {
+        console: QUIET,
+        _db: { name: 'db' },
+        doc: (db, col, id) => ({ path: col + '/' + id }),
+        collection: () => ({}),
+        getDoc: async () => ({ exists: () => true, data: () => ({ status, customerPhone: '(859) 555-0134', leadId: 'lead-1' }) }),
+        updateDoc: async (ref, data) => { if (data.status) status = data.status; },
+        showToast: (msg, type) => toastsUI.push({ msg: String(msg), type }),
+        NBDComms: { sendSMS: async () => smsResult },
+        addEventListener() {},
+        document: {
+          createElement: () => mkEl(), getElementById: () => null, body: { appendChild() {} },
+          addEventListener() {}, removeEventListener() {}, querySelectorAll: () => [],
+        },
+      };
+      win.window = win;
+      const ctx = vm.createContext(Object.assign(win, { Date, JSON, Math, Promise, Object, Array, String, Number, Error, isNaN, parseFloat, setTimeout, clearTimeout }));
+      vm.runInContext(INV_SRC, ctx, { filename: 'invoice-pipeline.js' });
+      return win;
+    };
+    const w1 = makeInvoiceWin(QUEUED);
+    w1.InvoicePipeline.sendInvoiceUI('inv-1');
+    await methodBtns[1].onclick();
+    ok('sendInvoiceUI → "Send via SMS" while offline: the queued toast, NOT "Invoice sent successfully"',
+      toastsUI.some((t) => /queued/.test(t.msg) && /stays unsent/.test(t.msg)) && !toastsUI.some((t) => /Invoice sent successfully/.test(t.msg)),
+      JSON.stringify(toastsUI));
+    toastsUI.length = 0;
+    const w2 = makeInvoiceWin({ success: true, mode: 'platform', sid: 'SM1' });
+    w2.InvoicePipeline.sendInvoiceUI('inv-1');
+    await methodBtns[1].onclick();
+    ok('…and a real platform send still says "Invoice sent successfully" (the harness tells them apart)',
+      toastsUI.some((t) => /Invoice sent successfully/.test(t.msg)) && !toastsUI.some((t) => /queued/.test(t.msg)), JSON.stringify(toastsUI));
+  }
+  {
+    // close-board.js sendViaSMS + its receipt handler, lifted out with their deps.
+    const applySrc = extractFunction(CB_SRC, '_applyDealSmsReceipt');
+    const regSrc = extractFunction(CB_SRC, '_registerDealSmsReceipts');
     const sendSrc = extractFunction(CB_SRC, 'sendViaSMS');
+    ok('close-board: no in-tab window-event stamp left', !/addEventListener\('nbd:sms-outbox-sent'/.test(CB_SRC));
     const updates = [];
-    const listeners = {};
+    const handlers = {};
+    const calls = [];
     const deal = { id: 'd1', customerPhone: '(859) 555-0134', customerName: 'Sam', leadId: 'lead-1', status: 'draft' };
-    const dealRooms = [deal];
+    const stored = [deal];
+    let dealRooms = [];                            // before init(): nothing loaded yet
     const win = {
       NBDComms: { sendSMS: async (o) => { win._args = o; return QUEUED; } },
+      NBDSmsOutbox: { onSent: (src, fn) => { handlers[src] = fn; return true; } },
       showToast: () => {},
       open: () => { win._opened = true; },
-      addEventListener: (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); },
     };
     const updateDeal = (id, u) => { updates.push({ id, u }); Object.assign(dealRooms.find((d) => d.id === id), u); };
-    const factory = new Function('window', 'dealRooms', 'getDealAcceptLink', '_dealBrand', 'DEAL_STATUS', 'updateDeal',
-      "const DEAL_SMS_SOURCE = 'deal-sms';\n" + listenerSrc + '\nasync ' + sendSrc + '\nreturn sendViaSMS;');
-    const sendViaSMS = factory(win, dealRooms, async () => 'https://nobigdealwithjoedeal.com/deal/tok', () => ({ name: 'NBD' }),
-      { DRAFT: 'draft', SENT: 'sent' }, updateDeal);
-    await sendViaSMS('d1');
+    const factory = new Function('window', 'getDealAcceptLink', '_dealBrand', 'DEAL_STATUS', 'updateDeal', 'loadDealRooms', 'render', 'getRooms', 'setRooms',
+      "const DEAL_SMS_SOURCE = 'deal-sms'; let currentTab = 'active';\n"
+      + 'let dealRooms = getRooms();\n'
+      + applySrc.replace('loadDealRooms();', 'loadDealRooms(); dealRooms = getRooms();') + '\n' + regSrc + '\nasync ' + sendSrc
+      + '\n_registerDealSmsReceipts();\nreturn { sendViaSMS, sync: () => { dealRooms = getRooms(); } };');
+    const api = factory(win, async () => 'https://nobigdealwithjoedeal.com/deal/tok', () => ({ name: 'NBD' }),
+      { DRAFT: 'draft', SENT: 'sent' }, updateDeal,
+      () => { calls.push('load'); dealRooms = stored; }, () => calls.push('render'),
+      () => dealRooms, (v) => { dealRooms = v; });
+    ok('close-board registers a "deal-sms" receipt handler with the outbox at load', typeof handlers['deal-sms'] === 'function');
+    // A receipt drained before the board's init(): the deal is still only in localStorage.
+    const applied = await handlers['deal-sms']({ source: 'deal-sms', sourceRef: 'd1' });
+    ok('close-board: a receipt applied before init() loads the deals first and stamps SENT',
+      calls[0] === 'load' && deal.status === 'sent' && updates.length === 1 && applied === true, JSON.stringify({ calls, updates }));
+    ok('…and repaints the board', calls.includes('render'));
+    deal.status = 'draft'; updates.length = 0; api.sync();
+    await api.sendViaSMS('d1');
     ok('close-board: a queued deal text does NOT stamp the deal SENT', updates.length === 0 && deal.status === 'draft', JSON.stringify(updates));
     ok('…and passes source "deal-sms" + the deal id', win._args.source === 'deal-sms' && win._args.sourceRef === 'd1');
-    (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail: { source: 'deal-sms', sourceRef: 'd1' } }));
-    ok('…the outbox sending it stamps SENT then', deal.status === 'sent' && updates.length === 1);
     deal.status = 'accepted';
-    (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail: { source: 'deal-sms', sourceRef: 'd1' } }));
-    ok('…but never rewinds a deal that moved on', deal.status === 'accepted' && updates.length === 1);
+    await handlers['deal-sms']({ source: 'deal-sms', sourceRef: 'd1' });
+    ok('…but a receipt never rewinds a deal that moved on', deal.status === 'accepted' && updates.length === 0);
   }
   {
     // portal-link-helpers.js smsForLead — runs for real.
     const writes = [];
-    const listeners = {};
+    const handlers = {};
     const leads = [{ id: 'lead-1', phone: '(859) 555-0134', firstName: 'Sam', stage: 'estimate' }];
     const win = {
       console: QUIET,
       _leads: leads,
       _mintPortalUrl: async () => 'https://nobigdealwithjoedeal.com/pro/portal.html?token=abc',
       NBDComms: { sendSMS: async (o) => { win._args = o; return QUEUED; } },
+      NBDSmsOutbox: { onSent: (src, fn) => { handlers[src] = fn; return true; } },
       showToast: () => {},
       db: {}, doc: (db, c, id) => ({ path: c + '/' + id }),
       updateDoc: async (ref, d) => { writes.push({ path: ref.path, d }); },
-      addEventListener: (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); },
+      addEventListener: () => {},
       dispatchEvent: () => true,
       CustomEvent: function (t, i) { this.type = t; this.detail = i && i.detail; },
       location: { href: '' },
@@ -1125,8 +1477,15 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('portal link: a queued text is NOT recorded as a share (no lastSharedAt)',
       writes.length === 0 && !leads[0].lastSharedAt && !win._leads[0].lastSharedAt, JSON.stringify(writes));
     ok('…and passes leadStage + source for the outbox', win._args.leadStage === 'estimate' && win._args.source === 'portal-share-sms' && win._args.sourceRef === 'lead-1');
-    (listeners['nbd:sms-outbox-sent'] || []).forEach((fn) => fn({ detail: { source: 'portal-share-sms', sourceRef: 'lead-1' } }));
-    ok('…it becomes a share when the outbox actually sends it', writes.length === 1 && writes[0].d.lastSharedVia === 'sms');
+    ok('…and registers a "portal-share-sms" receipt handler', typeof handlers['portal-share-sms'] === 'function');
+    const saved = win.db; win.db = null;
+    let threw = false;
+    try { await handlers['portal-share-sms']({ source: 'portal-share-sms', sourceRef: 'lead-1' }); } catch (_) { threw = true; }
+    win.db = saved;
+    ok('…whose handler throws (keeps the receipt) while Firestore is not up, instead of silently skipping the write',
+      threw && writes.length === 0);
+    await handlers['portal-share-sms']({ source: 'portal-share-sms', sourceRef: 'lead-1' });
+    ok('…it becomes a share when the receipt is applied', writes.length === 1 && writes[0].d.lastSharedVia === 'sms');
   }
   {
     // smart-followup.js executeSuggestion — lifted with its helpers.
@@ -1171,6 +1530,132 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
       !toasts.some((m) => /Text sent/.test(m)) && opened.length === 0, JSON.stringify(toasts));
     ok('D2D: still the positional call (phone, body, knockId) plus the source option',
       args && args[0] === '(859) 555-0134' && args[2] === 'knock-1' && args[3] && args[3].source === 'd2d-followup-sms');
+    ok('D2D: no sourceRef (no knock stamper exists, so no receipt would ever be applied)', args && args[3] && !('sourceRef' in args[3]));
+  }
+
+  // ═══ 7b. receipts ═════════════════════════════════════════════════════
+  console.log('7b. RECEIPTS — "it went out" survives other tabs, page loads and late-loading stampers');
+  const queueInvoiceText = async (h, ref) => {
+    await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'Your invoice', createdAt: Date.now() - MIN, source: 'invoice-sms', sourceRef: ref });
+  };
+  {
+    // Tab A flushes with NO invoice handler loaded (customer.html before the
+    // invoice panel opened); tab B loads invoice-pipeline later.
+    const disk = newDisk(); const LS = {};
+    const a = loadPage({ online: false, disk, localStorage: LS });
+    await booted(a);
+    await queueInvoiceText(a, 'inv-A');
+    a.window.navigator.onLine = true;
+    await a.ob.flush('t');
+    const r = rowsOn(disk);
+    ok('sent in a tab with no stamper: a receipt stays (no phone, no message)',
+      r.length === 1 && r[0].status === 'sent' && r[0].sourceRef === 'inv-A' && !r[0].to && !r[0].body, JSON.stringify(r));
+    const b = loadPage({ online: true, disk, localStorage: LS });
+    await booted(b);
+    const got = [];
+    b.ob.onSent('invoice-sms', (d) => { got.push(d.sourceRef); });
+    await until(() => got.length === 1 && rowsOn(disk).length === 0);
+    ok('…a page that registers the handler later (another tab, a relaunch) applies it and deletes the receipt',
+      got.join() === 'inv-A' && rowsOn(disk).length === 0, JSON.stringify({ got, rows: rowsOn(disk) }));
+  }
+  {
+    // Tab B already has the handler; tab A sends. BroadcastChannel tells B.
+    const disk = newDisk(); const LS = {}; const bus = makeBus();
+    const a = loadPage({ online: false, disk, localStorage: LS, bus });
+    const b = loadPage({ online: true, disk, localStorage: LS, bus });
+    await booted(a); await booted(b);
+    const got = [];
+    b.ob.onSent('invoice-sms', (d) => { got.push(d.sourceRef); });
+    await queueInvoiceText(a, 'inv-B');
+    a.window.navigator.onLine = true;
+    await a.ob.flush('t');
+    await until(() => got.length === 1 && rowsOn(disk).length === 0);
+    ok('the handler in ANOTHER open tab applies a receipt the flushing tab left', got.join() === 'inv-B' && rowsOn(disk).length === 0, JSON.stringify(got));
+  }
+  {
+    const h = loadPage({ online: false });
+    await booted(h);
+    let fail = true; const got = [];
+    h.ob.onSent('invoice-sms', (d) => { if (fail) throw new Error('Firestore not ready'); got.push(d.sourceRef); });
+    await queueInvoiceText(h, 'inv-C');
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    await wait(20);
+    const kept = h.rows();
+    ok('a handler that throws leaves the receipt ("sent", not lost, not stuck "acking")',
+      kept.length === 1 && kept[0].status === 'sent' && got.length === 0, JSON.stringify(kept));
+    fail = false;
+    await h.ob.flush('again');
+    await until(() => got.length === 1 && h.rows().length === 0);
+    ok('…and the next drain applies it', got.join() === 'inv-C' && h.rows().length === 0);
+  }
+  {
+    // Two tabs with the handler, one receipt: applied ONCE.
+    const disk = newDisk(); const LS = {}; const bus = makeBus();
+    const a = loadPage({ online: false, disk, localStorage: LS, bus });
+    const b = loadPage({ online: false, disk, localStorage: LS, bus });
+    await booted(a); await booted(b);
+    await queueInvoiceText(a, 'inv-D');
+    a.window.navigator.onLine = true;
+    await a.ob.flush('t');                        // no handlers yet → receipt waits
+    const got = [];
+    const slow = (d) => wait(15).then(() => { got.push(d.sourceRef); });
+    a.ob.onSent('invoice-sms', slow);
+    b.ob.onSent('invoice-sms', slow);
+    await wait(80);
+    ok('two tabs with the same handler: the receipt is applied exactly once', got.join() === 'inv-D' && rowsOn(disk).length === 0, JSON.stringify(got));
+  }
+  {
+    // A page that died mid-handler left the receipt 'acking': offered again.
+    const h = loadPage({ online: false });
+    await booted(h);
+    await queueInvoiceText(h, 'inv-E');
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    const table = h.disk.dbs['nbd-sms-outbox-db'].stores.outbox;
+    const rec = [...table.values()][0];
+    table.set(rec.id, Object.assign({}, rec, { status: 'acking', ackingAt: Date.now() - 3 * MIN }));
+    const got = [];
+    h.ob.onSent('invoice-sms', (d) => { got.push(d.sourceRef); });
+    await wait(10);
+    ok('(an "acking" receipt is not re-applied while its page may still be at it)', got.length === 0);
+    await h.ob.flush('later');
+    await until(() => got.length === 1);
+    ok('an orphaned "acking" receipt (2+ min) goes back to "sent" and is applied', got.join() === 'inv-E' && h.rows().length === 0);
+  }
+  {
+    const h = loadPage({ online: false });
+    await booted(h);
+    await queueInvoiceText(h, 'inv-F');
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    const table = h.disk.dbs['nbd-sms-outbox-db'].stores.outbox;
+    const rec = [...table.values()][0];
+    table.set(rec.id, Object.assign({}, rec, { sentAt: Date.now() - 8 * 24 * 60 * MIN }));
+    await h.ob.flush('prune');
+    ok('a receipt nothing claimed in a week is pruned', h.rows().length === 0);
+  }
+  {
+    // portal-link-helpers.js loads BEFORE sms-outbox.js on dashboard.html:
+    // it must still get its receipts (via 'nbd:sms-outbox-ready').
+    const writes = [];
+    const h = loadPage({
+      online: false,
+      preOutbox: [[PLH_SRC, 'portal-link-helpers.js']],
+      before: (w) => {
+        w.db = {}; w.doc = (db, c, id) => ({ path: c + '/' + id });
+        w.updateDoc = async (ref, d) => { writes.push({ path: ref.path, d }); };
+        w._leads = [{ id: 'lead-1', phone: SMS.to, stage: 'estimate' }];
+      },
+    });
+    await booted(h);
+    await h.ob.enqueue({ uid: 'rep-1', to: SMS.to, body: 'portal link', createdAt: Date.now() - MIN, source: 'portal-share-sms', sourceRef: 'lead-1' });
+    h.window.navigator.onLine = true;
+    await h.ob.flush('t');
+    await until(() => writes.length === 1 && h.rows().length === 0);
+    ok('portal-link-helpers.js loaded BEFORE the outbox still records the share when the queued text goes',
+      writes.length === 1 && writes[0].path === 'leads/lead-1' && writes[0].d.lastSharedVia === 'sms' && h.rows().length === 0,
+      JSON.stringify(writes));
   }
 
   // ═══ 8. wiring ════════════════════════════════════════════════════════

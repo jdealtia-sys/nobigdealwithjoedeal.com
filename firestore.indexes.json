@@ -821,6 +821,13 @@
   ],
   "fieldOverrides": [
     {
+      "_comment": "Offline SMS outbox (2026-09-18): sendSMS idempotency claims (sms_client_ids/{uid}_{clientMsgId}) carry expireAt = claim time + 8 days (sms-outbox-guard.js CLAIM_TTL_MS, one day past the 7-day queuedAt bound, so no replay can outlive its claim). TTL deletes them so the rep uid + homeowner phone key are not kept forever. indexes: [] = no single-field index on the TTL timestamp (nothing queries it; avoids a hot-spot index on a monotonically increasing field).",
+      "collectionGroup": "sms_client_ids",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "_comment": "GDPR erasure/export (2026-07-17): confirmAccountErasure + exportMyData sweep collectionGroup('recordings').where('userId','==') (equality-only, no orderBy → ordered by __name__). The composite [userId, recordedAt] does NOT serve this; a single-field COLLECTION_GROUP index on userId does. Without it the sweep throws FAILED_PRECONDITION, compliance.js swallows it, and a user's Voice-Intelligence recordings survive right-to-be-forgotten. COLLECTION asc/desc kept so the default single-parent indexing is preserved.",
       "collectionGroup": "recordings",
       "fieldPath": "userId",
