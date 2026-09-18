@@ -3,6 +3,23 @@
 // CUSTOMER PAGE ENHANCEMENTS - Task Management & Improved UX
 // ═══════════════════════════════════════════════════════════════════════
 
+// ── Globals Tranche 3 T3-C (2026-09-18): cross-file callables, registry-only ──
+// Each of these has exactly one consumer in another file (none is markup-
+// dispatched, so _nbdCustomerActionDispatch's window walk never needs them).
+// customer.html has no dashboard-bootstrap.module.js; customer-bootstrap.
+// module.js creates this same registry with the same || guard, and whichever
+// file runs first wins. Registered at the TOP of the wrap (all six are hoisted
+// declarations) so a throw later in this 2500-line body can't strand them.
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  renderCoverHero: renderCoverHero,             // customer-bootstrap.module.js
+  loadPhotosByPhase: loadPhotosByPhase,         // customer-bootstrap.module.js
+  loadNewPortalSections: loadNewPortalSections, // customer-bootstrap.module.js
+  setupContactTab: setupContactTab,             // customer-bootstrap.module.js
+  loadCommunicationLog: loadCommunicationLog,   // customer-ai-drafts-panel.js
+  logGeneratedDoc: logGeneratedDoc,             // doc-preflight.js
+});
+
 // ── RoofLink-parity count badges ────────────────────────────────────
 // Every module's loader already fetches its list — these two helpers
 // just print the numbers. Window-exposed because callers live across
@@ -37,7 +54,7 @@ window.nbdTitleCount = function (titleId, base, n) {
 // coverPhotoUrl) so every consumer — customer hero, mobile job-detail
 // hero, kanban thumbs, estimate PDF cover — reads it without a photo
 // lookup. Chosen from the photo quick-edit popup.
-window.renderCoverHero = function (url) {
+function renderCoverHero(url) {
   var hero = document.getElementById('coverHero');
   if (!hero) return;
   if (url && /^https?:/i.test(String(url))) {
@@ -47,7 +64,7 @@ window.renderCoverHero = function (url) {
     hero.style.backgroundImage = '';
     hero.style.display = 'none';
   }
-};
+}
 
 window.setCoverPhotoFromPopup = async function (idx) {
   var photo = (window._allPhotos || [])[Number(idx)];
@@ -61,7 +78,7 @@ window.setCoverPhotoFromPopup = async function (idx) {
   try {
     await window.updateDoc(window.doc(window.db, 'leads', window._customerId), updates);
     Object.assign(lead, updates);
-    window.renderCoverHero(updates.coverPhotoUrl);
+    renderCoverHero(updates.coverPhotoUrl);
     if (typeof window.showToast === 'function') {
       window.showToast(isCover ? 'Cover photo cleared' : 'Cover photo set ★', 'success');
     }
@@ -1188,7 +1205,7 @@ function applyPhotosToView(list) {
 // on screen last time), then refreshes from Firestore in parallel.
 // On Firestore failure (offline / network blip), the cached data
 // stays on screen so Joe can still review the lead in a driveway.
-window.loadPhotosByPhase = async function(leadId) {
+async function loadPhotosByPhase(leadId) {
   const uid = window.auth && window.auth.currentUser && window.auth.currentUser.uid;
   if (!uid) return;
 
@@ -1240,7 +1257,7 @@ window.loadPhotosByPhase = async function(leadId) {
         '<div class="empty"><div class="empty-icon">&#9888;</div>Failed to load photos</div>';
     }
   }
-};
+}
 
 function updatePhotoStats() {
   var bar = document.getElementById('photoStatsBar');
@@ -1358,7 +1375,7 @@ window.loadReports = async function(leadId) {
 // query by leadId+companyId (all tenant sends). Sales reps (and anyone
 // without a companyId) still query leadId+uid (own sends only) — matches
 // firestore.rules. New platform sends stamp companyId for the team path.
-window.loadCommunicationLog = async function(leadId) {
+async function loadCommunicationLog(leadId) {
   try {
     const uid = window.auth?.currentUser?.uid || window._user?.uid;
     if (!uid || !window.db) {
@@ -1470,7 +1487,7 @@ window.loadCommunicationLog = async function(leadId) {
     console.error('Communication log error:', error);
     document.getElementById('communicationLog').innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Failed to load messages</div>';
   }
-};
+}
 
 // ── Photo Quick Actions (Edit Tags, Delete, Phase) ──────
 window._quickEditPhotoId = null;
@@ -2175,7 +2192,7 @@ window.generateCustomerDoc = async function(type) {
     return;
   }
   window.NBDDocGen.generate(type, data);
-  window.logGeneratedDoc(type, data);
+  logGeneratedDoc(type, data);
 };
 
 // ─────────────────────────────────────────────────────────────────
@@ -2375,14 +2392,14 @@ document.addEventListener('change', function _nbdCustomerChangeDelegate(e) {
 // document above to see it here" on Tuesday. The generator DOES persist to
 // leads/{leadId}/documents (document-generator.js), so the honest fix is to
 // re-read the store and let it paint the row from what was actually saved.
-window.logGeneratedDoc = function (type, data) {
+function logGeneratedDoc(type, data) {
   if (!window.NBDCustomerDocs) return;
   // The generator persists in the background and resolves the viewer before
   // the write necessarily lands. Refresh now for the common case, and once
   // more shortly after to pick up a slow write. Both are idempotent re-reads.
   window.NBDCustomerDocs.refresh();
   setTimeout(function () { window.NBDCustomerDocs.refresh(); }, 2500);
-};
+}
 
 window.openDocUploadModal = function() {
   window.nbdModal.open('docUploadModal');
@@ -2401,21 +2418,21 @@ window.closeDocUploadModal = function() {
 // has exactly one caller (customer-bootstrap.module.js's loadCustomerData),
 // in that same page-load sequence, so removing it here doesn't leave any
 // other caller without a phase-grid load.
-window.loadNewPortalSections = async function(leadId) {
+async function loadNewPortalSections(leadId) {
   try {
     await Promise.all([
       window.loadProjectTimeline(leadId),
       window.loadInvoices(leadId),
       window.loadReports(leadId),
-      window.loadCommunicationLog(leadId)
+      loadCommunicationLog(leadId)
     ]);
   } catch (error) {
     console.error('Error loading portal sections:', error);
   }
-};
+}
 
 // ── Setup contact tab links ────────────────────
-window.setupContactTab = function(customerData) {
+function setupContactTab(customerData) {
   // B-3c: contractor banner + contact links resolve from the active tenant.
   // NBD (default brand) keeps the exact hardcoded values — byte-identical.
   const _b = (window._brand && window._brand()) || {};
@@ -2447,7 +2464,7 @@ window.setupContactTab = function(customerData) {
     const elS = document.getElementById('contractorSeal'); if (elS) elS.textContent = _b.seal || '';
     const elN = document.getElementById('contractorName'); if (elN) elN.textContent = _b.legalName || '';
   }
-};
+}
 
 // ── Open Photo in Lightbox ─────────────────────
 // srcArray/idx are optional, but every caller that indexed into an array MUST

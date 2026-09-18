@@ -58,7 +58,8 @@ const BOOT = read('docs/pro/js/customer-bootstrap.module.js');
 
 console.log('customer-photos-by-phase — team-scope-aware query\n');
 
-const fnStart = TASKS_UI.indexOf('window.loadPhotosByPhase = async function');
+// A real declaration since Globals Tranche 3 T3-C (2026-09-18) — registry-only.
+const fnStart = TASKS_UI.indexOf('async function loadPhotosByPhase(leadId) {');
 ok('loadPhotosByPhase is present', fnStart >= 0);
 const fnSrc = fnStart >= 0 ? decommentJs(TASKS_UI.slice(fnStart, fnStart + 1200)) : '';
 
