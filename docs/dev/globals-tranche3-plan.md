@@ -318,7 +318,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
-| dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR TBD); see note below** |
+| dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
 | long tail (1–3-name edges) | ~136 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -534,7 +534,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > `tests/smoke.test.js` (4121/4121), `tests/estimate-hub-controls.test.js`
 > (12/12), and `run-test-manifest.js --bucket smoke` (68/68) green.
 
-> ### Update 2026-09-18 — the crm-leads.js edge (PR TBD)
+> ### Update 2026-09-18 — the crm-leads.js edge (PR #1647)
 >
 > A fourth long-tail edge off `dashboard-bootstrap.module.js`, same
 > session: `filterStageDropdownByJobType`, `getSelectedTrades` — consumed
