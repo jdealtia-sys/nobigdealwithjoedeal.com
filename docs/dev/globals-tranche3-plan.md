@@ -318,7 +318,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
-| long tail (1–3-name edges) | ~138 |
+| dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR TBD); see note below** |
+| long tail (1–3-name edges) | ~136 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -532,6 +533,32 @@ Convert edge-by-edge; each edge is one natural PR:
 > — found zero bugs in either pass. Both reran `check-js-syntax`,
 > `tests/smoke.test.js` (4121/4121), `tests/estimate-hub-controls.test.js`
 > (12/12), and `run-test-manifest.js --bucket smoke` (68/68) green.
+
+> ### Update 2026-09-18 — the crm-leads.js edge (PR TBD)
+>
+> A fourth long-tail edge off `dashboard-bootstrap.module.js`, same
+> session: `filterStageDropdownByJobType`, `getSelectedTrades` — consumed
+> by `crm-leads.js`. The cleanest slice of the day: zero HTML/markup hits,
+> zero prior test coverage on either name anywhere in the repo, both
+> anonymous function expressions assigned directly to `window.X`. One
+> self-reference (`filterStageDropdownByJobType` called from inside
+> `toggleInsuranceFields`) went from a defensive `window.X && window.X(jt)`
+> guard to a bare `filterStageDropdownByJobType(jt)` call — safe because
+> `toggleInsuranceFields` only ever fires from a `change` listener wired up
+> inside `DOMContentLoaded` (or via the registry from
+> `crm-portal-bridge.js`'s `setTimeout`), both long after the module has
+> fully parsed, so the hoisted function declaration is always available by
+> then.
+>
+> Verification: one adversarial-review agent (proportionate to the size —
+> a 2-name, zero-test-coverage slice doesn't need the two-reviewer
+> treatment the money-sensitive edges got) traced every consumer/self-
+> reference call site via independent grep, specifically verified the
+> guard-removal's safety by tracing every `toggleInsuranceFields` call site
+> back to confirm none can fire before module parse completes, and reran
+> `check-js-syntax`, `tests/smoke.test.js` (4129/4129), and
+> `run-test-manifest.js --bucket smoke` (68/68) green — plus an EOL/CRLF
+> hygiene check on the touched files (clean).
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if

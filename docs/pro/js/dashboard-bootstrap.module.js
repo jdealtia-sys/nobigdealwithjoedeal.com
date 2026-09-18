@@ -313,7 +313,7 @@
     const jobStages = ['contract_signed','job_created','permit_pulled','materials_ordered','materials_delivered','crew_scheduled','install_in_progress','install_complete','final_photos','deductible_collected','final_payment','collections','closed','warranty_claim'];
     if (job) job.style.display = jobStages.includes(stageVal) ? 'block' : 'none';
     // Smart stage dropdown — hide irrelevant track optgroups based on jobType
-    window.filterStageDropdownByJobType && window.filterStageDropdownByJobType(jt);
+    filterStageDropdownByJobType(jt);
     // Sub-type + trades row: visible only when a job type is set
     refreshSubTypeAndTrades(jt);
     // Next Actions panel: refreshes whenever job type or stage changes
@@ -444,12 +444,14 @@
   };
 
   // Read currently-selected trades as an array of values
-  window.getSelectedTrades = function() {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+  function getSelectedTrades() {
     const group = document.getElementById('lTradesGroup');
     if (!group) return [];
     return Array.from(group.querySelectorAll('.trade-chip[data-selected="1"]'))
       .map(b => b.dataset.value);
-  };
+  }
 
   // Reflect a saved trades array onto the chip UI
   function setSelectedTrades(trades) {
@@ -1164,7 +1166,9 @@
   // Hide optgroups from other tracks based on the selected jobType.
   // Preserves the current selection even if its track would be hidden —
   // shows a small warning instead of silently switching stages.
-  window.filterStageDropdownByJobType = function(jobType) {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+  function filterStageDropdownByJobType(jobType) {
     const sel = document.getElementById('lStage');
     if (!sel) return;
     const currentVal = sel.value;
@@ -1205,7 +1209,7 @@
     } else if (warn) {
       warn.style.display = 'none';
     }
-  };
+  }
 
   // Attach listener after DOM ready
   document.addEventListener('DOMContentLoaded', () => {
@@ -5819,4 +5823,7 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _deleteEstimate: _deleteEstimate,
   _renameEstimate: _renameEstimate,
   _assignEstimateToLead: _assignEstimateToLead,
+  // Globals Tranche 3 T3-C (2026-09-18): the crm-leads.js edge.
+  filterStageDropdownByJobType: filterStageDropdownByJobType,
+  getSelectedTrades: getSelectedTrades,
 });

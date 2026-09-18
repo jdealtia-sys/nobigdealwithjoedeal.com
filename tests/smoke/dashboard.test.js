@@ -3140,7 +3140,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 3 T3-C (2026-09-18): the estimate CRUD edge off
     // dashboard-bootstrap.module.js, consumed by estimate-crm-ops.js.
     // _duplicateEstimate was NOT a candidate (multiple consumers).
-    '_deleteEstimate', '_renameEstimate', '_assignEstimateToLead'];
+    '_deleteEstimate', '_renameEstimate', '_assignEstimateToLead',
+    // Tranche 3 T3-C (2026-09-18): the crm-leads.js edge off
+    // dashboard-bootstrap.module.js. Zero HTML hits, zero prior test
+    // coverage on either name.
+    'filterStageDropdownByJobType', 'getSelectedTrades'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3917,6 +3921,26 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('estimate-crm-ops.js\'s two _assignEstimateToLead call sites (unassign + lead-row pick) both read off the registry',
     (estCrmOpsSrc.match(/window\.__NBD_CALL_REGISTRY\._assignEstimateToLead\(/g) || []).length === 2
     && !/window\._assignEstimateToLead\(/.test(estCrmOpsSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the crm-leads.js edge off
+  // dashboard-bootstrap.module.js ──
+  // Zero HTML hits, zero prior test coverage on either name.
+  const crmLeadsSrc = read(path.join(PRO_JS, 'crm-leads.js'));
+  for (const n of ['filterStageDropdownByJobType', 'getSelectedTrades']) {
+    assert('dashboard-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootReg));
+    assert('dashboard-bootstrap.module.js no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  assert('filterStageDropdownByJobType and getSelectedTrades are real declarations now',
+    /function filterStageDropdownByJobType\(jobType\) \{/.test(bootReg)
+    && /function getSelectedTrades\(\) \{/.test(bootReg));
+  assert('toggleInsuranceFields\' self-reference to filterStageDropdownByJobType was rewired to a bare call',
+    /filterStageDropdownByJobType\(jt\);/.test(bootReg) && !/window\.filterStageDropdownByJobType\b/.test(bootReg));
+  assert('crm-leads.js reads filterStageDropdownByJobType off the registry, not bare window',
+    /_nbdReg\.filterStageDropdownByJobType\(jtEl\?\.value \|\| ''\)/.test(crmLeadsSrc));
+  assert('crm-leads.js reads getSelectedTrades off the registry, not bare window',
+    /window\.__NBD_CALL_REGISTRY\.getSelectedTrades\(\)/.test(crmLeadsSrc) && !/window\.getSelectedTrades\(/.test(crmLeadsSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred
