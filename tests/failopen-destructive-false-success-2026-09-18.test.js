@@ -29,6 +29,9 @@
  *      link stayed live on a deal the rep "deleted". Server-confirmed deals
  *      (deal.userId, now stamped by a successful sync, or deal.acceptUrl) only
  *      disappear after deleteDoc resolves; never-synced drafts may go locally.
+ *      4b (review): hydrate prunes this user's server-confirmed deals that a
+ *      fresh SERVER read no longer returns, so a deal deleted on another
+ *      device cannot get stuck behind a permission-denied delete.
  *
  *   5. close-board.js sendViaEmail emailed "[Link will be available shortly]"
  *      and stamped the deal SENT when getDealAcceptLink returned null. It now
@@ -376,11 +379,23 @@ function fullDeal(over) {
   }, over || {});
 }
 
+// A QuerySnapshot of deal_rooms docs. fromCache defaults to false (a real
+// server read); the real SDK always sets metadata.fromCache.
+function snapOf(docs, fromCache) {
+  const list = (docs || []).map((d) => JSON.parse(JSON.stringify(d)));
+  return {
+    empty: list.length === 0,
+    size: list.length,
+    metadata: { fromCache: !!fromCache, hasPendingWrites: false },
+    forEach(cb) { list.forEach((d) => cb({ id: d.id, data: () => d })); },
+  };
+}
+
 function loadCloseBoard(opts) {
   opts = opts || {};
   const LS = {};
   LS.nbd_deal_rooms = JSON.stringify(opts.deals || []);
-  const calls = { toasts: [], imports: [], setDocs: [], deleteDocs: [], emails: [], sms: [], emu: [], callables: [] };
+  const calls = { toasts: [], imports: [], setDocs: [], deleteDocs: [], getDocs: 0, emails: [], sms: [], emu: [], callables: [] };
   const makeEl = () => ({
     _html: '', get innerHTML() { return this._html; }, set innerHTML(v) { this._html = String(v); },
     textContent: '', style: {}, dataset: {}, onclick: null,
@@ -400,7 +415,14 @@ function loadCloseBoard(opts) {
       if (opts.deleteDoc) return opts.deleteDoc(ref);
       return Promise.resolve();
     },
-    getDocs: async () => ({ empty: true, forEach() {} }),
+    // Default server: holds exactly the seeded deals this user has confirmed
+    // (userId === 'u1'), read fresh from the server. opts.getDocs overrides
+    // it (a deal deleted elsewhere, a cache-only read, a pending read).
+    getDocs: () => {
+      calls.getDocs++;
+      if (opts.getDocs) return opts.getDocs();
+      return Promise.resolve(snapOf((opts.deals || []).filter((d) => d.userId === 'u1')));
+    },
     query: () => ({}), collection: () => ({}), where: () => ({}),
   };
   const mintCallable = (fns, name) => {
@@ -510,7 +532,13 @@ console.log('\n4. close-board.js deleteDeal — a server deal only disappears af
       t.ids() === 's1' && t.errored());
   }
   {
-    const t = loadCloseBoard({ deals: [fullDeal({ id: 'a1', acceptUrl: 'https://x/deal/tok' })], deleteDoc: denied });
+    // The hydrate read has not come back yet, so the local row is still
+    // unstamped and only its acceptUrl says "on the server".
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 'a1', acceptUrl: 'https://x/deal/tok' })],
+      deleteDoc: denied,
+      getDocs: () => new Promise(() => {}),
+    });
     await flush();
     await t.CB.deleteDeal('a1');
     ok('deal with a minted acceptUrl (no userId stamp) + permission-denied: KEPT', t.ids() === 'a1');
@@ -561,6 +589,122 @@ console.log('\n4. close-board.js deleteDeal — a server deal only disappears af
     t.CB.updateDeal('d1', { notes: 'edited' });
     await flush();
     ok('a FAILED sync does not stamp userId', !t.deal('d1').userId);
+  }
+}
+
+console.log('\n4b. close-board.js hydrate — a server-confirmed deal the server no longer has is pruned (never stuck)');
+{
+  // A pending getDocs whose snapshot the test hands in later.
+  function pendingRead() {
+    const box = {};
+    box.fn = () => new Promise((r) => { box.resolve = r; });
+    return box;
+  }
+  {
+    // Review repro: deleted on device A; device B's copy carries userId (it
+    // came in through hydrate), so deleteDeal treats it as on-server, and a
+    // delete of the now-missing doc is permission-denied. It must not stay
+    // listed behind that refusal.
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 'dr_z', userId: 'u1', status: 'sent', acceptUrl: 'https://x/deal/tok' })],
+      getDocs: () => Promise.resolve(snapOf([])),
+      deleteDoc: denied,
+    });
+    await flush();
+    ok('deal deleted on another device (userId-stamped, absent from a SERVER snapshot): pruned from memory + localStorage',
+      t.calls.getDocs === 1 && t.ids() === '' && t.lsIds() === '');
+    const results = [];
+    for (let i = 0; i < 3; i++) results.push(await t.CB.deleteDeal('dr_z'));
+    ok('...so it is not stuck: no delete is attempted, no "link is still live" error toast',
+      results.join() === 'false,false,false' && t.calls.deleteDocs.length === 0 && !t.errored());
+  }
+  {
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 'gone', userId: 'u1' }), fullDeal({ id: 'kept', userId: 'u1', notes: 'local' })],
+      getDocs: () => Promise.resolve(snapOf([fullDeal({ id: 'kept', userId: 'u1', notes: 'server' }),
+        fullDeal({ id: 'other_device', userId: 'u1' })])),
+    });
+    await flush();
+    ok('non-empty snapshot: the missing confirmed deal is pruned, returned ones merged, server-only ones added',
+      t.ids().split(',').sort().join() === 'kept,other_device' && t.deal('kept').notes === 'server'
+      && t.lsIds().split(',').sort().join() === 'kept,other_device');
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'draft1' })], getDocs: () => Promise.resolve(snapOf([])) });
+    await flush();
+    ok('never-synced draft absent from the snapshot: KEPT (the server never had it)', t.ids() === 'draft1' && t.lsIds() === 'draft1');
+  }
+  {
+    // Pre-stamp legacy row: synced + link minted before syncDealToFirestore
+    // stamped userId locally. deleteDeal treats acceptUrl as on-server, so it
+    // needs the same way out.
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 'legacy', acceptUrl: 'https://x/deal/tok' })],
+      getDocs: () => Promise.resolve(snapOf([])),
+    });
+    await flush();
+    ok('legacy deal with a minted acceptUrl but no local userId, absent from the server: pruned', t.ids() === '');
+  }
+  {
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 'theirs', userId: 'u2' })],
+      getDocs: () => Promise.resolve(snapOf([])),
+    });
+    await flush();
+    ok("another account's deal (userId u2) is not judged by u1's query: KEPT", t.ids() === 'theirs');
+  }
+  {
+    // getDocs offline with the memory cache resolves from CACHE (possibly
+    // empty). That is not evidence the server lost anything.
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 's1', userId: 'u1' })],
+      getDocs: () => Promise.resolve(snapOf([], true)),
+    });
+    await flush();
+    ok('cache-only snapshot (offline): server-confirmed deal KEPT', t.ids() === 's1' && t.lsIds() === 's1');
+  }
+  {
+    // A sync that lands WHILE getDocs is in flight stamps userId on a deal
+    // the (earlier) snapshot could not have seen. Only deals confirmed
+    // before the read may be pruned by it.
+    const read = pendingRead();
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'd1' })], getDocs: read.fn });
+    await flush();
+    t.CB.updateDeal('d1', { notes: 'edited' });
+    await flush();
+    ok('harness: the mid-read sync stamped userId', t.deal('d1').userId === 'u1');
+    read.resolve(snapOf([]));
+    await flush();
+    ok('...and the read that started before it does NOT prune it', t.ids() === 'd1' && t.lsIds() === 'd1');
+  }
+  {
+    // deleteDeal owns a deal while its delete is in flight.
+    const read = pendingRead();
+    const dels = [];
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 's1', userId: 'u1' })],
+      getDocs: read.fn,
+      deleteDoc: () => new Promise((r) => { dels.push(r); }),
+    });
+    await flush();
+    const p = t.CB.deleteDeal('s1');
+    await flush();
+    read.resolve(snapOf([]));
+    await flush();
+    ok('delete in flight when hydrate returns without it: hydrate leaves it to deleteDeal (still listed)', t.ids() === 's1');
+    dels.forEach((r) => r());
+    ok('...and deleteDeal then removes it on its confirmed delete', (await p) === true && t.ids() === '' && t.lsIds() === '');
+  }
+  {
+    // Snapshot taken BEFORE this device's delete landed, delivered after it.
+    const read = pendingRead();
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 's1', userId: 'u1' })], getDocs: read.fn });
+    await flush();
+    ok('harness: delete succeeds', (await t.CB.deleteDeal('s1')) === true && t.ids() === '');
+    read.resolve(snapOf([fullDeal({ id: 's1', userId: 'u1' })]));
+    await flush();
+    ok('a stale snapshot that still has a deal deleted HERE does not resurrect it',
+      t.ids() === '' && t.lsIds() === '');
   }
 }
 

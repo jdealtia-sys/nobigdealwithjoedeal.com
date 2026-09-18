@@ -162,24 +162,63 @@
   // still-open, Closed Value never moved, and the deal was invisible on any
   // other device. Server is authoritative for the deal lifecycle; local-only
   // drafts (never synced) are preserved. Re-renders when it returns.
+  //
+  // It is authoritative for REMOVALS too (2026-09-18 review of the
+  // server-confirmed delete): a deal this user's server copy once confirmed
+  // that a fresh server read no longer returns was deleted elsewhere (another
+  // device, or this one in an earlier session), so it is pruned here. Without
+  // that, the local copy — which carries userId from an earlier hydrate — sat
+  // on the board forever: deleteDeal treats it as on-server, deleteDoc on the
+  // missing doc is permission-denied (the owner rule reads userId off a null
+  // resource), and it answered "the customer's link is still live" to every
+  // tap. deleteDeal must NOT shortcut that case itself: App Check and token
+  // failures can surface as permission-denied too.
+  //
+  // Prune only what (1) was confirmed BEFORE the read started — a sync that
+  // lands mid-read stamps userId on a doc the snapshot may predate; (2) this
+  // user's query can speak for — another account's row (shared device, the
+  // localStorage key is not per-user) is not in it; (3) is not being deleted
+  // right now — deleteDeal owns it until its delete settles; and only (4) from
+  // a SERVER snapshot: offline, getDocs resolves from the local cache, which
+  // is no evidence the server lost anything.
+  const _dealsDeletedHere = new Set();
+  function _isConfirmedBy(d, uid) {
+    // deleteDeal's "on the server" test, narrowed to this user's rows: userId
+    // stamped by a sync or a hydrate, or a minted acceptUrl on a row that
+    // predates the local stamp.
+    return !!(d && d.id && (d.userId === uid || (!d.userId && d.acceptUrl)));
+  }
   async function hydrateFromFirestore() {
     if (!window._db || !window._user) return;
+    const uid = window._user.uid;
+    const confirmedBeforeRead = dealRooms.filter(d => _isConfirmedBy(d, uid)).map(d => d.id);
     try {
       const { getDocs, query, collection, where } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const snap = await getDocs(query(
         collection(window._db, DEAL_COLLECTION),
-        where('userId', '==', window._user.uid)
+        where('userId', '==', uid)
       ));
-      if (snap.empty) return;
       const byId = {};
       dealRooms.forEach(d => { if (d && d.id) byId[d.id] = d; });
+      const returned = new Set();
       snap.forEach(docSnap => {
         const remote = docSnap.data() || {};
         const id = remote.id || docSnap.id;
+        returned.add(id);
+        // A read that started before this device's delete landed still has
+        // the doc; merging it would resurrect a deal whose link is dead.
+        if (_dealsDeletedHere.has(id)) return;
         // Server overrides any local copy (it has the latest status/acceptance);
         // server-only deals get added.
         byId[id] = Object.assign({}, byId[id] || {}, remote, { id });
       });
+      let pruned = 0;
+      if (snap.metadata && snap.metadata.fromCache === false) {
+        confirmedBeforeRead.forEach(id => {
+          if (!returned.has(id) && !_dealDeletesInFlight.has(id) && byId[id]) { delete byId[id]; pruned++; }
+        });
+      }
+      if (snap.empty && !pruned) return;
       dealRooms = Object.values(byId);
       saveDealRooms();
       // Don't clobber a rep mid-typing in the New Deal form — hydrate only needs
@@ -321,6 +360,7 @@
     }
     // Filter by the deal's own id AFTER the await, so a concurrent change to
     // dealRooms (hydrate, a second delete) cannot drop the wrong row.
+    _dealsDeletedHere.add(deal.id);
     dealRooms = dealRooms.filter(d => d.id !== deal.id);
     saveDealRooms();
     render();
