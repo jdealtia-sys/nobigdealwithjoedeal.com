@@ -3926,8 +3926,12 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     const prPickerSrc = read(path.join(PRO_JS, 'customer-photo-report-picker.js'));
     assert('photo-report.js registers _reportOptions as __NBD_CALL_REGISTRY._photoReportOptions (T3-C)',
       /window\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);\r?\n\s*window\.__NBD_CALL_REGISTRY\._photoReportOptions = _reportOptions;/.test(photoReportSrc));
+    // Anchors WHERE `reg` comes from, not just the second line: `var reg =
+    // window;` would put the read back on window as `reg._photoReportOptions`,
+    // which the T1_NAMES walk above cannot see. tests/photo-report-builder.test.js
+    // executes the picker against a registry + window decoy for any other spelling.
     assert('customer-photo-report-picker.js resolves _photoReportOptions off the registry, null when absent',
-      /typeof reg\._photoReportOptions === 'function'\) \? reg\._photoReportOptions : null;/.test(prPickerSrc));
+      /var reg = window\.__NBD_CALL_REGISTRY;\r?\n\s*return \(reg && typeof reg\._photoReportOptions === 'function'\) \? reg\._photoReportOptions : null;/.test(prPickerSrc));
     assert('all 3 picker call sites (resetState, bundle-warm gate, re-seed) go through that resolver',
       /var optsFn = _reportOptionsFn\(\);/.test(prPickerSrc)
       && /if \(!_reportOptionsFn\(\)\r?\n\s*&& window\.ScriptLoader/.test(prPickerSrc)
