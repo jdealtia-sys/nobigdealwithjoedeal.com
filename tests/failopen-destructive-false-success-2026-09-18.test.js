@@ -1,0 +1,686 @@
+/**
+ * tests/failopen-destructive-false-success-2026-09-18.test.js
+ *
+ * Destructive actions that reported success (or removed UI state) when the
+ * server write was skipped or failed. Every case here is executed against the
+ * REAL source — lifted out of the file or vm-loaded whole — with stubbed
+ * Firestore / Functions / DOM, because every one of these guards is a default
+ * value or a missing branch that a regex over the source cannot tell apart
+ * from the fixed shape.
+ *
+ *   1. dashboard-actions.js deleteZone — `let ok = true` before the registry
+ *      guard: with __NBD_CALL_REGISTRY._deleteZone missing, a persisted zone
+ *      was removed from the map as if the server delete had run. Now `ok`
+ *      starts as "local-only zone" ('d-' id), so a missing registry fails
+ *      CLOSED for server zones (deletePin's default) and 'd-' zones still go.
+ *
+ *   2. dashboard-bootstrap.module.js _deleteLead / window._permanentDeleteLead
+ *      swallowed every write error and resolved undefined. They now resolve
+ *      true/false, and the re-render sits outside the write's try so a render
+ *      throw after a good write is not reported as a failed delete.
+ *
+ *   3. crm-portal-bridge.js confirmDeleteLead / permanentDeleteLead toasted
+ *      "Lead moved to Deleted bin" / "Permanently deleted" whenever the callee
+ *      resolved. They now require === true, and the trash card is un-dimmed on
+ *      failure.
+ *
+ *   4. close-board.js deleteDeal removed the deal locally BEFORE (and
+ *      regardless of) the Firestore delete — so the homeowner's /deal/<token>
+ *      link stayed live on a deal the rep "deleted". Server-confirmed deals
+ *      (deal.userId, now stamped by a successful sync, or deal.acceptUrl) only
+ *      disappear after deleteDoc resolves; never-synced drafts may go locally.
+ *
+ *   5. close-board.js sendViaEmail emailed "[Link will be available shortly]"
+ *      and stamped the deal SENT when getDealAcceptLink returned null. It now
+ *      fails closed like sendViaSMS. getDealAcceptLink also lazy-loads the
+ *      Functions SDK (with the emulator connect) instead of bailing whenever
+ *      no other feature had set window._functions yet.
+ *
+ *   6. session-revoke.js — `var okToGo = true` meant a missing nbdModal
+ *      revoked every device with no prompt. Now false by default, native
+ *      confirm fallback, proceed only on === true. (The existing
+ *      tests/session-revocation.test.js drives the modal path; the no-modal
+ *      path is here.)
+ *
+ * Zero deps. Run: node tests/failopen-destructive-false-success-2026-09-18.test.js
+ */
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.join(__dirname, '..');
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
+
+let passed = 0, failed = 0;
+const fails = [];
+function ok(name, cond, detail) {
+  if (cond) { passed++; console.log('  ✓ ' + name); }
+  else { failed++; fails.push(name); console.log('  ✗ ' + name + (detail ? ' — ' + detail : '')); }
+}
+const tick = () => new Promise((r) => setImmediate(r));
+async function flush(n) { for (let i = 0; i < (n || 6); i++) await tick(); }
+
+// Lift a function (or `x = async (...) => { ... }` assignment) out of a source
+// file: from `marker` to the brace that closes the first `{` after it. The
+// callers below check the lifted text for the lines they are about to drive,
+// so a marker that silently matched the wrong thing fails loudly.
+function lift(src, marker) {
+  const start = src.indexOf(marker);
+  if (start < 0) return null;
+  const bodyStart = src.indexOf('{', start + marker.length - 1);
+  let depth = 0, i = bodyStart;
+  for (; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) break; }
+  }
+  return i < src.length ? src.slice(start, i + 1) : null;
+}
+
+const QUIET = { log() {}, warn() {}, error() {} };
+
+// A stubbed promise that never settles empties the event loop and Node exits
+// 0 mid-run — silently green with most assertions never evaluated. Treat an
+// exit before the summary line as a failure.
+let finished = false;
+process.on('exit', (code) => {
+  if (!finished && code === 0) {
+    console.log('\nFATAL: exited before the summary — an awaited promise never settled (' + passed + ' passed so far)');
+    process.exitCode = 1;
+  }
+});
+
+(async () => {
+
+/* ═══════════════════════════════════════════════════════════════════
+   1. deleteZone — a missing registry entry fails CLOSED for server zones
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n1. dashboard-actions.js deleteZone — no registry, no local removal of a server zone');
+{
+  const ACTIONS = read('docs/pro/js/dashboard-actions.js');
+  const src = lift(ACTIONS, 'async function deleteZone(id)');
+  ok('deleteZone lifted, and it is the registry-guarded version this harness drives',
+    !!src && /_nbdReg\._deleteZone\(zone\.id\)/.test(src) && /if \(!ok\)/.test(src));
+
+  async function runDeleteZone(zoneList, registry, id) {
+    const calls = { toasts: [], removedLayers: [], rendered: 0, regIds: [] };
+    const zones = zoneList.map((z) => Object.assign({ layer: 'L-' + z.id }, z));
+    const win = {};
+    if (registry !== undefined) win.__NBD_CALL_REGISTRY = registry;
+    const ctx = vm.createContext({
+      window: win,
+      zones,
+      mainMap: { removeLayer: (l) => calls.removedLayers.push(l) },
+      showToast: (m, k) => calls.toasts.push({ m: String(m), k }),
+      renderZoneList: () => { calls.rendered++; },
+      String, console: QUIET,
+    });
+    vm.runInContext(src + '\n;this.__run = deleteZone;', ctx, { filename: 'deleteZone.lifted.js' });
+    await ctx.__run(id);
+    return { calls, zones };
+  }
+
+  {
+    const r = await runDeleteZone([{ id: 'srvZone1' }], undefined, 'srvZone1');
+    ok('registry missing + persisted zone: the zone STAYS in the list',
+      r.zones.length === 1 && r.zones[0].id === 'srvZone1');
+    ok('...its map layer is NOT removed and the list is NOT re-rendered',
+      r.calls.removedLayers.length === 0 && r.calls.rendered === 0);
+    ok('...and the user gets an error toast instead of a silent vanish',
+      r.calls.toasts.length === 1 && r.calls.toasts[0].k === 'error');
+  }
+  {
+    const r = await runDeleteZone([{ id: 'srvZone1' }], {}, 'srvZone1');
+    ok('registry present but _deleteZone entry missing: persisted zone STAYS',
+      r.zones.length === 1 && r.calls.removedLayers.length === 0);
+  }
+  {
+    const r = await runDeleteZone([{ id: 'd-123' }, { id: 'srvZone1' }], undefined, 'd-123');
+    ok('registry missing + local-only d- zone: still deletable (nothing server-side)',
+      r.zones.length === 1 && r.zones[0].id === 'srvZone1'
+      && r.calls.removedLayers.join() === 'L-d-123' && r.calls.rendered === 1
+      && r.calls.toasts.length === 0);
+  }
+  {
+    const reg = { _deleteZone: async () => false };
+    const r = await runDeleteZone([{ id: 'srvZone1' }], reg, 'srvZone1');
+    ok('registry says the server refused (false): zone STAYS, error toast',
+      r.zones.length === 1 && r.calls.removedLayers.length === 0 && r.calls.toasts[0].k === 'error');
+  }
+  {
+    const reg = { _deleteZone: async () => { throw new Error('boom'); } };
+    const r = await runDeleteZone([{ id: 'srvZone1' }], reg, 'srvZone1');
+    ok('registry throws: zone STAYS', r.zones.length === 1 && r.calls.removedLayers.length === 0);
+  }
+  {
+    const seen = [];
+    const reg = { _deleteZone: async (id) => { seen.push(id); return true; } };
+    const r = await runDeleteZone([{ id: 'srvZone1' }], reg, 'srvZone1');
+    ok('server delete succeeds: zone removed, layer removed, list re-rendered, no toast',
+      r.zones.length === 0 && r.calls.removedLayers.join() === 'L-srvZone1'
+      && r.calls.rendered === 1 && r.calls.toasts.length === 0 && seen.join() === 'srvZone1');
+  }
+  {
+    // A server zone whose registry delete succeeds must still go even though
+    // the local-only default is false — i.e. the default must not LEAK past a
+    // real answer from the registry.
+    const reg = { _deleteZone: async () => true };
+    const r = await runDeleteZone([{ id: 'd-9' }], reg, 'd-9');
+    ok('d- zone with the registry present: the registry answer is used', r.zones.length === 0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   2. _deleteLead / window._permanentDeleteLead — true/false, never undefined
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n2. dashboard-bootstrap.module.js _deleteLead / _permanentDeleteLead — report the write outcome');
+{
+  const BOOT = read('docs/pro/js/dashboard-bootstrap.module.js');
+  const delSrc = lift(BOOT, 'async function _deleteLead(id)');
+  const permSrc = lift(BOOT, 'window._permanentDeleteLead = async (id) =>');
+  ok('_deleteLead lifted (the soft-delete updateDoc this harness stubs)',
+    !!delSrc && /updateDoc\(doc\(db,'leads',id\)/.test(delSrc) && /deleted: true/.test(delSrc));
+  ok('_permanentDeleteLead lifted (the deleteDoc this harness stubs)',
+    !!permSrc && /deleteDoc\(doc\(db,'leads',id\)\)/.test(permSrc));
+  ok('_deleteLead is still the function the registry hands out',
+    /_deleteLead: _deleteLead\b/.test(BOOT));
+
+  function loadLeadOps(opts) {
+    opts = opts || {};
+    const calls = { updates: [], deletes: [], renders: [] };
+    const win = { _leads: [{ id: 'L1' }, { id: 'L2' }, { id: 'd-L3' }] };
+    const ctx = vm.createContext({
+      window: win, db: { name: 'db' }, console: QUIET, String,
+      doc: (db, col, id) => ({ path: col + '/' + id }),
+      serverTimestamp: () => 'SERVER_TS',
+      updateDoc: async (ref, data) => {
+        calls.updates.push({ path: ref.path, data });
+        if (opts.updateThrows) { const e = new Error('Missing or insufficient permissions.'); e.code = 'permission-denied'; throw e; }
+      },
+      deleteDoc: async (ref) => {
+        calls.deletes.push(ref.path);
+        if (opts.deleteThrows) { const e = new Error('Missing or insufficient permissions.'); e.code = 'permission-denied'; throw e; }
+      },
+      renderLeads: (list) => {
+        calls.renders.push(list.map((l) => l.id).join(','));
+        if (opts.renderThrows) throw new Error('render blew up');
+      },
+    });
+    vm.runInContext(delSrc + '\n;' + permSrc + ';\nthis.__del = _deleteLead;', ctx, { filename: 'lead-ops.lifted.js' });
+    return { ctx, win, calls, del: ctx.__del, perm: win._permanentDeleteLead };
+  }
+
+  {
+    const t = loadLeadOps({ updateThrows: true });
+    const r = await t.del('L1');
+    ok('soft-delete DENIED: resolves false (was undefined — read as success)', r === false);
+    ok('...the lead stays in window._leads and nothing re-renders',
+      t.win._leads.length === 3 && t.calls.renders.length === 0);
+  }
+  {
+    const t = loadLeadOps();
+    const r = await t.del('L1');
+    ok('soft-delete OK: resolves true', r === true);
+    ok('...wrote deleted:true to leads/L1',
+      t.calls.updates.length === 1 && t.calls.updates[0].path === 'leads/L1' && t.calls.updates[0].data.deleted === true);
+    ok('...and dropped the lead locally + re-rendered',
+      t.win._leads.map((l) => l.id).join() === 'L2,d-L3' && t.calls.renders.join('|') === 'L2,d-L3');
+  }
+  {
+    const t = loadLeadOps({ renderThrows: true });
+    const r = await t.del('L1');
+    ok('write OK but renderLeads throws: still true (a render bug is not a failed delete)', r === true);
+  }
+  {
+    const t = loadLeadOps({ updateThrows: true });
+    const r = await t.del('d-L3');
+    ok('local-only d- lead: true without a server write', r === true && t.calls.updates.length === 0
+      && !t.win._leads.some((l) => l.id === 'd-L3'));
+  }
+  {
+    const t = loadLeadOps();
+    ok('no id: false, no write', (await t.del('')) === false && t.calls.updates.length === 0);
+  }
+  {
+    const t = loadLeadOps({ deleteThrows: true });
+    ok('permanent delete DENIED: resolves false', (await t.perm('L1')) === false);
+  }
+  {
+    const t = loadLeadOps();
+    const r = await t.perm('L1');
+    ok('permanent delete OK: resolves true and deleted leads/L1', r === true && t.calls.deletes.join() === 'leads/L1');
+  }
+  {
+    const t = loadLeadOps({ deleteThrows: true });
+    ok('permanent delete of a local-only d- lead: true, no deleteDoc',
+      (await t.perm('d-L3')) === true && t.calls.deletes.length === 0);
+    ok('permanent delete with no id: false', (await t.perm('')) === false);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   3. crm-portal-bridge.js — success toasts only on === true
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n3. crm-portal-bridge.js confirmDeleteLead / permanentDeleteLead — no success toast for a failed write');
+{
+  const BRIDGE = read('docs/pro/js/crm-portal-bridge.js');
+  const showSrc = lift(BRIDGE, 'function showDeleteConfirm(id, name)');
+  const confirmSrc = lift(BRIDGE, 'async function confirmDeleteLead()');
+  const permSrc = lift(BRIDGE, 'async function permanentDeleteLead(id, name)');
+  ok('bridge functions lifted, and they are the ones that toast the outcome',
+    !!showSrc && !!confirmSrc && !!permSrc
+    && /Lead moved to Deleted bin/.test(confirmSrc) && /Permanently deleted/.test(permSrc));
+  ok('the pending-id slot is still a plain module-level let (harness re-declares it)',
+    /\nlet _pendingDeleteId = null;/.test(BRIDGE));
+
+  function loadBridge(opts) {
+    const calls = { toasts: [], badge: 0, drawer: 0, asks: [] };
+    const els = {
+      delConfirmName: { textContent: '' },
+      delConfirmOverlay: { classList: { add() {}, remove() {} } },
+      'dc-L1': { style: { opacity: '', pointerEvents: '' } },
+    };
+    const win = {
+      __NBD_CALL_REGISTRY: { _deleteLead: opts.softDelete },
+      _permanentDeleteLead: opts.permDelete,
+      nbdConfirm: async (m) => { calls.asks.push(m); return opts.confirmAnswer !== false; },
+    };
+    const ctx = vm.createContext({
+      window: win, console: QUIET,
+      document: { getElementById: (id) => els[id] || null },
+      showToast: (m, k) => calls.toasts.push({ m: String(m), k }),
+      refreshTrashBadge: () => { calls.badge++; },
+      renderDeletedDrawer: async () => { calls.drawer++; },
+    });
+    vm.runInContext('let _pendingDeleteId = null;\n' + showSrc + '\n' + confirmSrc + '\n' + permSrc
+      + '\n;this.__show = showDeleteConfirm; this.__confirm = confirmDeleteLead; this.__perm = permanentDeleteLead;',
+      ctx, { filename: 'crm-portal-bridge.lifted.js' });
+    return { calls, els, show: ctx.__show, confirm: ctx.__confirm, perm: ctx.__perm };
+  }
+  const succeeded = (c, needle) => c.calls.toasts.some((t) => t.m.indexOf(needle) >= 0);
+  const errored = (c) => c.calls.toasts.some((t) => t.k === 'error');
+
+  for (const [label, softDelete] of [
+    ['false (write denied)', async () => false],
+    ['undefined (the old swallow-and-resolve callee)', async () => undefined],
+  ]) {
+    const b = loadBridge({ softDelete });
+    b.show('L1', 'Jane Homeowner');
+    await b.confirm();
+    ok('soft delete resolves ' + label + ': NO "Lead moved to Deleted bin"', !succeeded(b, 'Lead moved to Deleted bin'));
+    ok('...an error toast instead, and the trash badge is not bumped', errored(b) && b.calls.badge === 0);
+  }
+  {
+    const b = loadBridge({ softDelete: async () => { throw new Error('x'); } });
+    b.show('L1', 'Jane'); await b.confirm();
+    ok('soft delete throws: "Delete failed" error, no success toast',
+      errored(b) && !succeeded(b, 'Lead moved to Deleted bin'));
+  }
+  {
+    let seen = null;
+    const b = loadBridge({ softDelete: async (id) => { seen = id; return true; } });
+    b.show('L1', 'Jane'); await b.confirm();
+    ok('soft delete true: success toast + trash badge refresh, for the confirmed id',
+      succeeded(b, 'Lead moved to Deleted bin') && !errored(b) && b.calls.badge === 1 && seen === 'L1');
+  }
+
+  for (const [label, permDelete] of [
+    ['false (deleteDoc denied)', async () => false],
+    ['undefined (the old callee)', async () => undefined],
+    ['a throw', async () => { throw new Error('x'); }],
+  ]) {
+    const b = loadBridge({ permDelete });
+    await b.perm('L1', 'Jane');
+    ok('permanent delete resolves ' + label + ': NO "Permanently deleted"', !succeeded(b, 'Permanently deleted'));
+    ok('...error toast, and the dimmed trash card is restored for a retry',
+      errored(b) && b.els['dc-L1'].style.opacity === '' && b.els['dc-L1'].style.pointerEvents === '');
+    ok('...and the drawer/badge are not refreshed as if it were gone', b.calls.drawer === 0 && b.calls.badge === 0);
+  }
+  {
+    const b = loadBridge({ permDelete: async () => true });
+    await b.perm('L1', 'Jane');
+    ok('permanent delete true: "Permanently deleted" + badge + drawer refresh',
+      succeeded(b, 'Permanently deleted') && !errored(b) && b.calls.badge === 1 && b.calls.drawer === 1);
+  }
+  {
+    let called = 0;
+    const b = loadBridge({ permDelete: async () => { called++; return true; }, confirmAnswer: false });
+    await b.perm('L1', 'Jane');
+    ok('declining the permanent-delete confirm deletes nothing', called === 0 && b.calls.toasts.length === 0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   4 + 5. close-board.js — vm-load the whole file with stubbed SDK imports
+   ═══════════════════════════════════════════════════════════════════ */
+const CB_RAW = read('docs/pro/js/close-board.js');
+const IMPORT_RE = /\bimport\(/g;
+const CB_IMPORTS = (CB_RAW.match(IMPORT_RE) || []).length;
+// Dynamic import() cannot run inside a vm context without an experimental
+// loader, so route it to a stub. Proven applied: every import( is rewritten,
+// and the rewritten file contains none.
+const CB_SRC = CB_RAW.replace(IMPORT_RE, '__testImport(');
+const FIRESTORE_URL = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+const FUNCTIONS_URL = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
+
+function fullDeal(over) {
+  const tier = (p) => ({ label: 'T', price: p, lineItems: [], description: 'd' });
+  return Object.assign({
+    id: 'dr_1', status: 'draft', createdAt: '2026-09-18T00:00:00Z', updatedAt: '2026-09-18T00:00:00Z',
+    expiresAt: '2099-01-01T00:00:00Z', customerName: 'Pat Homeowner', customerEmail: 'pat@example.test',
+    customerPhone: '5135550100', address: '1 Main St', leadId: 'L1',
+    tiers: { good: tier(9000), better: tier(11000), best: tier(15000) },
+    selectedProducts: [], warranty: 'Lifetime Workmanship Warranty', insuranceClaim: false,
+    repName: 'Rep', repPhone: '', repEmail: '', notes: '', viewCount: 0,
+  }, over || {});
+}
+
+function loadCloseBoard(opts) {
+  opts = opts || {};
+  const LS = {};
+  LS.nbd_deal_rooms = JSON.stringify(opts.deals || []);
+  const calls = { toasts: [], imports: [], setDocs: [], deleteDocs: [], emails: [], sms: [], emu: [], callables: [] };
+  const makeEl = () => ({
+    _html: '', get innerHTML() { return this._html; }, set innerHTML(v) { this._html = String(v); },
+    textContent: '', style: {}, dataset: {}, onclick: null,
+    querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
+    classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} },
+  });
+  const els = {};
+  const FNS = { name: 'functions-instance' };
+  const firestore = {
+    doc: (db, col, id) => ({ path: col + '/' + id }),
+    setDoc: async (ref, data) => {
+      calls.setDocs.push({ path: ref.path, data });
+      if (opts.setDocThrows) throw Object.assign(new Error('sync failed'), { code: 'unavailable' });
+    },
+    deleteDoc: (ref) => {
+      calls.deleteDocs.push(ref.path);
+      if (opts.deleteDoc) return opts.deleteDoc(ref);
+      return Promise.resolve();
+    },
+    getDocs: async () => ({ empty: true, forEach() {} }),
+    query: () => ({}), collection: () => ({}), where: () => ({}),
+  };
+  const mintCallable = (fns, name) => {
+    calls.callables.push({ fns, name });
+    return async (payload) => {
+      if (opts.callableThrows) throw Object.assign(new Error('app-check'), { code: 'functions/unauthenticated' });
+      return { data: { acceptUrl: 'https://nobigdealwithjoedeal.com/deal/tok_' + payload.dealId } };
+    };
+  };
+  const sandbox = {
+    console: QUIET, JSON, Math, Date, Number, String, Array, Object, RegExp, Boolean, Error, Promise, Set, Map,
+    isNaN, parseFloat, parseInt, encodeURIComponent,
+    setTimeout: () => 0, clearTimeout: () => {},
+    localStorage: {
+      getItem: (k) => (k in LS ? LS[k] : null),
+      setItem: (k, v) => { LS[k] = String(v); },
+      removeItem: (k) => { delete LS[k]; },
+    },
+    document: {
+      getElementById: (id) => (els[id] = els[id] || makeEl()),
+      createElement: makeEl, querySelector: () => null, querySelectorAll: () => [], addEventListener() {},
+    },
+    navigator: {},
+    __testImport: async (spec) => {
+      calls.imports.push(spec);
+      if (spec === FIRESTORE_URL) return firestore;
+      if (spec === FUNCTIONS_URL) {
+        if (opts.functionsImportThrows) throw new Error('Failed to fetch dynamically imported module');
+        return { getFunctions: () => FNS, httpsCallable: mintCallable };
+      }
+      if (spec === './nbd-emulator-connect.js') {
+        return { connectEmulatorsIfLocal: async (svc) => { calls.emu.push(svc); } };
+      }
+      throw new Error('unexpected import in test: ' + spec);
+    },
+  };
+  sandbox.window = sandbox;
+  sandbox.addEventListener = () => {};
+  sandbox.showToast = (m, k) => calls.toasts.push({ m: String(m), k });
+  sandbox.open = () => null;
+  sandbox._db = opts.signedIn === false ? null : { name: 'db' };
+  sandbox._user = opts.signedIn === false ? null : { uid: 'u1', email: 'rep@example.test' };
+  sandbox._userClaims = { companyId: 'c1' };
+  if (opts.presetFunctions) { sandbox._functions = FNS; sandbox._httpsCallable = mintCallable; }
+  sandbox.NBDComms = {
+    sendEmail: async (o) => { calls.emails.push(o); return { success: true }; },
+    sendSMS: async (o) => { calls.sms.push(o); return { success: true }; },
+  };
+  const ctx = vm.createContext(sandbox);
+  vm.runInContext(CB_SRC, ctx, { filename: 'close-board.js' });
+  const CB = sandbox.CloseBoard;
+  CB.init();
+  return {
+    CB, calls, LS, sandbox, FNS,
+    ids: () => CB.getDeals().map((d) => d.id).join(','),
+    lsIds: () => JSON.parse(LS.nbd_deal_rooms || '[]').map((d) => d.id).join(','),
+    deal: (id) => CB.getDeals().find((d) => d.id === id),
+    errored: () => calls.toasts.some((t) => t.k === 'error'),
+  };
+}
+const denied = () => Promise.reject(Object.assign(new Error('Missing or insufficient permissions.'), { code: 'permission-denied' }));
+const offline = () => Promise.reject(Object.assign(new Error('Failed to get document because the client is offline.'), { code: 'unavailable' }));
+
+console.log('\n4. close-board.js deleteDeal — a server deal only disappears after deleteDoc succeeds');
+{
+  ok('harness: every dynamic import( in close-board.js was rerouted (' + CB_IMPORTS + ' sites)',
+    CB_IMPORTS >= 5 && !/\bimport\(/.test(CB_SRC));
+
+  {
+    // Pending deleteDoc: the removal must wait for it (was: filter/save/render FIRST).
+    const resolvers = [];
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 's1', userId: 'u1' })],
+      deleteDoc: () => new Promise((r) => { resolvers.push(r); }),
+    });
+    await flush();
+    const p = t.CB.deleteDeal('s1');
+    await flush();
+    ok('server deal: deleteDoc(deal_rooms/s1) was issued', t.calls.deleteDocs.join() === 'deal_rooms/s1');
+    ok('...and while it is in flight the deal is STILL listed and STILL in localStorage',
+      t.ids() === 's1' && t.lsIds() === 's1');
+    // Not awaited before the check: without the in-flight guard this second
+    // call would sit on its own never-resolved deleteDoc.
+    const second = t.CB.deleteDeal('s1');
+    await flush();
+    ok('...a second tap while in flight does not issue a second delete', t.calls.deleteDocs.length === 1);
+    resolvers.forEach((r) => r());
+    const r = await p;
+    ok('...once deleteDoc resolves: removed from memory and localStorage, resolves true',
+      r === true && t.ids() === '' && t.lsIds() === '');
+    ok('...and the second tap resolved false (nothing to do)', (await second) === false);
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 's1', userId: 'u1' })], deleteDoc: offline });
+    await flush();
+    const r = await t.CB.deleteDeal('s1');
+    ok('server deal + deleteDoc REJECTS: deal kept (memory + localStorage), resolves false',
+      r === false && t.ids() === 's1' && t.lsIds() === 's1');
+    ok('...with an error toast saying the customer link is still live',
+      t.calls.toasts.some((x) => x.k === 'error' && /link is still live/.test(x.m)));
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 's1', userId: 'u1' })], deleteDoc: denied });
+    await flush();
+    await t.CB.deleteDeal('s1');
+    ok('server deal + permission-denied: KEPT (only a never-synced draft may shrug that off)',
+      t.ids() === 's1' && t.errored());
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'a1', acceptUrl: 'https://x/deal/tok' })], deleteDoc: denied });
+    await flush();
+    await t.CB.deleteDeal('a1');
+    ok('deal with a minted acceptUrl (no userId stamp) + permission-denied: KEPT', t.ids() === 'a1');
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'draft1' })], deleteDoc: denied });
+    await flush();
+    const r = await t.CB.deleteDeal('draft1');
+    ok('never-synced draft + permission-denied (no server doc): removed locally, resolves true',
+      r === true && t.ids() === '' && t.lsIds() === '' && !t.errored());
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'draft1' })], deleteDoc: offline });
+    await flush();
+    await t.CB.deleteDeal('draft1');
+    ok('draft + a NON-permission error: kept (cannot prove there is no server doc)', t.ids() === 'draft1' && t.errored());
+  }
+  {
+    const t = loadCloseBoard({ signedIn: false, deals: [fullDeal({ id: 's1', userId: 'u1' })] });
+    const r = await t.CB.deleteDeal('s1');
+    ok('not signed in yet + server deal: kept, no delete attempted, error toast',
+      r === false && t.ids() === 's1' && t.lsIds() === 's1' && t.calls.deleteDocs.length === 0 && t.errored());
+  }
+  {
+    const t = loadCloseBoard({ signedIn: false, deals: [fullDeal({ id: 'a1', acceptUrl: 'https://x/deal/tok' })] });
+    await t.CB.deleteDeal('a1');
+    ok('not signed in yet + deal with a live acceptUrl: kept', t.ids() === 'a1');
+  }
+  {
+    const t = loadCloseBoard({ signedIn: false, deals: [fullDeal({ id: 'draft1' })] });
+    const r = await t.CB.deleteDeal('draft1');
+    ok('not signed in yet + never-synced draft: removed locally', r === true && t.ids() === '');
+  }
+  {
+    // End to end: a successful sync is what marks a deal as server-backed.
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'd1' })], deleteDoc: denied });
+    await flush();
+    t.CB.updateDeal('d1', { notes: 'edited' });
+    await flush();
+    ok('a successful syncDealToFirestore stamps deal.userId locally (and persists it)',
+      t.deal('d1').userId === 'u1' && JSON.parse(t.LS.nbd_deal_rooms)[0].userId === 'u1');
+    await t.CB.deleteDeal('d1');
+    ok('...so a later permission-denied delete KEEPS it instead of treating it as a draft', t.ids() === 'd1');
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'd1' })], setDocThrows: true });
+    await flush();
+    t.CB.updateDeal('d1', { notes: 'edited' });
+    await flush();
+    ok('a FAILED sync does not stamp userId', !t.deal('d1').userId);
+  }
+}
+
+console.log('\n5. close-board.js sendViaEmail / getDealAcceptLink — no link, no email');
+{
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'e1' })], presetFunctions: true, callableThrows: true });
+    await flush();
+    await t.CB.sendEmail('e1');
+    ok('accept-link mint FAILS: NO email is sent', t.calls.emails.length === 0);
+    ok('...and the deal is NOT stamped sent', t.deal('e1').status === 'draft' && !t.deal('e1').sentAt);
+    ok('...and the rep is told to share manually',
+      t.calls.toasts.some((x) => /share manually/.test(x.m)));
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'e1' })], presetFunctions: true });
+    await flush();
+    await t.CB.sendEmail('e1');
+    const body = t.calls.emails[0] && t.calls.emails[0].body || '';
+    ok('link minted: exactly one email, carrying the real /deal/<token> URL',
+      t.calls.emails.length === 1 && body.indexOf('https://nobigdealwithjoedeal.com/deal/tok_e1') >= 0);
+    ok('...with no "[Link will be available shortly]" placeholder', !/available shortly/.test(body));
+    ok('...and the deal is stamped sent via email', t.deal('e1').status === 'sent' && t.deal('e1').sentVia === 'email');
+  }
+  {
+    // Fresh session: nothing has set window._functions yet.
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'e1' })] });
+    await flush();
+    await t.CB.sendEmail('e1');
+    ok('fresh session: getDealAcceptLink lazy-loads the SAME firebase-js version (10.12.2)',
+      t.calls.imports.indexOf(FUNCTIONS_URL) >= 0);
+    ok('...runs the emulator connect on the instance it built (never silently prod)',
+      t.calls.emu.length === 1 && t.calls.emu[0].functions === t.FNS);
+    ok('...mints createDealAcceptToken on that instance and caches it on window',
+      t.calls.callables.some((c) => c.name === 'createDealAcceptToken' && c.fns === t.FNS)
+      && t.sandbox._functions === t.FNS && typeof t.sandbox._httpsCallable === 'function');
+    ok('...and the email goes out with the link (Email is no longer dead in a fresh session)',
+      t.calls.emails.length === 1 && t.calls.emails[0].body.indexOf('/deal/tok_e1') >= 0);
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 's1' })] });
+    await flush();
+    await t.CB.sendSMS('s1');
+    ok('fresh session: Text works too (same lazy load)',
+      t.calls.sms.length === 1 && /\/deal\/tok_s1/.test(t.calls.sms[0].message));
+  }
+  {
+    const t = loadCloseBoard({ deals: [fullDeal({ id: 'e1' })], functionsImportThrows: true });
+    await flush();
+    await t.CB.sendEmail('e1');
+    ok('fresh session + the Functions SDK fails to load: no email, deal not stamped sent',
+      t.calls.emails.length === 0 && t.deal('e1').status === 'draft' && t.errored());
+  }
+  {
+    const t = loadCloseBoard({ signedIn: false, deals: [fullDeal({ id: 'e1' })], presetFunctions: true });
+    await t.CB.sendEmail('e1');
+    ok('signed out: no email, "Sign in required"',
+      t.calls.emails.length === 0 && t.calls.toasts.some((x) => /Sign in required/.test(x.m)));
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   6. session-revoke.js — no modal means ASK natively, never "go"
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n6. session-revoke.js — Sign Out Everywhere without nbdModal');
+{
+  const CLIENT_SRC = read('docs/pro/js/session-revoke.js');
+  function loadRevoke(win) {
+    const calls = { callables: [], signOuts: 0, timers: [] };
+    Object.assign(win, {
+      _functions: {},
+      _httpsCallable: (fns, name) => { calls.callables.push(name); return async () => ({ data: { success: true } }); },
+      _signOut: () => { calls.signOuts++; },
+      showToast: () => {},
+      location: { replace: () => { calls.signOuts++; } },
+    });
+    new Function('window', 'console', 'setTimeout', CLIENT_SRC)(win, QUIET, (fn) => { calls.timers.push(fn); });
+    return { calls, run: () => win.__NBD_CALL_REGISTRY._signOutEverywhere({ disabled: false, textContent: 'x' }) };
+  }
+  {
+    const asked = [];
+    const c = loadRevoke({ confirm: (m) => { asked.push(m); return false; } });
+    await c.run();
+    ok('no nbdModal, native confirm answers NO: nothing revoked, nobody signed out',
+      c.calls.callables.length === 0 && c.calls.signOuts === 0 && c.calls.timers.length === 0);
+    ok('...and the native prompt carried the every-device warning',
+      asked.length === 1 && /Sign out everywhere\?/.test(asked[0]) && /phone/.test(asked[0]));
+  }
+  {
+    const c = loadRevoke({});
+    await c.run();
+    ok('no nbdModal AND no confirm at all: nothing revoked (no answer is a no)',
+      c.calls.callables.length === 0 && c.calls.signOuts === 0);
+  }
+  {
+    const c = loadRevoke({ confirm: () => 'yes' });
+    await c.run();
+    ok('a truthy-but-not-true answer does not count as consent', c.calls.callables.length === 0);
+  }
+  {
+    const c = loadRevoke({ nbdModal: { confirm: async () => { throw new Error('modal broke'); } } });
+    await c.run();
+    ok('the modal throwing is a no, not an unhandled rejection or a go', c.calls.callables.length === 0);
+  }
+  {
+    const c = loadRevoke({ confirm: () => true });
+    await c.run();
+    ok('no nbdModal, native confirm answers YES: revokeMySessions runs',
+      c.calls.callables.join() === 'revokeMySessions');
+  }
+  {
+    let asked = 0;
+    const c = loadRevoke({ nbdConfirm: async () => { asked++; return true; }, confirm: () => false });
+    await c.run();
+    ok('iOS-PWA nbdConfirm (when present) is asked before native confirm',
+      asked === 1 && c.calls.callables.join() === 'revokeMySessions');
+  }
+}
+
+finished = true;
+console.log('\n' + passed + ' passed, ' + failed + ' failed');
+if (failed) { console.log('Failures:'); fails.forEach((f) => console.log('  - ' + f)); process.exit(1); }
+})().catch((e) => { console.error('\nFATAL:', e && e.stack || e); process.exit(1); });

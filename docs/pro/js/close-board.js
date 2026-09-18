@@ -139,12 +139,19 @@
     if (!window._db || !window._user) return;
     try {
       const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const uid = window._user.uid;
       await setDoc(doc(window._db, DEAL_COLLECTION, deal.id), {
         ...deal,
-        userId: window._user.uid,
-        companyId: window._userClaims?.companyId || window._user.uid,
+        userId: uid,
+        companyId: window._userClaims?.companyId || uid,
         updatedAt: new Date().toISOString()
       }, { merge: true });
+      // The server now holds this deal. Stamp that on the LOCAL copy too:
+      // deleteDeal reads deal.userId as "a deal_rooms doc exists", and only
+      // such deals must wait for a confirmed server delete (a never-synced
+      // draft has nothing server-side to delete). Hydrated deals already carry
+      // userId from the remote doc.
+      if (deal.userId !== uid) { deal.userId = uid; saveDealRooms(); }
     } catch (e) { console.error('Deal Firestore sync error:', e); }
   }
 
@@ -268,18 +275,57 @@
     return deal;
   }
 
+  // Server-confirmed delete (2026-09-18). This used to filter the deal out of
+  // memory + localStorage and re-render FIRST, then try the Firestore delete
+  // only if _db/_user were set and swallow any error. When that delete was
+  // skipped or failed, the deal_rooms doc survived: hydrateFromFirestore
+  // merged it back on the next load and — worse — the homeowner's
+  // /deal/<token> link stayed live and acceptable, because getDealRoom and
+  // submitDealAcceptance only check that the deal doc exists. So a deal the
+  // rep "deleted" could still be signed.
+  //
+  // Now a deal the server has confirmed disappears only after deleteDoc
+  // resolves. "On the server" = deal.userId (stamped by a successful
+  // syncDealToFirestore or carried in by hydrate) or deal.acceptUrl
+  // (createDealAcceptToken requires the doc, and it means a customer link is
+  // live). A never-synced draft may still be removed locally: it has no
+  // server doc, the owner rule reads resource.data.userId off a null
+  // resource, so deleting it is DENIED — that permission-denied is the
+  // expected answer for a draft, not a failure. Offline, deleteDoc stays
+  // pending and the deal stays visible, which is the fail-closed outcome.
+  // Resolves true when the deal was removed, false when it was kept.
+  const _dealDeletesInFlight = new Set();
   async function deleteDeal(dealId) {
-    dealRooms = dealRooms.filter(d => d.id !== dealId);
-    saveDealRooms();
-    render();
-    // Also remove the server copy — without this, hydrateFromFirestore (which
-    // queries deal_rooms by userId) merges the deal right back on the next load.
+    const deal = dealRooms.find(d => d.id === dealId);
+    if (!deal || _dealDeletesInFlight.has(dealId)) return false;
+    const onServer = !!(deal.userId || deal.acceptUrl);
     if (window._db && window._user) {
+      if (window.showToast) window.showToast('Deleting…', 'info');
+      _dealDeletesInFlight.add(dealId);
       try {
         const { deleteDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         await deleteDoc(doc(window._db, DEAL_COLLECTION, dealId));
-      } catch (e) { console.error('Deal delete (Firestore) error:', e); }
+      } catch (e) {
+        if (onServer || !e || e.code !== 'permission-denied') {
+          console.error('Deal delete (Firestore) error:', e);
+          if (window.showToast) window.showToast("Could not delete this deal — the customer's link is still live. Check your connection and try again.", 'error');
+          return false;
+        }
+        // Never-synced draft: no server doc to delete. Safe to drop locally.
+      } finally {
+        _dealDeletesInFlight.delete(dealId);
+      }
+    } else if (onServer) {
+      if (window.showToast) window.showToast('Still signing in — try again in a moment. The deal was not deleted.', 'error');
+      return false;
     }
+    // Filter by the deal's own id AFTER the await, so a concurrent change to
+    // dealRooms (hydrate, a second delete) cannot drop the wrong row.
+    dealRooms = dealRooms.filter(d => d.id !== deal.id);
+    saveDealRooms();
+    render();
+    if (window.showToast) window.showToast('Deal room deleted', 'success');
+    return true;
   }
 
   // Destructive — confirm before removing a deal room from every device.
@@ -667,6 +713,17 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 
     const shareUrl = await getDealAcceptLink(deal);
 
+    // Fail CLOSED without a link, exactly like sendViaSMS and copyDealLink.
+    // This used to send anyway with "View your options here: [Link will be
+    // available shortly]" and then stamp the deal SENT (synced to Firestore,
+    // counted in close-rate analytics): the homeowner got an estimate email
+    // with no way to view or sign it. getDealAcceptLink has already toasted
+    // why it failed; nothing is sent and the deal stays as it was.
+    if (!shareUrl) {
+      if (window.showToast) window.showToast('Could not create the accept link — preview the deal and share manually', 'warning');
+      return;
+    }
+
     // Certification finding: outbound SMS/email named NBD while the linked
 
     // page was tenant-branded (dead fallback chain on dashboard). Use the
@@ -675,7 +732,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 
     const brand = _dealBrand().name;
     const subject = `Your Roof Estimate — ${brand}`;
-    const body = `Hi ${deal.customerName || 'there'},\n\nThank you for giving us the opportunity to earn your business! I've put together your personalized roof estimate.\n\nView your options here: ${shareUrl || '[Link will be available shortly]'}\n\nYou can compare packages, see financing options, and digitally sign — all from your phone.\n\nBest,\n${deal.repName || ''}\n${brand}\n${deal.repPhone || ''}`;
+    const body = `Hi ${deal.customerName || 'there'},\n\nThank you for giving us the opportunity to earn your business! I've put together your personalized roof estimate.\n\nView your options here: ${shareUrl}\n\nYou can compare packages, see financing options, and digitally sign — all from your phone.\n\nBest,\n${deal.repName || ''}\n${brand}\n${deal.repPhone || ''}`;
 
     if (window.NBDComms && typeof window.NBDComms.sendEmail === 'function') {
       const result = await window.NBDComms.sendEmail({
@@ -700,12 +757,34 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   // actually ACCEPT — submitDealAcceptance records tier + signature + date and
   // notifies the rep. Returns the /deal/<token> URL, or null on failure.
   async function getDealAcceptLink(deal) {
+    if (!window._user) {
+      if (window.showToast) window.showToast('Sign in required to create a share link', 'error');
+      return null;
+    }
     try { await syncDealToFirestore(deal); } catch (_) {}
     const html = generateDealPageHTML(deal);
     await uploadDealPage(deal, html); // → deal_rooms/<uid>/<dealId>.html
+    // Load the Functions SDK ourselves when no other feature has yet. This
+    // used to bail with "Sign in required" whenever window._functions /
+    // _httpsCallable were unset — and nothing sets them at dashboard boot
+    // (only lazily, from unrelated features), so in a fresh session Text,
+    // Email and Copy all failed for a signed-in rep. Same lazy pattern as
+    // session-revoke.js getCallable(), INCLUDING the emulator connect: a local
+    // emulator run that skipped it would mint tokens against PRODUCTION.
     if (!window._httpsCallable || !window._functions) {
-      if (window.showToast) window.showToast('Sign in required to create a share link', 'error');
-      return null;
+      try {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = window._functions || mod.getFunctions();
+        try {
+          const emu = await import('./nbd-emulator-connect.js');
+          await emu.connectEmulatorsIfLocal({ functions: window._functions }); // no-op in prod
+        } catch (_) { /* prod path: module absent or already connected */ }
+        window._httpsCallable = window._httpsCallable || mod.httpsCallable;
+      } catch (e) {
+        console.error('Functions SDK load failed:', e);
+        if (window.showToast) window.showToast('Could not load the link service — try again', 'error');
+        return null;
+      }
     }
     try {
       const fn = window._httpsCallable(window._functions, 'createDealAcceptToken');
