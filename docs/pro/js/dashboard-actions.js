@@ -914,6 +914,17 @@ window.renderSavedZones = renderSavedZones;
 // SAMPLE DATA + damage-near-me overrides
 // ══════════════════════════════════════════════
 async function loadSampleData() {
+  // FAIL CLOSED on an unhydrated lead cache (mirrors pipeline-builder.js
+  // canDeleteStage). window._leads is [] both before the first loadLeads()
+  // resolves and after a failed first load (dashboard-bootstrap.module.js
+  // resets it to [] and leaves _leadsLoaded false), so the empty-book check
+  // below read "not loaded yet" as "account is empty" and seeded 13 demo
+  // leads + 6 tasks into a live tenant with no confirm. Only a confirmed
+  // load may be treated as empty.
+  if (window._leadsLoaded !== true) {
+    showToast("Your leads haven't finished loading yet — wait for the board to load, then try again.", 'error');
+    return;
+  }
   const leads = window._leads || [];
   if(leads.length > 0) {
     // Batch 2 (iOS PWA): native confirm() always returns true in standalone
