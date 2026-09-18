@@ -483,12 +483,16 @@
     Surfaced (spawned as its own background task, not fixed here): the
     live "👤 Assign" button on customer.html's estimate hub calls
     `_assignEstimateToLead`, which only ever exists on dashboard.html —
-    silently no-ops on a customer page today, pre-existing bug. T3-B has
-    ~171 names left, T3-C has ~143ish (11 more converted across today's 4
-    PRs, table miscounts corrected in multiple directions — read the plan
-    doc's table, not this number, before starting the next slice); T3-D
-    (131-name band → NBD-prefixed APIs) and T3-E (spine-disposition docs)
-    remain fully untouched · **404
+    silently no-ops on a customer page today, pre-existing bug. **A fifth
+    PR same day** shipped the cleanest slice yet: `filterStageDropdownByJobType`/
+    `getSelectedTrades`, consumed by `crm-leads.js` — zero HTML hits, zero
+    prior test coverage, one self-reference guard simplified to a bare call
+    (safe — traced every caller, none can fire before module parse
+    completes). T3-B has ~171 names left, T3-C has ~141ish (13 more
+    converted across today's 5 PRs, table miscounts corrected in multiple
+    directions — read the plan doc's table, not this number, before
+    starting the next slice); T3-D (131-name band → NBD-prefixed APIs) and
+    T3-E (spine-disposition docs) remain fully untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·

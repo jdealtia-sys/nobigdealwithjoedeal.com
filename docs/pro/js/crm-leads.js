@@ -113,8 +113,10 @@ function openLeadModal(){
     window.refreshStageOptions(want || 'new');
   }
   // Apply smart stage dropdown filter based on current jobType
-  if (typeof window.filterStageDropdownByJobType === 'function') {
-    window.filterStageDropdownByJobType(jtEl?.value || '');
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (_nbdReg && typeof _nbdReg.filterStageDropdownByJobType === 'function') {
+    _nbdReg.filterStageDropdownByJobType(jtEl?.value || '');
   }
 }
 function closeLeadModal(){
@@ -332,7 +334,8 @@ async function saveLead(){
       ...(_editStageRole ? { stageRole: _editStageRole } : {}),
       jobType: document.getElementById('lJobType')?.value || '',
       subType: document.getElementById('lSubType')?.value || '',
-      trades: (typeof window.getSelectedTrades === 'function') ? window.getSelectedTrades() : [],
+      // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+      trades: (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.getSelectedTrades === 'function') ? window.__NBD_CALL_REGISTRY.getSelectedTrades() : [],
       source: document.getElementById('lSource')?.value || '',
       // Referral-code redemption: the code this lead was referred with (if any).
       // Stamped raw + uppercased; the server-side onReferralLeadWrite trigger
