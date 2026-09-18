@@ -545,6 +545,27 @@
     resolver precedence in `dashboard-ui.js` to confirm the allowlist
     removal is a provable no-op, not just an absence of grep hits.
     T3-C long-tail now ~123 names; T3-A candidate count reduced by 4.
+    **An eleventh PR same day (PR TBD)** was the session's first
+    WHOLE-FILE IIFE wrap — `dashboard-connect-tab.js` (432 lines) had
+    zero existing IIFE structure at all, unlike every prior T3-A edge
+    (which wrapped a narrow gap between two pre-existing IIFEs). Re-
+    derived the T3-A census from 7 names to 13; only `renderConnectCard`
+    and `loadConnectStatus` needed a `__NBD_CALL_REGISTRY` entry (their
+    only outside reference is `tests/stripe-connect-ui.test.js`'s
+    `vm`-sandboxed test harness calling them directly), the other 11 have
+    zero consumers anywhere and stay fully private. Explicitly verified
+    re-execution safety (the file re-runs when its hydrated-template tab
+    is opened) — every piece of state that must persist across runs is
+    already an explicit `window.*` read/write, untouched by the wrap.
+    Two reviewers independently re-derived the hydration mechanism from
+    `dashboard-ui.js` source, grepped the whole repo incl. `tests/e2e/`
+    for the 11 private names (zero hits), and actually ran
+    `tests/stripe-connect-ui.test.js` themselves (101/101 green) rather
+    than trusting a claimed count. `tests/smoke.test.js` now 4184/4184.
+    Scoping is already underway for the SECOND, much bigger whole-file
+    candidate — `customer-tasks-ui.js` (2521 lines, target functions
+    scattered from line 40 to 2411) — a background census agent is
+    building the full consumer inventory before any edit is attempted.
     · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/

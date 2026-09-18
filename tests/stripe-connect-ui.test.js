@@ -494,7 +494,7 @@ const BOOT_CODE = decomment(BOOT);
   }
   function renderWith(claims, state) {
     const s = mkEnv(claims, state);
-    s.renderConnectCard();
+    s.__NBD_CALL_REGISTRY.renderConnectCard();
     return {
       card: s._els.connectPayoutsCard,
       html: s._els.connectPayoutsBody.innerHTML,
@@ -503,11 +503,16 @@ const BOOT_CODE = decomment(BOOT);
 
   const OWNER = { owner: true };
 
-  // Sanity: the module even loads and exposes its renderer.
+  // Sanity: the module even loads and exposes its renderer. Globals Tranche 3
+  // (T3-A, 2026-09-18): the whole module is now IIFE-wrapped, so
+  // renderConnectCard/loadConnectStatus are reachable only via the call
+  // registry, not as bare sandbox properties.
   let loaded = true;
   try { mkEnv(OWNER, null); } catch (e) { loaded = false; console.log('    (load error: ' + e.message + ')'); }
   ok('the module executes standalone and exposes renderConnectCard', loaded
-    && typeof mkEnv(OWNER, null).renderConnectCard === 'function');
+    && typeof mkEnv(OWNER, null).__NBD_CALL_REGISTRY.renderConnectCard === 'function');
+  ok('loadConnectStatus is also registered',
+    typeof mkEnv(OWNER, null).__NBD_CALL_REGISTRY.loadConnectStatus === 'function');
 
   // Audience, rendered rather than regexed. UPDATED 2026-07-3x: the card now
   // serves owner OR company_admin — the same two the server's requireTeamAdmin
@@ -685,7 +690,7 @@ const BOOT_CODE = decomment(BOOT);
   // Busy + error states render instead of a stale card.
   const sBusy = mkEnv(OWNER, { status: 'ready', label: 'Connected', connected: true });
   sBusy.window._nbdConnectBusy = 'Creating your Stripe account…';
-  sBusy.renderConnectCard();
+  sBusy.__NBD_CALL_REGISTRY.renderConnectCard();
   ok('BEHAVIOUR: a busy state replaces the card body',
     /Creating your Stripe account/.test(sBusy._els.connectPayoutsBody.innerHTML)
     && !/data-connect-action="dashboard"/.test(sBusy._els.connectPayoutsBody.innerHTML),
@@ -693,7 +698,7 @@ const BOOT_CODE = decomment(BOOT);
 
   const sErr = mkEnv(OWNER, null);
   sErr.window._nbdConnectError = 'Could not read payout status: boom';
-  sErr.renderConnectCard();
+  sErr.__NBD_CALL_REGISTRY.renderConnectCard();
   ok('BEHAVIOUR: an error state is shown with a retry',
     /boom/.test(sErr._els.connectPayoutsBody.innerHTML)
     && /data-connect-action="refresh"/.test(sErr._els.connectPayoutsBody.innerHTML));
@@ -701,7 +706,7 @@ const BOOT_CODE = decomment(BOOT);
   // The expired-link banner from ?connect=refresh.
   const sExp = mkEnv(OWNER, { status: 'onboarding_incomplete', label: 'Finish setup', connected: true });
   sExp.window._nbdConnectLinkExpired = true;
-  sExp.renderConnectCard();
+  sExp.__NBD_CALL_REGISTRY.renderConnectCard();
   ok('BEHAVIOUR: connect=refresh surfaces an expired-link notice',
     /expired/i.test(sExp._els.connectPayoutsBody.innerHTML));
 }
