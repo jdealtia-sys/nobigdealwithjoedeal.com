@@ -323,7 +323,12 @@ const _NBD_CALL_ALLOWLIST = new Set([
   '_sharePortalLink',
   '_revokePortalLink', 'exportLeadsCsv', 'exportEstimatesCsv',
   'openLeadsInSheets', 'openEstimatesInSheets',
-  'confirmPromoteProspect', 'openLeadImport',
+  // confirmPromoteProspect removed (Globals Tranche 3 T3-A, 2026-09-18):
+  // graduated off window into __NBD_CALL_REGISTRY. This entry was already
+  // stale before that — the real markup dispatch target has always been
+  // cdaConfirmPromote (a different, already-registered wrapper), not this
+  // name directly. Do NOT re-add.
+  'openLeadImport',
   // Quick-add flow
   'closeQuickAddLead',
   // Card-detail action helpers (glue around _cardDetailLeadId): the 18-name
