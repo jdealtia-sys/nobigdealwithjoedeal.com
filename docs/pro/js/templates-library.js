@@ -476,7 +476,8 @@ Bookmark it; the link stays live as we work through the project.
   // Quick picker modal for use from the send flow. Returns:
   //   { body, subject } if rep picked a template
   //   null              if rep clicked "Use default" (caller falls back)
-  //   undefined         if rep cancelled (caller aborts send)
+  //   undefined         if rep cancelled, OR a picker/manager is
+  //                     already open (caller aborts send)
   //
   // Picker is skipped automatically when there's exactly 1 template
   // for the channel — that template is applied directly. When 0
@@ -509,9 +510,16 @@ Bookmark it; the link stays live as we work through the project.
 
       // Multiple templates — open picker.
       if (_modalOpen) {
-        // Defensive: if the manager modal is already open, fall
-        // through to the most recently used template (or the first).
-        resolve(apply(templates[0], ctx));
+        // A picker (or the manager) is already on screen. FAIL CLOSED:
+        // resolve undefined, which every caller treats exactly like
+        // Cancel/Esc and aborts the send. This used to resolve
+        // apply(templates[0]) — and smsForLead/emailForLead SEND
+        // whatever this returns, with no review step after it. So a
+        // second share tap landing while the first was still minting
+        // its portal link texted templates[0] to the homeowner, unseen,
+        // while the first picker was still up.
+        _toast('Finish the open template picker first', 'info');
+        resolve(undefined);
         return;
       }
       _modalOpen = true;
