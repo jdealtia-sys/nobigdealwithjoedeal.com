@@ -465,8 +465,10 @@ window.loadProjectTimeline = async function(leadId) {
       // Timestamps, bare {seconds} objects (REST/portal reads) or ISO
       // strings depending on the read path; _nbdTsToDate handles all of
       // them. It's published by loadCustomerData, hence the typeof guard.
-      const date = (typeof window._nbdTsToDate === 'function')
-        ? window._nbdTsToDate(stageDates[milestone.stage])
+      // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not window.
+      var _nbdReg = window.__NBD_CALL_REGISTRY;
+      const date = (_nbdReg && typeof _nbdReg._nbdTsToDate === 'function')
+        ? _nbdReg._nbdTsToDate(stageDates[milestone.stage])
         : null;
       const dateStr = date ? date.toLocaleDateString() : '';
 
@@ -1010,12 +1012,13 @@ window.applyBulkPhotoDelete = async function() {
     updatePhotoStats();
     renderPhotoGrid();
     if (!window.NBDStore) updateBulkBarUI();
-    // window.loadPhotos, not a bare reference — this is a classic script,
-    // loadPhotos is module-scoped in customer-bootstrap.module.js and only
-    // reachable via its window export (2026-09-17: the bare form here threw
-    // ReferenceError, silently swallowed below, so #photoList never
-    // actually refreshed after a delete until now).
-    try { await window.loadPhotos(window._customerId); } catch(e) {}
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare
+    // reference — this is a classic script, loadPhotos is module-scoped in
+    // customer-bootstrap.module.js and only reachable via the registry
+    // (2026-09-17: the bare form here threw ReferenceError, silently
+    // swallowed below, so #photoList never actually refreshed after a
+    // delete until that fix).
+    try { await window.__NBD_CALL_REGISTRY.loadPhotos(window._customerId); } catch(e) {}
 
     if (window.showToast) window.showToast('✓ Deleted ' + ids.length + ' photo' + (ids.length === 1 ? '' : 's'), 'success');
   } catch (err) {
@@ -1197,7 +1200,8 @@ window.loadPhotosByPhase = async function(leadId) {
     // same in-flight-deduped fetch loadPhotos() uses, so the two loaders
     // share one Firestore read when loadAllCustomerPhotos() fires both —
     // this function's own IndexedDB caching below is unchanged.
-    const raw = await window._fetchPhotosRaw(leadId);
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not window.
+    const raw = await window.__NBD_CALL_REGISTRY._fetchPhotosRaw(leadId);
     return raw.map(function (d) { return photoDocToView(d.id, d); });
   };
 
@@ -1690,9 +1694,9 @@ window.deletePhoto = async function(photoId) {
     updatePhotoStats();
     renderPhotoGrid();
 
-    // Also refresh overview photos. window.loadPhotos, not a bare reference
-    // — see the bulk-delete handler's comment above for why.
-    try { await window.loadPhotos(window._customerId); } catch(e) {}
+    // Also refresh overview photos. Registry-only, not a bare reference —
+    // see the bulk-delete handler's comment above for why.
+    try { await window.__NBD_CALL_REGISTRY.loadPhotos(window._customerId); } catch(e) {}
 
     if (window.showToast) window.showToast('Photo deleted', 'success');
   } catch (error) {
@@ -2443,9 +2447,10 @@ window.setupContactTab = function(customerData) {
 // pass both. The lightbox's next/prev arrows live in customer-bootstrap.module.js
 // and walk a module-scoped cursor this file structurally cannot set, so an
 // open-by-URL left the arrows stepping through whatever array was loaded last.
-// window.setLightboxSource is that module's setter; hand it the array we
-// actually indexed into. _allPhotos and _customerPhotos differ in LENGTH
-// (the team-read path drops the userId filter), so one array's cursor
+// setLightboxSource (registry-only since Globals Tranche 3 T3-C, 2026-09-18
+// — not window) is that module's setter; hand it the array we actually
+// indexed into. _allPhotos and _customerPhotos differ in LENGTH (the
+// team-read path drops the userId filter), so one array's cursor
 // addressing the other doesn't just reorder photos — it goes out of bounds.
 window.openPhotoLightbox = function(url, description, srcArray, idx) {
   // DISPLAY FIRST, then hand over the cursor. setLightboxSource is a
@@ -2469,8 +2474,9 @@ window.openPhotoLightbox = function(url, description, srcArray, idx) {
   // arrays differ in LENGTH (window._customerPhotos drops the userId filter for
   // team readers; _allPhotos always filters by uid), so one array's cursor must
   // never address the other.
-  if (Array.isArray(srcArray) && typeof window.setLightboxSource === 'function') {
-    window.setLightboxSource(srcArray, Number(idx) || 0);
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (Array.isArray(srcArray) && _nbdReg && typeof _nbdReg.setLightboxSource === 'function') {
+    _nbdReg.setLightboxSource(srcArray, Number(idx) || 0);
   }
 };
 

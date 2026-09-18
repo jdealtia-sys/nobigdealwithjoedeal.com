@@ -310,8 +310,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | Edge (assigner → consumer) | Names |
 |---|---|
 | dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637)** |
-| customer-tasks-ui.js → customer-bootstrap.module.js | 6 |
-| customer-bootstrap.module.js → customer-tasks-ui.js | 5 |
+| customer-tasks-ui.js → customer-bootstrap.module.js | 6 — **re-derived to 5, NOT a safe T3-C shape; see note below** |
+| customer-bootstrap.module.js → customer-tasks-ui.js | 5 — **re-derived to 8, 4 shipped 2026-09-18; see note below** |
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
 | dashboard-bootstrap.module.js → rep-report-generator.js | 4 — **3 shipped 2026-09-18 (PR #1642); see note below** |
 | dashboard-bootstrap.module.js → crm-pipeline.js | 4 — **re-derived to 0, see note below; not attempted** |
@@ -366,6 +366,77 @@ Convert edge-by-edge; each edge is one natural PR:
 > opening the Deleted drawer early could throw and strand the "Loading..."
 > placeholder. One-line fix (`return [];`) whenever someone's next in that
 > file.
+
+> ### Update 2026-09-18 — customer-bootstrap.module.js ↔ customer-tasks-ui.js, both edges re-derived; only one direction shipped
+>
+> `customer.html` loads `customer-bootstrap.module.js` (`type="module"`) and
+> `customer-tasks-ui.js` (classic `defer` script) — the same module/classic-
+> script shape as the dashboard-side edges above, but this was the first
+> time either direction of this specific pair was attempted. Both directions
+> turned out to need re-deriving from a fresh `globals-xref.js` run rather
+> than trusting the table's original "6"/"5" counts.
+>
+> **`customer-bootstrap.module.js` → `customer-tasks-ui.js` (re-derived to 8,
+> 4 shipped, PR TBD):** `_fetchPhotosRaw`, `loadPhotos`, `setLightboxSource`,
+> `_nbdTsToDate` converted — all genuine callables with a single external
+> consumer file, same conversion shape as the dashboard-side edges
+> (`window.X = function(){}` → real `function X(){}` declaration +
+> `__NBD_CALL_REGISTRY` entry; `window.X = someLocalFn` → drop the window
+> line, register the existing binding). This is the FIRST use of
+> `__NBD_CALL_REGISTRY` on `customer.html` — that page never loads
+> `dashboard-bootstrap.module.js`, so a fresh
+> `window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);`
+> guard was added rather than assuming the dashboard one already exists.
+> `_nbdTsToDate`'s underlying function (`tsToDate`) is declared INSIDE a
+> nested render function, not at module top level, so it registers itself
+> inline at its own definition instead of joining the file-end
+> `Object.assign` block the other three use — same shape as the
+> `_mJdOpenEstimate` ordering trap documented in the T3-A correction above,
+> caught here BEFORE shipping rather than after.
+>
+> **The other 4 census hits for this direction — `_bookingAsk`,
+> `_bookingCustomerName`, `_bookingUrl`, `_currentStage` — are shared DATA
+> (strings/a stage id set by one code path, read by another), not
+> callables, and were left on window.** Same reasoning as `_reports` in the
+> prior update: a call registry dispatches functions, not values. Converting
+> these for real would mean a small state-store migration, which T3-E
+> explicitly scopes OUT of Tranche 3 (it's the spine-migration question, not
+> a globals-hygiene one) — don't re-attempt them as a quick T3-C add-on.
+>
+> **`customer-tasks-ui.js` → `customer-bootstrap.module.js` (re-derived to
+> 5, NOT attempted — this is NOT a safe T3-C shape).** The table listed this
+> as symmetric to the module-owned direction, but it isn't: the assigner
+> here (`customer-tasks-ui.js`) is a **classic script with no IIFE wrapping**
+> for any of the 5 candidates (`loadNewPortalSections`, `loadPhotosByPhase`,
+> `renderCoverHero`, `setupContactTab`, plus `_uploadPhase` — a data value,
+> same as the other direction's four). Unlike a real ES module, a classic
+> script's top-level `function X(){}` declaration IS already
+> `window.X` — auto-global, not explicit. Converting
+> `window.X = function(){}` to a bare `function X(){}` here would only make
+> the window assignment *implicit* instead of explicit; it would NOT
+> actually remove `X` from `window` at runtime, and would silently fail the
+> T1_NAMES off-window walk's entire premise. Genuinely taking these off
+> window needs IIFE-wrapping the relevant region of `customer-tasks-ui.js`
+> first — the same class of work T3-A's correction found "mechanically
+> safe" was not, not a quick follow-on to the direction that shipped in this
+> same PR. Flagged for its own future slice.
+>
+> Verification: two independent adversarial-review agents traced every
+> consumer call site and all four real user-facing flows (lightbox array
+> handoff, bulk/single photo-delete refresh, the `_fetchPhotosRaw`
+> in-flight-dedupe sharing between `loadPhotos` and `loadPhotosByPhase`, and
+> `_nbdTsToDate`'s first-render-before-registration timing) end to end and
+> found zero bugs. Both independently confirmed via repo-wide grep that zero
+> `window.<name>` references (including comments) survive anywhere under
+> `docs/` for the four converted names, and independently reran
+> `check-js-syntax`, the full `tests/smoke.test.js` (4096/4096), and
+> `run-test-manifest.js --bucket smoke` (68/68) green. One test's fixed
+> string-slice window (`+1700` chars in
+> `tests/customer-photo-fetch-unification-2026-09-17.test.js`) needed
+> widening to `+1900` after the call site grew a few characters longer
+> (`window.X(` → `window.__NBD_CALL_REGISTRY.X(`) — a reminder that these
+> fixed-offset test slices are brittle to any length change nearby, not just
+> to the specific line being asserted on.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
