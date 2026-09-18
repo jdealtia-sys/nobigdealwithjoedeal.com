@@ -276,12 +276,18 @@ const RUNNABLE = ['node', 'smoke'];
 //               matching number that is not evidence, per this ledger's own
 //               rule. Re-measured via --check on the tree with BOTH lanes
 //               merged (this esign lane's own suite + anniversary-touch's):
+//   2026-09-18  fail-open FO-1 comms lane adds two node suites
+//               (tests/d2d-followup-sms-optout.test.js,
+//               tests/portal-share-no-double-send.test.js) on a 157/68/246
+//               origin/main base. SET from --check on this tree; parallel
+//               fail-open lanes branch from the same base, so re-measure on
+//               the merged tree rather than trusting this literal.
 //   2026-09-18  157/68/246 → 158/68/247, tests/unloaded-cache-gates.test.js
 //               (fail-open FO-4: sample data / CSV import / seat picker acting
 //               on an unloaded cache). MEASURED via --check on a branch cut
 //               from origin/main; sibling fail-open lanes cut the same day
 //               also move this line — whichever merges second re-measures.
-const FLOORS = { node: 158, smoke: 68, disk: 247 };
+const FLOORS = { node: 160, smoke: 68, disk: 249 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

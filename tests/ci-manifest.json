@@ -167,6 +167,8 @@
     "analytics-card-cache-account-switch.test.js",
     "adjuster-board-handler-tenancy.test.js",
     "customer-audit-integrity.test.js",
+    "d2d-followup-sms-optout.test.js",
+    "portal-share-no-double-send.test.js",
     "unloaded-cache-gates.test.js"
   ],
   "smoke": {
