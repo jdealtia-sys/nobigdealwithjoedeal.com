@@ -562,10 +562,31 @@
     for the 11 private names (zero hits), and actually ran
     `tests/stripe-connect-ui.test.js` themselves (101/101 green) rather
     than trusting a claimed count. `tests/smoke.test.js` now 4184/4184.
-    Scoping is already underway for the SECOND, much bigger whole-file
-    candidate — `customer-tasks-ui.js` (2521 lines, target functions
-    scattered from line 40 to 2411) — a background census agent is
-    building the full consumer inventory before any edit is attempted.
+    **A twelfth PR same day (PR TBD)** was the second and biggest
+    whole-file wrap — `customer-tasks-ui.js` (2521 lines, 93 total
+    top-level names). A background census agent built the full consumer
+    inventory before any edit was attempted, confirming this file's
+    markup dispatch (`_nbdCustomerActionDispatch`) reads straight off
+    `window` — a different convention from the dashboard side's
+    `__NBD_CALL_REGISTRY` — so ~33 names (the 5 known T3-A names plus
+    ~28 markup-dispatched ones) keep their existing `window.X =` lines
+    untouched; only ~60 genuinely-private names move off window. The
+    census caught a real landmine before it could ship broken:
+    `getCustomerDocData` is read externally by `doc-preflight.js` on
+    every real document-export click and had no explicit window export
+    — a naive wrap would have silently degraded document generation to
+    empty data with no error. Fixed with one new export line. A
+    neighboring, same-shaped function (`checkPrerequisites`) was
+    confirmed to have zero real external caller and correctly stayed
+    private. Diff stayed minimal (9 insertions, 1 deletion) despite the
+    file's size. Two reviewers ran in parallel, both clean SHIP
+    verdicts — independently chased the getCustomerDocData/
+    checkPrerequisites split to ground truth, sampled different sets of
+    "private" names each, and ran the full test surface themselves:
+    `tests/smoke.test.js` (4217/4217), `run-test-manifest.js` full run
+    (157/157 node suites), and all 13 standalone customer-page test
+    files individually (0 failed each). This closes out both whole-file
+    T3-A candidates flagged this session.
     · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/

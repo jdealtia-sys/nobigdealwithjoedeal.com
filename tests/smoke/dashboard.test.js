@@ -5308,6 +5308,64 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
   // covered in depth by tests/stripe-connect-ui.test.js's own Parts 3-4 — not
   // duplicated here.
 
+  // ── Tranche 3 T3-A (2026-09-18): customer-tasks-ui.js — the session's
+  // SECOND whole-file IIFE wrap (2521 lines, 93 total top-level names, only
+  // 1 tiny pre-existing IIFE at the very end for the unrelated jump-nav
+  // scroll-spy). Unlike dashboard-connect-tab.js, this file's markup
+  // dispatch (_nbdCustomerActionDispatch, CSP-safe data-action/data-change
+  // -action resolution) reads straight off `window`, not
+  // __NBD_CALL_REGISTRY — so the ~30 markup-dispatched names and the 5
+  // already-documented T3-A names (renderCoverHero, loadPhotosByPhase,
+  // loadNewPortalSections, setupContactTab, all read by
+  // customer-bootstrap.module.js; _uploadPhase, a DATA value not a
+  // function) all KEEP their existing explicit window.X = lines completely
+  // untouched — the wrap only removes the ~60 names that had ZERO
+  // external consumer of any kind (no markup, no cross-file JS, no test
+  // that executes rather than regex-matches).
+  //
+  // One real landmine the pre-edit census caught: getCustomerDocData (a
+  // bare function, no window.X= line before this PR) is read externally
+  // by doc-preflight.js:2137 as its customer.html data-bridge fallback —
+  // that only worked before because a top-level classic-script function
+  // auto-globals regardless of assignment syntax. A naive wrap would have
+  // silently broken it (doc-preflight.js has no error path, it just falls
+  // back to {} and document generation loses all its data). Fixed with a
+  // new explicit `window.getCustomerDocData = getCustomerDocData;` line.
+  // checkPrerequisites, right next to it and the same bare-declaration
+  // shape, does NOT have this problem — doc-preflight.js only mentions it
+  // in a header comment, never calls it; confirmed independently by
+  // grepping doc-preflight.js for both an actual call and any window[...]
+  // bracket-dispatch form. It stays private, no export added.
+  const custTasks = read(path.join(PRO_JS, 'customer-tasks-ui.js'));
+  assert('customer-tasks-ui.js is wrapped in a new top-level IIFE spanning the whole classic-script body',
+    /^\(function \(\) \{\r?\n\/\/ ═+\r?\n\/\/ CUSTOMER PAGE ENHANCEMENTS/.test(custTasks) &&
+    /console\.log\('✓ Customer page enhancements loaded'\);\r?\n\}\)\(\);/.test(custTasks));
+  assert('the pre-existing jump-nav scroll-spy IIFE sits AFTER the new wrap closes, not nested inside it',
+    /\}\)\(\);\r?\n\r?\n\r?\n\/\/ ── nbd jump-nav scroll-spy/.test(custTasks));
+  assert('getCustomerDocData now has an explicit window export (doc-preflight.js\'s customer.html data-bridge fallback)',
+    /function getCustomerDocData\(\)/.test(custTasks) &&
+    /window\.getCustomerDocData = getCustomerDocData;/.test(custTasks));
+  assert('checkPrerequisites stays private — doc-preflight.js never actually calls it, only mentions it in a comment',
+    /function checkPrerequisites\(type, data\)/.test(custTasks) &&
+    !/window\.checkPrerequisites\s*=/.test(custTasks));
+  for (const n of ['buildPhotoBadges', 'buildPhotoTile', 'updatePhotoTile', 'isPhotoSelectMode',
+    'ensurePhotoGridDelegate', 'renderPhotoGrid', 'photoDocToView', 'applyPhotosToView',
+    'updatePhotoStats', '_pulseTarget', '_blankifyDocData', '_orderedDocTemplates',
+    '_renderDocCreateGrid', '_nbdCustomerActionDispatch', 'nbdEscFn', '_dmgNorm', '_dmgLabel',
+    '_dmgOptions']) {
+    assert(n + ' stays private inside the new IIFE — zero external consumer (T3-A)',
+      !new RegExp('window\\.' + n + '\\s*=').test(custTasks));
+  }
+  // Spot-check: the 5 already-documented T3-A names AND a sample of the
+  // markup-dispatched names keep their EXACT pre-existing window exports —
+  // the wrap must not have touched these lines at all.
+  for (const n of ['renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
+    'setupContactTab', '_uploadPhase', 'openTaskModal', 'saveTask', 'saveEvent',
+    'generateCustomerDoc', 'toggleTask', 'nbdNavCount']) {
+    assert(n + ' keeps its existing window export — a real external consumer needs it, the wrap must not touch this line',
+      new RegExp('window\\.' + n + '\\s*=').test(custTasks));
+  }
+
   // customer-realtime.module.js refactor: pure export now, no top-level
   // side effect — importing mountMessages from the dashboard bridge must
   // NOT re-trigger customer.html's auto-mount.

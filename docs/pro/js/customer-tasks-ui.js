@@ -1,4 +1,4 @@
-
+(function () {
 // ═══════════════════════════════════════════════════════════════════════
 // CUSTOMER PAGE ENHANCEMENTS - Task Management & Improved UX
 // ═══════════════════════════════════════════════════════════════════════
@@ -1824,6 +1824,13 @@ function getCustomerDocData() {
     _isJobComplete: String(lead.stage||'').toLowerCase().includes('complete')
   };
 }
+// doc-preflight.js:2137 reads this by name off window (its data-bridge
+// fallback for customer.html) -- the only external caller of this
+// function, so it needs an explicit export unlike checkPrerequisites
+// right below (verified: doc-preflight.js never calls that one, only
+// mentions it in a header comment -- dashboard-bootstrap.module.js's
+// polyfill for it is unused dead infrastructure, out of scope here).
+window.getCustomerDocData = getCustomerDocData;
 
 function checkPrerequisites(type, data) {
   const prereq = DOC_PREREQUISITES[type];
@@ -2488,6 +2495,7 @@ window.openPhotoLightbox = function(url, description, srcArray, idx) {
 // in customer-bootstrap.module.js now takes effect.
 
 console.log('✓ Customer page enhancements loaded');
+})();
 
 
 // ── nbd jump-nav scroll-spy (consolidation 2026-07-19) ─────────────────
