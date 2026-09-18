@@ -3493,9 +3493,18 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
         regKeysOf(ownerSrc).has(n + '=' + n));
       assert(owner + ' no longer assigns window.' + n + ' (T3-C off window)',
         !new RegExp('window\\.' + n + '\\s*=').test(ownerSrc));
+      // Per call site, not per file: the registry read must sit directly above
+      // THIS name's guard (dashboard-bootstrap.module.js has two consumer
+      // sites, so a file-wide match let either site's declaration satisfy
+      // both — drop one and that site throws a ReferenceError; the Doors-card
+      // one inside a setTimeout, so the card just never renders). The
+      // read must END at the registry (`\s*;`): `window.__NBD_CALL_REGISTRY
+      // || window` is the permissive-default class this tranche forbids. No
+      // reassignment of _nbdReg may sit between the read and the guard.
       assert(cons + ' calls ' + n + ' off the registry behind a fail-closed typeof guard',
-        new RegExp('_nbdReg\\s*=\\s*window\\.__NBD_CALL_REGISTRY').test(consSrc)
-          && new RegExp('_nbdReg && typeof _nbdReg\\.' + n + " === 'function'").test(consSrc)
+        new RegExp('_nbdReg\\s*=\\s*window\\.__NBD_CALL_REGISTRY\\s*;'
+          + '(?:(?!_nbdReg\\s*(?:\\|\\||&&|\\?\\?)?=(?!=))[\\s\\S]){0,200}?'
+          + '_nbdReg && typeof _nbdReg\\.' + n + " === 'function'").test(consSrc)
           && new RegExp('_nbdReg\\.' + n + '\\(').test(consSrc)
           && !new RegExp('window\\.' + n + '\\b').test(consSrc));
     }
