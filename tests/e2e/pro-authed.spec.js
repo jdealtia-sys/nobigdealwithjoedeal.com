@@ -574,7 +574,8 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     await page.waitForFunction(() =>
       window.PhotoEngine && !window.PhotoEngine.__nbdLazyPhotosStub
       && typeof window.PhotoEngine.uploadFromFile === 'function'
-      && typeof window._uploadPhoto === 'function'
+      // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+      && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY._uploadPhoto === 'function'
       && window._storage && window._db, null, { timeout: 20_000 });
 
     const stamp = Date.now();
@@ -627,7 +628,8 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     expect(doc.createdAt, 'createdAt serverTimestamp (canonical ordering field)').toBeTruthy();
 
     // ── Dashboard quick-upload leg ──────────────────────────────
-    // window._uploadPhoto (dashboard-bootstrap.module.js) writes the
+    // _uploadPhoto (dashboard-bootstrap.module.js, registry-only as of
+    // Globals Tranche 3 T3-C, 2026-09-18) writes the
     // NESTED shape photos/{uid}/{leadId}/{ts}_{name} — one of the
     // shapes the image pipeline silently skipped until 2026-08-16
     // (its trigger required exactly 3 path segments). Pin two things
@@ -644,7 +646,8 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
       const file = new File([blob], 'e2e_dash.jpg', { type: 'image/jpeg' });
 
       const leadId = 'e2e-dash-photo-lead-' + args.stamp;
-      const url = await window._uploadPhoto(leadId, file);
+      // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+      const url = await window.__NBD_CALL_REGISTRY._uploadPhoto(leadId, file);
 
       // _uploadPhoto returns only the download URL — re-query for the
       // doc to tag it for cleanup + read back its persisted shape.
