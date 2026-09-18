@@ -320,7 +320,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
 | dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
 | dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
-| dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR TBD); see note below** |
+| dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
 | long tail (1–3-name edges) | ~130 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -648,7 +648,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > `tests/smoke.test.js` (4139/4139), and `run-test-manifest.js --bucket
 > smoke` (68/68) green, plus an EOL/CRLF hygiene check (clean).
 
-> ### Update 2026-09-18 — the pipeline-builder.js edge (PR TBD)
+> ### Update 2026-09-18 — the pipeline-builder.js edge (PR #1651)
 >
 > A seventh long-tail edge, and the most structurally varied one this
 > session — three different shapes in one PR: `applyPipelineConfig`
