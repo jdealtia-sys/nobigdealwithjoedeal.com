@@ -139,7 +139,9 @@ files as T3-C/D slices — landed first so later slices rebase cleanly.
 **T3-A — mechanically-safe zero-external names (277, ~3 mechanical PRs).**
 Single assigner + zero external consumer files + zero HTML hits + zero
 bracket dispatch. Largest owner clusters:
-`dashboard-actions.js` (33), `customer-tasks-ui.js` (31 safe of 49),
+`dashboard-actions.js` (33), `customer-tasks-ui.js` (**DONE 2026-09-18,
+PR TBD — whole-file wrap, re-derived to 93 total names / ~60 genuinely
+private; see update below**),
 `dashboard-ui.js` (24 of 27), `dashboard-bootstrap.module.js` (23 of 25),
 `ui.js` (17 of 18), `customer-bootstrap.module.js` (15),
 `crm-portal-bridge.js` (11), `estimates.js` (10 of 13),
@@ -328,7 +330,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | Edge (assigner → consumer) | Names |
 |---|---|
 | dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637)** |
-| customer-tasks-ui.js → customer-bootstrap.module.js | 6 — **re-derived to 5, NOT a safe T3-C shape; see note below** |
+| customer-tasks-ui.js → customer-bootstrap.module.js | 6 — **re-derived to 5, NOT a safe T3-C shape; DONE anyway 2026-09-18 (PR TBD) via the whole-file T3-A wrap below — these 5 keep their existing window exports untouched, only the file's other ~60 genuinely-private names moved off window** |
 | customer-bootstrap.module.js → customer-tasks-ui.js | 5 — **re-derived to 8, 4 shipped 2026-09-18; see note below** |
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
 | dashboard-bootstrap.module.js → rep-report-generator.js | 4 — **3 shipped 2026-09-18 (PR #1642); see note below** |
@@ -980,6 +982,83 @@ Convert edge-by-edge; each edge is one natural PR:
 > touched files. Both also reran `check-js-syntax` (513 files clean) and
 > `tests/smoke.test.js` (4184/4184, up from 4170 — the 14 new T3-A
 > structural assertions this edge adds).
+
+> ### Update 2026-09-18 — customer-tasks-ui.js (PR TBD): the session's
+> SECOND and biggest whole-file IIFE wrap
+>
+> The remaining T3-A candidate list had exactly one file left after
+> dashboard-connect-tab.js: customer-tasks-ui.js (2521 lines, only one
+> tiny pre-existing IIFE at the very end for an unrelated jump-nav
+> scroll-spy). A background census agent built a full inventory before
+> any edit was attempted — every one of its 93 top-level names, cross-
+> referenced against the whole repo including tests/e2e/*.spec.js,
+> before touching a single line.
+>
+> **This file's markup dispatch is NOT __NBD_CALL_REGISTRY.**
+> customer.html's CSP-safe dispatcher, _nbdCustomerActionDispatch,
+> resolves data-action="X"/data-change-action="X" attributes by
+> walking window directly — a separate, pre-existing convention from
+> the dashboard side's registry pattern. This changes what "T3-A" means
+> for this file: the ~30 markup-dispatched names, the 5 already-known
+> T3-A names read by customer-bootstrap.module.js (renderCoverHero,
+> loadPhotosByPhase, loadNewPortalSections, setupContactTab, plus
+> _uploadPhase — a DATA value, not a function, read-only), and a
+> handful of other real cross-file JS consumers ALL keep their existing
+> explicit window.X = ... lines completely untouched. The wrap only
+> removes window-exposure from the ~60 names that had genuinely ZERO
+> external consumer of any kind.
+>
+> **One real landmine the census caught before it could ship broken:**
+> getCustomerDocData (a bare top-level function, no window.X= line
+> before this PR) is read externally by doc-preflight.js:2137 —
+> typeof window.getCustomerDocData === 'function' ? window
+> .getCustomerDocData() : {} — as customer.html's document-generation
+> data bridge. doc-preflight.js loads lazily via
+> ScriptLoader.loadBundle('docgen') off exportCustomerPDF/
+> generateCustomerDoc/_previewBlankDoc, i.e. it runs on every real
+> document-export click, not a rare path — a naive wrap would have
+> silently degraded every customer.html document generation to empty
+> {} data, no thrown error, no visible failure. Fixed with one new
+> line: window.getCustomerDocData = getCustomerDocData;.
+>
+> **A neighboring function, checkPrerequisites, was deliberately left
+> WITHOUT an export** — same bare-declaration shape as
+> getCustomerDocData, right next to it, but confirmed (independently,
+> twice, by both reviewers) to have zero real external caller anywhere.
+> doc-preflight.js:27 only names it in a header comment,
+> never a live call; dashboard-bootstrap.module.js:955-956 carries a
+> typeof-guarded polyfill for it, but that module loads only on
+> dashboard.html while customer-tasks-ui.js loads only on
+> customer.html — the two never coexist on a page, so the polyfill is
+> unused dead infrastructure, out of scope to touch here.
+>
+> **Diff stayed genuinely minimal** despite the file's size: 9 insertions,
+> 1 deletion, 3 hunks — the new opening (function () { line, a 7-line
+> comment + the one new getCustomerDocData export line, and the new
+> closing })(); right after the file's own
+> console.log('Customer page enhancements loaded'); line, positioned
+> before (not nesting) the pre-existing scroll-spy IIFE. No
+> re-indentation, same minimal-diff style as dashboard-connect-tab.js.
+>
+> Verification: two independent adversarial-review agents, both clean
+> SHIP verdicts, run in parallel given this was the biggest structural
+> change of the session. Both re-derived the IIFE boundary from the raw
+> file rather than trusting the description; both independently chased
+> the getCustomerDocData/checkPrerequisites split to ground truth
+> (grepping the whole repo, reading doc-preflight.js's real call sites,
+> confirming the two owner modules never coexist on one page); both
+> sampled a different ~15-20 "confirmed private" names each and ruled out
+> same-named-but-unrelated twins on dashboard.html (e.g. renderPhotoGrid,
+> _dmgNorm/_dmgLabel each have an independent, IIFE-scoped
+> re-declaration elsewhere — not a collision); both confirmed the diff's
+> minimality directly via git diff; both ran the full test surface
+> themselves — tests/smoke.test.js (4217/4217), run-test-manifest.js
+> full run (157/157 node suites) or --bucket smoke (68/68), all 13
+> standalone customer-page test files individually (0 failed each; the
+> 14th, communication-log-contract.test.js, fails with the expected
+> pre-existing Cannot find module '@firebase/rules-unit-testing'
+> environment gap, unrelated to this change) — and confirmed zero lone-CR
+> bytes / w/crlf EOL on both touched files.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
