@@ -452,9 +452,23 @@
     `crm-pipeline.js`, was re-derived to **zero** real candidates (they're
     misattributed `crm-stages.js` re-exports) plus a `_dragId` bare-global
     landmine flagged for its own slice — see the plan doc's 2026-09-18
-    update. T3-B has ~171 names left, T3-C has ~162; T3-D (131-name band →
-    NBD-prefixed APIs) and T3-E (spine-disposition docs) remain fully
-    untouched · **404
+    update. **Same day, a second PR** shipped the
+    `customer-bootstrap.module.js` → `customer-tasks-ui.js` edge on
+    `customer.html` (re-derived to 8 candidates, not the table's "5"; 4 real
+    callables converted — `_fetchPhotosRaw`, `loadPhotos`,
+    `setLightboxSource`, `_nbdTsToDate` — the other 4 are shared data, not
+    callables, left on window same as `_reports`). This is the first use of
+    `__NBD_CALL_REGISTRY` on `customer.html`. The REVERSE direction
+    (`customer-tasks-ui.js` → `customer-bootstrap.module.js`, the table's
+    other "6") was investigated and found NOT to be a safe T3-C shape —
+    `customer-tasks-ui.js` has no IIFE wrapping, so its top-level functions
+    are already auto-globals; converting the explicit `window.X =` form
+    there wouldn't actually take anything off `window`. See the plan doc's
+    2026-09-18 update for both. T3-B has ~171 names left, T3-C has ~150ish
+    (4 more converted, table miscounts corrected in both directions — read
+    the plan doc's table, not this number, before starting the next slice);
+    T3-D (131-name band → NBD-prefixed APIs) and T3-E (spine-disposition
+    docs) remain fully untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·

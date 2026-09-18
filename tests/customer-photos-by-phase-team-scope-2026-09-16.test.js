@@ -21,11 +21,15 @@
  * 2026-09-17 update: the larger "one shared fetch feeding both grids"
  * refactor this note originally said was its own, bigger effort landed —
  * loadPhotosByPhase's fetchFresh now calls the shared, in-flight-deduped
- * window._fetchPhotosRaw(leadId) instead of calling _photoQueryScopes
+ * _fetchPhotosRaw(leadId) instead of calling _photoQueryScopes
  * directly; _fetchPhotosRaw is what calls _photoQueryScopes now. The
  * team-scoping property this test exists to protect is unchanged — it's
  * just one level further down the call chain — so the assertions below
  * follow that chain instead of asserting a direct call.
+ *
+ * 2026-09-18 update: _fetchPhotosRaw moved off window into
+ * __NBD_CALL_REGISTRY (Globals Tranche 3 T3-C) — the assertion below now
+ * checks the registry-qualified call, not a bare window one.
  *
  * Zero deps. Run: node tests/customer-photos-by-phase-team-scope-2026-09-16.test.js
  */
@@ -59,14 +63,14 @@ ok('loadPhotosByPhase is present', fnStart >= 0);
 const fnSrc = fnStart >= 0 ? decommentJs(TASKS_UI.slice(fnStart, fnStart + 1200)) : '';
 
 ok('the query goes through the shared fetch, which is itself team-scope-aware (see below)',
-  /window\._fetchPhotosRaw\(leadId\)/.test(fnSrc), fnSrc);
+  /window\.__NBD_CALL_REGISTRY\._fetchPhotosRaw\(leadId\)/.test(fnSrc), fnSrc);
 ok('no more inline where(userId) hard-scope left alongside it (the pre-fix bug shape)',
   !/window\.where\('userId'/.test(fnSrc), fnSrc);
 ok('the helper is actually exported for non-module scripts to reuse',
   /window\._photoQueryScopes\s*=\s*_photoQueryScopes/.test(decommentJs(BOOT)));
 
 // Bridges the gap the assertion above deliberately doesn't check directly:
-// loadPhotosByPhase -> window._fetchPhotosRaw -> _photoQueryScopes. If this
+// loadPhotosByPhase -> _fetchPhotosRaw (via the registry) -> _photoQueryScopes. If this
 // call disappears from _fetchPhotosRaw, BOTH #photoList and #photosByPhase
 // would silently lose team-scoping at once (the shared-fetch refactor's own
 // point), so it's worth pinning here too, not just trusting the name.

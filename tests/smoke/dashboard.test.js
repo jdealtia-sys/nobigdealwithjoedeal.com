@@ -3123,7 +3123,14 @@ section('Globals Tranches 0+1: converted names stay off window');
     // registry graduation for real ES-module-to-classic-script calls.
     'toggleInsuranceFields', 'refreshSubTypeAndTrades', 'setSelectedTrades',
     '_deleteLead', '_loadDeletedLeads',
-    '_saveReport', '_deleteReport', '_loadReports'];
+    '_saveReport', '_deleteReport', '_loadReports',
+    // Tranche 3 T3-C (2026-09-18): the customer-bootstrap.module.js ->
+    // customer-tasks-ui.js edge (customer.html has no dashboard-bootstrap.
+    // module.js, so this is the first use of __NBD_CALL_REGISTRY on that
+    // page). _bookingAsk/_bookingCustomerName/_bookingUrl/_currentStage were
+    // also candidates but are shared DATA, not callables — stay on window,
+    // same reasoning as _reports above; see the T3-C assertion block below.
+    '_fetchPhotosRaw', 'loadPhotos', 'setLightboxSource', '_nbdTsToDate'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3815,6 +3822,37 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('rep-report-generator.js caches its own report list locally',
     /_reportsCache/.test(repReportGenSrc));
 
+  // ── Tranche 3 T3-C (2026-09-18): customer-bootstrap.module.js ->
+  // customer-tasks-ui.js edge ──
+  // customer.html has no dashboard-bootstrap.module.js, so this is the first
+  // use of __NBD_CALL_REGISTRY on that page — a fresh registry object, not
+  // the dashboard one. _fetchPhotosRaw/loadPhotos/setLightboxSource are
+  // module-top-level and registered in one Object.assign block at the end
+  // of the file; _nbdTsToDate is declared inside a render function (not
+  // module scope), so it registers itself inline near its own definition —
+  // both shapes are asserted below. _bookingAsk/_bookingCustomerName/
+  // _bookingUrl/_currentStage were also census candidates for this edge but
+  // are shared DATA (strings set on one event, read on another), not
+  // callables — they stay on window, same reasoning as _reports above.
+  const custBootSrc = read(path.join(PRO_JS, 'customer-bootstrap.module.js'));
+  const custTasksSrc = read(path.join(PRO_JS, 'customer-tasks-ui.js'));
+  for (const n of ['_fetchPhotosRaw', 'loadPhotos', 'setLightboxSource']) {
+    assert('customer-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(custBootSrc));
+  }
+  assert('customer-bootstrap.module.js registers _nbdTsToDate inline (declared inside a render function, not module scope)',
+    /window\.__NBD_CALL_REGISTRY\._nbdTsToDate = tsToDate;/.test(custBootSrc));
+  assert('_fetchPhotosRaw and setLightboxSource are real declarations now, not window-assigned anonymous expressions',
+    /^function _fetchPhotosRaw\(leadId\) \{/m.test(custBootSrc) && /^function setLightboxSource\(srcArray, idx\) \{/m.test(custBootSrc));
+  assert('customer-tasks-ui.js\'s loadPhotosByPhase reads _fetchPhotosRaw off the registry, not bare window',
+    /window\.__NBD_CALL_REGISTRY\._fetchPhotosRaw\(leadId\)/.test(custTasksSrc));
+  assert('both photo-delete handlers read loadPhotos off the registry, not bare window',
+    (custTasksSrc.match(/window\.__NBD_CALL_REGISTRY\.loadPhotos\(window\._customerId\)/g) || []).length === 2);
+  assert('openPhotoLightbox reads setLightboxSource off the registry, not bare window',
+    /_nbdReg\.setLightboxSource\(srcArray, Number\(idx\) \|\| 0\)/.test(custTasksSrc));
+  assert('the project-timeline milestone renderer reads _nbdTsToDate off the registry, not bare window',
+    /_nbdReg\._nbdTsToDate\(stageDates\[milestone\.stage\]\)/.test(custTasksSrc));
+
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred
   // because maps.js re-stated its names with an UNGUARDED right-hand side —
@@ -4392,7 +4430,7 @@ section('Customer-surface sweep — blockers caught in review (regression pins)'
     /document\.body\.style\.overflow = 'hidden'/.test(openLb));
   const bootstrap = read(path.join(PRO_JS, 'customer-bootstrap.module.js'));
   assert('setLightboxSource really is a two-arg cursor setter',
-    /window\.setLightboxSource = function\(srcArray, idx\)/.test(bootstrap));
+    /function setLightboxSource\(srcArray, idx\)/.test(bootstrap));
   assert('exactly one closeLightbox definition survives (the one that unlocks scroll)',
     (read(path.join(PRO_JS, 'customer-tasks-ui.js')).split('window.closeLightbox =').length - 1) === 0
     && (bootstrap.split('window.closeLightbox =').length - 1) === 1);

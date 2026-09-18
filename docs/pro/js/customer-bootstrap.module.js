@@ -632,7 +632,13 @@ async function loadCustomerData(id) {
       const d = new Date(v);
       return isNaN(d) ? null : d;
     };
-    window._nbdTsToDate = tsToDate;
+    // Globals Tranche 3 T3-C (2026-09-18): registry-only, not window — see the
+    // Object.assign block at the end of this file for the rest of this edge.
+    // tsToDate is re-created on every call (it's a closure over nothing, but
+    // it's declared inside this render function, not at module scope), so
+    // this line re-registers it each time, same as the old window assignment did.
+    window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+    window.__NBD_CALL_REGISTRY._nbdTsToDate = tsToDate;
 
     (function renderDaysInStage() {
       const badge = document.getElementById('daysInStageBadge');
@@ -1620,7 +1626,9 @@ function _fetchPhotosRaw(leadId) {
   run.then(cleanup, cleanup);
   return run;
 }
-window._fetchPhotosRaw = _fetchPhotosRaw;
+// Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+// Tranche 3 T3-C, 2026-09-18) — customer-tasks-ui.js's loadPhotosByPhase()
+// reads it from there now, no longer a bare window global.
 
 // Team visibility for ESTIMATES (audit 2026-08-02): the three estimate reads
 // on this page hard-scoped to the signed-in uid, so a company_admin/manager
@@ -1675,14 +1683,13 @@ async function loadPhotos(leadId) {
       </div>`;
   }
 }
-// Exported (2026-09-17 — was missing): customer-tasks-ui.js's delete
-// handlers call this to refresh #photoList after removing a photo from the
-// phase grid. They referenced a bare `loadPhotos(...)`, but this function
-// is module-scoped here and customer-tasks-ui.js is a separate classic
-// script — that call threw ReferenceError every time, silently swallowed
-// by an empty catch block, so the overview strip never actually refreshed
-// after a delete despite the surrounding comments saying it would.
-window.loadPhotos = loadPhotos;
+// customer-tasks-ui.js's delete handlers call this to refresh #photoList
+// after removing a photo from the phase grid — it's module-scoped here and
+// customer-tasks-ui.js is a separate classic script, so it needs a bridge
+// (2026-09-17: a bare `loadPhotos(...)` call there threw ReferenceError
+// every time, silently swallowed by an empty catch block). Registered in
+// __NBD_CALL_REGISTRY at the end of this file (Globals Tranche 3 T3-C,
+// 2026-09-18), no longer a bare window global.
 
 // The only genuinely concurrent caller of loadPhotos()/loadPhotosByPhase() —
 // used at the two lifecycle points where a homeowner/rep needs BOTH
@@ -2079,10 +2086,12 @@ window.openLightbox = function(index, srcArray) {
 // Handshake for foreign openers (customer-tasks-ui.js's openPhotoLightbox,
 // which is handed a bare url): tell the arrows which array they're paging and
 // where in it the visible photo sits. Pass an empty array to disable paging.
-window.setLightboxSource = function(srcArray, idx) {
+// Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+// Tranche 3 T3-C, 2026-09-18), no longer a bare window global.
+function setLightboxSource(srcArray, idx) {
   _lightboxSource = Array.isArray(srcArray) ? srcArray : null;
   _lightboxIndex = Number(idx) || 0;
-};
+}
 
 window.closeLightbox = function() {
   document.getElementById('lightbox').classList.remove('active');
@@ -3717,3 +3726,26 @@ window.applyTimelineCollapse = function() {
     }
   }
 };
+
+// ── Globals Tranche 3 T3-C (2026-09-18) ──────────────────────────────
+// customer-bootstrap.module.js → customer-tasks-ui.js edge. This page has
+// no dashboard-bootstrap.module.js, so this is the first use of
+// __NBD_CALL_REGISTRY on customer.html — same pattern as the
+// dashboard-bootstrap.module.js edges (see globals-tranche3-plan.md), just
+// a fresh registry object rather than a shared one. _nbdTsToDate registers
+// itself inline near its own definition above instead of here — it's
+// declared inside a render function, not at module top level, so it isn't
+// in scope at this point in the file.
+//
+// _bookingAsk/_bookingCustomerName/_bookingUrl/_currentStage were also
+// census candidates for this edge but are shared DATA (strings set on one
+// event, read on another), not callables — they can't go through a call
+// registry the way a function can, so they stay on window, same reasoning
+// as dashboard-bootstrap.module.js's window._reports (see the plan doc's
+// 2026-09-18 update).
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  _fetchPhotosRaw: _fetchPhotosRaw,
+  loadPhotos: loadPhotos,
+  setLightboxSource: setLightboxSource,
+});

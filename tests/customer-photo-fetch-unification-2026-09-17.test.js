@@ -20,8 +20,9 @@
  * overview strip. customer-tasks-ui.js is a classic script and loadPhotos()
  * is module-scoped in customer-bootstrap.module.js — that call threw
  * ReferenceError every time, silently swallowed by an empty catch block, so
- * #photoList never actually refreshed after a delete. loadPhotos is now
- * exported to window and both call sites use window.loadPhotos.
+ * #photoList never actually refreshed after a delete. Both call sites now
+ * read loadPhotos off the __NBD_CALL_REGISTRY bridge (Globals Tranche 3
+ * T3-C, 2026-09-18 — registry-only, not a bare window export).
  *
  * House style: vm-lift the de-dup logic (the actual novel/risky code) for
  * direct scenario testing; source-shape assert the higher-level plumbing
@@ -111,7 +112,8 @@ function makeCtx({ uid }) {
 await group('source contract', () => {
   ok('_photoQueryScopes is present and liftable', !!photoQueryScopesSrc, 'if it moved, update the extractor');
   ok('_fetchPhotosRaw is present and liftable', !!fetchPhotosRawSrc, 'if it moved, update the extractor');
-  ok('_fetchPhotosRaw is exported for customer-tasks-ui.js to reuse', /window\._fetchPhotosRaw\s*=\s*_fetchPhotosRaw/.test(BOOT));
+  ok('_fetchPhotosRaw is registered in __NBD_CALL_REGISTRY for customer-tasks-ui.js to reuse (Globals Tranche 3 T3-C)',
+    /\b_fetchPhotosRaw:\s*_fetchPhotosRaw\b/.test(BOOT));
 });
 
 if (photoQueryScopesSrc && fetchPhotosRawSrc) {
@@ -227,8 +229,9 @@ await group('loadNewPortalSections no longer double-loads photos-by-phase', () =
    ══════════════════════════════════════════════════════════════════ */
 await group('loadPhotosByPhase routes through the shared fetch', () => {
   const start = TASKS_UI.indexOf('window.loadPhotosByPhase = async function');
-  const body = decomment(TASKS_UI.slice(start, start + 1700));
-  ok('fetchFresh calls window._fetchPhotosRaw', /window\._fetchPhotosRaw\(leadId\)/.test(body));
+  const body = decomment(TASKS_UI.slice(start, start + 1900));
+  ok('fetchFresh calls _fetchPhotosRaw off the registry (Globals Tranche 3 T3-C)',
+    /window\.__NBD_CALL_REGISTRY\._fetchPhotosRaw\(leadId\)/.test(body));
   ok('no more independent getDocs() call in this function', !/window\.getDocs\(/.test(body));
   ok('still maps through photoDocToView (its own transform is untouched)', /photoDocToView\(/.test(body));
   ok('still wrapped in NBDIDBCache.revalidate with the same 30-day maxAgeMs (its own caching is untouched)',
@@ -239,16 +242,16 @@ await group('loadPhotosByPhase routes through the shared fetch', () => {
    6. The discovered-in-passing bug: delete handlers called a bare,
       undefined loadPhotos() from a classic script
    ══════════════════════════════════════════════════════════════════ */
-await group('delete handlers call window.loadPhotos (the bare reference was ReferenceError, silently swallowed)', () => {
-  ok('loadPhotos is exported to window', /window\.loadPhotos\s*=\s*loadPhotos/.test(BOOT));
+await group('delete handlers call loadPhotos off the registry (the bare reference was ReferenceError, silently swallowed)', () => {
+  ok('loadPhotos is registered in __NBD_CALL_REGISTRY (Globals Tranche 3 T3-C)', /\bloadPhotos:\s*loadPhotos\b/.test(BOOT));
   const bulkIdx = TASKS_UI.indexOf("showToast('✓ Deleted '");
   const bulkBefore = TASKS_UI.slice(Math.max(0, bulkIdx - 300), bulkIdx);
-  ok('bulk-delete handler uses window.loadPhotos', /await window\.loadPhotos\(window\._customerId\)/.test(bulkBefore), bulkBefore);
+  ok('bulk-delete handler uses the registry', /await window\.__NBD_CALL_REGISTRY\.loadPhotos\(window\._customerId\)/.test(bulkBefore), bulkBefore);
   const singleIdx = TASKS_UI.indexOf("showToast('Photo deleted'");
   const singleBefore = TASKS_UI.slice(Math.max(0, singleIdx - 300), singleIdx);
-  ok('single-delete handler uses window.loadPhotos', /await window\.loadPhotos\(window\._customerId\)/.test(singleBefore), singleBefore);
-  ok('no remaining BARE (non-window-qualified) loadPhotos( call anywhere in customer-tasks-ui.js',
-    !/[^.\w]loadPhotos\(/.test(decomment(TASKS_UI).replace(/window\.loadPhotos\(/g, '')));
+  ok('single-delete handler uses the registry', /await window\.__NBD_CALL_REGISTRY\.loadPhotos\(window\._customerId\)/.test(singleBefore), singleBefore);
+  ok('no remaining BARE (non-dot-qualified) loadPhotos( call anywhere in customer-tasks-ui.js',
+    !/[^.\w]loadPhotos\(/.test(decomment(TASKS_UI).replace(/window\.__NBD_CALL_REGISTRY\.loadPhotos\(/g, '')));
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
