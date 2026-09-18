@@ -34,11 +34,30 @@
  *   the tray       a "Pending texts (N)" pill → modal listing each held or
  *                  queued text with Send now / Send anyway / Edit / Discard.
  *
+ * A text queued after a LIVE attempt keeps that attempt's clientMsgId
+ * (nbd-comms.js mints it before the fetch). If the attempt reached sendSMS
+ * before the connection died, the server's claim on that id makes the replay
+ * answer "in_flight" / "duplicate" instead of texting the homeowner twice.
+ *
  * NOTHING in the flush path opens an sms: handoff. The one handoff this file
- * can open is the tray's explicit "Open in Messages" on a text the server
- * answered 402 / 429 / provider_error — answers that, for a queued text, come
- * only after the opt-out register, quiet hours and the activity checks passed
- * (the same contract nbd-comms.js applies to a live 402/429).
+ * can open is the tray's explicit "Open in Messages", and only on a FRESH
+ * server answer: the tap re-sends the text (queued: true) and hands off only
+ * if THAT request answers 402 / 429 / provider_error — answers that, for a
+ * queued text, come only after the opt-out register, quiet hours and the
+ * activity checks passed in the same request (the contract nbd-comms.js
+ * applies to a live 402/429). An old hold is never enough: the homeowner may
+ * have replied STOP since, or it may be 11pm.
+ *
+ * ── Stamping what went out: receipts ─────────────────────────────────────
+ * Invoices, deal rooms and portal shares are marked "sent" only when the text
+ * really goes. The send can happen in another tab, on page load, or on a page
+ * that never loads the stamping module (invoice-pipeline.js is lazy on
+ * customer.html, close-board.js loads with its view). So a sent text that
+ * carries source + sourceRef leaves a small RECEIPT here (no phone number, no
+ * message) and each consumer registers with onSent(source, fn) when it loads;
+ * the receipt is deleted only once a handler for its source has applied it.
+ * Receipts are drained in every tab (BroadcastChannel), and pruned after a
+ * week if nothing ever claims them.
  *
  * ── Storage: its own IndexedDB, not offline-manager's ────────────────────
  * Same reasoning as photo-queue-store.js's header: offline-manager.js's
@@ -50,11 +69,15 @@
  *
  * ── PII on the device ────────────────────────────────────────────────────
  * A record holds the recipient's phone number and the message until it is
- * sent (then removed) or discarded. Every record carries the uid that wrote
- * it and every read filters on the signed-in uid. The WHOLE store is purged
- * on sign-out (nbd-auth.js purgeAccountStorage/logout, the dashboard's
- * _signOut) and on account switch (purgeAccountStorage's uid-change path,
- * plus this module's own boot check). Same class of data as the photo queue.
+ * sent (then removed, or reduced to a receipt with neither) or discarded.
+ * Every record carries the uid that wrote it and every read filters on the
+ * signed-in uid. The WHOLE store is purged on sign-out (nbd-auth.js
+ * purgeAccountStorage/logout, the dashboard's _signOut, command-palette.js's
+ * SDK fallback on customer.html) and on account switch (purgeAccountStorage's
+ * uid-change path, plus this module's own boot check). As a backstop for any
+ * other sign-out path, this module also purges itself when the page's auth
+ * (window.auth) reports no user after a signed-in one. Same class of data as
+ * the photo queue.
  *
  * ── No IndexedDB (private mode, storage disabled) ────────────────────────
  * enqueue() rejects with reason 'unavailable' and nbd-comms.js falls back to
@@ -99,10 +122,27 @@
   const LEASE_KEY = 'nbd_sms_outbox_lease';
   const LEASE_MS = 45 * 1000;
 
+  // A client message id the server accepts (functions/sms-outbox-guard.js
+  // CLIENT_MSG_ID_RE). nbd-comms.js may hand enqueue() the id it already
+  // sent on the live attempt; anything else gets a fresh one.
+  const CLIENT_ID_RE = /^[A-Za-z0-9_-]{16,64}$/;
+
+  // Receipts (see the header): kept until a handler for their source applies
+  // them, at most this long. An 'acking' receipt older than ACK_ORPHAN_MS was
+  // left by a page that died mid-handler and is offered again.
+  const RECEIPT_KEEP_MS = 7 * 24 * 60 * 60 * 1000;
+  const ACK_ORPHAN_MS = 2 * 60 * 1000;
+  const ACK_TIMEOUT_MS = 20 * 1000;
+
+  // An edit remembers at most this many ids it replaces (server: MAX_SUPERSEDES).
+  const MAX_SUPERSEDES = 5;
+
   const ACTIVE = { queued: 1, sending: 1, held: 1 };
 
   // Server answers the tray may turn into a device handoff on an explicit tap
-  // (see the header): each comes only after the opt-out + hold checks passed.
+  // (see the header) — and only when the answer is FRESH, from a request made
+  // at the moment of the tap. Each comes only after the opt-out + hold checks
+  // passed in that same request.
   const HANDOFF_OK = { plan_required: 1, rate_limited: 1, provider_error: 1 };
   // Holds the rep may override with "Send anyway" (overrideActivity). The
   // server enforces the same list; this only decides which button to show.
@@ -118,7 +158,7 @@
     recent_outbound: 'Someone already texted this number',
     lead_changed: 'Lead changed',
     lead_gone: 'Lead was deleted',
-    in_flight: 'Already being sent — check the conversation first',
+    in_flight: 'May already have gone — check the conversation first',
     plan_required: 'Texting from the app needs a paid plan',
     rate_limited: 'Text limit reached — try later',
     provider_error: 'Text provider error — try again',
@@ -323,7 +363,9 @@
     if (!body.trim()) throw _fail('bad-item', 'SMS outbox needs a message');
     const createdAt = (typeof i.createdAt === 'number' && isFinite(i.createdAt)) ? i.createdAt : _now();
     const rec = {
-      id: _newId(),
+      // The live attempt's id when there was one (nbd-comms.js): the server
+      // may already hold a claim on it, which is the whole point.
+      id: (typeof i.id === 'string' && CLIENT_ID_RE.test(i.id)) ? i.id : _newId(),
       uid: uid,
       to: to,
       toDigits: _digits10(to),
@@ -338,6 +380,10 @@
       heldReason: null,
       heldMessage: null,
       attempts: 0,
+      // True while this id's last attempt ended without a server verdict
+      // (network drop, 5xx): it may have gone out. See _flushInner.
+      uncertain: !!i.uncertain,
+      supersedes: null,
       overrides: {},
       updatedAt: _now(),
     };
@@ -364,12 +410,16 @@
     return stored;
   }
 
-  /** The signed-in user's records, oldest first. Rejects when storage is unusable. */
+  /**
+   * The signed-in user's texts — waiting (queued / sending / held) or
+   * discarded — oldest first. Receipts of sent texts are not listed.
+   * Rejects when storage is unusable.
+   */
   async function list(uid) {
     const u = uid || _uid();
     if (!u) return [];
     const rows = await _all();
-    return rows.filter((r) => r && r.uid === u && r.status !== 'sent').sort(_byAge);
+    return rows.filter((r) => r && r.uid === u && (ACTIVE[r.status] || r.status === 'discarded')).sort(_byAge);
   }
 
   /** How many texts are waiting (queued / sending / held) for the signed-in user; null when unknown. */
@@ -516,16 +566,24 @@
 
     const start = _now();
 
-    // Housekeeping: a 'sent' row whose removal did not commit is removed now;
-    // orphaned 'sending' rows go back to 'queued'; old discarded rows are
-    // pruned.
+    // Housekeeping: a 'sent' row that is not a receipt (its removal did not
+    // commit) is removed now, and so is a receipt nothing claimed in a week;
+    // a receipt a dead page was applying is offered again; orphaned 'sending'
+    // rows go back to 'queued'; old discarded rows are pruned.
     for (const r of rows) {
       if (r.status === 'sent') {
-        await _remove(r.id, uid).catch(() => false);
-        r.status = 'pruned';
+        if (!_isReceipt(r) || start - (r.sentAt || r.updatedAt || 0) > RECEIPT_KEEP_MS) {
+          await _remove(r.id, uid).catch(() => false);
+          r.status = 'pruned';
+        }
+      } else if (r.status === 'acking' && start - (r.ackingAt || r.updatedAt || 0) > ACK_ORPHAN_MS) {
+        await _mutate(r.id, uid, (cur) => (cur.status === 'acking'
+          ? Object.assign(cur, { status: 'sent', ackingAt: null }) : null)).catch(() => null);
       } else if (r.status === 'sending' && start - (r.sendingAt || r.updatedAt || 0) > SENDING_ORPHAN_MS) {
         const back = await _mutate(r.id, uid, (cur) => (cur.status === 'sending'
-          ? Object.assign(cur, { status: 'queued' }) : null)).catch(() => null);
+          // The page died mid-request: whether it reached the server is
+          // unknown, so the replay (same id) must ask the server first.
+          ? Object.assign(cur, { status: 'queued', uncertain: true }) : null)).catch(() => null);
         if (back) Object.assign(r, back);
       } else if (r.status === 'discarded' && start - (r.discardedAt || r.updatedAt || 0) > DISCARDED_KEEP_MS) {
         await _remove(r.id, uid).catch(() => false);
@@ -533,20 +591,39 @@
       }
     }
 
-    // Duplicate collapse: the same text to the same number is already
-    // pending → the NEWER queued copy is discarded and recorded as such.
-    // A held copy is left for the rep; only queued copies collapse.
+    // Duplicate collapse — the same words to the same number twice:
+    //   - two QUEUED copies: the newer is discarded ('duplicate'), the oldest
+    //     goes on;
+    //   - a newer QUEUED copy of an older HELD one: the held copy is the one
+    //     retired. It is waiting for a tap, and it would otherwise sit ahead
+    //     of the new copy in this number's FIFO and stop it from ever going
+    //     on its own. Only a held copy that certainly did not go out (a
+    //     server verdict or the local stale rule said so, not 'in_flight');
+    //   - a copy that is 'sending', held 'in_flight', or whose last attempt
+    //     ended without an answer may already be on the homeowner's phone:
+    //     the newer queued copy is the one discarded.
+    // Either way the loser is recorded as 'discarded' (reason 'duplicate'),
+    // never silently deleted.
     const firstByText = {};
+    const discardAsDuplicate = async (loser, keepId, fromStatus) => {
+      const dup = await _mutate(loser.id, uid, (cur) => (cur.status === fromStatus
+        ? Object.assign(cur, { status: 'discarded', heldReason: 'duplicate', duplicateOf: keepId, discardedAt: _now() })
+        : null)).catch(() => null);
+      if (dup) { Object.assign(loser, dup); summary.duplicates++; }
+      return !!dup;
+    };
     for (const r of rows) {
       if (!ACTIVE[r.status]) continue;
       const key = r.toDigits + '\u0000' + r.body;
-      if (!firstByText[key]) { firstByText[key] = r.id; continue; }
+      const first = firstByText[key];
+      if (!first) { firstByText[key] = r; continue; }
       if (r.status !== 'queued') continue;
-      const keep = firstByText[key];
-      const dup = await _mutate(r.id, uid, (cur) => (cur.status === 'queued'
-        ? Object.assign(cur, { status: 'discarded', heldReason: 'duplicate', duplicateOf: keep, discardedAt: _now() })
-        : null)).catch(() => null);
-      if (dup) { Object.assign(r, dup); summary.duplicates++; }
+      const retireable = first.status === 'held' && first.heldReason !== 'in_flight' && !first.uncertain;
+      if (retireable) {
+        if (await discardAsDuplicate(first, r.id, 'held')) firstByText[key] = r;
+      } else {
+        await discardAsDuplicate(r, first.id, 'queued');
+      }
     }
 
     // Per-recipient FIFO. Recipients in order of their oldest pending text;
@@ -564,8 +641,15 @@
     for (const key of order) {
       for (const r of byRecipient[key]) {
         if (r.status !== 'queued') break;           // held / sending ahead of it
-        if (_now() - r.createdAt >= STALE_MS) {
-          // Too old to send without the rep looking at it. No server call.
+        // Too old to send without the rep looking at it — decided HERE, with
+        // no server call, only for a text that has never reached the server.
+        // One that may have (a live attempt or a replay whose answer was
+        // lost) goes to the server without overrides: the idempotency peek
+        // runs first there and answers "duplicate" if it already went, else
+        // the server's own stale rule holds it. A local hold would show a
+        // delivered text as unsent — and invite an Edit or a Discard that
+        // skips the invoice / deal stamp.
+        if (_now() - r.createdAt >= STALE_MS && !(r.attempts > 0 || r.uncertain)) {
           const held = await _mutate(r.id, uid, (cur) => (cur.status === 'queued'
             ? Object.assign(cur, { status: 'held', heldReason: 'stale', heldMessage: null, heldAt: _now() })
             : null)).catch(() => null);
@@ -583,6 +667,10 @@
     }
     _announce(summary);
     _changed();
+    // Receipts a handler could not apply last time (Firestore not ready,
+    // offline) get another go on every flush. Not awaited: a slow handler
+    // must not hold the flush lock.
+    _drainReceipts();
     return summary;
   }
 
@@ -624,28 +712,21 @@
       res = { outcome: 'network', message: e && e.message };
     }
     res = res || { outcome: 'retry' };
+    // The caller (openInMessages) acts on THIS request's answer, never on a
+    // stored one.
+    summary.last = res;
     const setStatus = (patch) => _mutate(claimed.id, uid, (cur) => (cur.status === 'sending'
       ? Object.assign(cur, patch) : null)).catch(() => null);
 
     switch (res.outcome) {
       case 'sent':
       case 'duplicate': {
-        await setStatus({ status: 'sent', sentAt: _now(), sid: res.sid || null });
-        await _remove(claimed.id, uid).catch(() => false);
+        await _recordSent(claimed, uid, res);
         summary.sent++;
-        try {
-          window.dispatchEvent(new CustomEvent('nbd:sms-outbox-sent', {
-            detail: {
-              id: claimed.id, leadId: claimed.leadId, knockId: claimed.knockId,
-              source: claimed.source, sourceRef: claimed.sourceRef,
-              sid: res.sid || null, duplicate: res.outcome === 'duplicate',
-            },
-          }));
-        } catch (_) {}
         return 'continue';
       }
       case 'opted_out': {
-        await setStatus({ status: 'discarded', heldReason: 'opted_out', heldMessage: res.message || null, discardedAt: _now() });
+        await setStatus({ status: 'discarded', heldReason: 'opted_out', heldMessage: res.message || null, discardedAt: _now(), uncertain: false });
         summary.optedOut++;
         _toast('Queued text to ' + _mask(claimed.toDigits) + ' was NOT sent — they opted out of texts (replied STOP).', 'error');
         return 'continue';
@@ -657,17 +738,140 @@
           heldReason: res.reason || (res.outcome === 'refused' ? 'refused' : 'error'),
           heldMessage: res.message || null,
           heldAt: _now(),
+          // A verdict: the server looked at this id and did not send it
+          // (in_flight is its own "may have gone" state).
+          uncertain: false,
         });
         summary.held++;
         return 'stop-recipient';
       }
       default: {
-        // network / retry / auth: it never got a verdict. Put it back exactly
-        // as it was — a flush's text stays queued, an explicit tap's stays held.
-        await setStatus(prev);
+        // network / retry / auth: it never got a verdict. Put it back as it
+        // was — a flush's text stays queued, an explicit tap's stays held —
+        // but remember that a network drop or a 5xx may have come AFTER the
+        // server sent it, so nothing later treats it as certainly unsent.
+        const back = Object.assign({}, prev);
+        if (res.outcome === 'network' || res.outcome === 'retry') back.uncertain = true;
+        await setStatus(back);
         summary.stoppedBy = res.outcome === 'auth' ? 'auth' : (res.outcome === 'retry' ? 'retry' : 'network');
         if (explicit) summary.lastMessage = res.message || null;
         return 'stop-all';
+      }
+    }
+  }
+
+  // ── Sent: receipts for the callers that stamp things ──────────────────
+
+  function _isReceipt(r) {
+    return !!(r && typeof r.source === 'string' && r.source && typeof r.sourceRef === 'string' && r.sourceRef);
+  }
+
+  /**
+   * A text went out (now, or on an earlier attempt whose answer was lost).
+   * With a source + sourceRef it becomes a RECEIPT — phone number and message
+   * dropped — that waits here until a handler registered with onSent() for
+   * that source applies it; without one it is simply removed.
+   */
+  async function _recordSent(rec, uid, res) {
+    const sid = (res && res.sid) || null;
+    const duplicate = !!(res && res.outcome === 'duplicate');
+    if (_isReceipt(rec)) {
+      await _mutate(rec.id, uid, (cur) => (cur.status === 'sending'
+        ? Object.assign(cur, {
+          status: 'sent', sentAt: _now(), sid: sid, duplicate: duplicate,
+          to: '', toDigits: '', body: '', heldReason: null, heldMessage: null, overrides: {},
+        })
+        : null)).catch(() => null);
+    } else {
+      await _mutate(rec.id, uid, (cur) => (cur.status === 'sending'
+        ? Object.assign(cur, { status: 'sent', sentAt: _now(), sid: sid }) : null)).catch(() => null);
+      await _remove(rec.id, uid).catch(() => false);
+    }
+    try {
+      // In-tab notification only (UI refresh). Stamps that must not be lost
+      // use onSent(): this event reaches only listeners loaded in THIS tab.
+      window.dispatchEvent(new CustomEvent('nbd:sms-outbox-sent', {
+        detail: {
+          id: rec.id, leadId: rec.leadId, knockId: rec.knockId,
+          source: rec.source, sourceRef: rec.sourceRef,
+          sid: sid, duplicate: duplicate,
+        },
+      }));
+    } catch (_) {}
+    if (_isReceipt(rec)) {
+      if (_bc) { try { _bc.postMessage('receipt'); } catch (_) {} }
+      _drainReceipts();
+    }
+  }
+
+  // source → handler(detail) for this tab (see onSent).
+  const _handlers = {};
+  let _draining = null;
+  let _drainAgain = false;
+
+  /**
+   * A caller that stamps something when its text goes out (invoice → sent,
+   * deal → SENT, portal share) registers here. `handler(detail)` gets
+   * { id, source, sourceRef, leadId, knockId, sid, sentAt, duplicate } and
+   * may return a promise. Resolving (with anything) applies the receipt and
+   * deletes it; throwing / rejecting leaves it for the next drain (e.g. the
+   * page's Firestore globals are not up yet). Receipts already waiting — from
+   * another tab, from before this module loaded — are applied now.
+   */
+  function onSent(source, handler) {
+    if (typeof source !== 'string' || !source || typeof handler !== 'function') return false;
+    _handlers[source] = handler;
+    _drainReceipts();
+    return true;
+  }
+
+  function _drainReceipts() {
+    if (!Object.keys(_handlers).length) return Promise.resolve();
+    if (_draining) { _drainAgain = true; return _draining; }
+    _draining = (async () => {
+      try { await _drainInner(); }
+      catch (e) { console.warn('[NBDSmsOutbox] receipt drain failed:', e && e.message); }
+      finally {
+        _draining = null;
+        if (_drainAgain) { _drainAgain = false; setTimeout(() => { _drainReceipts(); }, 0); }
+      }
+    })();
+    return _draining;
+  }
+
+  function _withTimeout(p, ms) {
+    let t;
+    return Promise.race([
+      Promise.resolve(p),
+      new Promise((_, reject) => { t = setTimeout(() => reject(new Error('handler timed out')), ms); }),
+    ]).finally(() => clearTimeout(t));
+  }
+
+  async function _drainInner() {
+    const uid = _uid();
+    if (!uid) return;
+    const rows = (await _all()).filter((r) => r && r.uid === uid && r.status === 'sent'
+      && _isReceipt(r) && typeof _handlers[r.source] === 'function').sort(_byAge);
+    for (const r of rows) {
+      // Cross-tab compare-and-set: only one tab applies a receipt.
+      const taken = await _mutate(r.id, uid, (cur) => (cur.status === 'sent'
+        ? Object.assign(cur, { status: 'acking', ackingAt: _now() }) : null)).catch(() => null);
+      if (!taken) continue;
+      let applied = false;
+      try {
+        await _withTimeout(_handlers[r.source]({
+          id: taken.id, source: taken.source, sourceRef: taken.sourceRef,
+          leadId: taken.leadId || null, knockId: taken.knockId || null,
+          sid: taken.sid || null, sentAt: taken.sentAt || null, duplicate: !!taken.duplicate,
+        }), ACK_TIMEOUT_MS);
+        applied = true;
+      } catch (e) {
+        console.warn('[NBDSmsOutbox] ' + r.source + ' receipt not applied yet:', e && e.message);
+      }
+      if (applied) await _remove(r.id, uid).catch(() => false);
+      else {
+        await _mutate(r.id, uid, (cur) => (cur.status === 'acking'
+          ? Object.assign(cur, { status: 'sent', ackingAt: null }) : null)).catch(() => null);
       }
     }
   }
@@ -747,7 +951,9 @@
   /**
    * Edit the message and send it. A NEW client message id — the edited text
    * is a different text — but the ORIGINAL queue time, so activity since the
-   * rep first wrote it is still checked.
+   * rep first wrote it is still checked. The edit also names the id(s) it
+   * replaces (`supersedes`): if one of them reached Twilio after all, the
+   * server holds the edit instead of texting the homeowner a second time.
    */
   async function editAndSend(id, newBody) {
     const body = typeof newBody === 'string' ? newBody : '';
@@ -764,6 +970,9 @@
           if (!cur || cur.uid !== uid || !(cur.status === 'held' || cur.status === 'queued')) { done(null); return; }
           const next = Object.assign({}, cur, {
             id: newId, body: body, status: 'held', editedAt: _now(), updatedAt: _now(),
+            supersedes: (Array.isArray(cur.supersedes) ? cur.supersedes : []).concat([cur.id]).slice(-MAX_SUPERSEDES),
+            // Attempts belong to an id; the new id has none yet.
+            attempts: 0, uncertain: false, overrides: {},
           });
           store.delete(id);
           store.add(next);
@@ -776,14 +985,46 @@
   }
 
   /**
-   * Hand a text the server answered 402 / 429 / provider_error to the device
-   * Messages app — an explicit tap only, never from flush(). Removes it from
-   * the outbox: it now lives in Messages.
+   * Hand a held text to the device Messages app — an explicit tap only, never
+   * from flush(), and never on the strength of the stored hold. The stored
+   * 402 / 429 / provider_error may be days old: since then the homeowner may
+   * have replied STOP (the register is global per number), texted back, or it
+   * may be 11pm. So the tap first re-sends the text (queued: true, the tap's
+   * overrideStale only — never overrideActivity), and the handoff happens only
+   * if THAT answer is again 402 / 429 / provider_error, which the server gives
+   * only after opt-out, quiet hours and the activity checks passed in the
+   * same request. Any other answer is applied as usual (sent → done, held →
+   * the new reason, opted out → discarded, no network → nothing changes).
+   * Removes the text from the outbox once handed off: it now lives in Messages.
    */
   async function openInMessages(id) {
     const found = await _find(id).catch(() => ({ rec: null }));
     const rec = found.rec;
     if (!rec || rec.status !== 'held' || !HANDOFF_OK[rec.heldReason]) return false;
+    if (!window.NBDComms || typeof window.NBDComms.sendQueued !== 'function') return false;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      _toast('Still offline — the text stays in Pending texts.', 'warning');
+      return false;
+    }
+    const summary = { sent: 0, held: 0, duplicates: 0, optedOut: 0, stoppedBy: null, last: null };
+    const step = await _sendOne(rec, found.uid, (cur) => cur.status === 'held' && !!HANDOFF_OK[cur.heldReason],
+      { stale: true }, summary, true);
+    const fresh = summary.last;
+    if (step === 'skipped') { _toast('That text is already being sent.', 'info'); _changed(); return false; }
+    if (!(fresh && fresh.outcome === 'held' && HANDOFF_OK[fresh.reason])) {
+      // Not a handoff verdict. Tell the rep what the server said instead.
+      if (summary.sent) _toast('Text sent', 'success');
+      else if (summary.held) {
+        const after = await _find(id).catch(() => ({ rec: null }));
+        _toast('Not sent — ' + (after.rec ? _reasonText(after.rec) : 'held') + '.', 'warning');
+      } else if (summary.stoppedBy) {
+        _toast(summary.stoppedBy === 'auth'
+          ? 'Sign in again to send texts — it stays in Pending texts.'
+          : 'Could not reach the server — the text stays in Pending texts.', 'warning');
+      }
+      _changed();
+      return false;
+    }
     const href = 'sms:' + encodeURIComponent(rec.to) + '?body=' + encodeURIComponent(rec.body || '');
     try {
       const a = document.createElement('a');
@@ -935,7 +1176,10 @@
     bg.className = 'modal-bg';
     bg.id = MODAL_ID;
     const card = document.createElement('div');
-    card.className = 'modal';
+    // Both card contracts: dashboard-app.css styles `.modal`, customer.html
+    // styles `.modal-content` (and has no `.modal` rule) — with one class the
+    // card had no background, border or padding on the customer page.
+    card.className = 'modal modal-content';
     card.setAttribute('role', 'dialog');
     card.setAttribute('aria-modal', 'true');
     card.setAttribute('aria-labelledby', MODAL_ID + '-title');
@@ -981,6 +1225,10 @@
     if (r.status === 'queued') return [['Send now', 'send', 'btn-orange'], ['Discard', 'discard', 'btn-ghost']];
     const reason = r.heldReason;
     if (reason === 'lead_gone') return [['Discard', 'discard', 'btn-ghost']];
+    // It may already be on the homeowner's phone. "Check again" asks the
+    // server about THIS id (it answers "duplicate" once it knows it went);
+    // no Edit — a new id for the same words is how a double text happens.
+    if (reason === 'in_flight') return [['Check again', 'send', 'btn-ghost'], ['Discard', 'discard', 'btn-ghost']];
     if (ACTIVITY_HOLDS[reason]) {
       return [['Send anyway', 'send-anyway', 'btn-orange'], ['Edit', 'edit', 'btn-ghost'], ['Discard', 'discard', 'btn-ghost']];
     }
@@ -1122,24 +1370,53 @@
     });
   }
 
+  // Backstop for every sign-out path this module does not know about (the
+  // named ones — nbd-auth.js logout, the dashboard's _signOut, the command
+  // palette — purge before signOut): when the page's Firebase Auth reports
+  // NO user after having had one — signed out here, or in another tab — the
+  // store is purged. Only on that transition: a page that never had a user
+  // (still booting) purges nothing.
+  let _authWatched = false;
+  function _watchAuthDrop() {
+    if (_authWatched) return;
+    const a = window.auth || window._auth || null;
+    if (!a || typeof a.onAuthStateChanged !== 'function') return;
+    _authWatched = true;
+    let seen = !!_uid();
+    try {
+      a.onAuthStateChanged((u) => {
+        if (u && u.uid) { seen = true; return; }
+        if (!seen) return;
+        seen = false;
+        _lastUid = null;
+        purgeAll().catch(() => false);
+      });
+    } catch (_) { _authWatched = false; }
+  }
+
   function _boot() {
     try {
       if (typeof BroadcastChannel === 'function') {
         _bc = new BroadcastChannel('nbd-sms-outbox');
-        _bc.onmessage = () => _scheduleRender();
+        // Another tab changed the store: repaint, and apply any receipt it
+        // left that a handler in THIS tab can stamp.
+        _bc.onmessage = () => { _scheduleRender(); _drainReceipts(); };
       }
     } catch (_) { _bc = null; }
     window.addEventListener('online', () => { flush('online'); });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') flush('visible');
     });
+    _watchAuthDrop();
     _waitForUser().then(async (uid) => {
       if (!uid) return;
+      _watchAuthDrop();
       // Account switch on a shared device: another account's texts are
       // deleted before anything is shown or sent — even while offline, when
       // flush() below returns early.
       try { await _purgeOtherUsers(uid); _lastUid = uid; } catch (_) {}
       _scheduleRender();
+      _drainReceipts();
       flush('load');
     });
   }
@@ -1155,6 +1432,10 @@
     openInMessages: openInMessages,
     openTray: openTray,
     purgeAll: purgeAll,
+    onSent: onSent,
+    // nbd-comms.js mints the live attempt's clientMsgId with this, so a text
+    // queued after that attempt keeps the id the server may have claimed.
+    newId: _newId,
     // Pure helpers the tray renders with; exposed for tests/sms-outbox-client.test.js.
     _internals: { actionsFor: _actionsFor, mask: _mask, reasonText: _reasonText },
     MAX_PER_USER: MAX_PER_USER,
@@ -1164,4 +1445,8 @@
   };
 
   _boot();
+
+  // Consumers that loaded BEFORE this file (dashboard.html loads
+  // portal-link-helpers.js earlier) wait for this to call onSent().
+  try { window.dispatchEvent(new CustomEvent('nbd:sms-outbox-ready')); } catch (_) {}
 })();

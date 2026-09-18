@@ -38,8 +38,12 @@
  * Callers that mark invoices "sent" should treat mode:'platform' as delivered
  * and mode:'mailto'|'sms' as "rep initiated client handoff". mode:'queued' is
  * NEITHER: the text is stored on this device and has not gone anywhere — no
- * "sent" stamps, no "Text sent" toasts (listen for 'nbd:sms-outbox-sent' to
- * learn when it actually goes). success:false with mode:'platform' is a
+ * "sent" stamps, no "Text sent" toasts. A caller that stamps something when
+ * the text really goes passes { source, sourceRef } and registers
+ * NBDSmsOutbox.onSent(source, fn): the outbox keeps a durable receipt until
+ * a handler applies it, whichever tab or page load the send happens in (the
+ * 'nbd:sms-outbox-sent' window event is an in-tab notification only and
+ * must not carry a stamp). success:false with mode:'platform' is a
  * REFUSAL the rep has already been told about; an SMS caller must not follow
  * it with its own sms: fallback or a re-send.
  *
@@ -108,8 +112,8 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
   // `leadStage` / `source` / `sourceRef` only matter when the text ends up in
   // the offline outbox: leadStage is what the server compares against the
   // lead's stage at send time (a moved lead holds the text), source/sourceRef
-  // tell the caller's listener which record a later send belongs to (see
-  // 'nbd:sms-outbox-sent' in sms-outbox.js). The positional form takes them
+  // tell the caller's receipt handler which record a later send belongs to
+  // (see onSent in sms-outbox.js). The positional form takes them
   // as an optional 4th options argument (d2d-tracker's call shape).
   function normalizeSmsArgs(a, b, c, d) {
     if (a && typeof a === 'object' && !Array.isArray(a)) {
@@ -268,11 +272,19 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
    * { success: true, mode: 'queued' } means STORED, NOT SENT. Every caller
    * must treat it that way — no "sent" stamps, no "Text sent" toasts.
    */
-  async function _enqueueOffline(args, user, attemptAt) {
+  async function _enqueueOffline(args, user, attemptAt, clientMsgId, attempted) {
     const ob = _outbox();
     if (!ob || !user || !user.uid) return null;
     try {
       const rec = await ob.enqueue({
+        // The live attempt's id: if that request reached sendSMS, the server
+        // claimed it, and the replay answers "in_flight"/"duplicate" rather
+        // than sending the text a second time.
+        id: clientMsgId || undefined,
+        // A real request went out and its answer never came back: it may
+        // have been sent. The outbox then asks the server before any local
+        // "stale" hold (see sms-outbox.js _flushInner).
+        uncertain: !!attempted,
         uid: user.uid,
         to: args.to,
         body: args.body,
@@ -382,24 +394,34 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       }
 
       if (!forceHandoff) {
-        // Taken BEFORE the attempt: if the fetch dies after the server already
-        // sent (a 25s abort on a flaky connection), the outbox's replay is
-        // checked against activity since this moment, so that send shows up
-        // as a competing text and holds the replay instead of doubling it.
+        // Taken BEFORE the attempt: the outbox's replay is checked against
+        // activity since this moment.
         const attemptAt = Date.now();
         const user = _currentUser();
+        // The attempt's idempotency key, minted BEFORE it and sent with it.
+        // If the fetch dies after the request reached sendSMS (a network drop
+        // mid-request, the 25s abort), the outbox stores the text under this
+        // same id; the server claimed it before calling Twilio, so the replay
+        // answers "in_flight" or "duplicate" instead of sending it again. The
+        // activity check alone cannot catch that: the live send's sms_log row
+        // is written only after Twilio returns. No outbox on the page → no id
+        // (and the pre-outbox path exactly).
+        const ob = _outbox();
+        const clientMsgId = (ob && user && typeof ob.newId === 'function') ? ob.newId() : null;
         // Known offline and there is somewhere to keep the text: don't burn
         // a doomed request, queue it now.
-        const plat = (_isOffline() && _outbox() && user)
+        const skipAttempt = !!(_isOffline() && ob && user);
+        const plat = skipAttempt
           ? { ok: false, status: 0, error: 'offline' }
           : await _platformPost('sendSMS', {
             to: to,
             body: body,
             leadId: leadId || undefined,
             knockId: knockId || undefined,
+            clientMsgId: clientMsgId || undefined,
           });
         if (plat.status === 0 && _outbox() && user) {
-          const queued = await _enqueueOffline(args, user, attemptAt);
+          const queued = await _enqueueOffline(args, user, attemptAt, clientMsgId, !skipAttempt);
           if (queued) return queued;
           // null → the outbox could not store it (no IndexedDB): fall through
           // to the pre-outbox behaviour below, which hands off to Messages.
@@ -419,10 +441,16 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         //         threw (a plain-text 500 with no code). Fail closed, as the
         //         server does. 'provider_error' is Twilio failing AFTER the
         //         opt-out check passed, so it still hands off below.
-        if (plat.status === 403 || (plat.status >= 500 && plat.code !== 'provider_error')) {
+        //   409 'held' — this attempt's clientMsgId is already claimed (only
+        //         an outbox replay of the same id can do that): the text is
+        //         in flight or sent. A handoff would be a second text.
+        if (plat.status === 403 || (plat.status >= 500 && plat.code !== 'provider_error')
+          || (plat.status === 409 && plat.code === 'held')) {
           const msg = plat.status === 403
             ? (plat.error || 'Cannot text this number (opted out or not allowed).')
-            : 'Could not confirm this number can be texted — nothing was sent. Try again in a moment.';
+            : plat.status === 409
+              ? 'This text is already being sent — check the conversation before sending it again.'
+              : 'Could not confirm this number can be texted — nothing was sent. Try again in a moment.';
           if (window.showToast) window.showToast(msg, 'error');
           // `error` is the machine code when the server sent one; `message` is
           // what the rep was told (invoice-pipeline surfaces it).
@@ -489,6 +517,9 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         queuedAt: rec.createdAt,
         leadStageAtQueue: rec.leadStageAtQueue || undefined,
       };
+      // An edit names the id(s) it replaces; the server holds it if one of
+      // them reached Twilio after all.
+      if (Array.isArray(rec.supersedes) && rec.supersedes.length) payload.supersedes = rec.supersedes.slice(-5);
       if (opts.overrideStale === true) payload.overrideStale = true;
       if (opts.overrideActivity === true) payload.overrideActivity = true;
       const plat = await _platformPost('sendSMS', payload);

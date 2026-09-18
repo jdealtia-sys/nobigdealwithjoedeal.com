@@ -107,7 +107,9 @@ function makeWorld(opts) {
           if (opts.optOutReadThrows) throw new Error('simulated register outage');
         } else if (p.startsWith('sms_client_ids/')) {
           events.push('idempotency-read');
-          const f = maybeFail('idempotency'); if (f) return f;
+          // 'path:<doc path>' fails ONE claim doc's read (e.g. only the
+          // superseded original's, not the edit's own peek).
+          const f = maybeFail('path:' + p) || maybeFail('idempotency'); if (f) return f;
         } else if (p.startsWith('leads/')) {
           events.push('lead-read');
           const f = maybeFail('lead'); if (f) return f;
@@ -230,6 +232,8 @@ function makeWorld(opts) {
     './shared': {
       requirePaidSubscription: async () => {
         events.push('paid-gate');
+        // A test can park the NEXT request here (a slow gate) with a promise.
+        if (world.parkPaid && world.parkPaid.length) await world.parkPaid.shift();
         return world.unpaid
           ? { ok: false, status: 402, error: 'An active paid subscription is required.' }
           : { ok: true, plan: 'growth' };
@@ -244,8 +248,12 @@ function makeWorld(opts) {
         create: async (msg) => {
           events.push('twilio-create');
           twilioCalls.push(msg);
+          const n = twilioCalls.length;
+          // A test can park the NEXT Twilio call (the request is at Twilio,
+          // the client has given up) with a promise.
+          if (world.parkTwilio && world.parkTwilio.length) await world.parkTwilio.shift();
           if (world.twilioError) throw world.twilioError;
-          return { sid: 'SM-' + twilioCalls.length };
+          return { sid: 'SM-' + n };
         },
       },
     }), { validateRequest: () => true }),
@@ -420,15 +428,49 @@ const logRow = (over) => Object.assign({
       held(res, 'in_flight') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
   }
   {
-    // Twilio refuses (non-21610): nothing went out, so the claim is released
-    // and the rep's retry actually sends.
-    const ctx = load({ twilioError: Object.assign(new Error('Twilio down'), { code: 20500 }) });
+    // Twilio REFUSES (an HTTP 4xx answer, e.g. 21211 invalid number): nothing
+    // went out, so the claim is released and the rep's retry actually sends.
+    const ctx = load({ twilioError: Object.assign(new Error('Invalid To number'), { code: 21211, status: 400 }) });
     const r1 = await send(ctx, queuedBody());
-    ok('Twilio failure on a queued text answers 502 provider_error', r1.statusCode === 502 && r1.body.code === 'provider_error');
+    ok('a definite Twilio refusal (HTTP 4xx) on a queued text answers 502 provider_error', r1.statusCode === 502 && r1.body.code === 'provider_error');
     ok('…and releases the claim (no doc left to answer "duplicate")', !ctx.w.docs.has(claimPath));
+    ok('…its sms_log row is a plain failure (no deliveryUnknown)',
+      smsRows(ctx.w).some((r) => r.status === 'failed' && r.deliveryUnknown === undefined));
     ctx.w.twilioError = null;
     const r2 = await send(ctx, queuedBody());
     ok('…so the retry sends for real (not "duplicate")', r2.statusCode === 200 && !r2.body.duplicate && ctx.w.twilioCalls.length === 2, JSON.stringify(r2.body));
+  }
+  // Twilio MAY have taken the text: a socket error, a Twilio 5xx, or an error
+  // with no HTTP status at all. Releasing the claim there let the rep's retry
+  // text the homeowner a second time.
+  for (const [label, err] of [
+    ['ECONNRESET (connection dropped after the request left)', Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' })],
+    ['a socket timeout', Object.assign(new Error('timeout of 30000ms exceeded'), { code: 'ETIMEDOUT' })],
+    ['Twilio 5xx (status 503)', Object.assign(new Error('Service Unavailable'), { code: 20503, status: 503 })],
+    ['Twilio 20500 with no HTTP status', Object.assign(new Error('Internal Server Error'), { code: 20500 })],
+  ]) {
+    const ctx = load({ twilioError: err });
+    const r1 = await send(ctx, queuedBody());
+    const claim = ctx.w.docs.get(claimPath) || {};
+    ok(label + ': queued text answers 409 held in_flight (not 502 — nothing to retry or hand off)',
+      held(r1, 'in_flight'), r1.statusCode + ' ' + JSON.stringify(r1.body));
+    ok(label + ': the claim is KEPT, marked "unknown"', claim.status === 'unknown', JSON.stringify(claim));
+    ok(label + ': the sms_log row says the outcome is unknown',
+      smsRows(ctx.w).some((r) => r.status === 'failed' && r.deliveryUnknown === true && r.clientMsgId === CLIENT_ID));
+    ctx.w.twilioError = null;
+    const r2 = await send(ctx, queuedBody({ overrideStale: true }));
+    ok(label + ': the retry (even an explicit tap) holds in_flight — ONE Twilio call in total',
+      held(r2, 'in_flight') && ctx.w.twilioCalls.length === 1, r2.statusCode + ' calls=' + ctx.w.twilioCalls.length);
+  }
+  {
+    // Nothing reached Twilio (the failure was before messages.create): the
+    // claim is released even with no HTTP status on the error.
+    const ctx = load({});
+    ctx.w.stubs.twilio = Object.assign(() => { throw Object.assign(new Error('bad credentials format'), { code: 'EBADCFG' }); },
+      { validateRequest: () => true });
+    const r = await send(ctx, queuedBody());
+    ok('an error BEFORE the Twilio request (client construction) releases the claim and answers 502',
+      r.statusCode === 502 && !ctx.w.docs.has(claimPath) && ctx.w.twilioCalls.length === 0, r.statusCode + ' ' + JSON.stringify(ctx.w.docs.get(claimPath)));
   }
   {
     const ctx = load({ twilioError: Object.assign(new Error('unsubscribed'), { code: 21610 }) });
@@ -450,6 +492,164 @@ const logRow = (over) => Object.assign({
   {
     const { res } = await scenario({ limited: ['sendSMS:to'] });
     ok('a per-recipient 429 on a queued text leaves no claim', res.statusCode === 429 && !world.docs.has(claimPath));
+  }
+  {
+    const { res, w, Outbox } = await scenario({});
+    const claim = w.docs.get(claimPath) || {};
+    ok('the claim doc carries expireAt = claim time + CLAIM_TTL_MS (a Date, for the Firestore TTL policy)',
+      res.statusCode === 200 && claim.expireAt instanceof Date && claim.expireAt.getTime() === NOON + Outbox.CLAIM_TTL_MS,
+      String(claim.expireAt));
+    ok('…and CLAIM_TTL_MS outlives every replay that could still carry the id (> the 7-day queuedAt bound)',
+      Outbox.CLAIM_TTL_MS > Outbox.MAX_QUEUE_AGE_MS);
+  }
+
+  // ═══ a LIVE send that carries a clientMsgId claims it ══════════════════
+  // nbd-comms.js mints the id before the live attempt; when the attempt dies
+  // at the client (network drop, the 25s abort) the outbox stores the text
+  // under the SAME id and replays it with queuedAt = the attempt time.
+  console.log('LIVE send with a clientMsgId — the replay of a live send that reached Twilio');
+  const liveBody = (over) => Object.assign({ to: PHONE_TYPED, body: 'Running 10 min late — see you soon.', clientMsgId: CLIENT_ID }, over || {});
+  {
+    const { res, w } = await scenario({}, liveBody());
+    const claim = w.docs.get(claimPath) || {};
+    ok('live send with a clientMsgId: 200 { success, sid } — the same shape as ever',
+      res.statusCode === 200 && Object.keys(res.body).sort().join() === 'sid,success', JSON.stringify(res.body));
+    ok('…claims the id (live:true) and marks it sent', claim.status === 'sent' && claim.live === true && claim.twilioSid === 'SM-1', JSON.stringify(claim));
+    ok('…still runs no outbox checks (quiet hours / activity / lead)',
+      !w.events.some((e) => /^(idempotency-read|activity-read|lead-read)/.test(e)), w.events.join(' > '));
+    const row = smsRows(w)[0] || {};
+    ok('…its sms_log row carries the clientMsgId but is not marked queued', row.clientMsgId === CLIENT_ID && row.queued === undefined);
+  }
+  {
+    const { res, w } = await scenario({ now: ET_EDT(22, 0) }, liveBody({ clientMsgId: 'short' }));
+    ok('live send with a malformed clientMsgId: no claim, sent as before (and no quiet hours on a live send)',
+      res.statusCode === 200 && ![...w.docs.keys()].some((p) => p.startsWith('sms_client_ids/')));
+  }
+  {
+    const { res, w } = await scenario({ fail: { claim: 'throw' } }, liveBody());
+    ok('live claim transaction fails → 503 outbox_unverified, Twilio never called (the client refuses, no handoff)',
+      res.statusCode === 503 && res.body.code === 'outbox_unverified' && w.twilioCalls.length === 0 && !/Pending texts/.test(res.body.error),
+      res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    // The reviewer's reproduction: the live request is parked INSIDE Twilio
+    // (the client already gave up and queued it), the replay arrives with
+    // queuedAt = attemptAt. It used to find no sms_log row and send again.
+    const ctx = load({});
+    let releaseTwilio;
+    ctx.w.parkTwilio = [new Promise((r) => { releaseTwilio = r; })];
+    const live = send(ctx, liveBody());
+    await new Promise((r) => setTimeout(r, 20));
+    const replay = await send(ctx, queuedBody({ queuedAt: NOON }));
+    ok('replay while the live send is inside Twilio → 409 held in_flight (not a second send)',
+      held(replay, 'in_flight') && ctx.w.twilioCalls.length === 1, replay.statusCode + ' ' + JSON.stringify(replay.body));
+    releaseTwilio();
+    const liveRes = await live;
+    ok('…the live send completes (200)', liveRes.statusCode === 200);
+    const again = await send(ctx, queuedBody({ queuedAt: NOON, overrideStale: true }));
+    ok('…and the next replay answers duplicate — ONE Twilio call in total',
+      again.statusCode === 200 && again.body.duplicate === true && ctx.w.twilioCalls.length === 1, JSON.stringify(again.body) + ' calls=' + ctx.w.twilioCalls.length);
+  }
+  {
+    // The other interleaving: the live request is still in its gates (not yet
+    // claimed) when the replay claims and sends. The live request must then
+    // find the claim and NOT send.
+    const ctx = load({});
+    let releasePaid;
+    ctx.w.parkPaid = [new Promise((r) => { releasePaid = r; })];
+    const live = send(ctx, liveBody());
+    await new Promise((r) => setTimeout(r, 20));
+    const replay = await send(ctx, queuedBody({ queuedAt: NOON }));
+    ok('replay overtakes a live send still in its gates → the replay sends', replay.statusCode === 200 && !replay.body.duplicate);
+    releasePaid();
+    const liveRes = await live;
+    ok('…and the live send finds the claim and does NOT send — ONE Twilio call',
+      ctx.w.twilioCalls.length === 1 && liveRes.statusCode === 200 && liveRes.body.duplicate === true,
+      liveRes.statusCode + ' ' + JSON.stringify(liveRes.body) + ' calls=' + ctx.w.twilioCalls.length);
+  }
+  {
+    // Live send, Twilio outcome unknown: the live answer is the #1667
+    // provider_error (unchanged), but the claim is kept for a replay.
+    const ctx = load({ twilioError: Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }) });
+    const r1 = await send(ctx, liveBody());
+    ok('live send, unknown Twilio outcome: still 502 provider_error (live contract unchanged)',
+      r1.statusCode === 502 && r1.body.code === 'provider_error');
+    ok('…claim kept as "unknown"', (ctx.w.docs.get(claimPath) || {}).status === 'unknown');
+    ctx.w.twilioError = null;
+    const r2 = await send(ctx, queuedBody({ queuedAt: NOON }));
+    ok('…a replay of it (the 502 was lost too) holds in_flight — ONE Twilio call', held(r2, 'in_flight') && ctx.w.twilioCalls.length === 1);
+  }
+  {
+    const ctx = load({ twilioError: Object.assign(new Error('Invalid To'), { code: 21211, status: 400 }) });
+    const r1 = await send(ctx, liveBody());
+    ok('live send, definite Twilio refusal: 502 provider_error and the claim is released',
+      r1.statusCode === 502 && !ctx.w.docs.has(claimPath));
+  }
+
+  // ═══ an EDIT of a text that may already have gone ══════════════════════
+  console.log('QUEUED — an edit (new clientMsgId, same queuedAt) of a text that already went');
+  const EDIT_ID = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+  const editPath = 'sms_client_ids/' + UID + '_' + EDIT_ID;
+  {
+    // The reviewer's probe: A sends; 16 minutes later the rep edits it (the
+    // app never heard back) — same queuedAt, new id, explicit tap.
+    const ctx = load({});
+    const a = await send(ctx, queuedBody());
+    ctx.w.clock.now = NOON + 16 * MIN;
+    const b = await send(ctx, queuedBody({ clientMsgId: EDIT_ID, body: 'Running 15 min late.', overrideStale: true }));
+    ok('original sent, then an edit with the SAME queuedAt (no supersedes) → held recent_outbound, ONE Twilio call',
+      a.statusCode === 200 && held(b, 'recent_outbound') && ctx.w.twilioCalls.length === 1, b.statusCode + ' ' + JSON.stringify(b.body));
+    const c = await send(ctx, queuedBody({ clientMsgId: EDIT_ID, body: 'Running 15 min late.', overrideStale: true, supersedes: [CLIENT_ID] }));
+    ok('…with supersedes:[original] → held recent_outbound (the original\'s claim says "sent")',
+      held(c, 'recent_outbound') && ctx.w.twilioCalls.length === 1, c.statusCode + ' ' + JSON.stringify(c.body));
+    const d = await send(ctx, queuedBody({ clientMsgId: EDIT_ID, body: 'Running 15 min late.', overrideStale: true, overrideActivity: true, supersedes: [CLIENT_ID] }));
+    ok('…"Send anyway" (a correction) sends it', d.statusCode === 200 && ctx.w.twilioCalls.length === 2, JSON.stringify(d.body));
+  }
+  {
+    // The original's row did not get written (logSMSToFirestore is best-effort)
+    // but its claim says sent: supersedes still catches it.
+    const { res, w } = await scenario({ docs: { [claimPath]: { status: 'sent', uid: UID, twilioSid: 'SM-0' } } },
+      queuedBody({ clientMsgId: EDIT_ID, overrideStale: true, supersedes: [CLIENT_ID] }));
+    ok('superseded original claimed "sent" with no sms_log row → held recent_outbound', held(res, 'recent_outbound') && w.twilioCalls.length === 0);
+  }
+  for (const status of ['claimed', 'unknown']) {
+    const { res, w } = await scenario({ docs: { [claimPath]: { status, uid: UID } } },
+      queuedBody({ clientMsgId: EDIT_ID, overrideStale: true, overrideActivity: true, supersedes: [CLIENT_ID] }));
+    ok('superseded original "' + status + '" (may be on the homeowner\'s phone) → in_flight, NOT overridable by Send anyway',
+      held(res, 'in_flight') && w.twilioCalls.length === 0 && !w.docs.has(editPath), res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    const { res } = await scenario({}, queuedBody({ clientMsgId: EDIT_ID, supersedes: [CLIENT_ID] }));
+    ok('superseded original that never reached Twilio (no claim) → the edit sends', res.statusCode === 200, JSON.stringify(res.body));
+  }
+  for (const [label, sup] of [
+    ['supersedes not an array', CLIENT_ID],
+    ['supersedes with a malformed id', ['nope']],
+    ['supersedes naming the edit itself', [EDIT_ID]],
+    ['supersedes longer than 5', ['a', 'b', 'c', 'd', 'e', 'f'].map((x) => x.repeat(20))],
+  ]) {
+    const { res, w } = await scenario({}, queuedBody({ clientMsgId: EDIT_ID, supersedes: sup }));
+    ok(label + ' → 400, nothing sent', res.statusCode === 400 && res.body.code === 'bad_queued_request' && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  for (const mode of ['throw', 'hang']) {
+    const { res, w } = await scenario({ fail: { ['path:' + claimPath]: mode }, readTimeoutMs: 40 },
+      queuedBody({ clientMsgId: EDIT_ID, supersedes: [CLIENT_ID] }));
+    ok('superseded-claim read ' + (mode === 'throw' ? 'throws' : 'hangs') + ' → 503 outbox_unverified, never a send',
+      !res.hung && res.statusCode === 503 && res.body.code === 'outbox_unverified' && w.twilioCalls.length === 0, res.hung ? 'hung' : res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    // The same rep's earlier-queued text is a predecessor only when it was
+    // queued STRICTLY before: an equal queuedAt is an edit's original.
+    const Q = NOON - 5 * MIN;
+    const docs = { 'sms_log/seed0': logRow({ uid: UID, date: Q + MIN, queued: true, queuedAt: Q, clientMsgId: 'eeeeeeeeeeeeeeeeeeee' }) };
+    const { res } = await scenario({ docs }, queuedBody({ queuedAt: Q }));
+    ok('own queued row with the SAME queuedAt (different id) competes → recent_outbound', held(res, 'recent_outbound'), JSON.stringify(res.body));
+  }
+  {
+    const Q = NOON - 5 * MIN;
+    const docs = { 'sms_log/seed0': logRow({ uid: 'rep-2', date: Q + MIN, status: 'failed', deliveryUnknown: true }) };
+    const { res } = await scenario({ docs }, queuedBody({ queuedAt: Q }));
+    ok('a FAILED row whose delivery is unknown still competes (the homeowner may have it)', held(res, 'recent_outbound'), JSON.stringify(res.body));
   }
 
   // ═══ quiet hours ═══════════════════════════════════════════════════════
@@ -480,6 +680,23 @@ const logRow = (over) => Object.assign({
       queuedBody({ queuedAt: at - MIN, overrideActivity: true, overrideStale: true }));
     ok('quiet hours are NOT overridable (overrideActivity + overrideStale still held)',
       held(res, 'quiet_hours') && w.twilioCalls.length === 0);
+  }
+  {
+    // The tray's "Open in Messages" hands off only on a FRESH 402/429/
+    // provider_error. That is safe only because every hold runs before the
+    // paid gate and the limiters: at 21:30 an unpaid account must hear
+    // "quiet hours", never "402".
+    const at = ET_EDT(21, 30);
+    const { res, w } = await scenario({ now: at, unpaid: true, limited: ['sendSMS:to'] },
+      queuedBody({ queuedAt: at - MIN, overrideStale: true }));
+    ok('unpaid + rate-limited account at 21:30 → 409 quiet_hours, not 402/429 (a handoff verdict implies the holds passed)',
+      held(res, 'quiet_hours') && noGates(w), res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    const Q = NOON - 5 * MIN;
+    const { res } = await scenario({ unpaid: true, docs: { 'sms_log/seed0': logRow({ uid: null, status: 'received', date: Q + MIN }) } },
+      queuedBody({ queuedAt: Q, overrideStale: true }));
+    ok('unpaid account + a homeowner reply since → 409 recent_inbound, not 402', held(res, 'recent_inbound'), res.statusCode + ' ' + JSON.stringify(res.body));
   }
 
   // ═══ stale ═════════════════════════════════════════════════════════════
@@ -706,6 +923,13 @@ const logRow = (over) => Object.assign({
   ok('firestore.rules denies all client access to sms_client_ids',
     /match \/sms_client_ids\/\{claimId\}\s*\{\s*allow read, write: if false;\s*\}/.test(RULES));
   const IDX = JSON.parse(fs.readFileSync(path.join(ROOT, 'firestore.indexes.json'), 'utf8'));
+  ok('firestore.indexes.json declares a TTL policy on sms_client_ids.expireAt (claims do not live forever)',
+    (IDX.fieldOverrides || []).some((f) => f.collectionGroup === 'sms_client_ids' && f.fieldPath === 'expireAt' && f.ttl === true));
+  // The GDPR erasure/export registry must reach the claims: each one holds
+  // the rep's uid and the homeowner's canonical phone key.
+  const userOwned = require(path.join(FUNCTIONS, 'integrations', 'user-owned.js'));
+  const reg = (userOwned.FLAT_USER_COLLECTIONS || []).find((c) => c.name === 'sms_client_ids');
+  ok('sms_client_ids is in the GDPR user-owned registry, keyed on uid', !!reg && reg.ownerField === 'uid', JSON.stringify(reg));
   ok('firestore.indexes.json has the {toDigits ASC, date DESC} sms_log composite the activity query needs',
     IDX.indexes.some((i) => i.collectionGroup === 'sms_log'
       && JSON.stringify(i.fields) === JSON.stringify([

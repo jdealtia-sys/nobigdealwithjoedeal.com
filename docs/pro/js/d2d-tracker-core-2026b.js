@@ -4684,7 +4684,9 @@
     // homeowner who replied STOP was one tap from getting the text anyway
     // (the exact handoff nbd-comms.js declines: "would still text").
     if (window.NBDComms && typeof window.NBDComms.sendSMS === 'function') {
-      window.NBDComms.sendSMS(phone, body, knock.id, { source: 'd2d-followup-sms', sourceRef: knock.id }).then(result => {
+      // No sourceRef: nothing stamps a knock when a queued follow-up goes
+      // out, and a sourceRef would leave an outbox receipt nobody applies.
+      window.NBDComms.sendSMS(phone, body, knock.id, { source: 'd2d-followup-sms' }).then(result => {
         if (result && result.success && result.mode === 'platform') {
           const nameDisplay = knock.homeowner || 'contact';
           window.showToast?.(`Text sent to ${nameDisplay}`, 'ok');
