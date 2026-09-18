@@ -413,6 +413,7 @@
   // ── Flush ─────────────────────────────────────────────────────────────
   const TAB_ID = _newId();
   let _flushing = null;
+  let _flushAgain = false;
   let _retryTimer = null;
   let _lastUid = null;
 
@@ -452,7 +453,13 @@
    * Resolves to a summary; never rejects.
    */
   function flush(reason) {
-    if (_flushing) return _flushing;
+    if (_flushing) {
+      // A run is already going, but it may have read the queue before the
+      // text that prompted this call was stored. Join it, and run once more
+      // after it (one trailing run, however many calls pile up).
+      _flushAgain = true;
+      return _flushing;
+    }
     _flushing = (async () => {
       try {
         return await _flushLocked(reason || 'manual');
@@ -461,6 +468,10 @@
         return { skipped: 'error' };
       } finally {
         _flushing = null;
+        if (_flushAgain) {
+          _flushAgain = false;
+          setTimeout(() => { flush('trailing'); }, 0);
+        }
       }
     })();
     return _flushing;
