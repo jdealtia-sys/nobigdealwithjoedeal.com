@@ -312,10 +312,60 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637)** |
 | customer-tasks-ui.js → customer-bootstrap.module.js | 6 |
 | customer-bootstrap.module.js → customer-tasks-ui.js | 5 |
-| dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 |
-| dashboard-bootstrap.module.js → rep-report-generator.js | 4 |
-| dashboard-bootstrap.module.js → crm-pipeline.js | 4 |
+| dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
+| dashboard-bootstrap.module.js → rep-report-generator.js | 4 — **3 shipped 2026-09-18 (PR #1642); see note below** |
+| dashboard-bootstrap.module.js → crm-pipeline.js | 4 — **re-derived to 0, see note below; not attempted** |
 | long tail (1–3-name edges) | ~145 |
+
+> ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
+>
+> **`crm-portal-bridge.js` (5 of 5):** `toggleInsuranceFields`,
+> `refreshSubTypeAndTrades`, `setSelectedTrades`, `_deleteLead`,
+> `_loadDeletedLeads` — all anonymous function/arrow expressions assigned
+> directly to `window.X` with no local binding, converted clean. Two
+> self-references (an internal call inside `toggleInsuranceFields`, and two
+> `addEventListener('change', window.toggleInsuranceFields)` registrations)
+> rewired to bare calls — safe because `dashboard-bootstrap.module.js` has no
+> IIFE wrapping any of the 8 names this PR touched (it does have 3 unrelated
+> `(async () => {})()` IIFEs for URL-param bootstrapping, confirmed by AST
+> walk; none contains or is referenced by these declarations).
+>
+> **`rep-report-generator.js` (3 of the listed 4):** `_saveReport`,
+> `_deleteReport`, `_loadReports` converted the same way. **The 4th,
+> `_reports`, does NOT convert** — it's a data cache, not a callable, so it
+> can't go through a call registry. The table's "4" was counting a cache
+> alongside 3 real functions; `rep-report-generator.js` now keeps its own
+> local `_reportsCache` (populated from `_loadReports()`'s return value)
+> instead of reading `window._reports` directly. `window._reports` itself is
+> left in place in `dashboard-bootstrap.module.js` as harmless, now-unread
+> internal state.
+>
+> **`crm-pipeline.js` edge (listed as 4) re-derived to zero and NOT
+> attempted.** A dedicated investigation agent found the candidate names are
+> actually re-exports of `crm-stages.js` constants with many real consumers
+> elsewhere — misattributed ownership; they belong to T3-D's long tail, not
+> this T3-C edge. Worse, `crm-pipeline.js` also has a `_dragId` landmine:
+> shared drag-and-drop state read/written as a **bare implicit global**
+> (that file's own header comment documents this as deliberate). Scoping it
+> without a coordinated cross-file fix first would silently split-brain
+> drag state. Flagged for its own future slice — don't fold it into a T3-C
+> edge PR again without reading this note first.
+>
+> Verification: two independent adversarial-review agents re-read every
+> changed line in both consumer files plus the `dashboard-bootstrap.module.js`
+> declarations (one per file-group) and found zero bugs in the migration
+> itself. They did catch a real CI failure from a *third* file —
+> `tests/customer-page-claims.test.js` anchored `_saveReport`'s extraction on
+> the literal string `'window._saveReport'`, which this conversion deleted;
+> fixed by re-anchoring to `'async function _saveReport'`. Also flagged but
+> deliberately NOT fixed here (pre-existing, not introduced by this PR):
+> `dashboard-bootstrap.module.js`'s `_loadDeletedLeads` does a bare `return;`
+> on its early-out instead of `return [];` (unlike its sibling
+> `_loadReports`), so a caller doing `.length` on it can throw before claims
+> resolve — `renderDeletedDrawer` has no try/catch around that call, so
+> opening the Deleted drawer early could throw and strand the "Loading..."
+> placeholder. One-line fix (`return [];`) whenever someone's next in that
+> file.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
