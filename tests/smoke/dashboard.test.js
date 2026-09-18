@@ -3136,6 +3136,15 @@ section('Globals Tranches 0+1: converted names stay off window');
     // also candidates but are shared DATA, not callables — stay on window,
     // same reasoning as _reports above; see the T3-C assertion block below.
     '_fetchPhotosRaw', 'loadPhotos', 'setLightboxSource', '_nbdTsToDate',
+    // Tranche 3 T3-C (2026-09-18, T3-5): the same owner's
+    // customer-quick-action-bar.js edge — the QAB's Comm Log tap listener.
+    'logCommunication',
+    // Tranche 3 T3-C (2026-09-18, T3-5): the reverse direction, owner
+    // customer-tasks-ui.js — possible only after #1657's whole-file IIFE wrap
+    // (before it, a top-level declaration auto-globalled regardless). None is
+    // markup-dispatched, so _nbdCustomerActionDispatch never walks to them.
+    'renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
+    'setupContactTab', 'loadCommunicationLog', 'logGeneratedDoc',
     // Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
     // dashboard-bootstrap.module.js — maps-overlays.js's dropPin/deletePin
     // and dashboard-actions.js's saveZone/deleteZone. _zones (a loaded-zones
@@ -3904,6 +3913,112 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.setLightboxSource\(srcArray, Number\(idx\) \|\| 0\)/.test(custTasksSrc));
   assert('the project-timeline milestone renderer reads _nbdTsToDate off the registry, not bare window',
     /_nbdReg\._nbdTsToDate\(stageDates\[milestone\.stage\]\)/.test(custTasksSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18, T3-5): the customer-tasks-ui.js cluster +
+  // logCommunication ──
+  // #1657 IIFE-wrapped customer-tasks-ui.js but deliberately left these 6
+  // cross-file callables on window; now they are real IIFE-scoped
+  // declarations registered in ONE block at the TOP of the wrap (hoisted, so
+  // a later throw in the 2500-line body can't strand them). logCommunication
+  // joins its owner's existing end-of-file block above. customer.html's
+  // _nbdCustomerActionDispatch walks WINDOW for data-action/data-change-action,
+  // so none of these may ever become markup-dispatched — asserted below.
+  const T3C5_TASKS = ['renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
+    'setupContactTab', 'loadCommunicationLog', 'logGeneratedDoc'];
+  for (const n of T3C5_TASKS) {
+    assert('customer-tasks-ui.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(custTasksSrc));
+    assert('customer-tasks-ui.js declares ' + n + ' as a real IIFE-scoped function, not a window assignment',
+      new RegExp('^(async )?function ' + n + '\\(', 'm').test(custTasksSrc)
+      && !new RegExp('window\\.' + n + '\\s*=').test(custTasksSrc));
+  }
+  const t3c5RegAt = custTasksSrc.indexOf('Object.assign(window.__NBD_CALL_REGISTRY, {');
+  assert('customer-tasks-ui.js\'s registry block sits at the TOP of the IIFE (before the first IIFE-level statement), behind the || guard',
+    t3c5RegAt > 0
+    && t3c5RegAt < custTasksSrc.indexOf('window.nbdNavCount = function')
+    && custTasksSrc.indexOf('window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);') > 0
+    && custTasksSrc.indexOf('window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);') < t3c5RegAt);
+  assert('customer-tasks-ui.js\'s in-file callers use the bare IIFE bindings',
+    /\n\s+renderCoverHero\(updates\.coverPhotoUrl\);/.test(custTasksSrc)
+    && /\n\s+logGeneratedDoc\(type, data\);/.test(custTasksSrc)
+    && /\n\s+loadCommunicationLog\(leadId\)\r?\n\s+\]\);/.test(custTasksSrc));
+  assert('customer-bootstrap.module.js reads renderCoverHero off the registry, typeof-guarded (no-op if absent)',
+    /if \(window\.__NBD_CALL_REGISTRY && typeof window\.__NBD_CALL_REGISTRY\.renderCoverHero === 'function'\) \{\r?\n\s+window\.__NBD_CALL_REGISTRY\.renderCoverHero\(lead\.coverPhotoUrl \|\| null\);/.test(custBootSrc));
+  assert('customer-bootstrap.module.js\'s loadAllCustomerPhotos reads loadPhotosByPhase off the registry (absent → Promise.resolve())',
+    /\(window\.__NBD_CALL_REGISTRY && typeof window\.__NBD_CALL_REGISTRY\.loadPhotosByPhase === 'function'\)\r?\n\s+\? window\.__NBD_CALL_REGISTRY\.loadPhotosByPhase\(leadId\) : Promise\.resolve\(\),/.test(custBootSrc));
+  assert('customer-bootstrap.module.js calls loadNewPortalSections + setupContactTab off the registry INSIDE the existing try/catch (absent → caught, both skipped)',
+    /try \{\r?\n\s+await window\.__NBD_CALL_REGISTRY\.loadNewPortalSections\(id\);\r?\n\s+\/\/ Setup contact tab\r?\n\s+window\.__NBD_CALL_REGISTRY\.setupContactTab\(lead\);\r?\n\s+\} catch \(e\) \{ console\.warn\('Portal sections render failed:'/.test(custBootSrc));
+  assert('customer-bootstrap.module.js registers logCommunication (a real module-scope declaration) in its end-of-file block',
+    /^async function logCommunication\(leadId, type, content, extra = \{\}\) \{/m.test(custBootSrc)
+    && /\blogCommunication:\s*logCommunication\b/.test(custBootSrc));
+  const t3c5Qab = read(path.join(PRO_JS, 'customer-quick-action-bar.js'));
+  assert('customer-quick-action-bar.js reads logCommunication off the registry and bails (no log, no throw) if absent',
+    /if \(!leadId \|\| !_nbdReg \|\| typeof _nbdReg\.logCommunication !== 'function'\) return;/.test(t3c5Qab)
+    && /_nbdReg\.logCommunication\(leadId, type, label\)/.test(t3c5Qab));
+  const t3c5Aid = read(path.join(PRO_JS, 'customer-ai-drafts-panel.js'));
+  assert('customer-ai-drafts-panel.js reads loadCommunicationLog off the registry, guarded',
+    /if \(_nbdReg && typeof _nbdReg\.loadCommunicationLog === 'function' && window\._customerId\) \{\r?\n\s+_nbdReg\.loadCommunicationLog\(window\._customerId\);/.test(t3c5Aid));
+  const t3c5Pre = read(path.join(PRO_JS, 'doc-preflight.js'));
+  assert('doc-preflight.js reads logGeneratedDoc off the registry, guarded (no-op on dashboard.html, where it never exists)',
+    /if \(_logDocReg && typeof _logDocReg\.logGeneratedDoc === 'function'\) \{\r?\n\s+try \{ _logDocReg\.logGeneratedDoc\(state\.type, mergedData\); \}/.test(t3c5Pre));
+  // The window-walking dispatcher can't reach registry-only names: none of
+  // the 7 may appear as a data-action / data-change-action value anywhere.
+  const t3c5Markup = [read(path.join(ROOT, 'docs/pro/customer.html'))];
+  for (const f of fs.readdirSync(PRO_JS)) if (/\.js$/.test(f)) t3c5Markup.push(read(path.join(PRO_JS, f)));
+  const t3c5Dispatched = [...T3C5_TASKS, 'logCommunication'].filter((n) =>
+    t3c5Markup.some((src) => new RegExp('data-(?:change-)?action=\\\\?["\']' + n + '\\\\?["\']').test(src)));
+  assert('none of the T3-5 registry-only names is data-action/data-change-action dispatched (the customer.html dispatcher walks window) — '
+    + (t3c5Dispatched.join(', ') || 'clean'), t3c5Dispatched.length === 0);
+  // Runtime proof, not just regex: vm-run the REAL file with window === the
+  // sandbox global (as in a browser), so "off window" means genuinely absent.
+  {
+    const vm = require('vm');
+    const t3c5Run = (preRegistry) => {
+      const els = {};
+      const el = (id) => els[id] || (els[id] = { id, style: {}, innerHTML: '', textContent: '', dataset: {},
+        classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+        setAttribute() {}, getAttribute() { return null; }, addEventListener() {}, appendChild() {},
+        querySelector() { return null; }, querySelectorAll() { return []; } });
+      const sb = { console: { log() {}, warn() {}, error() {} }, setTimeout: () => 0, clearTimeout() {},
+        addEventListener() {},
+        document: { readyState: 'loading', head: { appendChild() {} }, body: el('body'),
+          createElement: () => el('_created'), getElementById: el, addEventListener() {},
+          querySelector: () => null, querySelectorAll: () => [] } };
+      sb.window = sb;
+      if (preRegistry) sb.__NBD_CALL_REGISTRY = preRegistry;
+      let threw = null;
+      try { vm.createContext(sb); vm.runInContext(custTasksSrc, sb); } catch (e) { threw = e; }
+      return { sb, els, threw };
+    };
+    const fresh = t3c5Run(null);
+    const reg = fresh.sb.__NBD_CALL_REGISTRY || {};
+    assert('customer-tasks-ui.js executes cleanly in a fresh page (registry created by its own || guard)'
+      + (fresh.threw ? ' — ' + fresh.threw.message : ''), !fresh.threw && !!fresh.sb.__NBD_CALL_REGISTRY);
+    assert('at runtime all 6 are callable off __NBD_CALL_REGISTRY',
+      T3C5_TASKS.every((n) => typeof reg[n] === 'function'));
+    assert('at runtime none of the 6 is on window (while window exports like generateCustomerDoc/nbdNavCount still are)',
+      T3C5_TASKS.every((n) => !(n in fresh.sb))
+      && typeof fresh.sb.generateCustomerDoc === 'function' && typeof fresh.sb.nbdNavCount === 'function');
+    if (typeof reg.renderCoverHero === 'function') reg.renderCoverHero('https://x.test/a.jpg');
+    assert('the registered renderCoverHero is the real renderer (paints #coverHero)',
+      fresh.els.coverHero && fresh.els.coverHero.style.display === 'block');
+    // loadNewPortalSections must call its IIFE-local loadCommunicationLog, never
+    // a stale window copy (the sync prefix of the real one paints #communicationLog).
+    let staleCalled = false;
+    fresh.sb.loadProjectTimeline = fresh.sb.loadInvoices = fresh.sb.loadReports = () => Promise.resolve();
+    fresh.sb.loadCommunicationLog = () => { staleCalled = true; return Promise.resolve(); };
+    if (typeof reg.loadNewPortalSections === 'function') reg.loadNewPortalSections('L1');
+    assert('loadNewPortalSections calls the IIFE-local loadCommunicationLog, not window.loadCommunicationLog',
+      !staleCalled && /Sign in to view messages/.test((fresh.els.communicationLog || {}).innerHTML || ''));
+    // Module-first load order: the bootstrap's registry (with its entries) survives.
+    const pre = Object.create(null);
+    const preLoadPhotos = () => {};
+    pre.loadPhotos = preLoadPhotos;
+    const second = t3c5Run(pre);
+    assert('when customer-bootstrap.module.js registered first, its registry object and entries survive and gain the 6',
+      !second.threw && second.sb.__NBD_CALL_REGISTRY === pre && pre.loadPhotos === preLoadPhotos
+      && T3C5_TASKS.every((n) => typeof pre[n] === 'function'));
+  }
 
   // ── Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
   // dashboard-bootstrap.module.js ──
@@ -5356,11 +5471,12 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
     assert(n + ' stays private inside the new IIFE — zero external consumer (T3-A)',
       !new RegExp('window\\.' + n + '\\s*=').test(custTasks));
   }
-  // Spot-check: the 5 already-documented T3-A names AND a sample of the
-  // markup-dispatched names keep their EXACT pre-existing window exports —
-  // the wrap must not have touched these lines at all.
-  for (const n of ['renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
-    'setupContactTab', '_uploadPhase', 'openTaskModal', 'saveTask', 'saveEvent',
+  // Spot-check: _uploadPhase (DATA) AND a sample of the markup-dispatched
+  // names keep their EXACT pre-existing window exports — the wrap must not
+  // have touched these lines at all. (renderCoverHero, loadPhotosByPhase,
+  // loadNewPortalSections, setupContactTab graduated to registry-only in the
+  // later T3-5 T3-C slice — pinned in the T3-C block and T1_NAMES instead.)
+  for (const n of ['_uploadPhase', 'openTaskModal', 'saveTask', 'saveEvent',
     'generateCustomerDoc', 'toggleTask', 'nbdNavCount']) {
     assert(n + ' keeps its existing window export — a real external consumer needs it, the wrap must not touch this line',
       new RegExp('window\\.' + n + '\\s*=').test(custTasks));

@@ -967,7 +967,7 @@ section('Cover photo: Set Cover action + hero, cover-first consumers');
   // Hero on the customer page — https-guarded renderer + bootstrap call.
   assert('customer.html has the #coverHero band and bootstrap renders it (typeof-guarded)',
     /id="coverHero"/.test(html)
-    && /window\.renderCoverHero = function \(url\)/.test(tasksUi)
+    && /function renderCoverHero\(url\)/.test(tasksUi)  // registry-only since T3-C (2026-09-18)
     && /\/\^https\?:\/i\.test\(String\(url\)\)/.test(tasksUi)
     && /renderCoverHero\(lead\.coverPhotoUrl \|\| null\)/.test(boot));
 

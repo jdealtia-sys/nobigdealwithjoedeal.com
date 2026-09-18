@@ -321,8 +321,11 @@
           // Handshake: refresh Comm Log + smart-followup (same lead thread).
           // Smart-followup panel listens for nbd:data-refreshed (no window export).
           try {
-            if (typeof window.loadCommunicationLog === 'function' && window._customerId) {
-              window.loadCommunicationLog(window._customerId);
+            // loadCommunicationLog: customer-tasks-ui.js, registry-only (Globals
+            // Tranche 3 T3-C, 2026-09-18) — absent → skip the refresh.
+            const _nbdReg = window.__NBD_CALL_REGISTRY;
+            if (_nbdReg && typeof _nbdReg.loadCommunicationLog === 'function' && window._customerId) {
+              _nbdReg.loadCommunicationLog(window._customerId);
             }
             window.dispatchEvent(new CustomEvent('nbd:data-refreshed', {
               detail: { source: 'ai-draft-sent', leadId: window._customerId || null },
