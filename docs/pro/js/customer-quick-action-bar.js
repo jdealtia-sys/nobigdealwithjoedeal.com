@@ -193,8 +193,9 @@
     // from nowhere — a rep could call a customer from the bar and, weeks later,
     // find no record it happened.
     //
-    // Routing through window.logCommunication (customer-bootstrap.module.js,
-    // exposed globally there) rather than porting the crm-snooze delegate: it
+    // Routing through logCommunication (customer-bootstrap.module.js, read off
+    // __NBD_CALL_REGISTRY since Globals Tranche 3 T3-C, 2026-09-18 — not
+    // window) rather than porting the crm-snooze delegate: it
     // is the page's own canonical logger, and it does strictly more — refreshes
     // the timeline so the entry appears immediately, and stamps
     // lastContactedAt / lastContactType on the lead, which the follow-up logic
@@ -212,7 +213,8 @@
         : href.startsWith('mailto:') ? 'email' : null;
       if (!type) return;
       const leadId = window._customerId;
-      if (!leadId || typeof window.logCommunication !== 'function') return;
+      const _nbdReg = window.__NBD_CALL_REGISTRY;
+      if (!leadId || !_nbdReg || typeof _nbdReg.logCommunication !== 'function') return;
       const who = (lead && (lead.firstName || lead.name)) || 'customer';
       const label = {
         call: 'Called ' + who + ' from the quick bar',
@@ -220,7 +222,7 @@
         email: 'Emailed ' + who + ' from the quick bar',
       }[type];
       try {
-        Promise.resolve(window.logCommunication(leadId, type, label))
+        Promise.resolve(_nbdReg.logCommunication(leadId, type, label))
           .catch((err) => console.warn('[qab] comm log failed:', err && err.message));
       } catch (err) {
         console.warn('[qab] comm log threw:', err && err.message);

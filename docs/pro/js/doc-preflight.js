@@ -2307,8 +2307,11 @@
     }
 
     // Log the generated doc in the history list if helper exists
-    if (typeof window.logGeneratedDoc === 'function') {
-      try { window.logGeneratedDoc(state.type, mergedData); } catch (e) { /* ignore */ }
+    // (customer-tasks-ui.js — customer.html only, registry-only since Globals
+    // Tranche 3 T3-C, 2026-09-18; absent on dashboard.html → no-op, as before).
+    var _logDocReg = window.__NBD_CALL_REGISTRY;
+    if (_logDocReg && typeof _logDocReg.logGeneratedDoc === 'function') {
+      try { _logDocReg.logGeneratedDoc(state.type, mergedData); } catch (e) { /* ignore */ }
     }
 
     close();

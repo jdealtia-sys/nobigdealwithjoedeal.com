@@ -588,7 +588,8 @@ section('Pipelines builder — drag-to-reorder stages');
       'expected partitionLeadsByColumn to push a hidden-stage lead to `hidden` and return before resolve() rebuckets it');
     const pipe = read(path.join(ROOT, 'docs/pro/js/crm-pipeline.js'));
     assert('renderLeads collects the hidden-stage leads from partitionLeadsByColumn',
-      /window\.partitionLeadsByColumn\(list, stageKeys[\s\S]{0,240}_hiddenStageLeads = _part\.hidden/.test(pipe),
+      // Registry read since Globals Tranche 3 T3-C (2026-09-18) — was window.X.
+      /_nbdReg\.partitionLeadsByColumn\(list, stageKeys[\s\S]{0,240}_hiddenStageLeads = _part\.hidden/.test(pipe),
       'expected renderLeads to bucket via partitionLeadsByColumn and keep _part.hidden');
     assert('renderLeads surfaces hidden-stage leads via the chip instead of silently dropping them',
       /renderHiddenStageChip\(_hiddenStageLeads\)/.test(pipe)
@@ -967,7 +968,7 @@ section('Cover photo: Set Cover action + hero, cover-first consumers');
   // Hero on the customer page — https-guarded renderer + bootstrap call.
   assert('customer.html has the #coverHero band and bootstrap renders it (typeof-guarded)',
     /id="coverHero"/.test(html)
-    && /window\.renderCoverHero = function \(url\)/.test(tasksUi)
+    && /function renderCoverHero\(url\)/.test(tasksUi)  // registry-only since T3-C (2026-09-18)
     && /\/\^https\?:\/i\.test\(String\(url\)\)/.test(tasksUi)
     && /renderCoverHero\(lead\.coverPhotoUrl \|\| null\)/.test(boot));
 

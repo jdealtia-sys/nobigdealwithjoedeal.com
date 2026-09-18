@@ -121,7 +121,6 @@ function exitBulkMode() {
   if (kanbanBoard) kanbanBoard.classList.remove('bulk-mode-active');
   clearBulkSelection();
 }
-window.exitBulkMode = exitBulkMode;
 
 function toggleCardSelection(leadId) {
   if (!window._bulkMode) return;
@@ -576,7 +575,17 @@ async function confirmDeleteLead() {
   if (overlay) overlay.classList.remove('open');
   _pendingDeleteId = null;
   try {
-    await window.__NBD_CALL_REGISTRY._deleteLead(id);
+    // _deleteLead resolves true only when the soft-delete write landed. Check
+    // === true, not truthiness of "it resolved": an older callee resolved
+    // undefined after swallowing a denied write, and this toasted success for
+    // a lead that never left the board (e.g. a viewer, whom the leads update
+    // rule refuses). The card is untouched on failure — _deleteLead only
+    // drops it from window._leads after the write succeeds.
+    const ok = await window.__NBD_CALL_REGISTRY._deleteLead(id);
+    if (ok !== true) {
+      showToast('Could not delete this lead — your role may not allow it. It was not moved to the Deleted bin.', 'error');
+      return;
+    }
     showToast('Lead moved to Deleted bin');
     refreshTrashBadge();
   } catch(e) { showToast('Delete failed','error'); }
@@ -652,7 +661,17 @@ async function permanentDeleteLead(id, name) {
   if (!(await _ask(`Permanently delete "${name}"? This CANNOT be undone.`))) return;
   const card = document.getElementById('dc-'+id);
   if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
-  await window._permanentDeleteLead(id);
+  // _permanentDeleteLead resolves true only when deleteDoc succeeded. On
+  // anything else the lead is still in the trash: un-dim its card so it can
+  // be retried, and say it failed — never "Permanently deleted" for a
+  // homeowner record that still exists.
+  let ok = false;
+  try { ok = await window._permanentDeleteLead(id); } catch (e) { ok = false; }
+  if (ok !== true) {
+    if(card) { card.style.opacity=''; card.style.pointerEvents=''; }
+    showToast('Could not permanently delete this lead — your role may not allow it. It is still in the Deleted bin.', 'error');
+    return;
+  }
   showToast('Permanently deleted');
   refreshTrashBadge();
   await renderDeletedDrawer();
@@ -815,15 +834,13 @@ window.sendFollowUpSMS = function(leadId) {
 window.editLead = editLead;                        // crm-pipeline.js:351 (bare), dashboard-actions/bootstrap, kanban-context-menu
 window.deleteLead = deleteLead;                    // kanban-context-menu.js:273 (window.deleteLead)
 window.showDeleteConfirm = showDeleteConfirm;      // maps-overlays.js:358 (bare) — was only a classic auto-global before
-window.toggleBulkMode = toggleBulkMode;            // lead-snooze.js:774 — STILL required. (The _NBD_TOGGLE_FNS half of this reason expired 2026-09-01: that map is registry-first now.)
 window.toggleCardSelection = toggleCardSelection;  // crm-pipeline.js:2007
 window.clearBulkSelection = clearBulkSelection;    // lead-snooze.js:773 (direct window.clearBulkSelection()) — stays allowlisted too
 window.updateBulkToolbar = updateBulkToolbar;      // internal callers + smoke pin (crm.test.js)
-window.scrollToFollowUps = scrollToFollowUps;      // analytics-kpi.js:841
 window.restoreCrmSearch = restoreCrmSearch;        // dashboard-bootstrap.module.js:1253,2068
 window.refreshTrashBadge = refreshTrashBadge;      // dashboard-bootstrap.module.js:1256
-// (exitBulkMode, toggleProspectsView, promoteProspect, _repBookingUrl,
-//  sendBookingSMS, sendFollowUpSMS keep their in-file window.* assignments above.)
+// (toggleProspectsView, promoteProspect, _repBookingUrl, sendBookingSMS,
+//  sendFollowUpSMS keep their in-file window.* assignments above.)
 
 // (b) The 12 markup-dispatched handlers register in __NBD_CALL_REGISTRY —
 // (closeDeletedDrawer joined 2026-09-02, Tranche 3 dispatch-map slice: its
@@ -836,6 +853,14 @@ window.refreshTrashBadge = refreshTrashBadge;      // dashboard-bootstrap.module
 // its window re-export above AND its allowlist entry, the same MUST-STAY
 // shape as goToMyLocation, because lead-snooze.js calls it as
 // window.clearBulkSelection() outside the dispatcher.)
+//
+// (c) Globals Tranche 3 T3-C (2026-09-18): three names whose cross-file
+// consumers now read this registry instead of window, so their window
+// exports are gone. exitBulkMode — dashboard-actions.js goTo(). toggleBulkMode
+// — lead-snooze.js's post-bulk-snooze exit, plus the #bulkModeBtn
+// _NBD_TOGGLE_FNS.bulkMode map entry (resolved registry-first by
+// dashboard-ui.js _nbdResolveMapped). scrollToFollowUps — analytics-kpi.js's
+// data-ak-action delegate. Every consumer treats a missing entry as a no-op.
 window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   selectAllVisibleLeads: selectAllVisibleLeads,
@@ -849,7 +874,10 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   bulkAssignSource: bulkAssignSource,
   bulkAssignJobType: bulkAssignJobType,
   bulkAssignDamage: bulkAssignDamage,
-  bulkAssignCarrier: bulkAssignCarrier
+  bulkAssignCarrier: bulkAssignCarrier,
+  exitBulkMode: exitBulkMode,
+  toggleBulkMode: toggleBulkMode,
+  scrollToFollowUps: scrollToFollowUps
 });
 
 })();

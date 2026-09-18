@@ -31,6 +31,42 @@
  */
 
 // ══════════════════════════════════════════════
+// WINDOW EXPORTS — Globals Tranche 3 T3-A prep (2026-09-18)
+// ══════════════════════════════════════════════
+// Every function below is declared in THIS file and reached from OUTSIDE it
+// through the global object: a bare cross-file call, a window.X read, or a
+// name-string dispatch map resolved against window. Today each line is a
+// redundant no-op, because a top-level `function X` in a classic script
+// already owns window.X. Each one becomes load-bearing when this file is
+// wrapped in a whole-file IIFE (the stacked T3-A wrap PR). After that, only
+// an explicit export keeps the name reachable.
+//
+// The block sits at the TOP on purpose. Declarations are hoisted, so these
+// lines run before the first statement that can throw at load: the eager
+// template hydrate below and the unguarded #photoModal / #tipsModal listeners
+// further down. Plain `window.X = X;` only: tests/smoke/dashboard.test.js's
+// FWD_GUARD pin bans the typeof-guarded re-export form in this file.
+window.updateBreadcrumb = updateBreadcrumb;             // dashboard-actions.js goTo(), bare
+window._hydrateViewTemplate = _hydrateViewTemplate;     // dashboard-actions.js goTo(), bare
+window.loadCalSettings = loadCalSettings;               // dashboard-main.js DOMContentLoaded, bare
+window.renderAcDrop = renderAcDrop;                     // dashboard-api.js fetchAcSuggestions, bare
+window.hideAcDrop = hideAcDrop;                         // crm-leads.js + this file's Enter delegate read it off window; maps-overlays.js, bare
+window.closeUploadDoc = closeUploadDoc;                 // dashboard-api.js, bare; _NBD_MODAL_CLOSE_FNS.uploadDoc
+window.applyTheme = applyTheme;                         // maps.js + ui.js, bare
+window.dsRenderFloors = dsRenderFloors;                 // dashboard-actions.js daily-program cluster, bare
+window.dsBuildThemeGrid = dsBuildThemeGrid;             // dashboard-actions.js daily-program cluster, bare
+window.getCrmSecHeaderEnabled = getCrmSecHeaderEnabled; // dashboard-actions.js, bare
+window.mobileNav = mobileNav;                           // mobile-nav-customizer.js replaces this at init; covers the gap before it
+window.toggleMobileMore = toggleMobileMore;             // mobile-nav-customizer.js More button; _NBD_TOGGLE_FNS.mobileMore
+window.closeMobileMore = closeMobileMore;               // dashboard-actions.js, mobile-nav-customizer.js; _NBD_MODAL_CLOSE_FNS.mobileMore
+window.toggleMapSidebar = toggleMapSidebar;             // REQUIRED @audit shard: fnCheck('toggleMapSidebar')
+// A documented TEST SEAM, not an app API. tests/e2e/globals-surface-snapshot.spec.js
+// calls the real resolver to prove every _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS
+// entry still resolves; that spec is the Globals tranches' before/after proof
+// tool. No app code reads this name off window.
+window._nbdResolveMapped = _nbdResolveMapped;
+
+// ══════════════════════════════════════════════
 // VIEW TEMPLATE HYDRATION + BREADCRUMB
 // ══════════════════════════════════════════════
 // Update breadcrumb navigation

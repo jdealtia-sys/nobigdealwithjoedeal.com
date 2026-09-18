@@ -356,9 +356,12 @@ function viewEstimate(id) {
     _setSel('insRecDep',      ins.recoverableDep  != null ? ins.recoverableDep  : '');
   }
 
-  // Toggle insurance overlay block based on mode
-  if (typeof window.toggleInsuranceOverlay === 'function') {
-    window.toggleInsuranceOverlay();
+  // Toggle insurance overlay block based on mode. toggleInsuranceOverlay
+  // lives in __NBD_CALL_REGISTRY (dashboard-insurance-overlay-toggle.js),
+  // not on window — Globals Tranche 3 T3-C, 2026-09-18.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (_nbdReg && typeof _nbdReg.toggleInsuranceOverlay === 'function') {
+    _nbdReg.toggleInsuranceOverlay();
   }
 
   // Restore linked lead

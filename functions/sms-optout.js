@@ -65,19 +65,66 @@ function legacyOptOutKey(phone) {
 }
 
 /**
+ * Upper bound (ms) on a lookup made with an options object — see isOptedOut.
+ *
+ * The HTTP send paths (sendSMS, sendD2DSMS) pass it. docs/pro/js/nbd-comms.js
+ * aborts its fetch at 25s and treats the abort like being offline (status 0),
+ * which it hands off to the rep's Messages app with the text filled in. A
+ * lookup that THROWS was already a 503, but one that HANGS was not: a hung RPC
+ * waits on the SDK's per-attempt gRPC deadline (minutes, not seconds), the
+ * lookup can make three reads in a row, and the functions' own 30s timeout is
+ * also past 25s. The client gave up first and handed off a number whose
+ * opt-out status nobody knew. Past this bound the lookup rejects like any
+ * other read error, so the caller answers 503 optout_unverified. Keep it well
+ * under the client's 25s: a cold start and auth run ahead of the read.
+ *
+ * Callers pass `{ timeoutMs: OptOut.READ_TIMEOUT_MS }`, which reads the export
+ * at call time, so a test can shorten it on its own copy of the module.
+ */
+const READ_TIMEOUT_MS = 10000;
+
+/**
  * Has this number opted out?
  *
  * THROWS on a Firestore error rather than returning false. Every caller treats
- * a throw as "do not send" — sendSMS and sendD2DSMS let it reach their outer
- * handler (500, no send) and the AI-draft path catches it into fail('optout_
+ * a throw as "do not send" — sendSMS and sendD2DSMS answer 503 {code:
+ * 'optout_unverified'} (which the browser client refuses rather than handing
+ * off to device Messages) and the AI-draft path catches it into fail('optout_
  * check_error'). Returning false on error would turn a transient blip into a
  * message to someone who said STOP.
  *
+ * With an options object the whole lookup (every read, not each one) is
+ * bounded, and it REJECTS with code 'optout_read_timeout' past the bound.
+ * A missing or unusable `timeoutMs` falls back to READ_TIMEOUT_MS rather than
+ * to no bound, so a typo'd option cannot quietly remove it. Without an options
+ * object the lookup is unbounded (the AI-draft trigger, which never hands off).
+ *
  * @param {FirebaseFirestore.Firestore} db
  * @param {string} phone  any format — E.164, rep-typed, digits
+ * @param {{timeoutMs?: number}} [opts]
  * @returns {Promise<{optedOut: boolean, key: string, viaLegacyKey: boolean}>}
  */
-async function isOptedOut(db, phone) {
+async function isOptedOut(db, phone, opts) {
+  if (!opts) return lookupOptOut(db, phone);
+
+  const asked = Number(opts.timeoutMs);
+  const ms = Number.isFinite(asked) && asked > 0 ? asked : module.exports.READ_TIMEOUT_MS;
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      const e = new Error('opt-out lookup did not answer within ' + ms + 'ms');
+      e.code = 'optout_read_timeout';
+      reject(e);
+    }, ms);
+  });
+  try {
+    return await Promise.race([lookupOptOut(db, phone), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function lookupOptOut(db, phone) {
   const key = optOutKey(phone);
   if (!key) return { optedOut: false, key: '', viaLegacyKey: false };
 
@@ -141,6 +188,7 @@ async function clearOptOut(db, phone) {
 
 module.exports = {
   COLLECTION,
+  READ_TIMEOUT_MS,
   optOutKey,
   legacyOptOutKey,
   isOptedOut,

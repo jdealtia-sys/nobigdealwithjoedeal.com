@@ -46,6 +46,36 @@ function near(actual, expected, tol, label) {
 const ENGINE_SRC = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/estimate-builder-v2.js'), 'utf8');
 const BOOT = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/dashboard-bootstrap.module.js'), 'utf8');
 
+// Live code only (PR #1662 review): blanks every comment and every string /
+// template / regex literal body, so a source pin cannot be satisfied by a
+// commented-out call (`// f();`, `/* f(); */`, a trailing `x(); // f();`) or by
+// the name quoted in a log line. A regex literal is recognised by the previous
+// significant character, which covers the pinned blocks; a regex after a
+// keyword (`return /x/`) would be read as division.
+function codeOnly(src) {
+  let out = '', prev = '';
+  for (let i = 0; i < src.length;) {
+    const c = src[i], d = src[i + 1];
+    if (c === '/' && d === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+    if (c === '/' && d === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 2; out += ' '; continue; }
+    const isRe = c === '/' && (prev === '' || '(,=:[!&|?{};+-*%<>~^'.includes(prev));
+    if (c === '"' || c === "'" || c === '`' || isRe) {
+      let inClass = false;
+      for (i++; i < src.length; i++) {
+        const ch = src[i];
+        if (ch === '\\') { i++; continue; }
+        if (isRe ? (ch === '/' && !inClass) : ch === c) break;
+        if (isRe && ch === '[') inClass = true;
+        if (isRe && ch === ']') inClass = false;
+      }
+      out += c + c; i++; prev = c; continue;
+    }
+    out += c; i++;
+    if (!/\s/.test(c)) prev = c;
+  }
+  return out;
+}
+
 // Optional savedSettings simulates what THIS DEVICE has in localStorage, so the
 // device-vs-tenant precedence can be exercised for real.
 function loadEngine(companyProfile, savedSettings) {
@@ -399,7 +429,11 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
   test('the rehydrate poll repaints the whole panel, not just the jurisdiction rows', () => {
     const i = BOOT.indexOf('_jurRehydratePoll = setInterval');
     const block = BOOT.slice(i, i + 900);
-    if (!/window\._loadEstimateDefaultsV2\(\)/.test(block)) {
+    // A DIRECT call (Globals Tranche 3 T3-C, 2026-09-18): the loader is a
+    // module-scope declaration now, off window — a window.X() read here would
+    // throw inside the timer and leave the inputs stale. codeOnly(): a
+    // commented-out call must not satisfy the pin (PR #1662 review).
+    if (!/(?:^|[^.\w$])_loadEstimateDefaultsV2\(\)/.test(codeOnly(block))) {
       throw new Error('the poll must re-run _loadEstimateDefaultsV2 or the 14 county inputs stay stale forever');
     }
   });
@@ -407,6 +441,132 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
     const i = BOOT.indexOf('const _resetEstimateDefaultsV2');
     const block = BOOT.slice(i, i + 3000);
     if (!/not-found\|NOT_FOUND/i.test(block)) throw new Error('reset must not report NOT_FOUND as a failure');
+  });
+}
+
+// ── Globals Tranche 3 T3-C (2026-09-18): the panel loader is registry-only ──
+// _loadEstimateDefaultsV2 moved off window into dashboard-bootstrap.module.js's
+// __NBD_CALL_REGISTRY. Its three callers are the ONLY things that ever paint
+// this panel: switchSettingsTab (ui.js) on tab open, the rehydrate poll, and
+// reset. Any of them left reading window silently no-ops (or throws in a
+// timer), the inputs keep factory/device values, and the next Save publishes
+// them company-wide — the stale-input clobber pinned above.
+console.log('\nGlobals Tranche 3 T3-C: the panel loader is registry-only');
+{
+  const UI = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/ui.js'), 'utf8');
+  const BARE_CALL = /(?:^|[^.\w$])_loadEstimateDefaultsV2\(\)/;
+
+  test('the loader is a module-scope declaration, never re-exposed on window', () => {
+    if (!/\n  function _loadEstimateDefaultsV2\(\) \{/.test(BOOT)) throw new Error('missing the top-level function declaration');
+    for (const [label, src] of [['dashboard-bootstrap.module.js', BOOT], ['ui.js', UI]]) {
+      if (/\b(?:window|globalThis|self)\s*\.\s*_loadEstimateDefaults(?:V2)?\b/.test(src)) {
+        throw new Error(label + ' still reads or writes window._loadEstimateDefaults[V2]');
+      }
+      if (/\b(?:window|globalThis|self)\s*\[\s*['"`]_loadEstimateDefaults/.test(src)) {
+        throw new Error(label + ' still reaches it through window[...] bracket access');
+      }
+    }
+  });
+  test('the registry maps _loadEstimateDefaultsV2 to the loader binding of the same name', () => {
+    const m = BOOT.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/);
+    if (!m) throw new Error('dashboard-bootstrap registry block not found');
+    // Evaluate the literal (repo source, in a bare vm sandbox) with every free
+    // identifier resolving to a name tag: survives shorthand/reformatting,
+    // still proves key -> same-named binding.
+    const scope = new Proxy({}, {
+      has: () => true,
+      get: (_, k) => (k === Symbol.unscopables ? undefined : { binding: String(k) }),
+    });
+    const reg = vm.runInNewContext('with (scope) { ({' + m[1] + '}); }', { scope });
+    const v = reg._loadEstimateDefaultsV2;
+    if (!v || v.binding !== '_loadEstimateDefaultsV2') {
+      throw new Error('_loadEstimateDefaultsV2 is not registered to its own binding (got ' + JSON.stringify(v) + ')');
+    }
+  });
+  test('reset repaints through a direct call, not a window read', () => {
+    const i = BOOT.indexOf('const _resetEstimateDefaultsV2');
+    const end = BOOT.indexOf('\n  };', i);
+    if (i < 0 || end < 0) throw new Error('reset function not found');
+    if (!BARE_CALL.test(codeOnly(BOOT.slice(i, end)))) throw new Error('reset must repaint the panel via _loadEstimateDefaultsV2()');
+  });
+
+  // Behavioral twins of the poll and reset pins: the real functions run in a
+  // vm with stubbed globals, so they also catch shapes no regex can see, e.g.
+  // `if (false) { _loadEstimateDefaultsV2(); }` or the call moved into the
+  // tenant-only branch.
+  test('the rehydrate poll really repaints the panel once the profile lands', () => {
+    const i = BOOT.indexOf('let _jurRehydratePoll = null;');
+    const end = BOOT.indexOf('\n  }', BOOT.indexOf('function _renderJurisdictionRows() {', i));
+    if (i < 0 || end < 0) throw new Error('_renderJurisdictionRows not found');
+    let tick = null, loads = 0;
+    const ctx = vm.createContext({
+      window: { _companyProfileLoaded: false },
+      document: { getElementById: (id) => (id === 'jurRows' ? { innerHTML: '' } : null) },
+      setInterval: (fn) => { tick = fn; return 1; },
+      clearInterval: () => {},
+      setTimeout: () => 0,
+      _loadEstimateDefaultsV2: () => { loads++; },
+    });
+    vm.runInContext(BOOT.slice(i, end + 4) + '\n_renderJurisdictionRows();', ctx);
+    if (typeof tick !== 'function') throw new Error('no rehydrate poll was installed before hydration');
+    tick();
+    eq(loads, 0, 'loader calls while the profile is still hydrating');
+    ctx.window._companyProfileLoaded = true;
+    tick();
+    eq(loads, 1, 'loader calls once the profile lands');
+  });
+  test('reset really repaints the panel (device-only reset, profile not hydrated)', () => {
+    const i = BOOT.indexOf('const _resetEstimateDefaultsV2');
+    const end = BOOT.indexOf('\n  };', i);
+    if (i < 0 || end < 0) throw new Error('reset function not found');
+    const log = { loads: 0, toasts: 0 };
+    // afterEvaluate drains the context's microtasks before runInContext
+    // returns, so the async reset finishes inside this synchronous test. The
+    // stubs are built INSIDE the context so their promises use its queue.
+    const ctx = vm.createContext({ log }, { microtaskMode: 'afterEvaluate' });
+    vm.runInContext(
+      'var window = { nbdConfirm: function () { return Promise.resolve(true); },' +
+      ' EstimateBuilderV2: { getDefaultSettings: function () { return {}; }, saveSettings: function () {} },' +
+      ' _companyProfileLoaded: false };' +
+      'function _loadEstimateDefaultsV2() { log.loads++; }' +
+      'function showToast() { log.toasts++; }' +
+      'function _pricingDenied() { return false; }', ctx);
+    vm.runInContext(BOOT.slice(i, end + 5) + '\n_resetEstimateDefaultsV2();', ctx);
+    eq(log.toasts, 1, 'reset ran to completion (toasts)');
+    eq(log.loads, 1, 'loader calls after reset');
+  });
+
+  // switchSettingsTab, run for real against a stub DOM.
+  function runEstimatesTab(win) {
+    const start = UI.indexOf('function switchSettingsTab(tab) {');
+    const end = UI.indexOf('window.switchSettingsTab = switchSettingsTab;', start);
+    if (start < 0 || end < 0) throw new Error('switchSettingsTab not found in ui.js');
+    const ctx = vm.createContext({
+      window: win,
+      document: { querySelectorAll: () => [], getElementById: () => null },
+    });
+    vm.runInContext(UI.slice(start, end), ctx);
+    ctx.switchSettingsTab('estimates');
+  }
+  test('opening Estimates with the engine already loaded paints via the registry', () => {
+    let calls = 0;
+    runEstimatesTab({ EstimateBuilderV2: {}, __NBD_CALL_REGISTRY: { _loadEstimateDefaultsV2: () => { calls++; } } });
+    eq(calls, 1, 'registry loader calls (synchronous branch)');
+  });
+  test('opening Estimates cold loads the bundle, then paints via the registry', () => {
+    let calls = 0, bundle = null;
+    runEstimatesTab({
+      ScriptLoader: { loadBundle: (n) => { bundle = n; return { then: (cb) => cb() }; } },
+      __NBD_CALL_REGISTRY: { _loadEstimateDefaultsV2: () => { calls++; } },
+    });
+    eq(bundle, 'estimates', 'bundle requested');
+    eq(calls, 1, 'registry loader calls (lazy-bundle branch)');
+  });
+  test('a stale window copy is never called; no registry entry is a silent no-op', () => {
+    let stale = 0;
+    runEstimatesTab({ EstimateBuilderV2: {}, _loadEstimateDefaultsV2: () => { stale++; }, __NBD_CALL_REGISTRY: {} });
+    runEstimatesTab({ EstimateBuilderV2: {}, _loadEstimateDefaultsV2: () => { stale++; } });
+    eq(stale, 0, 'window._loadEstimateDefaultsV2 calls');
   });
 }
 

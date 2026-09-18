@@ -1,10 +1,12 @@
 // ── Globals Tranche 2c (2026-07-06): module scope ──
 // Everything in this file used to sit at the top level of a classic
 // script, so every function/var landed in global scope. The deliberate
-// external surface is now exactly three window names:
+// external surface is now exactly two window names:
 //   • window.showToast          — guarded page-wide toast fallback
-//   • window.nbdSyncSizeBtns    — called by ui.js switchSettingsTab
 //   • window.nbdRenderFontGrid  — called by ui.js + dashboard-billing-tab.js
+// (nbdSyncSizeBtns, ui.js switchSettingsTab's size-button repaint hook, was
+// the third until Globals Tranche 3 T3-C, 2026-09-18 — it is registry-only
+// now, in the __NBD_CALL_REGISTRY block below.)
 // The delegate-dispatched handlers (data-fn / data-on-change /
 // data-on-input in dashboard.html + generated markup) are registered in
 // window.__NBD_CALL_REGISTRY at the bottom instead of being globals —
@@ -106,13 +108,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // Re-paint when the appearance tab opens (the size buttons are inside
 // the lazy-hydrated settings template, so DOMContentLoaded fires before
-// they exist in the live DOM).
-window.nbdSyncSizeBtns = function() {
+// they exist in the live DOM). Module-scoped + registered in
+// __NBD_CALL_REGISTRY below (Globals Tranche 3 T3-C, 2026-09-18) — ui.js
+// switchSettingsTab, its only caller, reads it off the registry.
+function nbdSyncSizeBtns() {
   var saved = localStorage.getItem('nbd_ui_size') || 'default';
   document.querySelectorAll('.nbd-size-btn').forEach(function(b) {
     _nbdPaintSizeBtn(b, b.dataset.size === saved);
   });
-};
+}
 
 // ── Expanded font system (legacy inline picker) ──
 // 28 font families spanning humanist sans, geometric, serif, slab,
@@ -529,6 +533,7 @@ function nbdSettingsUpdateCalcomPreview(value) {
 window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
   nbdSetSize: nbdSetSize,
+  nbdSyncSizeBtns: nbdSyncSizeBtns,
   nbdApplyLegacyFont: nbdApplyLegacyFont,
   toggleProfessionalMode: toggleProfessionalMode,
   nbdSetSidebarLabels: nbdSetSidebarLabels,

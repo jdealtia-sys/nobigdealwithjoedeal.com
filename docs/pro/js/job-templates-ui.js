@@ -9,7 +9,8 @@
  *   window.JobTemplatesUI = { render, reRender, openPicker,
  *                             openPickerForScope, openPreconfirm, closeModal,
  *                             clearBandCache }
- *   window.renderJobTemplatesLibrary = render
+ *   __NBD_CALL_REGISTRY.renderJobTemplatesLibrary = render  (registry-only
+ *     since Globals Tranche 3 T3-C, 2026-09-18 — no longer a window alias)
  *
  * "COST NOT SET" IS A REAL STATE (2026-08-18). Job-template custom-item costs
  * are tenant-owned now (catalogCosts/{companyId}.jtCosts — they used to ship
@@ -2284,6 +2285,12 @@
     clearBandCache: clearBandCache
   };
 
-  window.renderJobTemplatesLibrary = render;
+  // Globals Tranche 3 T3-C (2026-09-18): renderJobTemplatesLibrary is
+  // registry-only (was a window alias of render). Its sole reader is
+  // dashboard-actions.js goTo('job-templates'), which prefers
+  // JobTemplatesUI.render() above and reads this entry only after the lazy
+  // 'estimates' bundle has loaded.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  Object.assign(window.__NBD_CALL_REGISTRY, { renderJobTemplatesLibrary: render });
 
 })();
