@@ -140,7 +140,7 @@ files as T3-C/D slices — landed first so later slices rebase cleanly.
 Single assigner + zero external consumer files + zero HTML hits + zero
 bracket dispatch. Largest owner clusters:
 `dashboard-actions.js` (33), `customer-tasks-ui.js` (**DONE 2026-09-18,
-PR TBD — whole-file wrap, re-derived to 93 total names / ~60 genuinely
+PR #1657 — whole-file wrap, re-derived to 93 total names / ~60 genuinely
 private; see update below**),
 `dashboard-ui.js` (24 of 27), `dashboard-bootstrap.module.js` (23 of 25),
 `ui.js` (17 of 18), `customer-bootstrap.module.js` (15),
@@ -330,7 +330,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | Edge (assigner → consumer) | Names |
 |---|---|
 | dashboard-bootstrap.module.js → ui.js | 7 — **6 shipped 2026-09-17 (PR #1637)** |
-| customer-tasks-ui.js → customer-bootstrap.module.js | 6 — **re-derived to 5, NOT a safe T3-C shape; DONE anyway 2026-09-18 (PR TBD) via the whole-file T3-A wrap below — these 5 keep their existing window exports untouched, only the file's other ~60 genuinely-private names moved off window** |
+| customer-tasks-ui.js → customer-bootstrap.module.js | 6 — **re-derived to 5, NOT a safe T3-C shape; DONE anyway 2026-09-18 (PR #1657) via the whole-file T3-A wrap below — these 5 keep their existing window exports untouched, only the file's other ~60 genuinely-private names moved off window** |
 | customer-bootstrap.module.js → customer-tasks-ui.js | 5 — **re-derived to 8, 4 shipped 2026-09-18; see note below** |
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
 | dashboard-bootstrap.module.js → rep-report-generator.js | 4 — **3 shipped 2026-09-18 (PR #1642); see note below** |
@@ -983,7 +983,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > `tests/smoke.test.js` (4184/4184, up from 4170 — the 14 new T3-A
 > structural assertions this edge adds).
 
-> ### Update 2026-09-18 — customer-tasks-ui.js (PR TBD): the session's
+> ### Update 2026-09-18 — customer-tasks-ui.js (PR #1657): the session's
 > SECOND and biggest whole-file IIFE wrap
 >
 > The remaining T3-A candidate list had exactly one file left after
