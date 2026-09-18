@@ -464,11 +464,21 @@
     `customer-tasks-ui.js` has no IIFE wrapping, so its top-level functions
     are already auto-globals; converting the explicit `window.X =` form
     there wouldn't actually take anything off `window`. See the plan doc's
-    2026-09-18 update for both. T3-B has ~171 names left, T3-C has ~150ish
-    (4 more converted, table miscounts corrected in both directions — read
-    the plan doc's table, not this number, before starting the next slice);
-    T3-D (131-name band → NBD-prefixed APIs) and T3-E (spine-disposition
-    docs) remain fully untouched · **404
+    2026-09-18 update for both. **Same day, a third PR** shipped two more
+    long-tail T3-C edges off `dashboard-bootstrap.module.js`: the pins CRUD
+    pair (`_savePin`/`_deletePin`, consumed by `maps-overlays.js`) and the
+    zones CRUD pair (`_saveZone`/`_deleteZone`, consumed by
+    `dashboard-actions.js`) — 4 more names converted, `_zones` and
+    `_DASH_DOC_PREREQUISITES` left on window (data, not callables, same
+    `_reports` reasoning). Found but NOT fixed: `dashboard-actions.js`'s
+    `deleteZone` defaults its delete-confirmed flag to fail-OPEN
+    (`let ok = true`) if its guard ever fails, unlike `deletePin`'s
+    fail-CLOSED default — pre-existing, not introduced by this PR, flagged
+    for a one-line fix later. T3-B has ~171 names left, T3-C has ~146ish (8
+    more converted across today's 3 PRs, table miscounts corrected in
+    multiple directions — read the plan doc's table, not this number,
+    before starting the next slice); T3-D (131-name band → NBD-prefixed
+    APIs) and T3-E (spine-disposition docs) remain fully untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·

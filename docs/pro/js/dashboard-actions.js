@@ -743,9 +743,11 @@ async function saveZone() {
 
   // Persist so the territory survives reload + syncs to the team (fall back to
   // a local id if the write is unavailable — the zone still shows this session).
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
   let id = 'd-' + Date.now();
-  if (typeof window._saveZone === 'function') {
-    try { id = await window._saveZone({ name, color: fillColor, points: pts, rep: repKey, repLabel }); } catch (_) {}
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (_nbdReg && typeof _nbdReg._saveZone === 'function') {
+    try { id = await _nbdReg._saveZone({ name, color: fillColor, points: pts, rep: repKey, repLabel }); } catch (_) {}
   }
   zones.push({id, name, color:fillColor, points:pts, layer, rep:repKey, repLabel});
   zonePoints = []; zoneDots = [];
@@ -767,8 +769,10 @@ async function deleteZone(id) {
   // Confirm the server delete BEFORE touching the UI — a team reader sees a
   // teammate's zone in the list, but the /zones rule denies deleting it. The
   // old code removed it optimistically and it silently reappeared on reload.
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
   let ok = true;
-  if (typeof window._deleteZone === 'function') { try { ok = await window._deleteZone(zone.id); } catch (_) { ok = false; } }
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (_nbdReg && typeof _nbdReg._deleteZone === 'function') { try { ok = await _nbdReg._deleteZone(zone.id); } catch (_) { ok = false; } }
   if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the owner or a company admin can remove this zone', 'error'); return; }
   if (zone.layer) mainMap?.removeLayer(zone.layer);
   // Recompute the index by identity AFTER the await — a second concurrent

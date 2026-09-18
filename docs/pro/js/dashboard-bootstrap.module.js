@@ -3460,7 +3460,7 @@
 
               // Now save pin with leadId
               pinData.leadId = leadRef.id;
-              await window._savePin(pinData);
+              await _savePin(pinData);
 
               // Auto-assign customer ID (NBD-0001 format).
               // NBD-leak gate (2026-07-29, same as customer-bootstrap): never
@@ -3503,7 +3503,7 @@
               // If this came from a pin, link the pin to the lead
               if (window._pendingPinId) {
                 try {
-                  await window._savePin({ id: window._pendingPinId, leadId: leadRef.id });
+                  await _savePin({ id: window._pendingPinId, leadId: leadRef.id });
                 } catch (pinErr) { console.warn('Could not link pin:', pinErr); }
                 window._pendingPinId = null;
               }
@@ -3584,7 +3584,7 @@
         }
         // Link pin if pending
         if (window._pendingPinId) {
-          try { await window._savePin({ id: window._pendingPinId, leadId: fallbackRef.id }); } catch (pe) {}
+          try { await _savePin({ id: window._pendingPinId, leadId: fallbackRef.id }); } catch (pe) {}
           window._pendingPinId = null;
         }
         // Consumed by this create — see the geocoded branch above. This is the
@@ -4164,7 +4164,9 @@
       window._pins = _out;
     } catch(e) { console.error('📌 loadPins FAILED:', e.code, e.message, e); window._pins = []; }
   }
-  window._savePin = async (data) => {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer bare window globals.
+  async function _savePin(data) {
     try {
       if (data.id) {
         // Update existing pin
@@ -4182,16 +4184,16 @@
       return r.id;
     }
     catch(e) { console.error('📌 savePin FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
-  };
+  }
   // Returns true when the doc is gone (or was local-only), false when the
   // delete was denied/failed — so the caller can skip an optimistic marker
   // removal that would silently reappear on reload (a team reader can SEE a
   // teammate's pin but the /pins rule denies deleting it).
-  window._deletePin = async (id) => {
+  async function _deletePin(id) {
     if (!id || String(id).startsWith('d-')) return true; // local-only pin
     try { await deleteDoc(doc(db,'pins',id)); return true; }
     catch(e){ console.warn('deletePin failed:', e && e.code); return false; }
-  };
+  }
 
   // ── TERRITORY ZONES ───────────────────────────
   // Persisted, team-shared canvassing areas (optionally rep-assigned). Same
@@ -4219,7 +4221,9 @@
     } catch(e) { console.error('🗺 loadZones FAILED:', e.code, e.message, e); window._zones = []; }
   }
   window.loadZones = loadZones;
-  window._saveZone = async (data) => {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer bare window globals.
+  async function _saveZone(data) {
     try {
       if (data.id && !String(data.id).startsWith('d-')) {
         const zoneId = data.id;
@@ -4236,16 +4240,16 @@
       return r.id;
     }
     catch(e) { console.error('🗺 saveZone FAILED:', e.code, e.message, e); return 'd-'+Date.now(); }
-  };
+  }
   // Returns true if the zone is gone server-side (or was never persisted), false
   // if the delete was denied/failed — so the caller can avoid an optimistic
   // removal that silently reappears on reload (a team reader can SEE a
   // teammate's zone but the /zones rule denies deleting it).
-  window._deleteZone = async (id) => {
+  async function _deleteZone(id) {
     if (!id || String(id).startsWith('d-')) return true; // local-only zone
     try { await deleteDoc(doc(db,'zones',id)); return true; }
     catch(e){ console.warn('deleteZone failed:', e && e.code); return false; }
-  };
+  }
 
   // ── PHOTOS ─────────────────────────────────────
   // Storage rules (storage.rules, 2026-04-11 hardening) require
@@ -5792,4 +5796,14 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _saveReport: _saveReport,
   _deleteReport: _deleteReport,
   _loadReports: _loadReports,
+  // Globals Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges —
+  // maps-overlays.js's dropPin/deletePin and dashboard-actions.js's
+  // saveZone/deleteZone. _zones and _DASH_DOC_PREREQUISITES were also
+  // census candidates for these same two edges but are DATA (a loaded-zones
+  // cache; a static doc-type config object), not callables — both stay on
+  // window, same reasoning as _reports above.
+  _savePin: _savePin,
+  _deletePin: _deletePin,
+  _saveZone: _saveZone,
+  _deleteZone: _deleteZone,
 });

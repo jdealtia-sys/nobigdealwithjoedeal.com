@@ -3130,7 +3130,13 @@ section('Globals Tranches 0+1: converted names stay off window');
     // page). _bookingAsk/_bookingCustomerName/_bookingUrl/_currentStage were
     // also candidates but are shared DATA, not callables — stay on window,
     // same reasoning as _reports above; see the T3-C assertion block below.
-    '_fetchPhotosRaw', 'loadPhotos', 'setLightboxSource', '_nbdTsToDate'];
+    '_fetchPhotosRaw', 'loadPhotos', 'setLightboxSource', '_nbdTsToDate',
+    // Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
+    // dashboard-bootstrap.module.js — maps-overlays.js's dropPin/deletePin
+    // and dashboard-actions.js's saveZone/deleteZone. _zones (a loaded-zones
+    // cache) and _DASH_DOC_PREREQUISITES (a static config object) were also
+    // candidates but are DATA, not callables — stay on window.
+    '_savePin', '_deletePin', '_saveZone', '_deleteZone'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3852,6 +3858,37 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.setLightboxSource\(srcArray, Number\(idx\) \|\| 0\)/.test(custTasksSrc));
   assert('the project-timeline milestone renderer reads _nbdTsToDate off the registry, not bare window',
     /_nbdReg\._nbdTsToDate\(stageDates\[milestone\.stage\]\)/.test(custTasksSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
+  // dashboard-bootstrap.module.js ──
+  // maps-overlays.js's dropPin/deletePin and dashboard-actions.js's
+  // saveZone/deleteZone. _zones (a loaded-zones cache) and
+  // _DASH_DOC_PREREQUISITES (a static doc-type config object) were also
+  // census candidates for these two edges but are DATA, not callables —
+  // stay on window, same reasoning as _reports above.
+  const mapsOverlaysSrc = read(path.join(PRO_JS, 'maps-overlays.js'));
+  const dashActionsSrc = read(path.join(PRO_JS, 'dashboard-actions.js'));
+  for (const n of ['_savePin', '_deletePin', '_saveZone', '_deleteZone']) {
+    assert('dashboard-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootReg));
+    assert('dashboard-bootstrap.module.js no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  assert('_savePin and _deletePin are real declarations, registered in scope for the 3 self-references below',
+    /async function _savePin\(data\) \{/.test(bootReg) && /async function _deletePin\(id\) \{/.test(bootReg));
+  assert('_saveZone and _deleteZone are real declarations too',
+    /async function _saveZone\(data\) \{/.test(bootReg) && /async function _deleteZone\(id\) \{/.test(bootReg));
+  assert('all 3 in-module self-references to _savePin were rewired to bare calls (D2D pin-to-lead linking)',
+    (bootReg.match(/(?<!window\.)(?<!function )\b_savePin\(/g) || []).length === 3
+    && !/window\._savePin\(/.test(bootReg));
+  assert('maps-overlays.js\'s dropPin reads _savePin off the registry, not bare window',
+    /window\.__NBD_CALL_REGISTRY\._savePin\(\{lat,lng,status,color,notes\}\)/.test(mapsOverlaysSrc));
+  assert('maps-overlays.js\'s deletePin reads _deletePin off the registry, not bare window',
+    /_nbdReg\._deletePin\(id\)/.test(mapsOverlaysSrc) && !/window\._deletePin\(/.test(mapsOverlaysSrc));
+  assert('dashboard-actions.js\'s saveZone reads _saveZone off the registry, not bare window',
+    /_nbdReg\._saveZone\(\{ name, color: fillColor, points: pts/.test(dashActionsSrc));
+  assert('dashboard-actions.js\'s deleteZone reads _deleteZone off the registry, not bare window',
+    /_nbdReg\._deleteZone\(zone\.id\)/.test(dashActionsSrc) && !/window\._deleteZone\(/.test(dashActionsSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred

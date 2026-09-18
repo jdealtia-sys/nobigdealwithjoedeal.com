@@ -187,7 +187,8 @@ function makePinIcon(color, status) {
 }
 
 async function dropPin(lat,lng,status,color,existingId,notes) {
-  const id = existingId || await window._savePin({lat,lng,status,color,notes});
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+  const id = existingId || await window.__NBD_CALL_REGISTRY._savePin({lat,lng,status,color,notes});
   addPinMarker({id,lat,lng,status,color,notes});
 }
 
@@ -531,7 +532,9 @@ async function deletePin(id) {
   // team-visible, so a manager/viewer can click Delete on a teammate's pin — the
   // /pins delete rule denies it, and an optimistic removal would silently
   // reappear on reload (the same bug fixed for zones). Only remove on success.
-  const ok = (typeof window._deletePin === 'function') ? await window._deletePin(id) : false;
+  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  const ok = (_nbdReg && typeof _nbdReg._deletePin === 'function') ? await _nbdReg._deletePin(id) : false;
   if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the pin owner or a company admin can remove it', 'error'); return; }
   if (pinMarkers[id]) { if (pinClusterGroup) pinClusterGroup.removeLayer(pinMarkers[id]); else mainMap.removeLayer(pinMarkers[id]); delete pinMarkers[id]; }
   refreshHeatLayer();
