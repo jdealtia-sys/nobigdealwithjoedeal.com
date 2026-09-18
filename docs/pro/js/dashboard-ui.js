@@ -1,3 +1,4 @@
+(function () {
 /**
  * dashboard-ui.js — DOM render helpers, event delegates, modals,
  * sidebar/mobile/theme UI bindings for the dashboard surface.
@@ -9,7 +10,6 @@
  *   - breadcrumb update + template hydration
  *   - the data-action click delegate (allowlists come from
  *     dashboard-state.js)
- *   - toast queue
  *   - Cal.com embed UI
  *   - autocomplete UI (renderAcDrop / initAddressAutocomplete /
  *     selectAcItem / hideAcDrop / initAllAutocomplete +
@@ -31,21 +31,43 @@
  */
 
 // ══════════════════════════════════════════════
-// WINDOW EXPORTS — Globals Tranche 3 T3-A prep (2026-09-18)
+// WHOLE-FILE IIFE — Globals Tranche 3 T3-A (2026-09-18)
+// ══════════════════════════════════════════════
+// This file is one IIFE, from line 1 to the `})();` after the
+// __NBD_CALL_REGISTRY block at the bottom. It is deliberately NOT re-indented
+// and has no 'use strict' (strict mode would change the `this` that the goTo
+// wrappers below forward). A function or const declared here is private to
+// the file. Other files reach it only through an explicit window export (the
+// block below, plus the pre-existing `window.X = X;` lines further down) or
+// through __NBD_CALL_REGISTRY.
+//
+// Load-once guard. Before the wrap, the file's top-level consts made a second
+// execution a redeclaration SyntaxError that aborted cleanly. Inside the IIFE
+// a second run would succeed and bind every document-level delegate below a
+// second time, so each data-action / data-fn click would fire twice. Same
+// shared registry idiom as the Tranche 0 widgets (activity-feed.js et al.).
+const __NBD_LOADED = window.__NBD_LOADED = window.__NBD_LOADED || {};
+if (__NBD_LOADED['dashboard-ui']) return;
+__NBD_LOADED['dashboard-ui'] = true;
+
+// ══════════════════════════════════════════════
+// WINDOW EXPORTS — Globals Tranche 3 T3-A (2026-09-18)
 // ══════════════════════════════════════════════
 // Every function below is declared in THIS file and reached from OUTSIDE it
 // through the global object: a bare cross-file call, a window.X read, or a
-// name-string dispatch map resolved against window. Today each line is a
-// redundant no-op, because a top-level `function X` in a classic script
-// already owns window.X. Each one becomes load-bearing when this file is
-// wrapped in a whole-file IIFE (the stacked T3-A wrap PR). After that, only
-// an explicit export keeps the name reachable.
+// name-string dispatch map resolved against window. Inside the IIFE these
+// lines are the only thing keeping the names reachable. Before the wrap they
+// were redundant, because a top-level `function X` in a classic script
+// already owned window.X (that prep landed first, as a zero-behaviour PR).
 //
 // The block sits at the TOP on purpose. Declarations are hoisted, so these
 // lines run before the first statement that can throw at load: the eager
 // template hydrate below and the unguarded #photoModal / #tipsModal listeners
-// further down. Plain `window.X = X;` only: tests/smoke/dashboard.test.js's
-// FWD_GUARD pin bans the typeof-guarded re-export form in this file.
+// further down. The file's older exports sit below those throw points; a
+// load-time throw there would strand them (latent: both elements are static
+// markup in dashboard.html). Plain `window.X = X;` only:
+// tests/smoke/dashboard.test.js's FWD_GUARD pin bans the typeof-guarded
+// re-export form in this file.
 window.updateBreadcrumb = updateBreadcrumb;             // dashboard-actions.js goTo(), bare
 window._hydrateViewTemplate = _hydrateViewTemplate;     // dashboard-actions.js goTo(), bare
 window.loadCalSettings = loadCalSettings;               // dashboard-main.js DOMContentLoaded, bare
@@ -509,7 +531,13 @@ document.addEventListener('click', function _nbdActionDelegate(e) {
     const target = el.dataset.target;
     if (!target) return;
     e.preventDefault();
-    if (typeof mobileNav === 'function') mobileNav(target);
+    // Globals Tranche 3 T3-A (2026-09-18): dispatch through window.mobileNav.
+    // mobile-nav-customizer.js replaces it at init with a custom-tab-aware
+    // version, and before the whole-file wrap that override is what this bare
+    // call reached. Inside the IIFE the bare name would bind to the local
+    // original instead, so the local is only the fallback.
+    if (typeof window.mobileNav === 'function') window.mobileNav(target);
+    else mobileNav(target);
     if (el.hasAttribute('data-close-more') && typeof closeMobileMore === 'function') {
       closeMobileMore();
     }
@@ -934,65 +962,18 @@ const shareCalViaEmail = function() {
 }
 
 // ══════════════════════════════════════════════
-// TOAST
+// TOAST — owned by js/ui.js
 // ══════════════════════════════════════════════
-function showToast(msg, type='success') {
-  // Batch-2 consolidation note (do NOT re-add a "delegate to ui.js" guard
-  // here): this file and js/ui.js are BOTH classic non-module scripts, so
-  // each top-level `function showToast` declaration binds the same global
-  // object property. Inside this function the identifier `showToast` and
-  // `window.showToast` are therefore one and the same binding — a
-  // `window.showToast !== showToast` check can never be true, and any such
-  // block is unreachable.
-  //
-  // ui.js is the single toast owner in practice: it is `defer`red AFTER
-  // this file (dashboard.html), so its hoisted declaration wins the global
-  // and every bare `showToast(...)` call site resolves to the container
-  // system. This legacy #toast singleton queue survives only for surfaces
-  // that load dashboard-ui.js without ui.js.
-  toastQueue.push({ msg, type });
-  if (!toastActive) processToastQueue();
-}
-
-function processToastQueue() {
-  if (!toastQueue.length) {
-    toastActive = false;
-    return;
-  }
-
-  toastActive = true;
-  const { msg, type } = toastQueue.shift();
-
-  const t = document.getElementById('toast');
-  if (!t) {
-    // Create toast if doesn't exist
-    const toast = document.createElement('div');
-    toast.id = 'toast';
-    toast.className = 'toast';
-    document.body.appendChild(toast);
-  }
-
-  const toast = document.getElementById('toast');
-  // SECURITY: render msg as TEXT, never HTML. showToast is called from ~30
-  // sites with lead/customer-sourced strings (e.g. firstName/address that
-  // originate from the public intake form), so innerHTML here was a stored-XSS
-  // sink that executed in the rep/manager's authenticated session. No caller
-  // passes intentional markup, so textContent is a safe drop-in. (This
-  // top-level showToast is global and overrides the safe boot-time fallback.)
-  toast.textContent = '';
-  const body = document.createElement('div');
-  body.style.flex = '1';
-  body.textContent = msg;
-  const prog = document.createElement('div');
-  prog.className = 'toast-progress';
-  toast.append(body, prog);
-  toast.className = 'toast show '+(type==='error'?'error':'success');
-
-  setTimeout(() => {
-    toast.classList.remove('show');
-    setTimeout(() => processToastQueue(), 200);
-  }, 2800);
-}
+// This file used to declare its own showToast plus a #toast singleton queue.
+// As a top-level classic-script declaration it shared ONE global binding with
+// ui.js's showToast, and ui.js (deferred later in dashboard.html) won it, so
+// every bare showToast(...) in this file already ran ui.js's container toasts.
+// Inside the whole-file IIFE (Globals Tranche 3 T3-A, 2026-09-18) a local
+// declaration would SHADOW the global for this file only and flip those calls
+// back onto the legacy queue, so it was deleted instead. Bare showToast here
+// resolves to the global: dashboard-ui-prefs-boot.js's fallback until ui.js
+// runs, then ui.js's owner. dashboard-state.js's toastQueue / toastActive are
+// unused since. Do not re-declare showToast in this file.
 
 // ══════════════════════════════════════════════
 // DAMAGE PHOTOS — modal close + photo mode toggle
@@ -2702,3 +2683,4 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   closeDocViewer: closeDocViewer,
   closeTips: closeTips
 });
+})();
