@@ -478,6 +478,7 @@ function isOverdue(d){ if(!d) return false; const dt=new Date(d); dt.setHours(0,
 
 // Edit lead
 function editLead(id){
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
   const l=(window._leads||[]).find(x=>x.id===id);
   if(!l) return;
   const setV=(eid,val)=>{ const e=document.getElementById(eid); if(e) e.value=val||''; };
@@ -489,13 +490,13 @@ function editLead(id){
   setV('lStage', l._stageKey || l.stage || 'new');
   setV('lJobType', l.jobType || '');
   // Repopulate sub-type options for this job type BEFORE setting the value
-  if (typeof window.refreshSubTypeAndTrades === 'function') {
-    window.refreshSubTypeAndTrades(l.jobType || '');
+  if (_nbdReg && typeof _nbdReg.refreshSubTypeAndTrades === 'function') {
+    _nbdReg.refreshSubTypeAndTrades(l.jobType || '');
   }
   setV('lSubType', l.subType || '');
   // Restore selected trades on the chip UI
-  if (typeof window.setSelectedTrades === 'function') {
-    window.setSelectedTrades(Array.isArray(l.trades) ? l.trades : []);
+  if (_nbdReg && typeof _nbdReg.setSelectedTrades === 'function') {
+    _nbdReg.setSelectedTrades(Array.isArray(l.trades) ? l.trades : []);
   }
   setV('lSource',l.source||'Door Knock');
   setV('lReferralCode', l.redeemReferralCode||'');
@@ -542,7 +543,7 @@ function editLead(id){
   const title=document.getElementById('leadModalTitle'); if(title) title.textContent='Edit Lead';
   openLeadModal();
   // Toggle field visibility based on job type
-  if(typeof window.toggleInsuranceFields === 'function') setTimeout(window.toggleInsuranceFields, 50);
+  if(_nbdReg && typeof _nbdReg.toggleInsuranceFields === 'function') setTimeout(_nbdReg.toggleInsuranceFields, 50);
 }
 
 // Delete lead — soft delete with confirm modal
@@ -575,7 +576,7 @@ async function confirmDeleteLead() {
   if (overlay) overlay.classList.remove('open');
   _pendingDeleteId = null;
   try {
-    await window._deleteLead(id);
+    await window.__NBD_CALL_REGISTRY._deleteLead(id);
     showToast('Lead moved to Deleted bin');
     refreshTrashBadge();
   } catch(e) { showToast('Delete failed','error'); }
@@ -597,7 +598,7 @@ async function renderDeletedDrawer() {
   const body = document.getElementById('deletedDrawerBody');
   if (!body) return; // drawer not in DOM
   body.innerHTML = '<div class="deleted-empty">Loading...</div>';
-  const deleted = await window._loadDeletedLeads();
+  const deleted = await window.__NBD_CALL_REGISTRY._loadDeletedLeads();
   if(!deleted.length) {
     body.innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:11px;height:11px;vertical-align:middle;"><circle cx="10" cy="10" r="7"/><path d="M7 10l2 2 4-5"/></svg></div><div class="empty-title">All Clear</div><div class="empty-sub">No deleted leads in the trash.</div></div>';
     return;
@@ -659,7 +660,7 @@ async function permanentDeleteLead(id, name) {
 
 async function refreshTrashBadge() {
   try {
-    const deleted = await window._loadDeletedLeads();
+    const deleted = await window.__NBD_CALL_REGISTRY._loadDeletedLeads();
     const badge = document.getElementById('trashCountBadge');
     if(badge) {
       badge.textContent = deleted.length || '';

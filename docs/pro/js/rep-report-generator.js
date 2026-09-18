@@ -36,6 +36,10 @@
 
   // ─── State ───────────────────────────────────────────────
   let initialized = false;
+  // Last list rendered by listSavedReports() — openSavedReport() reads from
+  // this instead of the window global _loadReports() used to leave cached,
+  // since the Open button only ever exists after listSavedReports() has run.
+  let _reportsCache = [];
 
   // ─── Helpers ─────────────────────────────────────────────
   const esc = (s) => String(s == null ? '' : s)
@@ -2098,22 +2102,25 @@ ${STATIC_CHART_CSS}
 
   // ─── Save report to Firestore ────────────────────────────
   async function saveReport(data) {
-    if (typeof window._saveReport !== 'function') {
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (!_nbdReg || typeof _nbdReg._saveReport !== 'function') {
       console.warn('[Reports] _saveReport helper not loaded');
       return null;
     }
-    return await window._saveReport(data);
+    return await _nbdReg._saveReport(data);
   }
 
   // ─── My Reports list ─────────────────────────────────────
   async function listSavedReports() {
     const container = document.getElementById('myReportsList');
     if (!container) return;
-    if (typeof window._loadReports !== 'function') {
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (!_nbdReg || typeof _nbdReg._loadReports !== 'function') {
       container.innerHTML = '<div class="empty"><div class="empty-icon">📈</div>Reports store not loaded</div>';
       return;
     }
-    const reports = await window._loadReports();
+    const reports = await _nbdReg._loadReports();
+    _reportsCache = reports;
     if (!reports.length) {
       container.innerHTML = '<div class="empty"><div class="empty-icon">📈</div>No reports saved yet. Click <strong>＋ New Report</strong> above to create your first one.</div>';
       return;
@@ -2144,8 +2151,7 @@ ${STATIC_CHART_CSS}
   // _tenantFilePrefix). Dispatched fire-and-forget by the data-nr-action
   // delegate, which discards the return value.
   async function openSavedReport(id) {
-    const reports = window._reports || [];
-    const r = reports.find(x => x.id === id);
+    const r = _reportsCache.find(x => x.id === id);
     if (!r) {
       if (typeof showToast === 'function') showToast('Report not found', 'error');
       return;
@@ -2173,8 +2179,9 @@ ${STATIC_CHART_CSS}
     // eslint-disable-next-line no-alert
     const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
     if (!(await _ask('Delete this report? This cannot be undone.'))) return;
-    if (typeof window._deleteReport !== 'function') return;
-    const ok = await window._deleteReport(id);
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (!_nbdReg || typeof _nbdReg._deleteReport !== 'function') return;
+    const ok = await _nbdReg._deleteReport(id);
     if (ok) {
       if (typeof showToast === 'function') showToast('✓ Report deleted', 'success');
       await listSavedReports();
