@@ -387,7 +387,9 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // draw recalc, the comparison-file handler and the two historical-
   // imagery sliders — into the registry; see the drawing-cluster note
   // higher up.)
-  'updateEstCalc', 'calcTierPrices', 'toggleInsuranceOverlay',
+  'updateEstCalc', 'calcTierPrices',
+  // (toggleInsuranceOverlay → __NBD_CALL_REGISTRY via dashboard-insurance-
+  //  overlay-toggle.js, Globals Tranche 3 T3-C 2026-09-18 — off window. Do NOT re-add.)
   'applyEstimatePreset', 'applyCustomTheme', 'kanbanFilter', 'kanbanFilterDebounced',
   // (filterPhotoLeads, handleDocUpload, updateCalEmbed → __NBD_CALL_REGISTRY,
   //  Tranche 2c-4h (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)

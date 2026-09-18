@@ -557,20 +557,23 @@ function goTo(name, params = {}) {
   if(name==='products') {
     // PR 2c: product-library ships in the lazy 'estimates' bundle, which the
     // products view preloads (VIEW_BUNDLES). Chain the render on that preload
-    // so window._productLib exists when we read it.
+    // so window._productLib exists when we read it. The fallback render lives
+    // in __NBD_CALL_REGISTRY, not on window (Globals Tranche 3 T3-C,
+    // 2026-09-18) — read here, after the bundle load, never captured before.
     _lazyPreload.then(function () {
       const pc = document.getElementById('productLibraryContainer');
       if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
-      else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+      else if (pc && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderProductLibrary === 'function') { pc.innerHTML = window.__NBD_CALL_REGISTRY.renderProductLibrary(); }
     });
   }
   if(name==='job-templates') {
     // Job-template library rides the same lazy 'estimates' bundle as the
-    // products view (it resolves pricing through EstimateLogic).
+    // products view (it resolves pricing through EstimateLogic). Same
+    // registry-only fallback as the products branch above (T3-C, 2026-09-18).
     _lazyPreload.then(function () {
       const jc = document.getElementById('jobTemplatesContainer');
       if (jc && window.JobTemplatesUI) { jc.innerHTML = window.JobTemplatesUI.render(); }
-      else if (jc && typeof window.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.renderJobTemplatesLibrary(); }
+      else if (jc && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.__NBD_CALL_REGISTRY.renderJobTemplatesLibrary(); }
     });
   }
   if(name==='reports') {
