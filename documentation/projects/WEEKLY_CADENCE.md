@@ -545,7 +545,7 @@
     resolver precedence in `dashboard-ui.js` to confirm the allowlist
     removal is a provable no-op, not just an absence of grep hits.
     T3-C long-tail now ~123 names; T3-A candidate count reduced by 4.
-    **An eleventh PR same day (PR TBD)** was the session's first
+    **An eleventh PR same day (PR #1656)** was the session's first
     WHOLE-FILE IIFE wrap — `dashboard-connect-tab.js` (432 lines) had
     zero existing IIFE structure at all, unlike every prior T3-A edge
     (which wrapped a narrow gap between two pre-existing IIFEs). Re-

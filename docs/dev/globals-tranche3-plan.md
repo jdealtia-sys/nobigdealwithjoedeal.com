@@ -144,7 +144,7 @@ bracket dispatch. Largest owner clusters:
 `ui.js` (17 of 18), `customer-bootstrap.module.js` (15),
 `crm-portal-bridge.js` (11), `estimates.js` (10 of 13),
 `maps-routing.js` (8), `dashboard-connect-tab.js` (**DONE 2026-09-18, PR
-TBD — re-derived to 13, not 7; see the whole-file-wrap update below**).
+#1656 — re-derived to 13, not 7; see the whole-file-wrap update below**).
 Chunk by file, one PR per 2–3 files, three-way proof per name, smoke +
 advisory E2E green.
 This is the same shape as Tranche 0/1 and can be background work in any
@@ -895,7 +895,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > endings — caught immediately by running the suite (not shipped red),
 > fixed to `\r?\n`.
 
-> ### Update 2026-09-18 — dashboard-connect-tab.js (PR TBD): the session's
+> ### Update 2026-09-18 — dashboard-connect-tab.js (PR #1656): the session's
 > first WHOLE-FILE IIFE wrap
 >
 > After the prospect-ops cluster above, dashboard-actions.js's real gaps
