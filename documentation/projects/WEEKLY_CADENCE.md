@@ -445,8 +445,16 @@
     `_loadEstimateDefaultsV2`, deliberately excluded — it has 2 more
     internal self-references than its MUST-STAY comment claimed, plus a
     derived `window._loadEstimateDefaults` alias, so it needs its own slice).
-    T3-B has ~171 names left, T3-C has ~170; T3-D (131-name band → NBD-prefixed
-    APIs) and T3-E (spine-disposition docs) remain fully untouched · **404
+    **2026-09-18, PR #1642** shipped two more T3-C edges: `crm-portal-
+    bridge.js` (5 of 5 names) and `rep-report-generator.js` (3 of the
+    listed 4 — the 4th, `_reports`, is a data cache and doesn't convert; it
+    now has its own local `_reportsCache` instead). The listed 3rd edge,
+    `crm-pipeline.js`, was re-derived to **zero** real candidates (they're
+    misattributed `crm-stages.js` re-exports) plus a `_dragId` bare-global
+    landmine flagged for its own slice — see the plan doc's 2026-09-18
+    update. T3-B has ~171 names left, T3-C has ~162; T3-D (131-name band →
+    NBD-prefixed APIs) and T3-E (spine-disposition docs) remain fully
+    untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·
