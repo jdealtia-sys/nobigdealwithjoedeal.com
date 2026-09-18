@@ -315,7 +315,9 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → crm-portal-bridge.js | 5 — **shipped 2026-09-18 (PR #1642)** |
 | dashboard-bootstrap.module.js → rep-report-generator.js | 4 — **3 shipped 2026-09-18 (PR #1642); see note below** |
 | dashboard-bootstrap.module.js → crm-pipeline.js | 4 — **re-derived to 0, see note below; not attempted** |
-| long tail (1–3-name edges) | ~145 |
+| dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
+| dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
+| long tail (1–3-name edges) | ~141 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -377,7 +379,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > than trusting the table's original "6"/"5" counts.
 >
 > **`customer-bootstrap.module.js` → `customer-tasks-ui.js` (re-derived to 8,
-> 4 shipped, PR TBD):** `_fetchPhotosRaw`, `loadPhotos`, `setLightboxSource`,
+> 4 shipped, PR #1644):** `_fetchPhotosRaw`, `loadPhotos`, `setLightboxSource`,
 > `_nbdTsToDate` converted — all genuine callables with a single external
 > consumer file, same conversion shape as the dashboard-side edges
 > (`window.X = function(){}` → real `function X(){}` declaration +
@@ -437,6 +439,51 @@ Convert edge-by-edge; each edge is one natural PR:
 > (`window.X(` → `window.__NBD_CALL_REGISTRY.X(`) — a reminder that these
 > fixed-offset test slices are brittle to any length change nearby, not just
 > to the specific line being asserted on.
+
+> ### Update 2026-09-18 — the pins + zones CRUD edges (PR #1645)
+>
+> Two more one-consumer edges off `dashboard-bootstrap.module.js`, found via
+> the same fresh-census pass that turned up the customer.html edge above:
+> `_savePin`/`_deletePin` (consumed by `maps-overlays.js`) and
+> `_saveZone`/`_deleteZone` (consumed by `dashboard-actions.js`) — all 4 were
+> anonymous arrow expressions assigned directly to `window.X`, converted to
+> real `async function X(){}` declarations + `__NBD_CALL_REGISTRY` entries,
+> same shape as the crm-portal-bridge.js edge. `_savePin` had 3 in-module
+> self-references (all inside one D2D-knock-to-lead conversion flow, two
+> sibling branches — geocoded and fallback — each linking a pending pin to
+> the new lead), all rewired to bare calls; `_deletePin`/`_saveZone`/
+> `_deleteZone` had none. `_zones` (a Firestore-loaded array cache) and
+> `_DASH_DOC_PREREQUISITES` (a static doc-type config object) were also
+> census candidates for these two edges but are DATA, not callables — same
+> `_reports`-style treatment, left on window.
+>
+> **Pre-existing quirk found, NOT fixed here (not introduced by this PR):**
+> `deleteZone` (`dashboard-actions.js`) initializes `let ok = true;` BEFORE
+> its `typeof`/registry guard, so if the guard ever fails (function missing)
+> `ok` stays `true` — fail-OPEN. `deletePin` (`maps-overlays.js`) does the
+> opposite: its ternary defaults to `false` when the guard fails — fail-
+> CLOSED. Both delete calls are guarded against a genuinely missing function
+> (defensive code, not a live bug today — the function is always present in
+> normal operation), so this asymmetry has never fired in practice, but it's
+> a real inconsistency between two access-controlled delete paths worth a
+> one-line fix (`let ok = false;`) whenever someone's next in
+> `dashboard-actions.js`'s `deleteZone`.
+>
+> Verification: two independent adversarial-review agents — one general
+> correctness pass, one specifically on the security/access-control angle
+> (fail-open vs fail-closed defaults, the `/pins`+`/zones` Firestore rules
+> boundary, `deleteZone`'s concurrent-delete stale-index guard) — traced
+> every consumer call site and the real user flows (drop pin, delete pin,
+> save zone, delete zone, both D2D-conversion branches) end to end and found
+> zero bugs; the fail-open/fail-closed asymmetry above is the one thing
+> either flagged, and both independently confirmed it predates this diff
+> (the ternary/init shapes are unchanged, only what they guard changed from
+> `typeof window.X` to `_nbdReg && typeof _nbdReg.X`). Both reran
+> `check-js-syntax`, `tests/smoke.test.js` (4111/4111), and
+> `run-test-manifest.js --bucket smoke` (68/68) green; one also did a
+> byte-level EOL/CRLF scan on all 5 changed files per this repo's own
+> Windows-editing hazards (see CLAUDE.md) — clean, no lone-CR bytes, no
+> binary-flagged files.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if

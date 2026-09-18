@@ -354,7 +354,10 @@ section('Customers map layer — dashboard.html wiring');
   const boot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
   assert('zones have Firestore CRUD (load/save/delete) with companyId stamping',
     /async function loadZones\(\)/.test(boot)
-    && /window\._saveZone\s*=/.test(boot) && /window\._deleteZone\s*=/.test(boot)
+    // Globals Tranche 3 T3-C (2026-09-18): _saveZone/_deleteZone are real
+    // declarations registered in __NBD_CALL_REGISTRY now, not window.X = ...
+    && /async function _saveZone\(data\)/.test(boot) && /async function _deleteZone\(id\)/.test(boot)
+    && /_saveZone: _saveZone/.test(boot) && /_deleteZone: _deleteZone/.test(boot)
     && /collection\(db,'zones'\)/.test(boot)
     && /zoneDoc\.companyId = \(window\._userClaims\?\.companyId\) \|\| _uid/.test(boot),
     'expected loadZones/_saveZone/_deleteZone against /zones with companyId stamped');
@@ -362,10 +365,10 @@ section('Customers map layer — dashboard.html wiring');
     /loadPins\(\); loadZones\(\)/.test(boot),
     'expected loadZones() called in the boot sequence');
   assert('saveZone persists (serialized points) + renderSavedZones draws loaded zones',
-    /window\._saveZone\(\{ name, color: fillColor, points: pts/.test(actions)
+    /_nbdReg\._saveZone\(\{ name, color: fillColor, points: pts/.test(actions)
     && /function renderSavedZones\(\)/.test(actions)
     && /window\.renderSavedZones = renderSavedZones/.test(actions),
-    'expected saveZone to persist serialized points and a renderSavedZones() to draw window._zones');
+    'expected saveZone to persist serialized points (via the registry) and a renderSavedZones() to draw window._zones');
   assert('map init draws persisted zones',
     /renderSavedZones==='function'\) window\.renderSavedZones\(\)/.test(maps),
     'expected initMainMap to render saved zones');
@@ -419,10 +422,11 @@ section('Map heat + pins toggle + mobile');
     /_custFiltersOpen = !_custFiltersOpen; _renderCustPanel\(\); return/.test(maps),
     'expected the more-filters branch to call _renderCustPanel() no-arg (fresh _custLastCounts)');
   const actionsSrc = read(path.join(ROOT, 'docs/pro/js/dashboard-actions.js'));
+  // Globals Tranche 3 T3-C (2026-09-18): _deleteZone reads off the registry now.
   assert('deleteZone confirms the server delete before removing locally',
-    /async function deleteZone\(id\)[\s\S]{0,700}ok = await window\._deleteZone\(zone\.id\)[\s\S]{0,200}if \(!ok\)/.test(actionsSrc)
-    && /window\._deleteZone = async \(id\)[\s\S]{0,300}return true;[\s\S]{0,300}return false;/.test(read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'))),
-    'expected deleteZone to await _deleteZone (which returns bool) and skip local removal on denial');
+    /async function deleteZone\(id\)[\s\S]{0,800}ok = await _nbdReg\._deleteZone\(zone\.id\)[\s\S]{0,200}if \(!ok\)/.test(actionsSrc)
+    && /async function _deleteZone\(id\)[\s\S]{0,300}return true;[\s\S]{0,300}return false;/.test(read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'))),
+    'expected deleteZone to await _deleteZone (via the registry, which returns bool) and skip local removal on denial');
   assert('zone color swatches emit hex (survive reload through safeColor)',
     /data-target="#[0-9A-Fa-f]{6}"/.test(read(path.join(ROOT, 'docs/pro/dashboard.html'))),
     'expected zone color picker data-target values to be hex, not var(--x)');
@@ -447,10 +451,11 @@ section('Map heat + pins toggle + mobile');
   // bool) and only strip the marker on success. Pins went team-visible, so a
   // manager/viewer can click Delete on a teammate's pin — the /pins rule denies
   // it, and an optimistic removal silently reappears on reload.
+  // Globals Tranche 3 T3-C (2026-09-18): _deletePin reads off the registry now.
   assert('deletePin confirms the server delete before removing the marker',
-    /async function deletePin\(id\)[\s\S]{0,400}await window\._deletePin\(id\)[\s\S]{0,120}if \(!ok\)/.test(maps)
-    && /window\._deletePin = async \(id\)[\s\S]{0,260}return true;[\s\S]{0,200}return false;/.test(read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'))),
-    'expected deletePin to await _deletePin (which returns bool) and skip marker removal on denial');
+    /async function deletePin\(id\)[\s\S]{0,600}await _nbdReg\._deletePin\(id\)[\s\S]{0,120}if \(!ok\)/.test(maps)
+    && /async function _deletePin\(id\)[\s\S]{0,260}return true;[\s\S]{0,200}return false;/.test(read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'))),
+    'expected deletePin to await _deletePin (via the registry, which returns bool) and skip marker removal on denial');
   // _zoneRepLabel must not let nbdRepList's degenerate uid-slice fallback
   // (String(uid).slice(0,6), used when the rep has no leads in THIS viewer's
   // book) clobber the real name the assigner persisted in repLabel.
