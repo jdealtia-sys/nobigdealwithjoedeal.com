@@ -339,7 +339,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
 | dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR #1652); see note below** |
 | dashboard-actions.js → dashboard-widgets.js (realtime teardown) | 1 of 4 — **shipped 2026-09-18 (PR #1653); other 3 need T3-A-style IIFE-wrapping first, see note below** |
-| dashboard-actions.js → dashboard-widgets.js (prospect ops, T3-A) | 4 — **shipped 2026-09-18 (PR TBD), the flagged 3 from above + confirmPromoteProspect; see note below** |
+| dashboard-actions.js → dashboard-widgets.js (prospect ops, T3-A) | 4 — **shipped 2026-09-18 (PR #1655), the flagged 3 from above + confirmPromoteProspect; see note below** |
 | long tail (1–3-name edges) | ~123 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -823,7 +823,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > scope collision with an unrelated function in the same consumer file,
 > and reran `check-js-syntax` and `tests/smoke.test.js` (4157/4157) green.
 
-> ### Update 2026-09-18 — the prospect-ops cluster (PR TBD): the session's
+> ### Update 2026-09-18 — the prospect-ops cluster (PR #1655): the session's
 > first genuine T3-A slice (new IIFE-wrapping, not just re-registering
 > inside an existing scope)
 >

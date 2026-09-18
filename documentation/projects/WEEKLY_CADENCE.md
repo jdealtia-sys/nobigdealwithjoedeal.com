@@ -527,7 +527,7 @@
     read the plan doc's table, not this number, before starting the next
     slice); T3-D (131-name band → NBD-prefixed APIs) and T3-E (spine-
     disposition docs) remain fully
-    untouched. **A tenth PR same day (PR TBD)** was the session's first
+    untouched. **A tenth PR same day (PR #1655)** was the session's first
     genuine **T3-A** slice — new-IIFE-wrapping, not just re-registering
     inside a scope that already existed — picking up the 3 names flagged
     by the ninth PR (`toggleProspectHidden`, `viewProspectOnMap`,
