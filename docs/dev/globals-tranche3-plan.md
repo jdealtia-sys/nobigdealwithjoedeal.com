@@ -329,7 +329,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
 | dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
 | dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
-| dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR TBD); see note below** |
+| dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR #1652); see note below** |
 | long tail (1–3-name edges) | ~128 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -712,7 +712,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > `dashboard.test.js` independently catches any regression back to the old
 > `window.X` shape regardless.
 
-> ### Update 2026-09-18 — the dashboard-widgets.js photo modal edge (PR TBD)
+> ### Update 2026-09-18 — the dashboard-widgets.js photo modal edge (PR #1652)
 >
 > An eighth long-tail edge: `_uploadPhoto`, `_getPhotos` — the dashboard's
 > lead-detail photo modal (distinct from the customer.html photo pipeline
