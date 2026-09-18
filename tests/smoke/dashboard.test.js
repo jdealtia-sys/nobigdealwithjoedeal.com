@@ -3092,6 +3092,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // bare window.X() reads in ui.js were rewired to read the registry instead.
     '_loadCompanySettings', '_loadCompanyProfileSettings', '_loadAccessInfo',
     '_loadBillingInfo', '_loadNotifSettings', '_loadProfileSettings',
+    // Tranche 3 T3-C (2026-09-18): the sextet's deferred 7th — its two
+    // in-module callers now call it directly — plus its zero-reader
+    // _loadEstimateDefaults alias, deleted rather than kept on window.
+    '_loadEstimateDefaultsV2', '_loadEstimateDefaults',
     // Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual — the
     // dashboard-actions.js zone cluster + damageNearMePhotos, IIFE-scoped and
     // dispatched via __NBD_CALL_REGISTRY. maps.js's six re-exports are gone.
