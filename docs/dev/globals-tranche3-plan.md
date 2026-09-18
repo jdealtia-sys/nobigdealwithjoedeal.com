@@ -319,7 +319,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
 | dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
-| dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR TBD); see note below** |
+| dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
 | long tail (1–3-name edges) | ~133 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -596,7 +596,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > `run-test-manifest.js --bucket smoke` (68/68) green — plus an EOL/CRLF
 > hygiene check on the touched files (clean).
 
-> ### Update 2026-09-18 — the warranty-claim.js edge (PR TBD)
+> ### Update 2026-09-18 — the warranty-claim.js edge (PR #1650)
 >
 > A sixth long-tail edge, and a NEW shape: `missingClaimFields`,
 > `subTypeLabel`, `subTypeOptionsFor` are not local declarations in
