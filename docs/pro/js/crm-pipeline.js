@@ -315,10 +315,14 @@ function renderLeads(leads, filtered){
   setEl('dp-won', _stageCounts.closed);
   setEl('dp-lost', _stageCounts.lost);
 
-  // Show/hide Load Sample Data button (only when zero leads)
+  // Show/hide Load Sample Data button (only when a CONFIRMED load returned
+  // zero leads). `all` is [] while the first loadLeads() is in flight and
+  // after it fails, so gating on the count alone offered "Sample data" on
+  // an unloaded board — the same "not loaded ≠ empty" rule the diagnostic
+  // below and loadSampleData() itself (dashboard-actions.js) key off.
   const sampleBtn = document.getElementById('loadSampleDataBtn');
   if (sampleBtn) {
-    sampleBtn.style.display = (all.length === 0) ? 'inline-block' : 'none';
+    sampleBtn.style.display = (all.length === 0 && window._leadsLoaded === true) ? 'inline-block' : 'none';
   }
 
   // Show diagnostic panel ONLY if a successful load returned zero leads.

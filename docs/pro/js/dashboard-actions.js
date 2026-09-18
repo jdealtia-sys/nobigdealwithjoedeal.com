@@ -760,6 +760,15 @@ async function saveZone() {
   showToast(`Zone "${name}" saved ✓`);
 }
 
+// `ok` below starts as "is this a local-only zone" — no id, or saveZone's 'd-'
+// fallback id, i.e. nothing server-side to delete (the same short-circuit as
+// _deleteZone in dashboard-bootstrap.module.js). It must NEVER start as true:
+// it was `let ok = true` until 2026-09-18, so a missing __NBD_CALL_REGISTRY.
+// _deleteZone entry skipped the server delete, removed a persisted zone from
+// the map as if it had succeeded, and it came back on reload and for every
+// teammate. A missing registry now fails CLOSED for server zones — the same
+// default deletePin uses in maps-overlays.js. Pinned behaviorally by
+// tests/failopen-destructive-false-success-2026-09-18.test.js.
 async function deleteZone(id) {
   // Ids are Firestore doc strings (or a 'd-' local fallback); compare loosely so
   // a numeric-vs-string mismatch from the list's data attr still matches.
@@ -770,7 +779,7 @@ async function deleteZone(id) {
   // teammate's zone in the list, but the /zones rule denies deleting it. The
   // old code removed it optimistically and it silently reappeared on reload.
   // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-  let ok = true;
+  let ok = !zone.id || String(zone.id).startsWith('d-');
   var _nbdReg = window.__NBD_CALL_REGISTRY;
   if (_nbdReg && typeof _nbdReg._deleteZone === 'function') { try { ok = await _nbdReg._deleteZone(zone.id); } catch (_) { ok = false; } }
   if (!ok) { if (typeof showToast === 'function') showToast('Could not delete — only the owner or a company admin can remove this zone', 'error'); return; }
@@ -905,6 +914,17 @@ window.renderSavedZones = renderSavedZones;
 // SAMPLE DATA + damage-near-me overrides
 // ══════════════════════════════════════════════
 async function loadSampleData() {
+  // FAIL CLOSED on an unhydrated lead cache (mirrors pipeline-builder.js
+  // canDeleteStage). window._leads is [] both before the first loadLeads()
+  // resolves and after a failed first load (dashboard-bootstrap.module.js
+  // resets it to [] and leaves _leadsLoaded false), so the empty-book check
+  // below read "not loaded yet" as "account is empty" and seeded 13 demo
+  // leads + 6 tasks into a live tenant with no confirm. Only a confirmed
+  // load may be treated as empty.
+  if (window._leadsLoaded !== true) {
+    showToast("Your leads haven't finished loading yet — wait for the board to load, then try again.", 'error');
+    return;
+  }
   const leads = window._leads || [];
   if(leads.length > 0) {
     // Batch 2 (iOS PWA): native confirm() always returns true in standalone

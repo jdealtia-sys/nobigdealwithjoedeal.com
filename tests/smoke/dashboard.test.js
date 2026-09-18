@@ -3792,6 +3792,42 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('property-intel no longer window-exports ' + n + ' (off window, registry-only)',
       !new RegExp('window\\.' + n + '\\s*=').test(piSrc));
   }
+  // ── Tranche 3 T3-A (2026-09-18): dashboard-ui.js explicit window exports ──
+  // Prep for the dashboard-ui.js whole-file IIFE wrap (stacked PR). Fourteen
+  // function declarations in this file are reached from OUTSIDE it through the
+  // global object: bare cross-file calls (updateBreadcrumb and
+  // _hydrateViewTemplate inside goTo(), loadCalSettings, renderAcDrop,
+  // closeUploadDoc, applyTheme, dsRenderFloors, dsBuildThemeGrid,
+  // getCrmSecHeaderEnabled), window.X or typeof-guarded bare reads (hideAcDrop,
+  // mobileNav, toggleMobileMore, closeMobileMore) and the REQUIRED @audit
+  // shard's fnCheck('toggleMapSidebar'). _nbdResolveMapped rides along as a
+  // documented test seam for tests/e2e/globals-surface-snapshot.spec.js. Each
+  // gets a plain window.X = X; line in ONE block at the top of the file.
+  //
+  // Today those lines are redundant: a top-level classic-script function
+  // declaration already owns its window slot. Once the file is wrapped they
+  // are the only thing keeping these names reachable, so a missing line is a
+  // ReferenceError on every navigation (goTo) or a control that silently does
+  // nothing (the live mobile More button). The block has to precede the first
+  // statement that can throw at load, or a throw lower down strands the names.
+  const DU_T3A_EXPORTS = ['updateBreadcrumb', '_hydrateViewTemplate', 'loadCalSettings',
+    'renderAcDrop', 'hideAcDrop', 'closeUploadDoc', 'applyTheme', 'dsRenderFloors',
+    'dsBuildThemeGrid', 'getCrmSecHeaderEnabled', 'mobileNav', 'toggleMobileMore',
+    'closeMobileMore', 'toggleMapSidebar', '_nbdResolveMapped'];
+  const DU_EXP_MARK = '// WINDOW EXPORTS — Globals Tranche 3 T3-A';
+  const duExpStart = ui.indexOf(DU_EXP_MARK);
+  const duFirstLoadStmt = ui.indexOf('(function _eagerHydrateActiveViews(){');
+  assert('dashboard-ui.js has ONE window-export block, above the eager hydrate (T3-A)',
+    duExpStart > 0 && duFirstLoadStmt > duExpStart
+      && ui.indexOf(DU_EXP_MARK, duExpStart + 1) === -1);
+  const duExpBlock = (duExpStart > 0 && duFirstLoadStmt > duExpStart)
+    ? ui.slice(duExpStart, duFirstLoadStmt) : '';
+  for (const n of DU_T3A_EXPORTS) {
+    assert('dashboard-ui.js export block has a plain window.' + n + ' = ' + n + '; (T3-A)',
+      new RegExp('^window\\.' + n + ' = ' + n + ';', 'm').test(duExpBlock));
+    assert('dashboard-ui.js still declares function ' + n + ' (the export names a hoisted binding)',
+      new RegExp('^function ' + n + '\\(', 'm').test(ui));
+  }
   // ── Tranche 2c-4f: the dashboard-bootstrap.module.js settings cluster ──
   // First NON-dashboard-actions module in this tranche, and a real ES module —
   // so the 15 markup-dispatched settings/debug/export handlers just move from
