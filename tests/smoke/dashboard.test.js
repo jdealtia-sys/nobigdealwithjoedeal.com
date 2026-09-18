@@ -3151,7 +3151,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // warranty-claim.js is the real, sole consumer. Also loaded on
     // customer.html, where all 3 call sites were already guarded and
     // degrade gracefully — unchanged by this migration.
-    'missingClaimFields', 'subTypeLabel', 'subTypeOptionsFor'];
+    'missingClaimFields', 'subTypeLabel', 'subTypeOptionsFor',
+    // Tranche 3 T3-C (2026-09-18): the pipeline-builder.js edge. STAGE_ROLE
+    // is a rename-on-export (imported as ROLE, registered as STAGE_ROLE).
+    'applyPipelineConfig', 'resolvePipelineConfig', 'STAGE_ROLE'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3979,6 +3982,35 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.missingClaimFields\(extra \|\| \{\}, newStatus\)/.test(warrantyClaimSrc));
   assert('warranty-claim.js\'s renderPanel reads subTypeLabel off the registry, not bare window',
     /_nbdReg\.subTypeLabel\('warranty', claim\.reason\)/.test(warrantyClaimSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the pipeline-builder.js edge off
+  // dashboard-bootstrap.module.js ──
+  // applyPipelineConfig was a NAMED function expression assigned to
+  // window (not anonymous like most other T3-C conversions) — converting
+  // it to a plain declaration keeps the same name. STAGE_ROLE is a
+  // rename-on-export: the imported binding is ROLE, the registry key is
+  // STAGE_ROLE (key differs from value, unlike every other entry in this
+  // block).
+  const pipelineBuilderSrc = read(path.join(PRO_JS, 'pipeline-builder.js'));
+  for (const n of ['applyPipelineConfig', 'resolvePipelineConfig']) {
+    assert('dashboard-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootReg));
+    assert('dashboard-bootstrap.module.js no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  assert('dashboard-bootstrap.module.js registers STAGE_ROLE as a rename-on-export of ROLE (T3-C)',
+    /STAGE_ROLE:\s*ROLE\b/.test(bootReg) && !/window\.STAGE_ROLE\s*=/.test(bootReg));
+  assert('applyPipelineConfig is a real named function declaration now, not window.X = function applyPipelineConfig()',
+    /^  function applyPipelineConfig\(\) \{/m.test(bootReg));
+  assert('applyPipelineConfig\'s in-module self-reference (the profile-load callback) reads the bare declaration, not window',
+    /\.then\(\(\) => \{ applyPipelineConfig\(\); \}\)/.test(bootReg) && !/window\.applyPipelineConfig\(/.test(bootReg));
+  assert('pipeline-builder.js\'s ROLES() reads STAGE_ROLE off the registry, not bare window',
+    /_nbdReg\.STAGE_ROLE\)/.test(pipelineBuilderSrc));
+  assert('pipeline-builder.js\'s resolved() reads resolvePipelineConfig off the registry, not bare window',
+    /_nbdReg && _nbdReg\.resolvePipelineConfig/.test(pipelineBuilderSrc));
+  assert('pipeline-builder.js\'s two applyPipelineConfig call sites (reset + save) both read off the registry',
+    (pipelineBuilderSrc.match(/_nbdReg\.applyPipelineConfig\(\)/g) || []).length === 2
+    && !/window\.applyPipelineConfig\(/.test(pipelineBuilderSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred

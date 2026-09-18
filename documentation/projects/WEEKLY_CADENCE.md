@@ -495,12 +495,19 @@
     reach; corrected a stale "exposed for crm.js" comment (crm.js reads
     none of that 14-name block). `warranty-claim.js` also loads on
     customer.html where these 3 were already unavailable before this PR
-    too — already gracefully guarded, unchanged. T3-B has ~171 names left,
-    T3-C has ~138ish (16 more converted across today's 6 PRs, table
-    miscounts corrected in multiple directions — read the plan doc's
-    table, not this number, before starting the next slice); T3-D
-    (131-name band → NBD-prefixed APIs) and T3-E (spine-disposition docs)
-    remain fully untouched · **404
+    too — already gracefully guarded, unchanged. **A seventh PR same day**
+    shipped the most structurally varied edge yet: `applyPipelineConfig`
+    (a named function expression), `resolvePipelineConfig` (a crm-stages.js
+    import), and `STAGE_ROLE` (a genuine rename-on-export — imported as
+    `ROLE`, registered as `STAGE_ROLE`), consumed by `pipeline-builder.js`
+    (Settings → Pipelines, a real tenant-facing feature). Two reviewers
+    traced all 4 real user flows (open Settings, change a stage role, the
+    bug-fix-sensitive Reset-to-defaults ordering, save→live-board-update)
+    end to end — clean. T3-B has ~171 names left, T3-C has ~127ish (19
+    more converted across today's 7 PRs, table miscounts corrected in
+    multiple directions — read the plan doc's table, not this number,
+    before starting the next slice); T3-D (131-name band → NBD-prefixed
+    APIs) and T3-E (spine-disposition docs) remain fully untouched · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·

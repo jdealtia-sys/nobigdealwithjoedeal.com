@@ -5,16 +5,18 @@
  * reorder / rename / recolor stages, change a stage's semantic role, add custom
  * stages, and remove stages from a view. Writes the config to
  * companyProfile.pipelines (owner/admin-write per the Settings sweep) and calls
- * window.applyPipelineConfig() so the board updates immediately on save.
+ * applyPipelineConfig() (via the registry) so the board updates immediately on save.
  *
  * Ships INSIDE the lazily-hydrated <template id="tpl-view-settings">, so it wires
  * itself via a switchSettingsTab hook (same idiom as dashboard-team-tab.js) and
  * renders on the first Settings → Pipelines open (after DCL). Strict-CSP-safe:
  * all interaction is delegated data-pb-action attributes, no inline handlers.
  *
- * Engine deps (from crm-stages.js via dashboard-bootstrap):
- *   window.resolvePipelineConfig, window.STAGE_ROLE, window.applyPipelineConfig,
- *   window._saveCompanyProfile, window._companyProfile, window.KANBAN_VIEWS.
+ * Engine deps (from crm-stages.js via dashboard-bootstrap, read off
+ * __NBD_CALL_REGISTRY as of Globals Tranche 3 T3-C, 2026-09-18):
+ *   resolvePipelineConfig, STAGE_ROLE, applyPipelineConfig — plus the
+ *   still-bare window._saveCompanyProfile, window._companyProfile,
+ *   window.KANBAN_VIEWS.
  */
 (function () {
   'use strict';
@@ -44,7 +46,9 @@
   }
 
   function ROLES() {
-    var R = window.STAGE_ROLE || { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST: 'lost' };
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+    var _nbdReg = window.__NBD_CALL_REGISTRY;
+    var R = (_nbdReg && _nbdReg.STAGE_ROLE) || { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST: 'lost' };
     return [R.NEW, R.ACTIVE, R.JOB, R.WON, R.LOST];
   }
   var ROLE_LABEL = { new: 'New', active: 'Active', job: 'In Production', won: 'Won', lost: 'Lost' };
@@ -58,7 +62,9 @@
   }
 
   function resolved() {
-    var fn = window.resolvePipelineConfig;
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+    var _nbdReg = window.__NBD_CALL_REGISTRY;
+    var fn = _nbdReg && _nbdReg.resolvePipelineConfig;
     if (typeof fn !== 'function') return null;
     try { return fn(_cfg); } catch (_) { return null; }
   }
@@ -297,7 +303,9 @@
       // in-memory profile — so force it empty and re-apply defaults now, instead
       // of the reset appearing to do nothing until a page reload.
       if (window._companyProfile) window._companyProfile.pipelines = {};
-      if (typeof window.applyPipelineConfig === 'function') { try { window.applyPipelineConfig(); } catch (_) {} }
+      // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+      var _nbdReg = window.__NBD_CALL_REGISTRY;
+      if (_nbdReg && typeof _nbdReg.applyPipelineConfig === 'function') { try { _nbdReg.applyPipelineConfig(); } catch (_) {} }
       loadCfg(); render();
     }
   }
@@ -318,7 +326,9 @@
     if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
     try {
       await window._saveCompanyProfile({ pipelines: _cfg });
-      if (typeof window.applyPipelineConfig === 'function') window.applyPipelineConfig();
+      // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+      var _nbdReg = window.__NBD_CALL_REGISTRY;
+      if (_nbdReg && typeof _nbdReg.applyPipelineConfig === 'function') _nbdReg.applyPipelineConfig();
       _dirty = false;
       toast('Pipelines saved', 'ok');
       // Reload from the (now-merged) profile so the working copy matches server.

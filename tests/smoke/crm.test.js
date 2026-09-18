@@ -557,7 +557,7 @@ section('Pipelines builder — drag-to-reorder stages');
     && /resolvePipelineConfig\(hasCfg \? raw : null\)/.test(boot),
     'expected applyPipelineConfig to resolve null (defaults) when there is no real config');
   assert('Reset to defaults force-clears the in-memory config + re-applies',
-    /window\._companyProfile\.pipelines = \{\};[\s\S]{0,160}applyPipelineConfig\(\)/.test(pb),
+    /window\._companyProfile\.pipelines = \{\};[\s\S]{0,300}applyPipelineConfig\(\)/.test(pb),
     'expected the reset branch to clear window._companyProfile.pipelines and re-apply');
   assert('buildKanbanColumns never blanks the board (hide-all fallback)',
     /if \(!stages\.length && _all\.length\) stages = _all\.slice\(\)/.test(boot),

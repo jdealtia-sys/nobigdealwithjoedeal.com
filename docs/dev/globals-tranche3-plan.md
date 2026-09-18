@@ -320,7 +320,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
 | dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
 | dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
-| long tail (1–3-name edges) | ~133 |
+| dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
+| long tail (1–3-name edges) | ~130 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -646,6 +647,61 @@ Convert edge-by-edge; each edge is one natural PR:
 > `check-js-syntax`, `tests/warranty-claim.test.js` (103/103),
 > `tests/smoke.test.js` (4139/4139), and `run-test-manifest.js --bucket
 > smoke` (68/68) green, plus an EOL/CRLF hygiene check (clean).
+
+> ### Update 2026-09-18 — the pipeline-builder.js edge (PR #1651)
+>
+> A seventh long-tail edge, and the most structurally varied one this
+> session — three different shapes in one PR: `applyPipelineConfig`
+> (a NAMED function expression, `window.X = function X(){}`, converted to
+> a plain declaration `function X(){}`, same name), `resolvePipelineConfig`
+> (an imported `crm-stages.js` binding, same shape as the warranty-claim.js
+> edge above), and `STAGE_ROLE` — a genuine **rename-on-export**: the
+> imported binding is called `ROLE`, exposed under the public name
+> `STAGE_ROLE`. Registered as `STAGE_ROLE: ROLE,` — key differs from value,
+> the first time that's happened in this migration. All three consumed by
+> `pipeline-builder.js` (Settings → Pipelines editor, a real tenant-facing
+> feature — owner/company_admin customize kanban stages/views/roles).
+>
+> `applyPipelineConfig` has one in-module self-reference (inside a
+> `.then()` after `_loadCompanyProfile()` resolves) whose guard was
+> REMOVED entirely, not just rewired: `if (window.applyPipelineConfig)
+> window.applyPipelineConfig();` → bare `applyPipelineConfig();`. Safe
+> because the call site is inside `onAuthStateChanged`'s async callback —
+> never invoked synchronously/reentrantly during module registration — by
+> which point the hoisted function declaration and the tail-of-file
+> registry population have both long since completed.
+>
+> Verification: two independent adversarial-review agents. One traced
+> structural correctness (the `STAGE_ROLE`/`ROLE` binding really is the
+> same object with no shadowing, all 4 consumer call sites guard `_nbdReg`
+> before dereferencing so none can throw on a missing registry, zero
+> duplicate keys across the 48-entry registry block). The other traced all
+> 4 real user flows end to end (opening Settings → Pipelines, changing a
+> stage's semantic role, the "Reset ALL pipelines to defaults" sequence —
+> a bug-fix-sensitive ordering where `window._companyProfile.pipelines`
+> must be force-cleared BEFORE the re-apply or the reset silently no-ops
+> until reload — and save-then-live-board-update) and additionally
+> discovered a MORE PRECISE load-order mechanism than assumed:
+> `pipeline-builder.js`'s `<script>` tag sits INSIDE an inert
+> `<template id="tpl-view-settings">` that only executes once
+> `_hydrateViewTemplate('settings')` clones it into the live DOM on an
+> explicit `goTo('settings')` — meaning `dashboard-bootstrap.module.js`'s
+> registry (populated at module top-level, before `dashboard-ui.js`'s
+> `goTo`/`_hydrateViewTemplate` even exist, since those load later as
+> `defer` scripts) is guaranteed populated before `pipeline-builder.js` can
+> even be fetched, let alone run — no narrow-window race is possible.
+> Both reran `check-js-syntax`, `tests/smoke.test.js` (4150/4150),
+> `tests/crm-stages-roles.test.js` (107/107),
+> `tests/kanban-filter-unification.test.js` (73/73),
+> `tests/customer-stage-advance.test.js` (33/33),
+> `tests/hidden-stage-bucketing.test.js` (18/18), and
+> `run-test-manifest.js --bucket smoke` (68/68) green, plus an EOL/CRLF
+> hygiene check (clean, no lone-CR corruption). One test window widened
+> (`{0,160}` → `{0,300}` in `tests/smoke/crm.test.js`) after computing the
+> real gap (227 chars, CRLF) rather than guessing — a modest ~73-char
+> margin, not an open-ended loosening; a complementary new assertion in
+> `dashboard.test.js` independently catches any regression back to the old
+> `window.X` shape regardless.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
