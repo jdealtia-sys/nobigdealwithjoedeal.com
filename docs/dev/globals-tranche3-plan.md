@@ -338,7 +338,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
 | dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
 | dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR #1652); see note below** |
-| dashboard-actions.js → dashboard-widgets.js (realtime teardown) | 1 of 4 — **shipped 2026-09-18 (PR TBD); other 3 need T3-A-style IIFE-wrapping first, see note below** |
+| dashboard-actions.js → dashboard-widgets.js (realtime teardown) | 1 of 4 — **shipped 2026-09-18 (PR #1653); other 3 need T3-A-style IIFE-wrapping first, see note below** |
 | long tail (1–3-name edges) | ~127 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -758,7 +758,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > reran `check-js-syntax` and `tests/smoke.test.js` (4157/4157) green.
 
 > ### Update 2026-09-18 — dashboard-actions.js as a NEW owner file: 1 of 4
-> names shipped, 3 flagged as a different (harder) class of work (PR TBD)
+> names shipped, 3 flagged as a different (harder) class of work (PR #1653)
 >
 > A ninth long-tail edge, and the first time this session an edge's owner
 > file was something OTHER than `dashboard-bootstrap.module.js`/
