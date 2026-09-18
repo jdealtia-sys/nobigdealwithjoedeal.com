@@ -3136,7 +3136,11 @@ section('Globals Tranches 0+1: converted names stay off window');
     // and dashboard-actions.js's saveZone/deleteZone. _zones (a loaded-zones
     // cache) and _DASH_DOC_PREREQUISITES (a static config object) were also
     // candidates but are DATA, not callables — stay on window.
-    '_savePin', '_deletePin', '_saveZone', '_deleteZone'];
+    '_savePin', '_deletePin', '_saveZone', '_deleteZone',
+    // Tranche 3 T3-C (2026-09-18): the estimate CRUD edge off
+    // dashboard-bootstrap.module.js, consumed by estimate-crm-ops.js.
+    // _duplicateEstimate was NOT a candidate (multiple consumers).
+    '_deleteEstimate', '_renameEstimate', '_assignEstimateToLead'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -3889,6 +3893,30 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\._saveZone\(\{ name, color: fillColor, points: pts/.test(dashActionsSrc));
   assert('dashboard-actions.js\'s deleteZone reads _deleteZone off the registry, not bare window',
     /_nbdReg\._deleteZone\(zone\.id\)/.test(dashActionsSrc) && !/window\._deleteZone\(/.test(dashActionsSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the estimate CRUD edge off
+  // dashboard-bootstrap.module.js ──
+  // estimate-crm-ops.js's renameEstimateAction/deleteEstimateAction/
+  // assignEstimateAction. _duplicateEstimate was NOT a candidate for this
+  // edge (multiple consumers, out of scope for a one-consumer T3-C slice).
+  const estCrmOpsSrc = read(path.join(PRO_JS, 'estimate-crm-ops.js'));
+  for (const n of ['_deleteEstimate', '_renameEstimate', '_assignEstimateToLead']) {
+    assert('dashboard-bootstrap.module.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(bootReg));
+    assert('dashboard-bootstrap.module.js no longer exposes window.' + n + ' (T3-C off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(bootReg));
+  }
+  assert('_deleteEstimate, _renameEstimate, _assignEstimateToLead are real declarations',
+    /async function _deleteEstimate\(id\) \{/.test(bootReg)
+    && /async function _renameEstimate\(id, newName\) \{/.test(bootReg)
+    && /async function _assignEstimateToLead\(id, leadId\) \{/.test(bootReg));
+  assert('estimate-crm-ops.js\'s renameEstimateAction reads _renameEstimate off the registry, not bare window',
+    /_nbdReg\._renameEstimate\(id, trimmed\)/.test(estCrmOpsSrc));
+  assert('estimate-crm-ops.js\'s deleteEstimateAction reads _deleteEstimate off the registry, not bare window',
+    /_nbdReg\._deleteEstimate\(id\)/.test(estCrmOpsSrc));
+  assert('estimate-crm-ops.js\'s two _assignEstimateToLead call sites (unassign + lead-row pick) both read off the registry',
+    (estCrmOpsSrc.match(/window\.__NBD_CALL_REGISTRY\._assignEstimateToLead\(/g) || []).length === 2
+    && !/window\._assignEstimateToLead\(/.test(estCrmOpsSrc));
 
   // ── Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual ──
   // The last open item of Tranche 2. The zone-draw cluster was deferred
