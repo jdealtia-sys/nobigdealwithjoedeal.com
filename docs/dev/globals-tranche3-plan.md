@@ -143,8 +143,10 @@ bracket dispatch. Largest owner clusters:
 `dashboard-ui.js` (24 of 27), `dashboard-bootstrap.module.js` (23 of 25),
 `ui.js` (17 of 18), `customer-bootstrap.module.js` (15),
 `crm-portal-bridge.js` (11), `estimates.js` (10 of 13),
-`maps-routing.js` (8), `dashboard-connect-tab.js` (7). Chunk by file,
-one PR per 2–3 files, three-way proof per name, smoke + advisory E2E green.
+`maps-routing.js` (8), `dashboard-connect-tab.js` (**DONE 2026-09-18, PR
+TBD — re-derived to 13, not 7; see the whole-file-wrap update below**).
+Chunk by file, one PR per 2–3 files, three-way proof per name, smoke +
+advisory E2E green.
 This is the same shape as Tranche 0/1 and can be background work in any
 session.
 
@@ -892,6 +894,92 @@ Convert edge-by-edge; each edge is one natural PR:
 > which failed against `dashboard-actions.js`'s real CRLF (`\r\n`) line
 > endings — caught immediately by running the suite (not shipped red),
 > fixed to `\r?\n`.
+
+> ### Update 2026-09-18 — dashboard-connect-tab.js (PR TBD): the session's
+> first WHOLE-FILE IIFE wrap
+>
+> After the prospect-ops cluster above, dashboard-actions.js's real gaps
+> were re-mapped from scratch and found empty (only `goTo`, a documented,
+> deliberate top-level auto-global, remains in any of its gaps) — no more
+> narrow-gap T3-A candidates left in that file. The only two files in the
+> ORIGINAL T3-A cluster list that have never been IIFE-wrapped at all are
+> `customer-tasks-ui.js` (2521 lines, 1 tiny IIFE at the very end — its
+> own future, bigger slice, see below) and `dashboard-connect-tab.js` (432
+> lines, zero existing IIFE structure whatsoever). This PR takes the
+> smaller one: **the whole file, all 432 lines, wrapped in one new
+> `(function () { ... })();`** — a qualitatively different, higher-effort
+> shape than every prior T3-A edge this session (which all wrapped a
+> narrow 20–160 line GAP between two pre-existing IIFEs; this file had no
+> existing scope to join at all).
+>
+> **Re-derived from 7 to 13 real names.** The original T3-A census
+> counted 7 "zero-external-consumer" names for this file, but a fresh
+> count of every top-level `function` declaration found 13. The
+> discrepancy: `renderConnectCard` and `loadConnectStatus` carried
+> explicit `window.X = X;` export lines (now removed, replaced by
+> `__NBD_CALL_REGISTRY` entries) and the census's stricter "zero external
+> consumer FILES" definition apparently didn't count them as T3-A-shaped
+> because `tests/stripe-connect-ui.test.js` references both by name — but
+> that reference is a `vm`-sandboxed test HARNESS invoking the function
+> directly (`s.renderConnectCard()`), the same category of "external
+> reference that still needs registry treatment" as every markup/test
+> consumer converted earlier in this doc, not a reason to leave a name on
+> `window`. The other 11 (`_nbdConnectVisible`, `_nbdConnectEsc`,
+> `_nbdConnectPrettyReq`, `_nbdConnectCallable`, `_nbdConnectBtn`,
+> `_nbdConnectReqList`, `_nbdConnectCapabilityNote`,
+> `_nbdConnectAwaitClaims`, `_nbdConnectGoToOnboarding`,
+> `_nbdConnectAction`, `_nbdInstallConnectHook`) have genuinely zero
+> consumers anywhere outside this one file (repo-wide grep, incl.
+> `tests/e2e/*.spec.js`) — no registry entry, fully private to the new
+> IIFE.
+>
+> **Re-execution safety, checked explicitly.** The file's own header
+> comment (predates this PR) says it ships inside customer.html's sibling
+> pattern — the lazily-hydrated `tpl-view-settings` template in
+> `dashboard.html` — and is re-executed when that template hydrates
+> (`_hydrateViewTemplate` in `dashboard-ui.js`, which swaps in a freshly
+> created `<script>` element so the DOM actually re-runs it). One
+> reviewer traced this further and found `_hydrateViewTemplate` is itself
+> idempotent (`if (view.children.length > 0) return true`), so in
+> practice it fires once per page load rather than on every tab switch —
+> the "re-executed" framing is about running after `DOMContentLoaded`,
+> not parse time, not a literal multiple-times-per-session claim. Either
+> way it's moot for safety: every piece of state that must persist is an
+> explicit `window.*` read/write (`_NBD_CONNECT_DELEGATE`,
+> `_NBD_CONNECT_TAB_HOOK`, `_NBD_CONNECT_HOOK_RETRY`, `_nbdConnectState`/
+> `Busy`/`Error`/`LinkExpired`/`PendingRefresh`, `_userClaims`,
+> `_functions`, `_httpsCallable`), untouched by the wrap — an IIFE gives
+> each execution a fresh LOCAL scope, which only matters for `let`/`const`
+> redeclaration (there are none at top level here, wrapped or not).
+> `_nbdConnectPendingRefresh` is confirmed cross-file: SET by
+> `dashboard-bootstrap.module.js:2176`, READ by this file — unaffected.
+>
+> **`tests/stripe-connect-ui.test.js` rewired.** Its `vm`-sandboxed
+> harness (`sandbox.window = sandbox`, i.e. window and the sandbox's own
+> global ARE the same binding) used to call `s.renderConnectCard()`
+> directly since the function was a bare sandbox-global property; all 6
+> call sites (`renderWith`, the standalone-load sanity check, and 3
+> behavioural fixtures) now go through `s.__NBD_CALL_REGISTRY
+> .renderConnectCard()`. This is the first time this session's
+> `__NBD_CALL_REGISTRY` pattern has been proven correct inside a `vm`
+> sandbox rather than a real browser — both reviewers independently
+> confirmed the registry populates correctly post-`vm.runInContext` and
+> the rewired calls actually execute (not just parse), since
+> `tests/stripe-connect-ui.test.js` exercises real DOM-rendering behavior
+> against a fake `document`, not source-text regex.
+>
+> Verification: two independent adversarial-review agents, both clean
+> SHIP verdicts. Both re-derived the hydration/re-execution mechanism
+> from `dashboard.html` and `dashboard-ui.js` source rather than trusting
+> the file's own header comment; both grepped the full repo (incl.
+> `tests/e2e/`) for all 11 private names and found zero external
+> consumers; both ran `node tests/stripe-connect-ui.test.js` themselves
+> (101/101 green) rather than accepting a claimed count; both confirmed
+> `git ls-files --eol` reports `w/crlf` (not `w/-text`) and independently
+> wrote a byte-scanner confirming zero lone-CR bytes across all three
+> touched files. Both also reran `check-js-syntax` (513 files clean) and
+> `tests/smoke.test.js` (4184/4184, up from 4170 — the 14 new T3-A
+> structural assertions this edge adds).
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if

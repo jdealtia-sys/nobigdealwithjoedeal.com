@@ -1,3 +1,4 @@
+(function () {
       // ── Stripe Connect (payouts) card — Settings → Billing ──
       // Phase 2 of Connect shipped this card; phase 3 makes it tell the truth.
       // Phase 1 (#1143) shipped the five callables with no caller at all; this
@@ -256,7 +257,6 @@
           + '<div style="margin-top:12px;">' + actions + '</div>'
           + acct;
       }
-      window.renderConnectCard = renderConnectCard;
 
       // Enforcement point 3 of 3. Claims arrive asynchronously. If the Billing
       // tab is opened before _userClaims is populated, _nbdConnectVisible() is
@@ -300,7 +300,6 @@
           renderConnectCard();
         }
       }
-      window.loadConnectStatus = loadConnectStatus;
 
       async function _nbdConnectGoToOnboarding() {
         var fn = await _nbdConnectCallable('createConnectOnboardingLink');
@@ -430,3 +429,16 @@
           }
         }, 150);
       }
+
+      // Globals Tranche 3 (T3-A, 2026-09-18): the only two names anything
+      // outside this file ever reaches — renderConnectCard for the vm-sandboxed
+      // stripe-connect-ui.test.js harness (mkEnv().renderConnectCard /
+      // s.renderConnectCard()), loadConnectStatus for parity/console access.
+      // The other 11 functions here have zero external consumers and stay
+      // fully private to this IIFE.
+      window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+      Object.assign(window.__NBD_CALL_REGISTRY, {
+        renderConnectCard: renderConnectCard,
+        loadConnectStatus: loadConnectStatus
+      });
+})();

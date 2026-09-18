@@ -3174,7 +3174,15 @@ section('Globals Tranches 0+1: converted names stay off window');
     // entry (dashboard-state.js) also removed — see the dedicated
     // assertion block below.
     'confirmPromoteProspect', 'toggleProspectHidden', 'viewProspectOnMap',
-    'absoluteDeleteProspect'];
+    'absoluteDeleteProspect',
+    // Tranche 3 T3-A (2026-09-18): dashboard-connect-tab.js, the session's
+    // first WHOLE-FILE IIFE wrap. renderConnectCard/loadConnectStatus were
+    // explicit window exports (now registry-only); the file's other 11
+    // functions were already implicit top-level auto-globals with no
+    // explicit window.X= line, so this regex walk was never able to catch
+    // them either way — see the dedicated IIFE-wrap structural assertion
+    // block below for that proof.
+    'renderConnectCard', 'loadConnectStatus'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -5261,6 +5269,44 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
     /_nbdReg && _nbdReg\.toggleProspectHidden\(lead\.id\)/.test(widgets) &&
     /_nbdReg && _nbdReg\.absoluteDeleteProspect\(lead\.id\)/.test(widgets) &&
     !/window\.viewProspectOnMap\(/.test(widgets) && !/window\.toggleProspectHidden\(/.test(widgets) && !/window\.absoluteDeleteProspect\(/.test(widgets));
+
+  // ── Tranche 3 T3-A (2026-09-18): dashboard-connect-tab.js — the session's
+  // first WHOLE-FILE IIFE wrap (432 lines, previously zero IIFE structure at
+  // all — every one of its 13 functions was a true top-level classic-script
+  // auto-global). Unlike the prospect-ops cluster (a narrow gap between two
+  // existing IIFEs), this file had NO existing scope to join, so the whole
+  // body is now one new IIFE. renderConnectCard/loadConnectStatus are the
+  // only 2 names anything outside this file ever reaches (the vm-sandboxed
+  // tests/stripe-connect-ui.test.js harness) — registered. The other 11
+  // (_nbdConnectVisible, _nbdConnectEsc, _nbdConnectPrettyReq,
+  // _nbdConnectCallable, _nbdConnectBtn, _nbdConnectReqList,
+  // _nbdConnectCapabilityNote, _nbdConnectAwaitClaims, _nbdConnectGoToOnboarding,
+  // _nbdConnectAction, _nbdInstallConnectHook) have zero external consumers —
+  // no registry entry, stay fully private to the new IIFE. The file's own
+  // header documents it is RE-EXECUTED on every Settings-tab hydration; an
+  // IIFE wrap is safe for that (each call gets a fresh local scope) and the
+  // load-bearing window.* guard flags (_NBD_CONNECT_DELEGATE,
+  // _NBD_CONNECT_TAB_HOOK, _NBD_CONNECT_HOOK_RETRY) and cross-file data
+  // (_nbdConnectPendingRefresh, set by dashboard-bootstrap.module.js) are
+  // untouched explicit window.* reads/writes, unaffected by the wrap.
+  const connectTab = read(path.join(PRO_JS, 'dashboard-connect-tab.js'));
+  assert('dashboard-connect-tab.js is wrapped in a single top-level IIFE spanning the whole file',
+    /^\(function \(\) \{\r?\n\s*\/\/ ── Stripe Connect/.test(connectTab) &&
+    /\}\)\(\);\s*$/.test(connectTab));
+  assert('renderConnectCard and loadConnectStatus are registered in __NBD_CALL_REGISTRY',
+    /renderConnectCard: renderConnectCard,/.test(connectTab) &&
+    /loadConnectStatus: loadConnectStatus/.test(connectTab));
+  assert('dashboard-connect-tab.js no longer explicitly exports window.renderConnectCard or window.loadConnectStatus',
+    !/window\.renderConnectCard\s*=/.test(connectTab) && !/window\.loadConnectStatus\s*=/.test(connectTab));
+  for (const n of ['_nbdConnectVisible', '_nbdConnectEsc', '_nbdConnectPrettyReq', '_nbdConnectCallable',
+    '_nbdConnectBtn', '_nbdConnectReqList', '_nbdConnectCapabilityNote', '_nbdConnectAwaitClaims',
+    '_nbdConnectGoToOnboarding', '_nbdConnectAction', '_nbdInstallConnectHook']) {
+    assert(n + ' stays private — no registry entry, no window export (T3-A, zero external consumer)',
+      !new RegExp(n + ':\\s*' + n).test(connectTab) && !new RegExp('window\\.' + n + '\\s*=').test(connectTab));
+  }
+  // The load-bearing re-execution/guard-flag/App-Check/CSP behavior itself is
+  // covered in depth by tests/stripe-connect-ui.test.js's own Parts 3-4 — not
+  // duplicated here.
 
   // customer-realtime.module.js refactor: pure export now, no top-level
   // side effect — importing mountMessages from the dashboard bridge must
