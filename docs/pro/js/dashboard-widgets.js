@@ -1501,15 +1501,17 @@ function populateProspectQuickActions(lead) {
       goTo('d2d');
     }
   }}));
+  // Registry-only (Globals Tranche 3 T3-A, 2026-09-18), not bare window globals.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
   wrap.appendChild(make('🗺️', 'See on Map', {
     disabled: !hasGeo,
-    onClick: () => { closeCardDetailModal(); window.viewProspectOnMap(lead.id); }
+    onClick: () => { closeCardDetailModal(); _nbdReg && _nbdReg.viewProspectOnMap(lead.id); }
   }));
   wrap.appendChild(make(isHidden ? '👁️' : '🗄️', isHidden ? 'Unhide' : 'Hide', {
-    onClick: () => { window.toggleProspectHidden(lead.id); }
+    onClick: () => { _nbdReg && _nbdReg.toggleProspectHidden(lead.id); }
   }));
   wrap.appendChild(make('🗑️', 'Delete', {
-    danger: true, onClick: () => { window.absoluteDeleteProspect(lead.id); }
+    danger: true, onClick: () => { _nbdReg && _nbdReg.absoluteDeleteProspect(lead.id); }
   }));
 }
 

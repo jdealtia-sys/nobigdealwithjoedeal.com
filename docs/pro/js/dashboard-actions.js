@@ -2354,6 +2354,23 @@ window.openLeadDetail = openLeadDetail;
   });
 })();
 
+// ── Globals Tranche 3 T3-A (2026-09-18): the prospect-ops cluster is
+// wrapped in this IIFE. Prior sessions' comments elsewhere calling these
+// names MUST-STAY (e.g. tests/smoke/dashboard.test.js's T1_NAMES section)
+// were written 2026-07-07 and are stale — that same comment block also
+// lists _mJdSwitchTab as MUST-STAY, which graduated off window in a later
+// tranche; nothing here reflects a live constraint, just an unfreshened
+// note. Re-derived from a fresh three-way proof before wrapping:
+// _prospectConfirm/_prospectPrompt are private helpers with no consumer
+// outside this cluster (stay module-local, no registry entry needed).
+// confirmPromoteProspect, toggleProspectHidden, viewProspectOnMap,
+// absoluteDeleteProspect all register in __NBD_CALL_REGISTRY below.
+// confirmPromoteProspect's own dashboard-state.js allowlist entry was
+// ALSO stale — real markup dispatch goes through cdaConfirmPromote (a
+// different, already-registered wrapper in the card-detail-action IIFE
+// above), not this name directly; removed from the allowlist as part of
+// this conversion.
+(function () {
 // Async confirm helper that prefers our themed in-app dialog (works in
 // iOS PWA standalone where native confirm() can silently no-op) and
 // falls back to native confirm only when neither is loaded yet.
@@ -2381,7 +2398,9 @@ async function _prospectPrompt(message) {
 }
 
 // Confirm-then-promote. Single confirm dialog before flipping isProspect.
-window.confirmPromoteProspect = async function(leadId) {
+// Registered in __NBD_CALL_REGISTRY at the end of this IIFE (Globals
+// Tranche 3 T3-A, 2026-09-18), no longer a bare window global.
+async function confirmPromoteProspect(leadId) {
   if (!leadId) return;
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
@@ -2397,13 +2416,15 @@ window.confirmPromoteProspect = async function(leadId) {
     await window.promoteProspect(leadId);
     closeCardDetailModal();
   }
-};
+}
 
 // Hide / unhide a prospect from the default Prospects view. This is a
 // soft-hide (writes prospectHidden:true) — the lead record stays intact
 // so we don't lose its history. The Prospects page has a "Show hidden"
 // toggle to bring them back.
-window.toggleProspectHidden = async function(leadId) {
+// Registered in __NBD_CALL_REGISTRY at the end of this IIFE (Globals
+// Tranche 3 T3-A, 2026-09-18), no longer a bare window global.
+async function toggleProspectHidden(leadId) {
   if (!leadId) return;
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
@@ -2420,10 +2441,12 @@ window.toggleProspectHidden = async function(leadId) {
   } catch (e) {
     if (typeof window.showToast === 'function') window.showToast('Failed: ' + e.message, 'error');
   }
-};
+}
 
 // Jump to D2D map view and center on the prospect's coordinates.
-window.viewProspectOnMap = function(leadId) {
+// Registered in __NBD_CALL_REGISTRY at the end of this IIFE (Globals
+// Tranche 3 T3-A, 2026-09-18), no longer a bare window global.
+function viewProspectOnMap(leadId) {
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead || lead.lat == null || lead.lng == null) {
     if (typeof window.showToast === 'function') window.showToast('No coordinates on this prospect', 'error');
@@ -2438,13 +2461,15 @@ window.viewProspectOnMap = function(leadId) {
       window._d2dMap.setView([lead.lat, lead.lng], 17);
     }
   }, 600);
-};
+}
 
 // Three-step delete with TYPE 'DELETE' final gate. Permanently removes
 // the lead record. Reserved STRICTLY for prospects — regular customers
 // go through the soft-delete (trash) flow with recovery. The function
 // hard-refuses to run on a non-prospect even if invoked directly.
-window.absoluteDeleteProspect = async function(leadId) {
+// Registered in __NBD_CALL_REGISTRY at the end of this IIFE (Globals
+// Tranche 3 T3-A, 2026-09-18), no longer a bare window global.
+async function absoluteDeleteProspect(leadId) {
   if (!leadId) return;
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
@@ -2498,7 +2523,16 @@ window.absoluteDeleteProspect = async function(leadId) {
   } catch (e) {
     if (typeof window.showToast === 'function') window.showToast('Delete failed: ' + e.message, 'error');
   }
-};
+}
+
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+Object.assign(window.__NBD_CALL_REGISTRY, {
+  confirmPromoteProspect: confirmPromoteProspect,
+  toggleProspectHidden: toggleProspectHidden,
+  viewProspectOnMap: viewProspectOnMap,
+  absoluteDeleteProspect: absoluteDeleteProspect,
+});
+})();
 
 // ══════════════════════════════════════════════
 // CUSTOMER-PAGE HANDOFF + CARD-DETAIL ACTIONS
@@ -2787,8 +2821,10 @@ function editCardDetails() {
     }
   }
   function cdaConfirmPromote() {
-    if (window._cardDetailLeadId && typeof window.confirmPromoteProspect === 'function') {
-      window.confirmPromoteProspect(window._cardDetailLeadId);
+    // Registry-only (Globals Tranche 3 T3-A, 2026-09-18), not a bare window global.
+    var _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (window._cardDetailLeadId && _nbdReg && typeof _nbdReg.confirmPromoteProspect === 'function') {
+      _nbdReg.confirmPromoteProspect(window._cardDetailLeadId);
     }
   }
   function cdaOpenTaskModal() {

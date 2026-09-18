@@ -527,7 +527,25 @@
     read the plan doc's table, not this number, before starting the next
     slice); T3-D (131-name band → NBD-prefixed APIs) and T3-E (spine-
     disposition docs) remain fully
-    untouched · **404
+    untouched. **A tenth PR same day (PR TBD)** was the session's first
+    genuine **T3-A** slice — new-IIFE-wrapping, not just re-registering
+    inside a scope that already existed — picking up the 3 names flagged
+    by the ninth PR (`toggleProspectHidden`, `viewProspectOnMap`,
+    `absoluteDeleteProspect`) plus a 4th in the same top-level gap
+    (`confirmPromoteProspect`). Wrapped the whole gap in a new IIFE;
+    found and fixed a stale `__NBD_CALL_ALLOWLIST` entry for
+    `confirmPromoteProspect` (real markup dispatch goes through
+    `cdaConfirmPromote`, an already-registered wrapper in a different,
+    pre-existing IIFE) and a stale test comment wrongly calling
+    `viewProspectOnMap` "MUST-STAY" (the same comment also still listed
+    `_mJdSwitchTab`, already converted in an earlier tranche — proof the
+    comment had rotted). Two reviewers re-derived the new IIFE's
+    boundaries from `git show HEAD`, byte-diffed the destructive-delete
+    guard as untouched, and traced the registry-before-allowlist
+    resolver precedence in `dashboard-ui.js` to confirm the allowlist
+    removal is a provable no-op, not just an absence of grep hits.
+    T3-C long-tail now ~123 names; T3-A candidate count reduced by 4.
+    · **404
     full-chrome** **DONE, PR #1636 (2026-09-17)** — `docs/404.html` now
     carries real `nbd:partial nav-standard`/`mobile-nav-standard`/
     `footer-extended` chrome instead of a bespoke centered card ·

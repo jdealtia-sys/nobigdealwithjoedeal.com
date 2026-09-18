@@ -339,7 +339,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → pipeline-builder.js | 3 — **shipped 2026-09-18 (PR #1651); see note below** |
 | dashboard-bootstrap.module.js → dashboard-widgets.js (photo modal) | 2 — **shipped 2026-09-18 (PR #1652); see note below** |
 | dashboard-actions.js → dashboard-widgets.js (realtime teardown) | 1 of 4 — **shipped 2026-09-18 (PR #1653); other 3 need T3-A-style IIFE-wrapping first, see note below** |
-| long tail (1–3-name edges) | ~127 |
+| dashboard-actions.js → dashboard-widgets.js (prospect ops, T3-A) | 4 — **shipped 2026-09-18 (PR TBD), the flagged 3 from above + confirmPromoteProspect; see note below** |
+| long tail (1–3-name edges) | ~123 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -821,6 +822,76 @@ Convert edge-by-edge; each edge is one natural PR:
 > it, confirmed call-site ordering unchanged, confirmed no `_nbdReg`
 > scope collision with an unrelated function in the same consumer file,
 > and reran `check-js-syntax` and `tests/smoke.test.js` (4157/4157) green.
+
+> ### Update 2026-09-18 — the prospect-ops cluster (PR TBD): the session's
+> first genuine T3-A slice (new IIFE-wrapping, not just re-registering
+> inside an existing scope)
+>
+> Picks up the 3 names flagged above as needing T3-A-style work
+> (`toggleProspectHidden`, `viewProspectOnMap`, `absoluteDeleteProspect`),
+> plus a 4th found in the same top-level gap (`confirmPromoteProspect`,
+> already documented as a landmine earlier in this doc from a 2026-09-01
+> investigation — see its correction table row above). All 4 sat in a
+> real gap in `dashboard-actions.js` between two pre-existing IIFEs
+> (closing at 2355, reopening at what was then 2519) — genuine top-level
+> classic-script code, where a bare `function X(){}` auto-globals
+> regardless of an explicit `window.X = ` assignment. **The only real fix
+> is wrapping in a NEW IIFE**, not just converting the declaration form —
+> this is the actual difference between T3-C (re-register something
+> already scoped) and T3-A (create the scope that makes registering mean
+> anything).
+>
+> Two private helpers in the same gap, `_prospectConfirm`/
+> `_prospectPrompt`, were confirmed (repo-wide grep, no consumer anywhere
+> outside this region) to need no registry entry — module-local inside
+> the new IIFE, same as before, just no longer reachable from `window`.
+>
+> **A second landmine resolved in passing**: `confirmPromoteProspect` had
+> a STALE entry in `dashboard-state.js`'s `__NBD_CALL_ALLOWLIST` — real
+> markup dispatch has always gone through `cdaConfirmPromote` (a
+> different, already-registered wrapper in a separate, pre-existing IIFE
+> — the "card-detail-action cluster" from an earlier tranche), which
+> makes a plain cross-IIFE JS call into `confirmPromoteProspect`. Removed
+> the stale allowlist entry and rewired `cdaConfirmPromote`'s call site to
+> read the registry.
+>
+> **A third, unrelated stale comment corrected in passing**:
+> `tests/smoke/dashboard.test.js`'s T1_NAMES section had a 2026-07-07
+> comment calling `viewProspectOnMap` (among others) "MUST-STAY" — already
+> proven stale by the SAME comment also listing `_mJdSwitchTab`, which
+> graduated off window in a later tranche without anyone updating this
+> note. Corrected in place rather than left to mislead the next session.
+>
+> Verification: two independent adversarial-review agents gave this the
+> full treatment — the highest-risk change this session (a genuinely new
+> scope boundary, plus a destructive 3-step-confirm permanent-delete flow
+> whose only safety guard is `if (lead.isProspect !== true) { refuse }`).
+> One re-derived the IIFE boundaries from `git show HEAD` (not the diff)
+> and confirmed the new IIFE opens/closes exactly where claimed with no
+> overlap into the neighboring pre-existing IIFEs, byte-diffed the
+> destructive guard as unchanged, and traced the bare `goTo('d2d')` call
+> inside `viewProspectOnMap` to confirm it resolves correctly regardless
+> of IIFE nesting (unchanged from before — `goTo` is itself a genuine
+> top-level auto-global). The other traced the full cross-IIFE dispatch
+> chain through the ACTUAL resolver code (`_nbdResolveCall` in
+> `dashboard-ui.js`, confirmed to check the registry BEFORE the allowlist
+> — meaning the allowlist removal is provably a no-op for resolution, not
+> just "grep found nothing"), confirmed `cdaConfirmPromote`'s own
+> registration and call-site rewire, and confirmed the
+> `dashboard-widgets.js` consumer's `_nbdReg` read is safe regardless of
+> `dashboard-widgets.js` loading before `dashboard-actions.js` (it's
+> inside a function body, evaluated only at click-time, long after all
+> deferred scripts have run). Both reran `check-js-syntax`,
+> `tests/smoke.test.js` (4170/4170), and `run-test-manifest.js --bucket
+> smoke` (68/68) green; one additionally ran `tests/pwa-confirm-guard.test.js`
+> (86/86) to confirm `_prospectConfirm`'s native-`confirm()`-fallback
+> count wasn't disturbed by the wrap.
+>
+> One test assertion needed a same-session fix: the new "wrapped in its
+> own IIFE" structural check initially used a literal `\n` in its regex,
+> which failed against `dashboard-actions.js`'s real CRLF (`\r\n`) line
+> endings — caught immediately by running the suite (not shipped red),
+> fixed to `\r?\n`.
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if

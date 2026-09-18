@@ -2969,9 +2969,14 @@ section('Globals Tranches 0+1: converted names stay off window');
     // — 18 cda* / chip-picker / mobile photo-picker wrappers consolidated into
     // one IIFE and dispatched via __NBD_CALL_REGISTRY (see the "Globals Tranche
     // 2c" section below). NOT here: the file's MUST-STAY names (goTo router,
-    // zone-draw, openLeadDetail, viewProspectOnMap, _mJdSwitchTab, the mobile
-    // close-* handlers) which stay window-exported — see
-    // docs/dev/dashboard-actions-globals-audit.md.
+    // zone-draw, openLeadDetail, _mJdSwitchTab, the mobile close-* handlers)
+    // which stay window-exported — see docs/dev/dashboard-actions-globals-
+    // audit.md. **Correction 2026-09-18**: this "MUST-STAY" list was already
+    // stale before today — _mJdSwitchTab graduated off window in a LATER
+    // tranche (see its own entry below) despite still being named here.
+    // viewProspectOnMap (plus confirmPromoteProspect/toggleProspectHidden/
+    // absoluteDeleteProspect, the rest of the prospect-ops cluster it shipped
+    // alongside) also graduated today (Tranche 3 T3-A) — see that section.
     'cdaReport', 'cdaEnrich', 'cdaPhotos', 'cdaInvoice', 'cdaInspection',
     'cdaInspectionDeep', 'cdPickStage', 'cdPickType', 'cdaMjdAct', 'cdaEditLead',
     'cdaOpenMobileInspection', 'cdaVoiceMemo', 'cdaOpenVoicemail',
@@ -3162,7 +3167,14 @@ section('Globals Tranches 0+1: converted names stay off window');
     // declaration (not an expression) inside dashboard-actions.js's
     // customer-detail-action-bar IIFE — only the redundant window export
     // line and the registry entry changed.
-    '_mJdTeardownRealtimeTabs'];
+    '_mJdTeardownRealtimeTabs',
+    // Tranche 3 T3-A (2026-09-18): the prospect-ops cluster, newly
+    // IIFE-wrapped (not just re-registered within an existing IIFE like
+    // every other T3-C entry above). confirmPromoteProspect's allowlist
+    // entry (dashboard-state.js) also removed — see the dedicated
+    // assertion block below.
+    'confirmPromoteProspect', 'toggleProspectHidden', 'viewProspectOnMap',
+    'absoluteDeleteProspect'];
   const NAMES = [...T1_NAMES, 'ActivityFeed', 'AlmostThere', 'AskJoeProactive',
     'CustomerAiDraftsPanel', 'CustomerDnDUpload', 'CustomerLastSharedChip',
     'CustomerQuickActionBar', 'CustomerSiblingSnooze',
@@ -5215,6 +5227,40 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
                                       widgets.indexOf('window.openMobileJobDetail'));
   assert('openMobileJobDetail calls the teardown on every open, before staging the new lead\'s data',
     /window\._cardDetailLeadId = leadId;[\s\S]{0,1200}_nbdReg\._mJdTeardownRealtimeTabs\(leadId\)/.test(openMobileFn));
+
+  // ── Tranche 3 T3-A (2026-09-18): the prospect-ops cluster —
+  // confirmPromoteProspect, toggleProspectHidden, viewProspectOnMap,
+  // absoluteDeleteProspect ──
+  // Unlike every T3-C edge above, this one required NEWLY IIFE-wrapping a
+  // region of dashboard-actions.js that was previously true top-level
+  // classic-script code (between two pre-existing IIFEs) — a genuinely
+  // different, higher-risk shape (converting window.X = function(){} to a
+  // plain declaration at TRUE top level would NOT take it off window;
+  // wrapping in a new IIFE is what actually does). _prospectConfirm/
+  // _prospectPrompt are private helpers with no external consumer — no
+  // registry entry, stay module-local inside the new IIFE.
+  const prospectFn = actions.slice(actions.indexOf('_prospectConfirm(message, opts)'),
+                                    actions.indexOf('CUSTOMER-PAGE HANDOFF'));
+  assert('the prospect-ops cluster is wrapped in its own new IIFE (not left at top level)',
+    /\(function \(\) \{\r?\n\/\/ Async confirm helper/.test(actions) &&
+    /confirmPromoteProspect: confirmPromoteProspect,[\s\S]{0,220}\}\);\r?\n\}\)\(\);/.test(actions));
+  for (const n of ['confirmPromoteProspect', 'toggleProspectHidden', 'viewProspectOnMap', 'absoluteDeleteProspect']) {
+    assert('dashboard-actions.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-A)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(prospectFn));
+    assert('dashboard-actions.js no longer exposes window.' + n + ' (T3-A off window)',
+      !new RegExp('window\\.' + n + '\\s*=').test(prospectFn));
+  }
+  assert('_prospectConfirm and _prospectPrompt stay private (no registry entry — no consumer outside this cluster)',
+    !/_prospectConfirm:/.test(prospectFn) && !/_prospectPrompt:/.test(prospectFn));
+  assert('confirmPromoteProspect is no longer in the __NBD_CALL_ALLOWLIST (its real markup dispatch was always cdaConfirmPromote, already registered separately)',
+    !/'confirmPromoteProspect'/.test(read(path.join(PRO_JS, 'dashboard-state.js'))));
+  assert('cdaConfirmPromote (the card-detail-action IIFE, a DIFFERENT scope) reads confirmPromoteProspect off the registry, not bare window',
+    /_nbdReg\.confirmPromoteProspect\(window\._cardDetailLeadId\)/.test(actions) && !/window\.confirmPromoteProspect\(/.test(actions));
+  assert('dashboard-widgets.js\'s prospect quick-actions read all 3 of its names off the registry, not bare window',
+    /_nbdReg && _nbdReg\.viewProspectOnMap\(lead\.id\)/.test(widgets) &&
+    /_nbdReg && _nbdReg\.toggleProspectHidden\(lead\.id\)/.test(widgets) &&
+    /_nbdReg && _nbdReg\.absoluteDeleteProspect\(lead\.id\)/.test(widgets) &&
+    !/window\.viewProspectOnMap\(/.test(widgets) && !/window\.toggleProspectHidden\(/.test(widgets) && !/window\.absoluteDeleteProspect\(/.test(widgets));
 
   // customer-realtime.module.js refactor: pure export now, no top-level
   // side effect — importing mountMessages from the dashboard bridge must
