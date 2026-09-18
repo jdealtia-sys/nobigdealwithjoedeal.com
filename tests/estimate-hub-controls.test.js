@@ -24,6 +24,21 @@
  *    lists by leadId, the copy was filtered straight out: the rep got
  *    "✓ Estimate duplicated", an unchanged list and an unchanged count.
  *
+ * 3. "👤 Assign" (estimate-crm-ops.js's showAssignLeadPicker, opened from the
+ *    hub via customer-estimate-hub.js:539) called
+ *    window.__NBD_CALL_REGISTRY._assignEstimateToLead with no existence guard.
+ *    That function is registered only by dashboard-bootstrap.module.js, which
+ *    customer.html never loads (it loads customer-bootstrap.module.js instead)
+ *    — so on the customer page the picker opened, the modal closed on
+ *    Unassign/a lead click, and the call threw inside an unguarded async
+ *    handler: an unhandled rejection, no toast, no assignment. Fixed with the
+ *    same typeof-guard-then-toast pattern _deleteEstimate/_renameEstimate
+ *    already use in this file, rather than duplicating the ~90-line
+ *    money/pipeline stamp-back logic onto a second page (see
+ *    docs/dev/globals-tranche3-plan.md's 2026-09-18 estimate-CRUD-edge note —
+ *    Duplicate/Delete/Rename are ALSO dashboard-bootstrap-only and were
+ *    already degrading to a toast instead of working; Assign now matches).
+ *
  * Zero deps.  Run: node tests/estimate-hub-controls.test.js
  */
 'use strict';
@@ -102,6 +117,40 @@ const HUB_CODE = decomment(HUB);
   ok('the dashboard duplicate still intentionally leaves the copy unassigned',
     /copy\.leadId = null;/.test(boot),
     'this fix must not change the dashboard-list default');
+}
+
+// ── 3. Assign is guarded against the dashboard-only registry entry ────
+{
+  const OPS = read('estimate-crm-ops.js');
+  const OPS_CODE = decomment(OPS);
+
+  // Both call sites inside showAssignLeadPicker — the "Unassign" button and
+  // a lead row — must guard before calling into the registry.
+  const guardedCallRe =
+    /var _nbdReg = window\.__NBD_CALL_REGISTRY;\s*if \(!_nbdReg \|\| typeof _nbdReg\._assignEstimateToLead !== 'function'\) \{\s*showToast\([^)]*'error'\);\s*return;\s*\}\s*const ok = await _nbdReg\._assignEstimateToLead\(estimateId, (null|lead\.id)\);/g;
+  const guardedCalls = OPS_CODE.match(guardedCallRe) || [];
+  ok('both showAssignLeadPicker call sites guard _assignEstimateToLead before calling it',
+    guardedCalls.length === 2,
+    `found ${guardedCalls.length} guarded call sites, expected 2 (Unassign button + lead row click)`);
+
+  ok('no call site invokes _assignEstimateToLead straight off window.__NBD_CALL_REGISTRY (unguarded)',
+    !/window\.__NBD_CALL_REGISTRY\._assignEstimateToLead\(/.test(OPS_CODE),
+    'the guarded form reads the registry into _nbdReg first and calls _nbdReg._assignEstimateToLead — a direct window.__NBD_CALL_REGISTRY._assignEstimateToLead(...) call bypasses the guard and reintroduces the unhandled-rejection bug');
+
+  ok('a missing _assignEstimateToLead shows an error toast, not a silent no-op',
+    (OPS_CODE.match(/showToast\('Assign not available on this page/g) || []).length === 2);
+
+  // Root cause stays true: _assignEstimateToLead is dashboard-bootstrap-only.
+  // If a future migration moves/mirrors it onto customer-bootstrap.module.js
+  // (or registers a customer.html fallback), this guard becomes dead code
+  // worth revisiting — not a false alarm.
+  const dashBoot = read('dashboard-bootstrap.module.js');
+  const custBoot = read('customer-bootstrap.module.js');
+  ok('_assignEstimateToLead is still defined in dashboard-bootstrap.module.js',
+    /async function _assignEstimateToLead\(id, leadId\)/.test(dashBoot));
+  ok('_assignEstimateToLead is still absent from customer-bootstrap.module.js',
+    !/_assignEstimateToLead/.test(custBoot),
+    'if this now exists, the guard added here may no longer be the right fix — re-check whether Assign can just work on customer.html');
 }
 
 console.log('\n──────────────────────────────');

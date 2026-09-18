@@ -165,8 +165,17 @@ function showAssignLeadPicker(estimateId, estimate) {
       unassign.addEventListener('click', async () => {
         overlay.remove();
         // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-        const ok = await window.__NBD_CALL_REGISTRY._assignEstimateToLead(estimateId, null);
+        // _assignEstimateToLead is defined only in dashboard-bootstrap.module.js,
+        // which customer.html never loads \u2014 guard like _deleteEstimate/_renameEstimate
+        // above instead of letting an unhandled rejection swallow the click.
+        var _nbdReg = window.__NBD_CALL_REGISTRY;
+        if (!_nbdReg || typeof _nbdReg._assignEstimateToLead !== 'function') {
+          showToast('Assign not available on this page \u2014 use the Dashboard estimates list', 'error');
+          return;
+        }
+        const ok = await _nbdReg._assignEstimateToLead(estimateId, null);
         if (ok) showToast('\u2713 Estimate unassigned', 'success');
+        else showToast('Failed to unassign', 'error');
       });
       results.appendChild(unassign);
     }
@@ -193,7 +202,15 @@ function showAssignLeadPicker(estimateId, estimate) {
       row.addEventListener('click', async () => {
         overlay.remove();
         // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-        const ok = await window.__NBD_CALL_REGISTRY._assignEstimateToLead(estimateId, lead.id);
+        // _assignEstimateToLead is defined only in dashboard-bootstrap.module.js,
+        // which customer.html never loads \u2014 guard like _deleteEstimate/_renameEstimate
+        // above instead of letting an unhandled rejection swallow the click.
+        var _nbdReg = window.__NBD_CALL_REGISTRY;
+        if (!_nbdReg || typeof _nbdReg._assignEstimateToLead !== 'function') {
+          showToast('Assign not available on this page \u2014 use the Dashboard estimates list', 'error');
+          return;
+        }
+        const ok = await _nbdReg._assignEstimateToLead(estimateId, lead.id);
         if (ok) showToast('\u2713 Assigned to ' + (lead.firstName || lead.address || 'customer'), 'success');
         else showToast('Failed to assign', 'error');
       });

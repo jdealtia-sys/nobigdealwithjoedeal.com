@@ -533,6 +533,41 @@ Convert edge-by-edge; each edge is one natural PR:
 > — found zero bugs in either pass. Both reran `check-js-syntax`,
 > `tests/smoke.test.js` (4121/4121), `tests/estimate-hub-controls.test.js`
 > (12/12), and `run-test-manifest.js --bucket smoke` (68/68) green.
+>
+> **RESOLVED 2026-09-18, PR #1649** — the background task spawned above.
+> Both `_assignEstimateToLead` call sites in `showAssignLeadPicker` now
+> `typeof`-guard the registry entry before calling it, matching
+> `_deleteEstimate`/`_renameEstimate`'s pattern exactly, and toast "Assign
+> not available on this page" instead of throwing. Deliberately did NOT
+> attempt to make Assign actually work on `customer.html` — that would mean
+> duplicating the stamp-back logic onto a second page (a "twin assigner"
+> that WILL drift, the exact failure shape this doc warns about elsewhere —
+> see the `closeTaskModal`/`closeShortcutsPanel`/`closeCmdPalette` note under
+> T3-M) or loading `dashboard-bootstrap.module.js` on `customer.html` (which
+> would re-run its own `initializeApp()` + auth-listener bootstrap — not
+> attempted, likely a duplicate-Firebase-app-instance error). **New finding
+> while fixing this: `_duplicateEstimate` (the Copy button, via
+> `doDuplicate` in `customer-estimate-hub.js`) is equally
+> `dashboard-bootstrap.module.js`-only and unreachable from `customer.html`
+> today** — confirmed by grep, it is not part of the lazy `estimates`
+> ScriptLoader bundle either. Unlike Assign it already degrades gracefully
+> (its own `typeof window._duplicateEstimate !== 'function'` guard predates
+> this PR), so it was left alone; Assign now fails the same way. **All four
+> per-row estimate actions on the customer-page hub (Duplicate/Delete/
+> Rename/Assign) are therefore CRUD-dead on `customer.html` today** — every
+> one either toasts "not available" or (before this PR) silently failed.
+> Making any of them actually write from that page is a real feature slice
+> (shared-module extraction, most likely), not a quick follow-on; flagged
+> here rather than folded into a "fix a bug" PR. Verification: `node
+> scripts/check-js-syntax.js` (513 files), `node
+> tests/estimate-hub-controls.test.js` (17/17 — break-tested against the
+> pre-fix code, which correctly reddened only the 3 assign-related
+> assertions), `node tests/smoke.test.js` (4130/4130 — updated one pinned
+> assertion in `tests/smoke/dashboard.test.js` that had checked the old
+> unguarded call shape), `node scripts/run-test-manifest.js --bucket smoke`
+> (68/68), plus `check-site-integrity`/`check-inline-html-scripts` clean and
+> an EOL/CRLF byte-level check on all touched files (clean, no lone-CR, no
+> binary-flagged files).
 
 > ### Update 2026-09-18 — the crm-leads.js edge (PR #1647)
 >
