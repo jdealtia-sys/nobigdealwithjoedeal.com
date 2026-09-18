@@ -103,6 +103,7 @@
     "seo-surface.test.js",
     "smart-calendar-forecast.test.js",
     "sms-optout-key.test.js",
+    "sms-send-optout-order.test.js",
     "state-store.test.js",
     "storm-geo.test.js",
     "storm-outlook.test.js",

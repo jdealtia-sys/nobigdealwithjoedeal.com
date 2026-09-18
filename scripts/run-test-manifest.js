@@ -276,7 +276,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               matching number that is not evidence, per this ledger's own
 //               rule. Re-measured via --check on the tree with BOTH lanes
 //               merged (this esign lane's own suite + anniversary-touch's):
-const FLOORS = { node: 157, smoke: 68, disk: 246 };
+//   2026-09-18  157/68/246 → 158/68/247, SMS opt-out send-order lane
+//               (tests/sms-send-optout-order.test.js, node). MEASURED via
+//               --check on a branch cut from origin/main; other fail-open
+//               lanes are open in parallel, so whichever merges second
+//               re-measures the merged tree rather than adding +1.
+const FLOORS = { node: 158, smoke: 68, disk: 247 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

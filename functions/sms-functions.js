@@ -179,6 +179,40 @@ async function verifyAuth(req) {
 // can adopt the same gate without inlining another copy.
 const { requirePaidSubscription } = require('./shared');
 
+// ── Send-path response codes ─────────────────────────────────────
+// docs/pro/js/nbd-comms.js turns some failures into a device-Messages handoff
+// (the rep's own phone, text pre-filled). A handoff IS a text to that person,
+// so the client may only do it after the opt-out register was read and came
+// back clean. These codes are how the server says which side of that line a
+// failure is on; the human-readable `error` field stays for older clients.
+//   opted_out          403 — register hit, or Twilio's own STOP list (21610)
+//   optout_unverified  503 — the register could not be read; nothing sent
+//   provider_error     502 — Twilio failed AFTER the opt-out check passed
+const OPTOUT_UNVERIFIED_MSG = 'Could not verify this number can be texted — nothing was sent. Try again in a moment.';
+
+// Twilio 21610 = "Attempt to send to unsubscribed recipient". Twilio keeps its
+// own STOP list for our number and its keyword set is wider than STOP_WORDS
+// below (it also honours e.g. OPTOUT / REVOKE), and incomingSMS's
+// recordOptOut can fail after Twilio has already applied the STOP. Either way
+// the register missed a real opt-out.
+function isTwilioUnsubscribed(e) {
+  return !!e && Number(e.code) === 21610;
+}
+
+// Copy Twilio's STOP into the register so every later send — including the
+// AI-draft trigger, which consults only the register — is refused before it
+// reaches Twilio. Best-effort: the send has already been refused either way.
+async function recordCarrierOptOut(db, phone, fn) {
+  try {
+    await OptOut.recordOptOut(db, phone, {
+      optedOutAt: FieldValue.serverTimestamp(),
+      source: 'twilio_21610',
+    });
+  } catch (e) {
+    logger.error('optout_record_error', { fn, source: 'twilio_21610', err: e && e.message });
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════
 // CLOUD FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
@@ -202,15 +236,57 @@ exports.sendSMS = onRequest(
       return;
     }
 
-    // Per-IP cap: 30 SMS/hour from a single IP.
-    if (!(await httpRateLimit(req, res, 'sendSMS:ip', 30, 3_600_000))) return;
-
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
     }
+
+    const { to, body, leadId } = req.body || {};
+
+    // Validate input
+    if (!to || !isValidPhoneNumber(to)) {
+      res.status(400).json({ error: 'Invalid phone number format' });
+      return;
+    }
+
+    // F3: TCPA. If the recipient replied STOP, we must not message them again —
+    // civil penalties per message are steep.
+    //
+    // This runs BEFORE the paid gate and EVERY limiter (per-IP included), on
+    // purpose. The client answers a 402 or 429 by opening the rep's Messages
+    // app with the text filled in, so any 402/429 sent ahead of this check
+    // handed a possibly-STOP'd number to a device-side send — the 6th text of
+    // the day to an opted-out number got the per-recipient 429 and a handoff.
+    // Here, a 402/429 can only mean "this number is textable".
+    //
+    // Fail CLOSED with a distinguishable 503 (the onAiDraftApproved stance). A
+    // read error used to escape as the framework's plain-text 500, which the
+    // client could not tell apart from a Twilio outage and handed off.
+    const optOut = await OptOut.isOptedOut(getFirestore(), to).catch((e) => {
+      logger.error('optout_check_error', { fn: 'sendSMS', err: e && e.message });
+      return null;
+    });
+    if (optOut && optOut.optedOut) {
+      if (optOut.viaLegacyKey) {
+        logger.info('optout.legacy_key_hit', { fn: 'sendSMS', key: optOut.key });
+      }
+      res.status(403).json({
+        error: 'This recipient has opted out of SMS (replied STOP). Contact them by phone or email.',
+        code: 'opted_out',
+      });
+      return;
+    }
+    if (!optOut) {
+      res.status(503).json({ error: OPTOUT_UNVERIFIED_MSG, code: 'optout_unverified' });
+      return;
+    }
+
+    // Per-IP cap: 30 SMS/hour from a single IP. After the opt-out check (it
+    // used to run first) because its 429 is handed off like the others.
+    // Unauthenticated callers are already turned away by verifyAuth above.
+    if (!(await httpRateLimit(req, res, 'sendSMS:ip', 30, 3_600_000))) return;
 
     // C-02: paid-subscription + email-verify gate. Rejected callers
     // NEVER reach the per-uid rate-limit increment below, so a
@@ -227,14 +303,6 @@ exports.sendSMS = onRequest(
     } catch (e) {
       if (e.rateLimited) { res.status(429).json({ error: 'Daily SMS limit exceeded' }); return; }
       throw e;
-    }
-
-    const { to, body, leadId } = req.body;
-
-    // Validate input
-    if (!to || !isValidPhoneNumber(to)) {
-      res.status(400).json({ error: 'Invalid phone number format' });
-      return;
     }
 
     // C4: per-recipient cap — even if a rep has budget remaining,
@@ -257,23 +325,6 @@ exports.sendSMS = onRequest(
       throw e;
     }
 
-    // F3: TCPA. If the recipient replied STOP, we must not message
-    // them again — civil penalties per message are steep. A throw here is
-    // deliberately not caught: it reaches the outer handler as a 500 and
-    // nothing is sent.
-    {
-      const optOut = await OptOut.isOptedOut(getFirestore(), to);
-      if (optOut.optedOut) {
-        if (optOut.viaLegacyKey) {
-          logger.info('optout.legacy_key_hit', { fn: 'sendSMS', key: optOut.key });
-        }
-        res.status(403).json({
-          error: 'This recipient has opted out of SMS (replied STOP). Contact them by phone or email.'
-        });
-        return;
-      }
-    }
-
     if (!body || body.trim().length === 0) {
       res.status(400).json({ error: 'Body cannot be empty' });
       return;
@@ -284,6 +335,9 @@ exports.sendSMS = onRequest(
       return;
     }
 
+    const db = getFirestore();
+    const companyId = decoded.companyId || null;
+    let message;
     try {
       // Initialize Twilio client
       const client = _twilio()(
@@ -300,34 +354,38 @@ exports.sendSMS = onRequest(
       }
 
       // Send SMS
-      const message = await client.messages.create({
+      message = await client.messages.create({
         body,
         from: fromPhone,
         to: formattedTo
       });
-
-      // Log to Firestore
-      const db = getFirestore();
-      const companyId = decoded.companyId || null;
-      await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'sent', message.sid, companyId);
-
-      res.json({
-        success: true,
-        sid: message.sid
-      });
-
     } catch (e) {
-      logger.error('sendSMS error', { err: e.message });
+      logger.error('sendSMS error', { err: e && e.message, code: e && e.code });
 
       // Log failure
-      const db = getFirestore();
-      const companyId = decoded.companyId || null;
       await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'failed', null, companyId);
 
-      res.status(500).json({
-        error: 'Failed to send SMS'
-      });
+      if (isTwilioUnsubscribed(e)) {
+        await recordCarrierOptOut(db, to, 'sendSMS');
+        res.status(403).json({
+          error: 'This recipient has opted out of SMS (replied STOP). Contact them by phone or email.',
+          code: 'opted_out',
+        });
+        return;
+      }
+      // The opt-out check passed, so this is the one 5xx the client may hand
+      // off to device Messages (Twilio trial / A2P / outage).
+      res.status(502).json({ error: 'Failed to send SMS', code: 'provider_error' });
+      return;
     }
+
+    // Log to Firestore
+    await logSMSToFirestore(db, to, body, decoded.uid, leadId || null, 'sent', message.sid, companyId);
+
+    res.json({
+      success: true,
+      sid: message.sid
+    });
   }
 );
 
@@ -440,6 +498,32 @@ exports.sendD2DSMS = onRequest(
         return;
       }
 
+      // F3: TCPA — check opt-out list before sending, as early as the
+      // recipient is known (the knock has to be read and authorised first,
+      // so unlike sendSMS the paid gate and per-uid cap stay ahead of it —
+      // nothing in docs/ calls this endpoint, so no client hands those off).
+      // Ahead of the per-recipient cap so an attempt to an opted-out number
+      // neither burns that bucket nor comes back as a 429. Fails CLOSED with
+      // a 503 on a read error, same as sendSMS.
+      const optOut = await OptOut.isOptedOut(getFirestore(), phoneNumber).catch((e) => {
+        logger.error('optout_check_error', { fn: 'sendD2DSMS', err: e && e.message });
+        return null;
+      });
+      if (optOut && optOut.optedOut) {
+        if (optOut.viaLegacyKey) {
+          logger.info('optout.legacy_key_hit', { fn: 'sendD2DSMS', key: optOut.key });
+        }
+        res.status(403).json({
+          error: 'This number has opted out of SMS (replied STOP).',
+          code: 'opted_out',
+        });
+        return;
+      }
+      if (!optOut) {
+        res.status(503).json({ error: OPTOUT_UNVERIFIED_MSG, code: 'optout_unverified' });
+        return;
+      }
+
       // C4: per-recipient cap — 5/day across all reps.
       // Same canonical key as sendSMS so a knock and a CRM text share one
       // per-recipient bucket instead of two.
@@ -454,20 +538,6 @@ exports.sendD2DSMS = onRequest(
           return;
         }
         throw e;
-      }
-      // F3: TCPA — check opt-out list before sending. A throw reaches the
-      // outer handler (500) and nothing is sent.
-      {
-        const optOut = await OptOut.isOptedOut(getFirestore(), phoneNumber);
-        if (optOut.optedOut) {
-          if (optOut.viaLegacyKey) {
-            logger.info('optout.legacy_key_hit', { fn: 'sendD2DSMS', key: optOut.key });
-          }
-          res.status(403).json({
-            error: 'This number has opted out of SMS (replied STOP).'
-          });
-          return;
-        }
       }
 
       // Multi-tenant branding: sendD2DSMS is reachable by ANY tenant (the auth
@@ -520,26 +590,39 @@ exports.sendD2DSMS = onRequest(
         return;
       }
 
-      // Initialize Twilio client
-      const client = _twilio()(
-        TWILIO_ACCOUNT_SID.value(),
-        TWILIO_AUTH_TOKEN.value()
-      );
-
       const formattedTo = formatPhoneNumber(phoneNumber);
-      const fromPhone = TWILIO_PHONE_NUMBER.value();
-
       if (!formattedTo) {
         res.status(400).json({ error: 'Could not format phone number' });
         return;
       }
 
-      // Send SMS
-      const message = await client.messages.create({
-        body,
-        from: fromPhone,
-        to: formattedTo
-      });
+      // Send SMS. Only the provider call is scoped here: a Twilio failure
+      // gets the same codes as sendSMS; anything else still reaches the
+      // outer 500.
+      let message;
+      try {
+        const client = _twilio()(
+          TWILIO_ACCOUNT_SID.value(),
+          TWILIO_AUTH_TOKEN.value()
+        );
+        message = await client.messages.create({
+          body,
+          from: TWILIO_PHONE_NUMBER.value(),
+          to: formattedTo
+        });
+      } catch (e) {
+        logger.error('sendD2DSMS error', { err: e && e.message, code: e && e.code });
+        if (isTwilioUnsubscribed(e)) {
+          await recordCarrierOptOut(db, phoneNumber, 'sendD2DSMS');
+          res.status(403).json({
+            error: 'This number has opted out of SMS (replied STOP).',
+            code: 'opted_out',
+          });
+          return;
+        }
+        res.status(502).json({ error: 'Failed to send D2D SMS', code: 'provider_error' });
+        return;
+      }
 
       // Update knock with lastSmsSent
       await db.doc(`knocks/${knockId}`).update({

@@ -4677,7 +4677,13 @@
         if (result.success) {
           const nameDisplay = knock.homeowner || 'contact';
           window.showToast?.(`Text sent to ${nameDisplay}`, 'ok');
-        } else {
+        } else if (result.mode !== 'platform') {
+          // mode 'platform' is a REFUSAL (opted out, opt-out status unknown,
+          // signed out) and NBDComms has already told the rep why. Opening
+          // Messages here anyway put the text, pre-filled, in front of the rep
+          // for a homeowner who had replied STOP — the one thing the refusal
+          // exists to prevent. Only the local pre-flight failures (mode 'sms')
+          // still fall back.
           // Fallback on failure
           const cleanPhone = phone.replace(/[^0-9+]/g, '');
           window.open(`sms:${cleanPhone}?body=${encodeURIComponent(body)}`, '_blank');

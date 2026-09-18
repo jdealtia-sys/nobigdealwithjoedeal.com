@@ -68,8 +68,9 @@ function legacyOptOutKey(phone) {
  * Has this number opted out?
  *
  * THROWS on a Firestore error rather than returning false. Every caller treats
- * a throw as "do not send" — sendSMS and sendD2DSMS let it reach their outer
- * handler (500, no send) and the AI-draft path catches it into fail('optout_
+ * a throw as "do not send" — sendSMS and sendD2DSMS answer 503 {code:
+ * 'optout_unverified'} (which the browser client refuses rather than handing
+ * off to device Messages) and the AI-draft path catches it into fail('optout_
  * check_error'). Returning false on error would turn a transient blip into a
  * message to someone who said STOP.
  *

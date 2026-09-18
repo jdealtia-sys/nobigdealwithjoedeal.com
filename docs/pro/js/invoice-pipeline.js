@@ -783,8 +783,11 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             message: message,
             leadId: invoice.leadId || null,
           });
+          // A refusal (opted out / opt-out unverified) leaves the invoice
+          // unsent. `message` is the sentence NBDComms showed the rep; `error`
+          // is a machine code such as 'opted_out' when the server sent one.
           if (!smsResult || smsResult.success === false) {
-            throw new Error((smsResult && smsResult.error) || 'SMS send failed');
+            throw new Error((smsResult && (smsResult.message || smsResult.error)) || 'SMS send failed');
           }
         } else {
           throw new Error('SMS service not available');
