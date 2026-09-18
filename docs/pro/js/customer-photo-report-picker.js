@@ -56,7 +56,8 @@
   }
 
   // The control spec. `key` matches a field of REPORT_DEFAULTS; the builder
-  // reads current values from window._photoReportOptions(mode) so the UI opens
+  // reads current values from photo-report.js's _photoReportOptions(mode) (via
+  // __NBD_CALL_REGISTRY — see _reportOptionsFn below) so the UI opens
   // showing the real defaults for the chosen preset rather than a second copy
   // of them maintained here.
   var CONTROLS = [
@@ -101,9 +102,18 @@
     })(s);
   }
 
+  // photo-report.js's option merger. Off window (Globals Tranche 3, T3-C) —
+  // registered on __NBD_CALL_REGISTRY when the lazy 'photos' bundle executes.
+  // null until then; every caller treats null as "not loaded yet".
+  function _reportOptionsFn() {
+    var reg = window.__NBD_CALL_REGISTRY;
+    return (reg && typeof reg._photoReportOptions === 'function') ? reg._photoReportOptions : null;
+  }
+
   function resetState(mode) {
-    var opts = (typeof window._photoReportOptions === 'function')
-      ? window._photoReportOptions(mode)
+    var optsFn = _reportOptionsFn();
+    var opts = optsFn
+      ? optsFn(mode)
       // photo-report.js is lazy (ScriptLoader 'photos'). If the builder is
       // opened before it lands we still render, with the options object empty;
       // generate() sends `undefined` and the report falls back to its own
@@ -303,14 +313,14 @@
     if (tgl) tgl.textContent = 'Customize…';
     window.nbdModal.open('photoReportPicker');
     // photo-report.js is lazy (ScriptLoader 'photos'), and it owns
-    // REPORT_DEFAULTS. Until it lands, _photoReportOptions is undefined and the
+    // REPORT_DEFAULTS. Until it lands, _reportOptionsFn() is null and the
     // builder would render every toggle checked rather than this mode's real
     // defaults. Warm the bundle on open and re-seed once it arrives; the rep is
     // reading the two preset cards while it loads.
-    if (typeof window._photoReportOptions !== 'function'
+    if (!_reportOptionsFn()
         && window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
       window.ScriptLoader.loadBundle('photos').then(function () {
-        if (typeof window._photoReportOptions === 'function' && state) setPreset(state.mode);
+        if (_reportOptionsFn() && state) setPreset(state.mode);
       }).catch(function () { /* builder still works on the report's own defaults */ });
     }
   };

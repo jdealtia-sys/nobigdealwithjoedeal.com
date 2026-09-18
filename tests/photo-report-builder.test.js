@@ -337,6 +337,33 @@ console.log('\n5. Builder UI ↔ option contract');
     /function generatePhotoReport\(leadId, mode, build\)/.test(PHOTO_REPORT));
   ok('the builder passes it through', /generatePhotoReport\(window\._customerId, mode, build\)/.test(PICKER));
 
+  // The builder reads the option contract at runtime through
+  // __NBD_CALL_REGISTRY._photoReportOptions (off window since Globals Tranche 3,
+  // T3-C). Execute the WHOLE file the way the lazy 'photos' bundle does, into a
+  // window whose registry customer.html's own module already populated: the
+  // entry must land, must be the real contract, and must not replace the
+  // registry — a bare `= Object.create(null)` here would silently drop every
+  // customer-page entry the moment a rep opened the builder.
+  {
+    const pageEntry = function () {};
+    const win = { __NBD_CALL_REGISTRY: { _fetchPhotosRaw: pageEntry } };
+    const reg0 = win.__NBD_CALL_REGISTRY;
+    const box = { window: win, console: console };
+    vm.createContext(box);
+    vm.runInContext(PHOTO_REPORT, box, { filename: 'photo-report.js' });
+    const fn = win.__NBD_CALL_REGISTRY._photoReportOptions;
+    ok('photo-report.js registers _photoReportOptions on the call registry', typeof fn === 'function');
+    ok('and leaves the page\'s existing registry (and its entries) in place',
+      win.__NBD_CALL_REGISTRY === reg0 && win.__NBD_CALL_REGISTRY._fetchPhotosRaw === pageEntry);
+    // Executed, not grepped: catches a bracketed or globalThis spelling too.
+    ok('_photoReportOptions is no longer a window global',
+      !('_photoReportOptions' in win) && !('_photoReportOptions' in box));
+    ok('the registered function IS the option contract the builder mirrors',
+      typeof fn === 'function'
+      && JSON.stringify(fn('adjuster')) === JSON.stringify(optionsFor('adjuster'))
+      && JSON.stringify(fn('homeowner')) === JSON.stringify(optionsFor('homeowner')));
+  }
+
   // The markup the builder drives has to exist on the page it lives on.
   const CUSTOMER = read('docs/pro/customer.html');
   ['prpBuilder', 'prpGenerate', 'prpToggle', 'prpCancel'].forEach((id) => {
