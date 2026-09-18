@@ -103,18 +103,20 @@ function openLeadModal(){
   // that empty string over the stored stage. editLead assigns #lStage BEFORE
   // it calls us, so by now an unknown key has already collapsed to '' —
   // recover the intended value from the in-memory lead and hand it over.
-  if (typeof window.refreshStageOptions === 'function') {
+  // Both stage-picker helpers below are registry-only (Globals Tranche 3
+  // T3-C, 2026-09-18), not bare window globals. Registry missing (module
+  // failed) → the static built-in option list stays, as before.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (_nbdReg && typeof _nbdReg.refreshStageOptions === 'function') {
     const stEl = document.getElementById('lStage');
     let want = stEl?.value || '';
     if (!want && isEdit) {
       const editing = (window._leads || []).find(l => l && l.id === document.getElementById('lEditId').value);
       if (editing) want = editing._stageKey || editing.stage || '';
     }
-    window.refreshStageOptions(want || 'new');
+    _nbdReg.refreshStageOptions(want || 'new');
   }
   // Apply smart stage dropdown filter based on current jobType
-  // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
-  var _nbdReg = window.__NBD_CALL_REGISTRY;
   if (_nbdReg && typeof _nbdReg.filterStageDropdownByJobType === 'function') {
     _nbdReg.filterStageDropdownByJobType(jtEl?.value || '');
   }

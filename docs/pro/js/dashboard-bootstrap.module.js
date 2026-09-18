@@ -123,9 +123,9 @@
   window.stageLabel = stageLabel;
   window.stageColor = stageColor;
   window.resolveColumn = resolveColumn;
-  // Board bucketer — single source of truth for column assignment + the
-  // leftover leads on hidden stages (surfaced by the board's hidden-stage chip).
-  window.partitionLeadsByColumn = partitionLeadsByColumn;
+  // Board bucketer (partitionLeadsByColumn): registered in __NBD_CALL_REGISTRY
+  // at the end of this file (Globals Tranche 3 T3-C, 2026-09-18) instead of a
+  // bare window global — crm-pipeline.js's renderLeads is its sole consumer.
   // Semantic-role helpers (freeform-pipeline foundation) — consumers classify a
   // lead by role (won/lost/active/job/new) instead of hardcoded stage-key lists.
   window.stageRole = stageRole;
@@ -394,7 +394,10 @@
     if (track === 'shared') return meta.type === 'job' ? 'job' : 'lead';
     return 'custom'; // resolvePipelineConfig stamps track:'custom' on tenant-invented stages
   }
-  window.refreshStageOptions = function(keepValue) {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global —
+  // crm-leads.js's openLeadModal is its sole consumer.
+  function refreshStageOptions(keepValue) {
     const sel = document.getElementById('lStage');
     if (!sel) return;
     const META = window.STAGE_META || STAGE_META;
@@ -434,7 +437,7 @@
       sel.appendChild(opt);
       sel.value = want;
     }
-  };
+  }
 
   // Toggle a trade chip selection on/off (visual + data-selected flag)
   window.toggleTradeChip = function(btn) {
@@ -678,14 +681,16 @@
 
   // Scheduling chips land the rep on the Today's Schedule timeline.
   // goTo('schedule') is the call smart-calendar.js wraps to repaint itself;
-  // loadSmartCalendar is the direct fallback for pages without the nav helper.
+  // loadSmartCalendar is the direct fallback for pages without the nav helper
+  // (registry-only — smart-calendar.js registers it, Globals Tranche 3 T3-C).
   function _actionOpenSchedule() {
     const hasNav  = typeof window.goTo === 'function';
-    const hasCal  = typeof window.loadSmartCalendar === 'function';
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    const hasCal  = !!(_nbdReg && typeof _nbdReg.loadSmartCalendar === 'function');
     if (!hasNav && !hasCal) return false;
     if (typeof window.closeLeadModal === 'function') window.closeLeadModal();
     if (hasNav) window.goTo('schedule');
-    else window.loadSmartCalendar();
+    else _nbdReg.loadSmartCalendar();
     return true;
   }
 
@@ -1055,11 +1060,14 @@
     }
     _run();
   }
-  // Exported: the mobile job-detail Documents tab's "Generate a document"
-  // picker (dashboard-actions.js _mJdOpenDocCreate) reuses this SAME
-  // staging+prereq+DocPreflight chain instead of a second copy, and needs
-  // the prerequisite labels to build its type list.
-  window._generateDocWithPreflight = _generateDocWithPreflight;
+  // Shared with the mobile job-detail Documents tab's "Generate a document"
+  // picker (dashboard-actions.js _mJdOpenDocCreate/_mJdPickDocType), which
+  // reuses this SAME staging+prereq+DocPreflight chain instead of a second
+  // copy, and needs the prerequisite labels to build its type list.
+  // _generateDocWithPreflight is registered in __NBD_CALL_REGISTRY at the end
+  // of this file (Globals Tranche 3 T3-C, 2026-09-18), no longer a bare
+  // window global. _DASH_DOC_PREREQUISITES is DATA (a static config object),
+  // not a callable — it stays on window.
   window._DASH_DOC_PREREQUISITES = _DASH_DOC_PREREQUISITES;
 
   // explicitLeadId (2026-09-15): the kanban card's next-action chip calls
@@ -2931,8 +2939,10 @@
         }
       }
       // Append the D2D "Doors Verified" data-quality card (async, self-fetching;
-      // only renders when the rep has knocks).
-      if (typeof window.renderDoorsVerifiedCard === 'function') window.renderDoorsVerifiedCard();
+      // only renders when the rep has knocks). Registry-only — analytics-kpi.js
+      // registers it (Globals Tranche 3 T3-C); a missing entry is a no-op.
+      const _nbdReg = window.__NBD_CALL_REGISTRY;
+      if (_nbdReg && typeof _nbdReg.renderDoorsVerifiedCard === 'function') _nbdReg.renderDoorsVerifiedCard();
     }, 200);
     // Auto-check for review requests on recently closed jobs
     if (window.ReviewEngine?.checkAutoReviews) setTimeout(() => window.ReviewEngine.checkAutoReviews(), 3000);
@@ -4505,7 +4515,11 @@
   // values. Reset on every (re)paint so it always describes what is on screen.
   let _countyInputsResolved = false;
 
-  window._loadEstimateDefaultsV2 = function() {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global. ui.js's
+  // switchSettingsTab reads it off the registry; the in-module callers
+  // (the rehydrate poll, the reset) call it directly.
+  function _loadEstimateDefaultsV2() {
     // Resolved (tenant county policy overlaid) — the permit/tax inputs below
     // must show COMPANY values, not this device's stale localStorage copy.
     const s = _v2ReadResolvedSettings();
@@ -4594,7 +4608,7 @@
     addonField('v2addonValleyLf',        'valleyMetalLf',        null,                            8.5);
     addonField('v2addonGuttersLf',       'guttersLf',            null,                            8.5);
     addonField('v2addonMatDelivery',     'matDelivery',          'ADDON_MAT_DELIVERY',            412.50);
-  };
+  }
 
   // ── My Jurisdictions (county-jurisdiction settings, 2026-07-29) ──
   // Per-tenant custom counties/cities: display name + permit cost (USD) +
@@ -4660,8 +4674,7 @@
             // those stale numbers company-wide as a dot-path full replace.
             // No recursion risk: this pass sees _companyProfileLoaded === true,
             // so the render branch runs and installs no new poll.
-            if (typeof window._loadEstimateDefaultsV2 === 'function') window._loadEstimateDefaultsV2();
-            else _renderJurisdictionRows();
+            _loadEstimateDefaultsV2();
           }
         }, 500);
         setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
@@ -4980,7 +4993,7 @@
       }
     }
 
-    window._loadEstimateDefaultsV2();
+    _loadEstimateDefaultsV2();
     if (typeof showToast === 'function') {
       showToast(!tenantResetFailed
         ? '↺ Reset to factory defaults'
@@ -4993,7 +5006,9 @@
 
   // Legacy stubs kept for backwards compat with any other caller
   window._saveEstimateDefaults = function() { return window._saveEstimateDefaultsV2(); };
-  window._loadEstimateDefaults = function() { return window._loadEstimateDefaultsV2(); };
+  // (The load-side twin, _loadEstimateDefaults, was deleted in Globals
+  // Tranche 3 T3-C, 2026-09-18: zero readers repo-wide, and keeping it would
+  // have left _loadEstimateDefaultsV2 reachable off window under an alias.)
 
   // ═════════════════════════════════════════════════════════
   // COMPANY SETTINGS
@@ -5818,6 +5833,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _saveCompanySettings: _saveCompanySettings,
   _testNotif: _testNotif,
   _resetEstimateDefaultsV2: _resetEstimateDefaultsV2,
+  // Globals Tranche 3 T3-C (2026-09-18): the 7th ui.js-edge settings-tab
+  // loader, deferred from the 2026-09-17 sextet for its in-module callers.
+  _loadEstimateDefaultsV2: _loadEstimateDefaultsV2,
   _addJurisdictionRow: _addJurisdictionRow,
   _removeJurisdictionRow: _removeJurisdictionRow,
   _saveSiteSlug: _saveSiteSlug,
@@ -5850,6 +5868,10 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _deletePin: _deletePin,
   _saveZone: _saveZone,
   _deleteZone: _deleteZone,
+  // Globals Tranche 3 T3-C (2026-09-18): the mobile doc-picker edge —
+  // dashboard-actions.js's _mJdOpenDocCreate/_mJdPickDocType. Its data
+  // sibling _DASH_DOC_PREREQUISITES stays on window (see above).
+  _generateDocWithPreflight: _generateDocWithPreflight,
   // Globals Tranche 3 T3-C (2026-09-18): the estimate CRUD edge —
   // estimate-crm-ops.js's renameEstimateAction/deleteEstimateAction/
   // assignEstimateAction. _duplicateEstimate was NOT a candidate for this
@@ -5860,6 +5882,7 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   // Globals Tranche 3 T3-C (2026-09-18): the crm-leads.js edge.
   filterStageDropdownByJobType: filterStageDropdownByJobType,
   getSelectedTrades: getSelectedTrades,
+  refreshStageOptions: refreshStageOptions,
   // Globals Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge. All
   // three are crm-stages.js imports bridged to a classic script — the
   // "Expose the new helpers to non-module scripts (crm.js)" comment
@@ -5880,6 +5903,11 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   applyPipelineConfig: applyPipelineConfig,
   resolvePipelineConfig: resolvePipelineConfig,
   STAGE_ROLE: ROLE,
+  // Globals Tranche 3 T3-C (2026-09-18): the crm-pipeline.js edge — another
+  // crm-stages.js import bridged to a classic script (renderLeads is its sole
+  // consumer). Deliberately does NOT touch crm-pipeline.js's _dragId, which
+  // stays a shared implicit global (drag state read/written cross-file).
+  partitionLeadsByColumn: partitionLeadsByColumn,
   // Globals Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo
   // modal edge.
   _uploadPhoto: _uploadPhoto,

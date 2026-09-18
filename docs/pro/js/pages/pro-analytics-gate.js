@@ -11,6 +11,9 @@ window._nbdAuth = NBDAuth.init({
   onReady: () => {
     document.getElementById('authGate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
-    if (typeof window.bootAnalytics === 'function') window.bootAnalytics();
+    // bootAnalytics is registry-only (Globals Tranche 3, T3-C) — registered by
+    // pro-analytics.js. Missing entry = no boot, same as the old typeof guard.
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (_nbdReg && typeof _nbdReg.bootAnalytics === 'function') _nbdReg.bootAnalytics();
   }
 });

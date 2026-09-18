@@ -181,9 +181,36 @@ console.log('MARKETING POLISH CONTRACT — batch 1 invariants');
 }
 
 // 7. blog caps coverage
+// The caps live in the nbd-readability-v2 block, which moved to the shared
+// docs/assets/css/nbd-readability.css (2026-09-18 inline-CSS dedup slice 3b,
+// linked IN PLACE of the inline copy). Five posts get the caps ONLY from that
+// block, so a page linking the sheet carries them as authoritatively as an
+// inline copy — provided the sheet itself still does (7b pins its bytes).
 {
-  const bad = marketing.filter((f) => rel(f).startsWith('blog/') && !read(f).includes('Non-hero heading caps')).map(rel);
-  ok('all blog pages carry the heading-caps block', bad.length === 0, bad.slice(0, 4).join(', '));
+  const sheet = read(path.join(DOCS, 'assets/css/nbd-readability.css'));
+  const sheetCaps = sheet.includes('Non-hero heading caps');
+  const linksSheet = (s) => /<link rel="stylesheet" href="\/assets\/css\/nbd-readability\.css">[\s\S]*<\/head>/.test(s);
+  const bad = marketing.filter((f) => rel(f).startsWith('blog/')).filter((f) => {
+    const s = read(f);
+    return !s.includes('Non-hero heading caps') && !(sheetCaps && linksSheet(s));
+  }).map(rel);
+  ok('all blog pages carry the heading-caps block (inline or linked)', bad.length === 0, bad.slice(0, 4).join(', '));
+}
+
+// 7b. The extracted sheet is byte-pinned to CANONICAL_BODY — the exact text
+// scripts/ensure-readability-css.js matched when it swapped each inline copy
+// for the link. A drifted sheet would silently restyle ~186 pages.
+{
+  const { CANONICAL_BODY } = require('../scripts/ensure-readability-css.js');
+  const css = read(path.join(DOCS, 'assets/css/nbd-readability.css')).replace(/\r\n/g, '\n');
+  const header = css.match(/^\/\*[\s\S]*?\*\/\n/);
+  const body = header ? css.slice(header[0].length) : css;
+  const want = CANONICAL_BODY + '\n';
+  let at = 0;
+  while (at < Math.max(body.length, want.length) && body[at] === want[at]) at++;
+  ok('nbd-readability.css body is byte-identical to ensure-readability-css.js CANONICAL_BODY',
+    !!header && body === want,
+    !header ? 'no file-header comment' : 'first difference at char ' + at + ': ' + JSON.stringify(body.slice(at, at + 40)));
 }
 
 // 8. hub nav-squeeze

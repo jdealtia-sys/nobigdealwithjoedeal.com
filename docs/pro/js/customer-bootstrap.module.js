@@ -853,9 +853,10 @@ async function loadCustomerData(id) {
 
     // Cover photo hero (RoofLink "Set Cover") — typeof-guarded: the
     // renderer lives in customer-tasks-ui.js and defer order can race
-    // this module on a cold cache.
-    if (typeof window.renderCoverHero === 'function') {
-      window.renderCoverHero(lead.coverPhotoUrl || null);
+    // this module on a cold cache. Registry-only (Globals Tranche 3 T3-C,
+    // 2026-09-18), not window.
+    if (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderCoverHero === 'function') {
+      window.__NBD_CALL_REGISTRY.renderCoverHero(lead.coverPhotoUrl || null);
     }
 
     // Job checklist (RoofLink "View Checklist") — persisted check-off
@@ -976,10 +977,13 @@ async function loadCustomerData(id) {
     } catch (e) { console.warn('Claim workflow render failed:', e.message); }
 
     // Load new portal sections (timeline, invoices, photos by phase, reports, documents, communication log)
+    // Both live in customer-tasks-ui.js, registry-only (Globals Tranche 3
+    // T3-C, 2026-09-18). Deliberately unguarded, as before: a missing entry
+    // throws into this catch and skips BOTH, exactly like the old window calls.
     try {
-      await window.loadNewPortalSections(id);
+      await window.__NBD_CALL_REGISTRY.loadNewPortalSections(id);
       // Setup contact tab
-      window.setupContactTab(lead);
+      window.__NBD_CALL_REGISTRY.setupContactTab(lead);
     } catch (e) { console.warn('Portal sections render failed:', e.message); }
 
   } catch (error) {
@@ -1048,8 +1052,10 @@ async function logCommunication(leadId, type, content, extra = {}) {
     return null;
   }
 }
-// Expose globally so inline handlers can use it
-window.logCommunication = logCommunication;
+// Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+// Tranche 3 T3-C, 2026-09-18) — its one cross-file caller is
+// customer-quick-action-bar.js's Comm Log tap listener (there are no inline
+// handlers on this page; CSP forbids them). No longer a bare window global.
 
 // Audit batch 7: load customer-side audit events for this lead and
 // render them into #customerActivityList. Fire-and-forget alongside
@@ -1700,9 +1706,12 @@ async function loadPhotos(leadId) {
 // need one side refreshed, and de-dup is a no-op (harmless) when nothing
 // else is concurrently fetching the same lead's photos.
 async function loadAllCustomerPhotos(leadId) {
+  // loadPhotosByPhase lives in customer-tasks-ui.js — registry-only (Globals
+  // Tranche 3 T3-C, 2026-09-18), not window. Absent → skip that side only.
   await Promise.all([
     loadPhotos(leadId),
-    window.loadPhotosByPhase ? window.loadPhotosByPhase(leadId) : Promise.resolve(),
+    (window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.loadPhotosByPhase === 'function')
+      ? window.__NBD_CALL_REGISTRY.loadPhotosByPhase(leadId) : Promise.resolve(),
   ]);
 }
 window.loadAllCustomerPhotos = loadAllCustomerPhotos;
@@ -3748,4 +3757,6 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _fetchPhotosRaw: _fetchPhotosRaw,
   loadPhotos: loadPhotos,
   setLightboxSource: setLightboxSource,
+  // customer-quick-action-bar.js's Comm Log tap listener (T3-C, 2026-09-18).
+  logCommunication: logCommunication,
 });

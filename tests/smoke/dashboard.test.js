@@ -2960,19 +2960,39 @@ section('Globals Tranches 0+1: converted names stay off window');
     'nbdSetCrmSecHeaderEnabledT', 'nbdSetKanbanBoldHierarchyT',
     'nbdSetCrmAutoCollapseT', 'nbdSelectPhotoLead', 'nbdTogglePhotosOnly',
     'd2dSetDispoFilter', 'nbdSettingsUpdateCalcomPreview',
+    // Tranche 3 T3-C (2026-09-18): prefs-boot's size-button repaint hook
+    // (ui.js switchSettingsTab's only window read of this file) joined the
+    // same registry block. showToast/nbdRenderFontGrid stay window exports.
+    'nbdSyncSizeBtns',
+    // Tranche 3 T3-C (2026-09-18), same PR: the two lazy 'estimates'-bundle
+    // render aliases (product-library.js / job-templates-ui.js → dashboard-
+    // actions.js goTo fallbacks) and dashboard-insurance-overlay-toggle.js's
+    // one name (whole 7-line file IIFE-wrapped; #estMode data-on-after +
+    // dashboard-widgets.js viewEstimate). See the T3-C assertion block below.
+    'renderProductLibrary', 'renderJobTemplatesLibrary', 'toggleInsuranceOverlay',
     // Tranche 2c-3 (2026-07-07): the crm-portal-bridge.js bulk-ops /
     // deleted-drawer / delete-confirm markup handlers — module-scoped now
     // (whole file IIFE-wrapped), dispatched via __NBD_CALL_REGISTRY. NOT
     // here: clearBulkSelection (lead-snooze.js calls it directly on window —
     // MUST-STAY, allowlisted like goToMyLocation) and this file's deliberate
     // window re-exports (editLead, deleteLead, showDeleteConfirm,
-    // toggleBulkMode, toggleCardSelection,
-    // updateBulkToolbar, scrollToFollowUps, restoreCrmSearch,
+    // toggleCardSelection, updateBulkToolbar, restoreCrmSearch,
     // refreshTrashBadge; closeDeletedDrawer graduated off window in the
-    // Tranche 3 dispatch-map slice, 2026-09-02).
+    // Tranche 3 dispatch-map slice, 2026-09-02; exitBulkMode, toggleBulkMode
+    // and scrollToFollowUps in T3-C, 2026-09-18 — see the next group).
     'selectAllVisibleLeads', 'openDeletedDrawer', 'confirmDeleteLead',
     'cancelDeleteConfirm', 'bulkSnoozeLeads', 'bulkMoveStage', 'bulkDelete',
     'bulkAssignSource', 'bulkAssignJobType', 'bulkAssignDamage', 'bulkAssignCarrier',
+    // Tranche 3 T3-C (2026-09-18): the bulk-mode / follow-ups / analytics
+    // edge. crm-portal-bridge.js registers exitBulkMode (dashboard-actions.js
+    // goTo), toggleBulkMode (lead-snooze.js + the _NBD_TOGGLE_FNS.bulkMode
+    // map, registry-first) and scrollToFollowUps (analytics-kpi.js delegate);
+    // analytics-kpi.js registers renderDoorsVerifiedCard and smart-calendar.js
+    // registers loadSmartCalendar (both read by dashboard-bootstrap.module.js;
+    // loadSmartCalendar also left the allowlist — its data-fn resolves
+    // registry-first). See the T3-C bulk/follow-ups assertion block below.
+    'exitBulkMode', 'toggleBulkMode', 'scrollToFollowUps',
+    'renderDoorsVerifiedCard', 'loadSmartCalendar',
     // Tranche 2c-4a (2026-07-07): the dashboard-actions.js card-detail cluster
     // — 18 cda* / chip-picker / mobile photo-picker wrappers consolidated into
     // one IIFE and dispatched via __NBD_CALL_REGISTRY (see the "Globals Tranche
@@ -3116,6 +3136,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // bare window.X() reads in ui.js were rewired to read the registry instead.
     '_loadCompanySettings', '_loadCompanyProfileSettings', '_loadAccessInfo',
     '_loadBillingInfo', '_loadNotifSettings', '_loadProfileSettings',
+    // Tranche 3 T3-C (2026-09-18): the sextet's deferred 7th — its two
+    // in-module callers now call it directly — plus its zero-reader
+    // _loadEstimateDefaults alias, deleted rather than kept on window.
+    '_loadEstimateDefaultsV2', '_loadEstimateDefaults',
     // Tranche 3 slice T3-0 (2026-08-31): the shim-blocked residual — the
     // dashboard-actions.js zone cluster + damageNearMePhotos, IIFE-scoped and
     // dispatched via __NBD_CALL_REGISTRY. maps.js's six re-exports are gone.
@@ -3160,12 +3184,32 @@ section('Globals Tranches 0+1: converted names stay off window');
     // also candidates but are shared DATA, not callables — stay on window,
     // same reasoning as _reports above; see the T3-C assertion block below.
     '_fetchPhotosRaw', 'loadPhotos', 'setLightboxSource', '_nbdTsToDate',
+    // Tranche 3 T3-C (2026-09-18, T3-5): the same owner's
+    // customer-quick-action-bar.js edge — the QAB's Comm Log tap listener.
+    'logCommunication',
+    // Tranche 3 T3-C (2026-09-18, T3-5): the reverse direction, owner
+    // customer-tasks-ui.js — possible only after #1657's whole-file IIFE wrap
+    // (before it, a top-level declaration auto-globalled regardless). None is
+    // markup-dispatched, so _nbdCustomerActionDispatch never walks to them.
+    'renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
+    'setupContactTab', 'loadCommunicationLog', 'logGeneratedDoc',
+    // Tranche 3 T3-C (2026-09-18): two single-name edges outside the
+    // dashboard shell — photo-report.js -> customer-photo-report-picker.js
+    // (rename-on-register: _reportOptions registered as _photoReportOptions)
+    // and pro-analytics.js -> pro-analytics-gate.js (the first registry use
+    // on analytics.html). See the T3-C assertion block below.
+    '_photoReportOptions', 'bootAnalytics',
     // Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
     // dashboard-bootstrap.module.js — maps-overlays.js's dropPin/deletePin
     // and dashboard-actions.js's saveZone/deleteZone. _zones (a loaded-zones
     // cache) and _DASH_DOC_PREREQUISITES (a static config object) were also
     // candidates but are DATA, not callables — stay on window.
     '_savePin', '_deletePin', '_saveZone', '_deleteZone',
+    // Tranche 3 T3-C (2026-09-18): the mobile doc-picker edge off
+    // dashboard-bootstrap.module.js, consumed by dashboard-actions.js's
+    // _mJdOpenDocCreate/_mJdPickDocType. Its data sibling
+    // _DASH_DOC_PREREQUISITES stays on window (see above).
+    '_generateDocWithPreflight',
     // Tranche 3 T3-C (2026-09-18): the estimate CRUD edge off
     // dashboard-bootstrap.module.js, consumed by estimate-crm-ops.js.
     // _duplicateEstimate was NOT a candidate (multiple consumers).
@@ -3174,6 +3218,9 @@ section('Globals Tranches 0+1: converted names stay off window');
     // dashboard-bootstrap.module.js. Zero HTML hits, zero prior test
     // coverage on either name.
     'filterStageDropdownByJobType', 'getSelectedTrades',
+    // ...and refreshStageOptions, the same edge's third name (openLeadModal's
+    // stage <select> rebuild), converted in a later PR.
+    'refreshStageOptions',
     // Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge. All three
     // are crm-stages.js imports bridged to a classic script; the "expose
     // to crm.js" comment nearby was stale for these two specifically —
@@ -3184,6 +3231,10 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 3 T3-C (2026-09-18): the pipeline-builder.js edge. STAGE_ROLE
     // is a rename-on-export (imported as ROLE, registered as STAGE_ROLE).
     'applyPipelineConfig', 'resolvePipelineConfig', 'STAGE_ROLE',
+    // Tranche 3 T3-C (2026-09-18): the crm-pipeline.js edge — another
+    // crm-stages.js import bridge, sole consumer renderLeads. crm-pipeline.js's
+    // _dragId implicit global is deliberately untouched.
+    'partitionLeadsByColumn',
     // Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal edge.
     '_uploadPhoto', '_getPhotos',
     // Tranche 3 T3-C (2026-09-18): the dashboard-actions.js -> dashboard-
@@ -3461,13 +3512,87 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // from this file now that crm.js no longer provides it. (closeDeletedDrawer
   // left this list in the Tranche 3 dispatch-map slice, 2026-09-02 — its only
   // reach was the registry-first _NBD_MODAL_CLOSE_FNS entry; its inverted pin
-  // lives in the graduate block.)
+  // lives in the graduate block. toggleBulkMode and scrollToFollowUps left it
+  // in Tranche 3 T3-C, 2026-09-18 — their inverted pins are the block below.)
   for (const n of ['editLead', 'deleteLead', 'showDeleteConfirm',
-    'toggleBulkMode', 'toggleCardSelection',
-    'updateBulkToolbar', 'scrollToFollowUps', 'restoreCrmSearch',
+    'toggleCardSelection', 'updateBulkToolbar', 'restoreCrmSearch',
     'refreshTrashBadge']) {
     assert('crm-portal-bridge window-exports ' + n + ' (cross-file consumer)',
       new RegExp('window\\.' + n + ' = ' + n + ';').test(crmPortalBridge));
+  }
+
+  // ── Tranche 3 T3-C (2026-09-18): the bulk-mode / follow-ups / analytics
+  // edge ── five cross-file JS calls that used to go through window.X now read
+  // __NBD_CALL_REGISTRY. Every consumer keeps a typeof guard that turns a
+  // missing entry into a NO-OP (never a fallback to some other global), and
+  // the T1_NAMES walk above fails any window.X reference left under docs/.
+  // Owner halves: the registry entry is the ONLY way each consumer reaches
+  // the function now — lose it and bulk mode survives navigation (H4), the
+  // bulk-snooze never leaves select mode, the overdue-follow-ups KPI tap
+  // lands on the CRM without scrolling, the Doors Verified card never
+  // renders, and the schedule refresh button goes silently dead.
+  {
+    const regKeysOf = (src) => {
+      const keys = new Set();
+      for (const m of src.matchAll(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/g)) {
+        for (const k of m[1].matchAll(/([A-Za-z_$][\w$]*)\s*:\s*([A-Za-z_$][\w$]*)/g)) keys.add(k[1] + '=' + k[2]);
+      }
+      return keys;
+    };
+    const t3cActions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+    const t3cSnooze = read(path.join(PRO_JS, 'lead-snooze.js'));
+    const t3cKpi = read(path.join(PRO_JS, 'analytics-kpi.js'));
+    const t3cCal = read(path.join(PRO_JS, 'smart-calendar.js'));
+    const t3cBoot = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
+    const t3cDash = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+    // [name, owner src, owner label, consumer src, consumer label]
+    const T3C_BULK_EDGE = [
+      ['exitBulkMode', crmPortalBridge, 'crm-portal-bridge.js', t3cActions, 'dashboard-actions.js'],
+      ['toggleBulkMode', crmPortalBridge, 'crm-portal-bridge.js', t3cSnooze, 'lead-snooze.js'],
+      ['scrollToFollowUps', crmPortalBridge, 'crm-portal-bridge.js', t3cKpi, 'analytics-kpi.js'],
+      ['renderDoorsVerifiedCard', t3cKpi, 'analytics-kpi.js', t3cBoot, 'dashboard-bootstrap.module.js'],
+      ['loadSmartCalendar', t3cCal, 'smart-calendar.js', t3cBoot, 'dashboard-bootstrap.module.js'],
+    ];
+    for (const [n, ownerSrc, owner, consSrc, cons] of T3C_BULK_EDGE) {
+      assert(owner + ' registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C bulk/follow-ups edge)',
+        regKeysOf(ownerSrc).has(n + '=' + n));
+      assert(owner + ' no longer assigns window.' + n + ' (T3-C off window)',
+        !new RegExp('window\\.' + n + '\\s*=').test(ownerSrc));
+      // Per call site, not per file: the registry read must sit directly above
+      // THIS name's guard (dashboard-bootstrap.module.js has two consumer
+      // sites, so a file-wide match let either site's declaration satisfy
+      // both — drop one and that site throws a ReferenceError; the Doors-card
+      // one inside a setTimeout, so the card just never renders). The
+      // read must END at the registry (`\s*;`): `window.__NBD_CALL_REGISTRY
+      // || window` is the permissive-default class this tranche forbids. No
+      // reassignment of _nbdReg may sit between the read and the guard.
+      assert(cons + ' calls ' + n + ' off the registry behind a fail-closed typeof guard',
+        new RegExp('_nbdReg\\s*=\\s*window\\.__NBD_CALL_REGISTRY\\s*;'
+          + '(?:(?!_nbdReg\\s*(?:\\|\\||&&|\\?\\?)?=(?!=))[\\s\\S]){0,200}?'
+          + '_nbdReg && typeof _nbdReg\\.' + n + " === 'function'").test(consSrc)
+          && new RegExp('_nbdReg\\.' + n + '\\(').test(consSrc)
+          && !new RegExp('window\\.' + n + '\\b').test(consSrc));
+    }
+    // goTo's H4 force-exit must still only fire when LEAVING the kanban with
+    // bulk mode on — the registry read must not have widened or dropped that.
+    const goToBody = t3cActions.slice(t3cActions.indexOf('function goTo('),
+      t3cActions.indexOf('_hydrateViewTemplate(name);'));
+    assert('goTo force-exits bulk mode via the registry only when leaving crm with _bulkMode set (H4)',
+      /if \(name !== 'crm' && window\._bulkMode && _nbdReg && typeof _nbdReg\.exitBulkMode === 'function'\) \{\s*_nbdReg\.exitBulkMode\(\);/.test(goToBody));
+    // #bulkModeBtn reaches toggleBulkMode ONLY through the toggle map (resolved
+    // registry-first by _nbdResolveMapped) — the map entry must stay, and the
+    // name must not be re-added to the allowlist (the map IS its allowlist).
+    assert('_NBD_TOGGLE_FNS still routes bulkMode -> toggleBulkMode (its markup dispatch path)',
+      /bulkMode:\s*'toggleBulkMode'/.test(stateSrc)
+        && /data-action="toggle" data-target="bulkMode"/.test(t3cDash));
+    // loadSmartCalendar left _NBD_CALL_ALLOWLIST: the schedule view's refresh
+    // button resolves registry-first via _nbdResolveCall, so the registration
+    // replaced the allowlist entry. A stale re-add would be a window fallback
+    // for a name that is no longer on window.
+    assert('allowlist no longer carries loadSmartCalendar (registry replaced it)',
+      !/'loadSmartCalendar'/.test(stateSrc));
+    assert('schedule refresh button still dispatches loadSmartCalendar via data-fn',
+      /data-action="call" data-fn="loadSmartCalendar"/.test(t3cDash));
   }
 
   // ── Tranche 2c-4a: the dashboard-actions.js card-detail cluster ──
@@ -3979,6 +4104,136 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
       new RegExp('_nbdReg\\.' + n + '\\b').test(uiJsSrc) && !new RegExp('window\\.' + n + '\\s*\\(').test(uiJsSrc));
   }
 
+  // ── Tranche 3 T3-C (2026-09-18): estimates-bundle render aliases +
+  // settings/estimate view hooks ──
+  // Four single-consumer names, each a callable whose only reader already
+  // tolerated its absence: nbdSyncSizeBtns (prefs-boot → ui.js
+  // switchSettingsTab), renderProductLibrary / renderJobTemplatesLibrary
+  // (lazy 'estimates' bundle → dashboard-actions.js goTo fallbacks) and
+  // toggleInsuranceOverlay (a <script src> inside tpl-view-est → #estMode's
+  // data-on-after + dashboard-widgets.js viewEstimate). Off-window status is
+  // the T1_NAMES walk above; these pin the registry half of each edge.
+  // Block-scoped so its consts cannot collide with sibling T3-C blocks.
+  {
+    // nbdSyncSizeBtns: a real declaration inside prefs-boot's IIFE, joined to
+    // the file's ONE existing registry block (regBlock = that block). The
+    // IIFE body is not indented, so this text pin cannot tell inside-the-IIFE
+    // from top-level; the vm run at the end of this block owns the scope claim.
+    assert('prefs-boot declares nbdSyncSizeBtns as a function declaration (not a window-assigned expression)',
+      /^function nbdSyncSizeBtns\(\) \{/m.test(prefsBoot));
+    assert('prefs-boot registers nbdSyncSizeBtns in its __NBD_CALL_REGISTRY block (T3-C)',
+      /\bnbdSyncSizeBtns:\s*nbdSyncSizeBtns\b/.test(regBlock));
+    assert('ui.js switchSettingsTab reads nbdSyncSizeBtns off the registry, guarded (no-op if absent)',
+      /typeof window\.__NBD_CALL_REGISTRY\.nbdSyncSizeBtns === 'function'\) \{\s*window\.__NBD_CALL_REGISTRY\.nbdSyncSizeBtns\(\);/.test(uiJsSrc));
+    const t3cDashRaw = read(path.join(ROOT, 'docs/pro/dashboard.html'));
+    assert('dashboard.html runs prefs-boot (registers nbdSyncSizeBtns) before ui.js (reads it)',
+      t3cDashRaw.indexOf('src="js/dashboard-ui-prefs-boot.js') !== -1
+        && t3cDashRaw.indexOf('src="js/dashboard-ui-prefs-boot.js') < t3cDashRaw.indexOf('src="js/ui.js'));
+
+    // renderProductLibrary / renderJobTemplatesLibrary: lazy-bundle consumer
+    // rule — the goTo branch must read the registry INSIDE the preload's
+    // .then (load → re-read), never a reference captured before the bundle
+    // arrived, and must no-op when the entry is absent (fail-closed).
+    const t3cDaSrc = read(path.join(PRO_JS, 'dashboard-actions.js'));
+    for (const [n, owner, view, ns] of [
+      ['renderProductLibrary', 'product-library.js', 'products', 'window._productLib'],
+      ['renderJobTemplatesLibrary', 'job-templates-ui.js', 'job-templates', 'window.JobTemplatesUI']]) {
+      const ownerSrc = read(path.join(PRO_JS, owner));
+      assert(owner + ' registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+        new RegExp('Object\\.assign\\(window\\.__NBD_CALL_REGISTRY, \\{ ' + n + ': render \\}\\);').test(ownerSrc));
+      assert(owner + ' guards the registry object instead of overwriting it (shared across the bundle)',
+        /window\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);/.test(ownerSrc));
+      const start = t3cDaSrc.indexOf("if(name==='" + view + "') {");
+      const branch = start === -1 ? '' : t3cDaSrc.slice(start, t3cDaSrc.indexOf('\n  }', start));
+      const thenAt = branch.indexOf('_lazyPreload.then(function () {');
+      const readAt = branch.indexOf('window.__NBD_CALL_REGISTRY.' + n + '()');
+      assert("goTo('" + view + "') reads " + n + ' off the registry only after the lazy bundle loads',
+        thenAt !== -1 && readAt > thenAt && branch.indexOf(ns + '.render()') > thenAt);
+      assert("goTo('" + view + "') calls " + n + ' only behind a typeof guard (absent entry = no-op)',
+        branch.indexOf("typeof window.__NBD_CALL_REGISTRY." + n + " === 'function') { ") !== -1);
+    }
+
+    // toggleInsuranceOverlay: the whole 1-name file is IIFE-wrapped so the
+    // declaration cannot auto-global; the Object.assign form is what wiring
+    // audit (d) reads to resolve #estMode's data-on-after.
+    const insToggleSrc = read(path.join(PRO_JS, 'dashboard-insurance-overlay-toggle.js'));
+    assert('dashboard-insurance-overlay-toggle.js is IIFE-wrapped (its function leaves window)',
+      /^\(function \(\) \{\r?$/m.test(insToggleSrc) && /\}\)\(\);$/.test(insToggleSrc.trimEnd()));
+    assert('dashboard-insurance-overlay-toggle.js registers toggleInsuranceOverlay (Object.assign form)',
+      /Object\.assign\(window\.__NBD_CALL_REGISTRY, \{ toggleInsuranceOverlay: toggleInsuranceOverlay \}\);/.test(insToggleSrc));
+    assert('allowlist no longer carries toggleInsuranceOverlay (T3-C — registry replaced it)',
+      !/'toggleInsuranceOverlay'/.test(stateSrc));
+    assert('dashboard.html still wires #estMode data-on-after to toggleInsuranceOverlay',
+      /id="estMode" data-on-change="calcTierPrices" data-on-after="toggleInsuranceOverlay"/.test(t3cDashRaw));
+    const t3cWidgetsSrc = read(path.join(PRO_JS, 'dashboard-widgets.js'));
+    // Sliced to viewEstimate's own body, and the local _nbdReg binding is
+    // part of the match: no global _nbdReg exists anywhere under docs/, so a
+    // dropped binding would ReferenceError mid-viewEstimate.
+    const veStart = t3cWidgetsSrc.indexOf('function viewEstimate(id) {');
+    const veEnd = veStart === -1 ? -1 : t3cWidgetsSrc.slice(veStart).search(/\n\}\r?\n/);
+    const veBody = veEnd === -1 ? '' : t3cWidgetsSrc.slice(veStart, veStart + veEnd);
+    assert('dashboard-widgets.js viewEstimate binds _nbdReg to the registry and reads toggleInsuranceOverlay off it, guarded',
+      /(?:var|let|const) _nbdReg = window\.__NBD_CALL_REGISTRY;\s*if \(_nbdReg && typeof _nbdReg\.toggleInsuranceOverlay === 'function'\) \{\s*_nbdReg\.toggleInsuranceOverlay\(\);/.test(veBody));
+    // Behaviour, not just text: run the real file TWICE in one context (the
+    // tpl-view-est hydration re-executes it) with window === the global, so a
+    // leaked top-level declaration would show up as a window property.
+    const vm = require('vm');
+    const els = { estMode: { value: 'insurance' }, estInsuranceBlock: { style: { display: '' } } };
+    const keep = function () {};
+    const sb = { document: { getElementById: (id) => els[id] || null }, Object, __NBD_CALL_REGISTRY: { keep } };
+    sb.window = sb;
+    vm.createContext(sb);
+    vm.runInContext(insToggleSrc, sb);
+    vm.runInContext(insToggleSrc, sb);
+    const reg = sb.__NBD_CALL_REGISTRY;
+    const fn = reg && reg.toggleInsuranceOverlay;
+    assert('toggleInsuranceOverlay: re-execution keeps the existing registry (no clobber) and leaks nothing onto window',
+      typeof fn === 'function' && reg.keep === keep && !('toggleInsuranceOverlay' in sb));
+    let shown = '', hidden = '';
+    if (typeof fn === 'function') {
+      fn(); shown = els.estInsuranceBlock.style.display;
+      els.estMode.value = 'cash'; fn(); hidden = els.estInsuranceBlock.style.display;
+    }
+    assert('toggleInsuranceOverlay (via the registry) shows the insurance block for insurance, hides it for cash',
+      shown === 'block' && hidden === 'none', 'got ' + JSON.stringify([shown, hidden]));
+
+    // nbdSyncSizeBtns module scope, behaviourally: run the real prefs-boot
+    // with window === the global. A declaration hoisted out of the IIFE, or
+    // any window['nbdSyncSizeBtns'] re-export, lands as an own property of
+    // the global; the text pins above cannot see either. document/navigator
+    // are an inert Proxy (every read/call returns the stub), localStorage a
+    // Map.
+    const pbStub = new Proxy(function () {}, {
+      get: (t, k) => (k === Symbol.toPrimitive ? () => '' : typeof k === 'symbol' ? undefined : pbStub),
+      apply: () => pbStub, construct: () => pbStub, set: () => true,
+    });
+    const pbStore = new Map();
+    const pbSb = { document: pbStub, navigator: pbStub, localStorage: {
+      getItem: (k) => (pbStore.has(k) ? pbStore.get(k) : null),
+      setItem: (k, v) => { pbStore.set(k, String(v)); },
+      removeItem: (k) => { pbStore.delete(k); } } };
+    pbSb.window = pbSb;
+    vm.createContext(pbSb);
+    let pbErr = '';
+    try { vm.runInContext(prefsBoot, pbSb); } catch (e) { pbErr = String(e && e.message || e); }
+    const pbFn = pbSb.__NBD_CALL_REGISTRY && pbSb.__NBD_CALL_REGISTRY.nbdSyncSizeBtns;
+    assert('prefs-boot keeps nbdSyncSizeBtns off window (vm: not an own property of the global) and registers it',
+      !pbErr && !Object.prototype.hasOwnProperty.call(pbSb, 'nbdSyncSizeBtns') && typeof pbFn === 'function',
+      pbErr ? 'prefs-boot threw under the vm stubs: ' + pbErr : 'nbdSyncSizeBtns leaked onto window or is missing from the registry');
+    // …and the registry entry is the real repaint, not a placeholder.
+    const pbBtns = [{ dataset: { size: 'large' }, style: {} }, { dataset: { size: 'default' }, style: {} }];
+    let pbPainted = [], pbCallErr = '';
+    if (typeof pbFn === 'function') {
+      pbStore.set('nbd_ui_size', 'large');
+      pbSb.document = { querySelectorAll: (sel) => (sel === '.nbd-size-btn' ? pbBtns : []) };
+      try { pbFn(); } catch (e) { pbCallErr = String(e && e.message || e); }
+      pbPainted = pbBtns.map((b) => b.style.fontWeight);
+    }
+    assert('nbdSyncSizeBtns (via the registry) paints the saved size button active and the rest inactive',
+      !pbCallErr && pbPainted[0] === '800' && pbPainted[1] === '',
+      pbCallErr ? 'threw: ' + pbCallErr : 'got ' + JSON.stringify(pbPainted));
+  }
+
   // ── Tranche 3 T3-C (2026-09-17): crm-portal-bridge.js + rep-report-
   // generator.js edges ──
   // Two more one-consumer edges off dashboard-bootstrap.module.js, re-derived
@@ -4055,6 +4310,182 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.setLightboxSource\(srcArray, Number\(idx\) \|\| 0\)/.test(custTasksSrc));
   assert('the project-timeline milestone renderer reads _nbdTsToDate off the registry, not bare window',
     /_nbdReg\._nbdTsToDate\(stageDates\[milestone\.stage\]\)/.test(custTasksSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18, T3-5): the customer-tasks-ui.js cluster +
+  // logCommunication ──
+  // #1657 IIFE-wrapped customer-tasks-ui.js but deliberately left these 6
+  // cross-file callables on window; now they are real IIFE-scoped
+  // declarations registered in ONE block at the TOP of the wrap (hoisted, so
+  // a later throw in the 2500-line body can't strand them). logCommunication
+  // joins its owner's existing end-of-file block above. customer.html's
+  // _nbdCustomerActionDispatch walks WINDOW for data-action/data-change-action,
+  // so none of these may ever become markup-dispatched — asserted below.
+  const T3C5_TASKS = ['renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
+    'setupContactTab', 'loadCommunicationLog', 'logGeneratedDoc'];
+  for (const n of T3C5_TASKS) {
+    assert('customer-tasks-ui.js registers ' + n + ' in __NBD_CALL_REGISTRY (T3-C)',
+      new RegExp('\\b' + n + ':\\s*' + n + '\\b').test(custTasksSrc));
+    assert('customer-tasks-ui.js declares ' + n + ' as a real IIFE-scoped function, not a window assignment',
+      new RegExp('^(async )?function ' + n + '\\(', 'm').test(custTasksSrc)
+      && !new RegExp('window\\.' + n + '\\s*=').test(custTasksSrc));
+  }
+  const t3c5RegAt = custTasksSrc.indexOf('Object.assign(window.__NBD_CALL_REGISTRY, {');
+  assert('customer-tasks-ui.js\'s registry block sits at the TOP of the IIFE (before the first IIFE-level statement), behind the || guard',
+    t3c5RegAt > 0
+    && t3c5RegAt < custTasksSrc.indexOf('window.nbdNavCount = function')
+    && custTasksSrc.indexOf('window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);') > 0
+    && custTasksSrc.indexOf('window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);') < t3c5RegAt);
+  assert('customer-tasks-ui.js\'s in-file callers use the bare IIFE bindings',
+    /\n\s+renderCoverHero\(updates\.coverPhotoUrl\);/.test(custTasksSrc)
+    && /\n\s+logGeneratedDoc\(type, data\);/.test(custTasksSrc)
+    && /\n\s+loadCommunicationLog\(leadId\)\r?\n\s+\]\);/.test(custTasksSrc));
+  assert('customer-bootstrap.module.js reads renderCoverHero off the registry, typeof-guarded (no-op if absent)',
+    /if \(window\.__NBD_CALL_REGISTRY && typeof window\.__NBD_CALL_REGISTRY\.renderCoverHero === 'function'\) \{\r?\n\s+window\.__NBD_CALL_REGISTRY\.renderCoverHero\(lead\.coverPhotoUrl \|\| null\);/.test(custBootSrc));
+  assert('customer-bootstrap.module.js\'s loadAllCustomerPhotos reads loadPhotosByPhase off the registry (absent → Promise.resolve())',
+    /\(window\.__NBD_CALL_REGISTRY && typeof window\.__NBD_CALL_REGISTRY\.loadPhotosByPhase === 'function'\)\r?\n\s+\? window\.__NBD_CALL_REGISTRY\.loadPhotosByPhase\(leadId\) : Promise\.resolve\(\),/.test(custBootSrc));
+  assert('customer-bootstrap.module.js calls loadNewPortalSections + setupContactTab off the registry INSIDE the existing try/catch (absent → caught, both skipped)',
+    /try \{\r?\n\s+await window\.__NBD_CALL_REGISTRY\.loadNewPortalSections\(id\);\r?\n\s+\/\/ Setup contact tab\r?\n\s+window\.__NBD_CALL_REGISTRY\.setupContactTab\(lead\);\r?\n\s+\} catch \(e\) \{ console\.warn\('Portal sections render failed:'/.test(custBootSrc));
+  assert('customer-bootstrap.module.js registers logCommunication (a real module-scope declaration) in its end-of-file block',
+    /^async function logCommunication\(leadId, type, content, extra = \{\}\) \{/m.test(custBootSrc)
+    && /\blogCommunication:\s*logCommunication\b/.test(custBootSrc));
+  const t3c5Qab = read(path.join(PRO_JS, 'customer-quick-action-bar.js'));
+  assert('customer-quick-action-bar.js reads logCommunication off the registry and bails (no log, no throw) if absent',
+    /if \(!leadId \|\| !_nbdReg \|\| typeof _nbdReg\.logCommunication !== 'function'\) return;/.test(t3c5Qab)
+    && /_nbdReg\.logCommunication\(leadId, type, label\)/.test(t3c5Qab));
+  const t3c5Aid = read(path.join(PRO_JS, 'customer-ai-drafts-panel.js'));
+  assert('customer-ai-drafts-panel.js reads loadCommunicationLog off the registry, guarded',
+    /if \(_nbdReg && typeof _nbdReg\.loadCommunicationLog === 'function' && window\._customerId\) \{\r?\n\s+_nbdReg\.loadCommunicationLog\(window\._customerId\);/.test(t3c5Aid));
+  const t3c5Pre = read(path.join(PRO_JS, 'doc-preflight.js'));
+  assert('doc-preflight.js reads logGeneratedDoc off the registry, guarded (no-op on dashboard.html, where it never exists)',
+    /if \(_logDocReg && typeof _logDocReg\.logGeneratedDoc === 'function'\) \{\r?\n\s+try \{ _logDocReg\.logGeneratedDoc\(state\.type, mergedData\); \}/.test(t3c5Pre));
+  // The window-walking dispatcher can't reach registry-only names: none of
+  // the 7 may appear as a data-action / data-change-action value anywhere.
+  const t3c5Markup = [read(path.join(ROOT, 'docs/pro/customer.html'))];
+  for (const f of fs.readdirSync(PRO_JS)) if (/\.js$/.test(f)) t3c5Markup.push(read(path.join(PRO_JS, f)));
+  const t3c5Dispatched = [...T3C5_TASKS, 'logCommunication'].filter((n) =>
+    t3c5Markup.some((src) => new RegExp('data-(?:change-)?action=\\\\?["\']' + n + '\\\\?["\']').test(src)));
+  assert('none of the T3-5 registry-only names is data-action/data-change-action dispatched (the customer.html dispatcher walks window) — '
+    + (t3c5Dispatched.join(', ') || 'clean'), t3c5Dispatched.length === 0);
+  // Runtime proof, not just regex: vm-run the REAL file with window === the
+  // sandbox global (as in a browser), so "off window" means genuinely absent.
+  {
+    const vm = require('vm');
+    const t3c5Run = (preRegistry) => {
+      const els = {};
+      const el = (id) => els[id] || (els[id] = { id, style: {}, innerHTML: '', textContent: '', dataset: {},
+        classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+        setAttribute() {}, getAttribute() { return null; }, addEventListener() {}, appendChild() {},
+        querySelector() { return null; }, querySelectorAll() { return []; } });
+      const sb = { console: { log() {}, warn() {}, error() {} }, setTimeout: () => 0, clearTimeout() {},
+        addEventListener() {},
+        document: { readyState: 'loading', head: { appendChild() {} }, body: el('body'),
+          createElement: () => el('_created'), getElementById: el, addEventListener() {},
+          querySelector: () => null, querySelectorAll: () => [] } };
+      sb.window = sb;
+      if (preRegistry) sb.__NBD_CALL_REGISTRY = preRegistry;
+      let threw = null;
+      try { vm.createContext(sb); vm.runInContext(custTasksSrc, sb); } catch (e) { threw = e; }
+      return { sb, els, threw };
+    };
+    const fresh = t3c5Run(null);
+    const reg = fresh.sb.__NBD_CALL_REGISTRY || {};
+    assert('customer-tasks-ui.js executes cleanly in a fresh page (registry created by its own || guard)'
+      + (fresh.threw ? ' — ' + fresh.threw.message : ''), !fresh.threw && !!fresh.sb.__NBD_CALL_REGISTRY);
+    assert('at runtime all 6 are callable off __NBD_CALL_REGISTRY',
+      T3C5_TASKS.every((n) => typeof reg[n] === 'function'));
+    assert('at runtime none of the 6 is on window (while window exports like generateCustomerDoc/nbdNavCount still are)',
+      T3C5_TASKS.every((n) => !(n in fresh.sb))
+      && typeof fresh.sb.generateCustomerDoc === 'function' && typeof fresh.sb.nbdNavCount === 'function');
+    if (typeof reg.renderCoverHero === 'function') reg.renderCoverHero('https://x.test/a.jpg');
+    assert('the registered renderCoverHero is the real renderer (paints #coverHero)',
+      fresh.els.coverHero && fresh.els.coverHero.style.display === 'block');
+    // loadNewPortalSections must call its IIFE-local loadCommunicationLog, never
+    // a stale window copy (the sync prefix of the real one paints #communicationLog).
+    let staleCalled = false;
+    fresh.sb.loadProjectTimeline = fresh.sb.loadInvoices = fresh.sb.loadReports = () => Promise.resolve();
+    fresh.sb.loadCommunicationLog = () => { staleCalled = true; return Promise.resolve(); };
+    if (typeof reg.loadNewPortalSections === 'function') reg.loadNewPortalSections('L1');
+    assert('loadNewPortalSections calls the IIFE-local loadCommunicationLog, not window.loadCommunicationLog',
+      !staleCalled && /Sign in to view messages/.test((fresh.els.communicationLog || {}).innerHTML || ''));
+    // Module-first load order: the bootstrap's registry (with its entries) survives.
+    const pre = Object.create(null);
+    const preLoadPhotos = () => {};
+    pre.loadPhotos = preLoadPhotos;
+    const second = t3c5Run(pre);
+    assert('when customer-bootstrap.module.js registered first, its registry object and entries survive and gain the 6',
+      !second.threw && second.sb.__NBD_CALL_REGISTRY === pre && pre.loadPhotos === preLoadPhotos
+      && T3C5_TASKS.every((n) => typeof pre[n] === 'function'));
+  }
+  // ── Tranche 3 T3-C (2026-09-18): two single-name edges outside the
+  // dashboard shell ──
+  // photo-report.js -> customer-photo-report-picker.js: _reportOptions was
+  // already a real declaration inside photo-report.js's IIFE, exported under a
+  // DIFFERENT public name — now registered under that same public name
+  // (rename-on-register, the STAGE_ROLE precedent). photo-report.js rides the
+  // lazy ScriptLoader 'photos' bundle, so it must create-or-reuse the registry,
+  // never replace it (customer.html's own entries are already in it by then —
+  // tests/photo-report-builder.test.js executes that behaviourally).
+  // Block-scoped: parallel T3-C PRs append beside this section.
+  {
+    const photoReportSrc = read(path.join(PRO_JS, 'photo-report.js'));
+    const prPickerSrc = read(path.join(PRO_JS, 'customer-photo-report-picker.js'));
+    assert('photo-report.js registers _reportOptions as __NBD_CALL_REGISTRY._photoReportOptions (T3-C)',
+      /window\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);\r?\n\s*window\.__NBD_CALL_REGISTRY\._photoReportOptions = _reportOptions;/.test(photoReportSrc));
+    // Anchors WHERE `reg` comes from, not just the second line: `var reg =
+    // window;` would put the read back on window as `reg._photoReportOptions`,
+    // which the T1_NAMES walk above cannot see. tests/photo-report-builder.test.js
+    // executes the picker against a registry + window decoy for any other spelling.
+    assert('customer-photo-report-picker.js resolves _photoReportOptions off the registry, null when absent',
+      /var reg = window\.__NBD_CALL_REGISTRY;\r?\n\s*return \(reg && typeof reg\._photoReportOptions === 'function'\) \? reg\._photoReportOptions : null;/.test(prPickerSrc));
+    assert('all 3 picker call sites (resetState, bundle-warm gate, re-seed) go through that resolver',
+      /var optsFn = _reportOptionsFn\(\);/.test(prPickerSrc)
+      && /if \(!_reportOptionsFn\(\)\r?\n\s*&& window\.ScriptLoader/.test(prPickerSrc)
+      && /if \(_reportOptionsFn\(\) && state\) setPreset\(state\.mode\);/.test(prPickerSrc));
+    // pro-analytics.js -> pro-analytics-gate.js: both are ES modules on
+    // analytics.html, which loads no other registry owner, so pro-analytics.js
+    // creates the registry. Registered right beside the declaration (not at file
+    // end) so the entry exists at the same point in module evaluation the old
+    // window assignment did — the gate's onReady timing is unchanged.
+    const proAnalyticsSrc = read(path.join(PRO_JS, 'pages', 'pro-analytics.js'));
+    const proAnalyticsGateSrc = read(path.join(PRO_JS, 'pages', 'pro-analytics-gate.js'));
+    assert('pro-analytics.js declares bootAnalytics and registers it right beside the declaration (T3-C)',
+      /\nasync function bootAnalytics\(\) \{[\s\S]{0,120}?\r?\n\}\r?\nwindow\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);\r?\nwindow\.__NBD_CALL_REGISTRY\.bootAnalytics = bootAnalytics;/.test(proAnalyticsSrc));
+    assert('pro-analytics-gate.js boots through the registry, typeof-guarded (missing entry = no boot)',
+      /const _nbdReg = window\.__NBD_CALL_REGISTRY;\r?\n\s*if \(_nbdReg && typeof _nbdReg\.bootAnalytics === 'function'\) _nbdReg\.bootAnalytics\(\);/.test(proAnalyticsGateSrc));
+    // A classic-script load would turn the top-level `async function
+    // bootAnalytics` back into an implicit window global — invisible to the
+    // T1_NAMES walk above, which only sees explicit window.X text.
+    const analyticsTags = read(path.join(ROOT, 'docs/pro/analytics.html'))
+      .match(/<script\b[^>]*\bsrc="[^"]*\/pro-analytics\.js(?:\?[^"]*)?"[^>]*>/g) || [];
+    assert('analytics.html loads pro-analytics.js only as type="module" (a classic load would auto-global bootAnalytics)',
+      analyticsTags.length > 0 && analyticsTags.every((t) => /\btype="module"/.test(t)),
+      analyticsTags.join(' | ') || 'no pro-analytics.js tag found');
+    {
+      // Behavioural twin of the text pins above, since the T1_NAMES walk only
+      // sees the dotted `window.X` spelling. Evaluate pro-analytics.js's top
+      // level (import lines stripped — the gstatic URL cannot load under node)
+      // inside a strict function scope, which is what module scope amounts to
+      // here, against stub window/document. DOMContentLoaded never fires, so the
+      // entry must come from top-level evaluation itself, and no assignment
+      // shape (dotted, bracketed, globalThis) may leave the name on the global.
+      const vmT3c = require('vm');
+      const win = { addEventListener: () => {} };
+      const box = { window: win, document: { addEventListener: () => {} }, console };
+      vmT3c.createContext(box);
+      let evalErr = null;
+      try {
+        vmT3c.runInContext("(function () { 'use strict';\n"
+          + proAnalyticsSrc.replace(/^import [^\n]*\n/gm, '') + '\n})();', box);
+      } catch (e) { evalErr = e; }
+      assert('pro-analytics.js top level evaluates under stubs (the checks below are live)',
+        !evalErr, evalErr && evalErr.message);
+      assert('evaluating pro-analytics.js registers bootAnalytics without waiting for DOMContentLoaded',
+        !!win.__NBD_CALL_REGISTRY && typeof win.__NBD_CALL_REGISTRY.bootAnalytics === 'function');
+      assert('evaluating pro-analytics.js leaves bootAnalytics off the global object, in any spelling',
+        !Object.prototype.hasOwnProperty.call(win, 'bootAnalytics')
+        && !Object.prototype.hasOwnProperty.call(box, 'bootAnalytics'));
+    }
+  }
 
   // ── Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
   // dashboard-bootstrap.module.js ──
@@ -4139,6 +4570,25 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /_nbdReg\.filterStageDropdownByJobType\(jtEl\?\.value \|\| ''\)/.test(crmLeadsSrc));
   assert('crm-leads.js reads getSelectedTrades off the registry, not bare window',
     /window\.__NBD_CALL_REGISTRY\.getSelectedTrades\(\)/.test(crmLeadsSrc) && !/window\.getSelectedTrades\(/.test(crmLeadsSrc));
+  // ...and refreshStageOptions, the same edge's third name (a later PR): was
+  // an anonymous window.X = function expression, now a real declaration.
+  assert('dashboard-bootstrap.module.js registers refreshStageOptions in __NBD_CALL_REGISTRY (T3-C)',
+    /\brefreshStageOptions:\s*refreshStageOptions\b/.test(bootRegBlock));
+  assert('dashboard-bootstrap.module.js no longer exposes window.refreshStageOptions (T3-C off window, dot or bracket form)',
+    !/window\.refreshStageOptions\s*=/.test(bootReg) && !/window\[\s*['"]refreshStageOptions['"]\s*\]/.test(bootReg));
+  assert('refreshStageOptions is a real declaration now',
+    /^  function refreshStageOptions\(keepValue\) \{/m.test(bootReg));
+  const openLeadModalFn = crmLeadsSrc.slice(crmLeadsSrc.indexOf('function openLeadModal('), crmLeadsSrc.indexOf('function closeLeadModal('));
+  assert('crm-leads.js\'s openLeadModal reads refreshStageOptions off the registry, not bare window',
+    /if \(_nbdReg && typeof _nbdReg\.refreshStageOptions === 'function'\) \{/.test(openLeadModalFn)
+    && /_nbdReg\.refreshStageOptions\(want \|\| 'new'\)/.test(openLeadModalFn)
+    && !/window\.refreshStageOptions\b/.test(crmLeadsSrc));
+  // `var _nbdReg` hoists: if the declaration sat BELOW the refreshStageOptions
+  // guard (where it was for filterStageDropdownByJobType), the guard would
+  // read `undefined` and silently skip the tenant-pipeline rebuild forever.
+  const _olmReg = openLeadModalFn.indexOf('var _nbdReg = window.__NBD_CALL_REGISTRY;');
+  assert('openLeadModal assigns _nbdReg BEFORE the refreshStageOptions guard reads it (hoisted-var trap)',
+    _olmReg !== -1 && _olmReg < openLeadModalFn.indexOf('typeof _nbdReg.refreshStageOptions'));
 
   // ── Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge off
   // dashboard-bootstrap.module.js ──
@@ -4190,6 +4640,22 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   assert('pipeline-builder.js\'s two applyPipelineConfig call sites (reset + save) both read off the registry',
     (pipelineBuilderSrc.match(/_nbdReg\.applyPipelineConfig\(\)/g) || []).length === 2
     && !/window\.applyPipelineConfig\(/.test(pipelineBuilderSrc));
+
+  // ── Tranche 3 T3-C (2026-09-18): the crm-pipeline.js edge off
+  // dashboard-bootstrap.module.js ──
+  // partitionLeadsByColumn is a crm-stages.js import bridged to a classic
+  // script (same shape as the warranty-claim.js edge). renderLeads is the
+  // sole consumer; its inline fallback bucketer (registry/entry missing)
+  // is unchanged. crm-pipeline.js's _dragId implicit global is NOT part of
+  // this edge and must stay exactly as it was.
+  const crmPipelineSrc = read(path.join(PRO_JS, 'crm-pipeline.js'));
+  assert('dashboard-bootstrap.module.js registers partitionLeadsByColumn in __NBD_CALL_REGISTRY (T3-C)',
+    /\bpartitionLeadsByColumn:\s*partitionLeadsByColumn\b/.test(bootRegBlock));
+  assert('dashboard-bootstrap.module.js no longer exposes window.partitionLeadsByColumn (T3-C off window, dot or bracket form)',
+    !/window\.partitionLeadsByColumn\s*=/.test(bootReg) && !/window\[\s*['"]partitionLeadsByColumn['"]\s*\]/.test(bootReg));
+  assert('crm-pipeline.js\'s renderLeads reads partitionLeadsByColumn off the registry, not bare window',
+    /const _nbdReg = window\.__NBD_CALL_REGISTRY;\s*if \(_nbdReg && typeof _nbdReg\.partitionLeadsByColumn === 'function'\) \{\s*const _part = _nbdReg\.partitionLeadsByColumn\(list, stageKeys, \{/.test(crmPipelineSrc)
+    && !/window\.partitionLeadsByColumn\b/.test(crmPipelineSrc));
 
   // ── Tranche 3 T3-C (2026-09-18): the dashboard-widgets.js photo modal
   // edge off dashboard-bootstrap.module.js ──
@@ -5507,11 +5973,12 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
     assert(n + ' stays private inside the new IIFE — zero external consumer (T3-A)',
       !new RegExp('window\\.' + n + '\\s*=').test(custTasks));
   }
-  // Spot-check: the 5 already-documented T3-A names AND a sample of the
-  // markup-dispatched names keep their EXACT pre-existing window exports —
-  // the wrap must not have touched these lines at all.
-  for (const n of ['renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
-    'setupContactTab', '_uploadPhase', 'openTaskModal', 'saveTask', 'saveEvent',
+  // Spot-check: _uploadPhase (DATA) AND a sample of the markup-dispatched
+  // names keep their EXACT pre-existing window exports — the wrap must not
+  // have touched these lines at all. (renderCoverHero, loadPhotosByPhase,
+  // loadNewPortalSections, setupContactTab graduated to registry-only in the
+  // later T3-5 T3-C slice — pinned in the T3-C block and T1_NAMES instead.)
+  for (const n of ['_uploadPhase', 'openTaskModal', 'saveTask', 'saveEvent',
     'generateCustomerDoc', 'toggleTask', 'nbdNavCount']) {
     assert(n + ' keeps its existing window export — a real external consumer needs it, the wrap must not touch this line',
       new RegExp('window\\.' + n + '\\s*=').test(custTasks));
@@ -5554,10 +6021,23 @@ section('Mobile job-detail full parity: Voice Intel, Messages, Documents actions
   const genFn = actions.slice(actions.indexOf('function _mJdOpenDocCreate'), actions.indexOf('function _mJdPickDocType'));
   assert('_mJdOpenDocCreate builds its type list from window._DASH_DOC_PREREQUISITES — one catalog, not a second hand-written one',
     /window\._DASH_DOC_PREREQUISITES/.test(genFn) && /Object\.keys\(prereqs\)/.test(genFn));
-  assert('_mJdPickDocType runs the SAME staging+prereq+DocPreflight chain the desktop lead-card doc chips use (_generateDocWithPreflight), not a second implementation',
-    /window\._generateDocWithPreflight\(type, leadId\)/.test(actions));
-  assert('dashboard-bootstrap.module.js exports _generateDocWithPreflight + _DASH_DOC_PREREQUISITES for the mobile picker to reuse',
-    /window\._generateDocWithPreflight = _generateDocWithPreflight;/.test(bootstrap) &&
+  // Globals Tranche 3 T3-C (2026-09-18): _generateDocWithPreflight moved off
+  // window into dashboard-bootstrap.module.js's __NBD_CALL_REGISTRY block;
+  // both mobile-picker reads resolve it there (fail-closed: registry or entry
+  // missing → the picker toasts/returns, never a bare window read).
+  // _DASH_DOC_PREREQUISITES is DATA, not a callable — it stays on window.
+  const pickFn = actions.slice(actions.indexOf('function _mJdPickDocType'), actions.indexOf('// ── Messages + Voice Intel: mount-once-per-lead'));
+  assert('_mJdPickDocType runs the SAME staging+prereq+DocPreflight chain the desktop lead-card doc chips use (_generateDocWithPreflight via the registry), not a second implementation',
+    /_nbdReg\._generateDocWithPreflight\(type, leadId\)/.test(pickFn));
+  assert('_mJdOpenDocCreate and _mJdPickDocType both gate on the registry entry (fail-closed), never window._generateDocWithPreflight',
+    /!_nbdReg \|\| typeof _nbdReg\._generateDocWithPreflight !== 'function'/.test(genFn)
+    && /!_nbdReg \|\| typeof _nbdReg\._generateDocWithPreflight !== 'function'\) return;/.test(pickFn)
+    && !/window\._generateDocWithPreflight\b/.test(actions));
+  const bootRegBlockDocs = (bootstrap.match(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/) || ['', ''])[1];
+  assert('dashboard-bootstrap.module.js registers _generateDocWithPreflight in __NBD_CALL_REGISTRY (T3-C) and keeps _DASH_DOC_PREREQUISITES on window for the mobile picker',
+    /\b_generateDocWithPreflight:\s*_generateDocWithPreflight\b/.test(bootRegBlockDocs) &&
+    !/window\._generateDocWithPreflight\s*=/.test(bootstrap) &&
+    !/window\[\s*['"]_generateDocWithPreflight['"]\s*\]/.test(bootstrap) &&
     /window\._DASH_DOC_PREREQUISITES = _DASH_DOC_PREREQUISITES;/.test(bootstrap));
 
   // Every new data-fn button dispatches through __NBD_CALL_REGISTRY, the

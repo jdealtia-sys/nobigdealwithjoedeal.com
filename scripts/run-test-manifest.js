@@ -303,7 +303,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               --check on a branch cut from origin/main; other fail-open
 //               lanes are open in parallel, so whichever merges second
 //               re-measures the merged tree rather than adding +1.
-const FLOORS = { node: 165, smoke: 68, disk: 254 };
+//   2026-09-18  157/68/246 → 158/68/247, tests/strip-redundant-inline-css.test.js
+//               (inline-CSS dedup slice 3a). MEASURED via --check on a branch
+//               cut from origin/main at 4007bbbd. Other slice-3 CSS lanes are
+//               open in parallel; whichever merges second re-measures.
+const FLOORS = { node: 166, smoke: 68, disk: 255 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

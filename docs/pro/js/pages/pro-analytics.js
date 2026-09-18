@@ -6,10 +6,11 @@
  * addEventListener instead of inline onclick=.
  *
  * NOTE: The original file assigned `setRange`, `bootAnalytics`, `loadData`
- * to `window` so inline handlers could find them. We keep those assignments
- * so any residual inline references elsewhere still work, but this page
- * now binds its own DOM events via addEventListener at the bottom of the
- * file.
+ * to `window` so inline handlers could find them. `setRange` and `loadData`
+ * keep those assignments so any residual inline references elsewhere still
+ * work, but this page now binds its own DOM events via addEventListener at
+ * the bottom of the file. `bootAnalytics` is off window (Globals Tranche 3,
+ * T3-C) — pro-analytics-gate.js reads it from __NBD_CALL_REGISTRY.
  */
 import { getFirestore, collection, query, where, orderBy, getDocs, Timestamp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -46,10 +47,17 @@ window.setRange = function(r, btn) {
   render();
 };
 
-window.bootAnalytics = async function() {
+// Off window (Globals Tranche 3, T3-C): the one caller is pro-analytics-gate.js's
+// NBDAuth onReady, which resolves it through __NBD_CALL_REGISTRY. Registered
+// right here, not at file end, so the entry exists at the same point in module
+// evaluation the old window assignment did. First registry use on
+// analytics.html, so the guard creates it.
+async function bootAnalytics() {
   await loadData();
   autoTimer = setInterval(loadData, 60000);
-};
+}
+window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+window.__NBD_CALL_REGISTRY.bootAnalytics = bootAnalytics;
 
 window.loadData = async function() {
   const btn = document.getElementById('refreshBtn');

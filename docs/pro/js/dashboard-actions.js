@@ -291,9 +291,11 @@ function goTo(name, params = {}) {
   // Force-exit bulk-select mode whenever leaving the kanban — otherwise a
   // bulk selection started on the CRM bleeds into the next view's click
   // handlers (e.g. tapping a prospect card opens a checkbox toggle instead
-  // of the detail modal). Audit fix H4.
-  if (name !== 'crm' && window._bulkMode && typeof window.exitBulkMode === 'function') {
-    window.exitBulkMode();
+  // of the detail modal). Audit fix H4. exitBulkMode is registry-only
+  // (crm-portal-bridge.js, Globals Tranche 3 T3-C); a missing entry is a no-op.
+  var _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (name !== 'crm' && window._bulkMode && _nbdReg && typeof _nbdReg.exitBulkMode === 'function') {
+    _nbdReg.exitBulkMode();
   }
 
   // Update URL hash (without triggering hashchange event)
@@ -557,20 +559,23 @@ function goTo(name, params = {}) {
   if(name==='products') {
     // PR 2c: product-library ships in the lazy 'estimates' bundle, which the
     // products view preloads (VIEW_BUNDLES). Chain the render on that preload
-    // so window._productLib exists when we read it.
+    // so window._productLib exists when we read it. The fallback render lives
+    // in __NBD_CALL_REGISTRY, not on window (Globals Tranche 3 T3-C,
+    // 2026-09-18) — read here, after the bundle load, never captured before.
     _lazyPreload.then(function () {
       const pc = document.getElementById('productLibraryContainer');
       if (pc && window._productLib) { pc.innerHTML = window._productLib.render(); }
-      else if (pc && typeof window.renderProductLibrary === 'function') { pc.innerHTML = window.renderProductLibrary(); }
+      else if (pc && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderProductLibrary === 'function') { pc.innerHTML = window.__NBD_CALL_REGISTRY.renderProductLibrary(); }
     });
   }
   if(name==='job-templates') {
     // Job-template library rides the same lazy 'estimates' bundle as the
-    // products view (it resolves pricing through EstimateLogic).
+    // products view (it resolves pricing through EstimateLogic). Same
+    // registry-only fallback as the products branch above (T3-C, 2026-09-18).
     _lazyPreload.then(function () {
       const jc = document.getElementById('jobTemplatesContainer');
       if (jc && window.JobTemplatesUI) { jc.innerHTML = window.JobTemplatesUI.render(); }
-      else if (jc && typeof window.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.renderJobTemplatesLibrary(); }
+      else if (jc && window.__NBD_CALL_REGISTRY && typeof window.__NBD_CALL_REGISTRY.renderJobTemplatesLibrary === 'function') { jc.innerHTML = window.__NBD_CALL_REGISTRY.renderJobTemplatesLibrary(); }
     });
   }
   if(name==='reports') {
@@ -1874,7 +1879,10 @@ function _mJdOpenDocCreate() {
   const leadId = window._cardDetailLeadId;
   if (!leadId) return;
   const prereqs = window._DASH_DOC_PREREQUISITES;
-  if (!prereqs || typeof window._generateDocWithPreflight !== 'function') {
+  // _generateDocWithPreflight is registry-only (Globals Tranche 3 T3-C,
+  // 2026-09-18), not a bare window global.
+  const _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!prereqs || !_nbdReg || typeof _nbdReg._generateDocWithPreflight !== 'function') {
     if (typeof showToast === 'function') showToast('Document generator unavailable — reload the page.', 'error');
     return;
   }
@@ -1912,8 +1920,9 @@ function _mJdCloseDocTypeSheet() {
 function _mJdPickDocType(type) {
   _mJdCloseDocTypeSheet();
   const leadId = window._cardDetailLeadId;
-  if (!leadId || typeof window._generateDocWithPreflight !== 'function') return;
-  window._generateDocWithPreflight(type, leadId);
+  const _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!leadId || !_nbdReg || typeof _nbdReg._generateDocWithPreflight !== 'function') return;
+  _nbdReg._generateDocWithPreflight(type, leadId);
 }
 
 // ── Messages + Voice Intel: mount-once-per-lead, torn down on lead change ──

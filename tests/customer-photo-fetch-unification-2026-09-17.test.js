@@ -195,7 +195,7 @@ await group('loadAllCustomerPhotos', () => {
   const src = liftFunction(BOOT, 'loadAllCustomerPhotos');
   ok('is present', !!src);
   const body = decomment(src || '');
-  ok('awaits loadPhotos AND window.loadPhotosByPhase together via Promise.all (not sequential awaits)',
+  ok('awaits loadPhotos AND loadPhotosByPhase (registry) together via Promise.all (not sequential awaits)',
     /Promise\.all\(\[[\s\S]*?loadPhotos\(leadId\)[\s\S]*?loadPhotosByPhase\(leadId\)[\s\S]*?\]\)/.test(body), body);
   ok('is exported for customer-tasks-ui.js and used at both lifecycle points', /window\.loadAllCustomerPhotos\s*=\s*loadAllCustomerPhotos/.test(BOOT));
 });
@@ -217,8 +217,12 @@ await group('call sites use loadAllCustomerPhotos instead of two separate calls'
 });
 
 await group('loadNewPortalSections no longer double-loads photos-by-phase', () => {
-  const start = TASKS_UI.indexOf('window.loadNewPortalSections = async function');
-  const body = TASKS_UI.slice(start, start + 900);
+  // A real declaration since Globals Tranche 3 T3-C (2026-09-18). Anchor
+  // asserted present: an unfound anchor (-1) slices '' and the negative
+  // check below would pass vacuously.
+  const start = TASKS_UI.indexOf('async function loadNewPortalSections(leadId) {');
+  ok('loadNewPortalSections is present', start >= 0);
+  const body = start >= 0 ? TASKS_UI.slice(start, start + 900) : '';
   ok('loadPhotosByPhase is gone from its Promise.all bundle', !/loadPhotosByPhase/.test(decomment(body)));
   ok('the other four sections it always loaded are still there',
     /loadProjectTimeline/.test(body) && /loadInvoices/.test(body) && /loadReports/.test(body) && /loadCommunicationLog/.test(body));
@@ -228,8 +232,9 @@ await group('loadNewPortalSections no longer double-loads photos-by-phase', () =
    5. loadPhotosByPhase's fetchFresh now shares the fetch
    ══════════════════════════════════════════════════════════════════ */
 await group('loadPhotosByPhase routes through the shared fetch', () => {
-  const start = TASKS_UI.indexOf('window.loadPhotosByPhase = async function');
-  const body = decomment(TASKS_UI.slice(start, start + 1900));
+  const start = TASKS_UI.indexOf('async function loadPhotosByPhase(leadId) {');
+  ok('loadPhotosByPhase is present', start >= 0);
+  const body = start >= 0 ? decomment(TASKS_UI.slice(start, start + 1900)) : '';
   ok('fetchFresh calls _fetchPhotosRaw off the registry (Globals Tranche 3 T3-C)',
     /window\.__NBD_CALL_REGISTRY\._fetchPhotosRaw\(leadId\)/.test(body));
   ok('no more independent getDocs() call in this function', !/window\.getDocs\(/.test(body));
