@@ -1126,7 +1126,8 @@
    * known value. Unknown strings fall back rather than reaching the template,
    * where an unmatched density class would silently style nothing and an
    * unmatched numbering would silently drop every photo number.
-   * Pure. Exported as window._photoReportOptions for tests.
+   * Pure. Registered on __NBD_CALL_REGISTRY as _photoReportOptions (NOT on
+   * window) for customer-photo-report-picker.js; tests vm-slice it directly.
    */
   function _reportOptions(mode, o) {
     const base = REPORT_DEFAULTS[mode === 'adjuster' ? 'adjuster' : 'homeowner'];
@@ -1627,7 +1628,14 @@
   // two above: the option contract, the numbering scheme and the capture-date
   // fallback chain are behaviour worth asserting on directly, rather than
   // grepping the source for the shape of a fix.
-  window._photoReportOptions = _reportOptions;
+  //
+  // _reportOptions is the exception (Globals Tranche 3, T3-C): its one runtime
+  // consumer, customer-photo-report-picker.js, resolves it through
+  // __NBD_CALL_REGISTRY under the public name _photoReportOptions, so it is
+  // off window. The guard creates the registry if this lazy bundle is ever
+  // the first thing on a page to touch it.
+  window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
+  window.__NBD_CALL_REGISTRY._photoReportOptions = _reportOptions;
   window._numberReportSections = _numberSections;
   window._photoReportDateLabel = _dateLabel;
   window._photoReportTimestampMs = _photoTimestampMs;

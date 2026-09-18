@@ -3169,6 +3169,12 @@ section('Globals Tranches 0+1: converted names stay off window');
     // markup-dispatched, so _nbdCustomerActionDispatch never walks to them.
     'renderCoverHero', 'loadPhotosByPhase', 'loadNewPortalSections',
     'setupContactTab', 'loadCommunicationLog', 'logGeneratedDoc',
+    // Tranche 3 T3-C (2026-09-18): two single-name edges outside the
+    // dashboard shell — photo-report.js -> customer-photo-report-picker.js
+    // (rename-on-register: _reportOptions registered as _photoReportOptions)
+    // and pro-analytics.js -> pro-analytics-gate.js (the first registry use
+    // on analytics.html). See the T3-C assertion block below.
+    '_photoReportOptions', 'bootAnalytics',
     // Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off
     // dashboard-bootstrap.module.js — maps-overlays.js's dropPin/deletePin
     // and dashboard-actions.js's saveZone/deleteZone. _zones (a loaded-zones
@@ -4294,6 +4300,76 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('when customer-bootstrap.module.js registered first, its registry object and entries survive and gain the 6',
       !second.threw && second.sb.__NBD_CALL_REGISTRY === pre && pre.loadPhotos === preLoadPhotos
       && T3C5_TASKS.every((n) => typeof pre[n] === 'function'));
+  }
+  // ── Tranche 3 T3-C (2026-09-18): two single-name edges outside the
+  // dashboard shell ──
+  // photo-report.js -> customer-photo-report-picker.js: _reportOptions was
+  // already a real declaration inside photo-report.js's IIFE, exported under a
+  // DIFFERENT public name — now registered under that same public name
+  // (rename-on-register, the STAGE_ROLE precedent). photo-report.js rides the
+  // lazy ScriptLoader 'photos' bundle, so it must create-or-reuse the registry,
+  // never replace it (customer.html's own entries are already in it by then —
+  // tests/photo-report-builder.test.js executes that behaviourally).
+  // Block-scoped: parallel T3-C PRs append beside this section.
+  {
+    const photoReportSrc = read(path.join(PRO_JS, 'photo-report.js'));
+    const prPickerSrc = read(path.join(PRO_JS, 'customer-photo-report-picker.js'));
+    assert('photo-report.js registers _reportOptions as __NBD_CALL_REGISTRY._photoReportOptions (T3-C)',
+      /window\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);\r?\n\s*window\.__NBD_CALL_REGISTRY\._photoReportOptions = _reportOptions;/.test(photoReportSrc));
+    // Anchors WHERE `reg` comes from, not just the second line: `var reg =
+    // window;` would put the read back on window as `reg._photoReportOptions`,
+    // which the T1_NAMES walk above cannot see. tests/photo-report-builder.test.js
+    // executes the picker against a registry + window decoy for any other spelling.
+    assert('customer-photo-report-picker.js resolves _photoReportOptions off the registry, null when absent',
+      /var reg = window\.__NBD_CALL_REGISTRY;\r?\n\s*return \(reg && typeof reg\._photoReportOptions === 'function'\) \? reg\._photoReportOptions : null;/.test(prPickerSrc));
+    assert('all 3 picker call sites (resetState, bundle-warm gate, re-seed) go through that resolver',
+      /var optsFn = _reportOptionsFn\(\);/.test(prPickerSrc)
+      && /if \(!_reportOptionsFn\(\)\r?\n\s*&& window\.ScriptLoader/.test(prPickerSrc)
+      && /if \(_reportOptionsFn\(\) && state\) setPreset\(state\.mode\);/.test(prPickerSrc));
+    // pro-analytics.js -> pro-analytics-gate.js: both are ES modules on
+    // analytics.html, which loads no other registry owner, so pro-analytics.js
+    // creates the registry. Registered right beside the declaration (not at file
+    // end) so the entry exists at the same point in module evaluation the old
+    // window assignment did — the gate's onReady timing is unchanged.
+    const proAnalyticsSrc = read(path.join(PRO_JS, 'pages', 'pro-analytics.js'));
+    const proAnalyticsGateSrc = read(path.join(PRO_JS, 'pages', 'pro-analytics-gate.js'));
+    assert('pro-analytics.js declares bootAnalytics and registers it right beside the declaration (T3-C)',
+      /\nasync function bootAnalytics\(\) \{[\s\S]{0,120}?\r?\n\}\r?\nwindow\.__NBD_CALL_REGISTRY = window\.__NBD_CALL_REGISTRY \|\| Object\.create\(null\);\r?\nwindow\.__NBD_CALL_REGISTRY\.bootAnalytics = bootAnalytics;/.test(proAnalyticsSrc));
+    assert('pro-analytics-gate.js boots through the registry, typeof-guarded (missing entry = no boot)',
+      /const _nbdReg = window\.__NBD_CALL_REGISTRY;\r?\n\s*if \(_nbdReg && typeof _nbdReg\.bootAnalytics === 'function'\) _nbdReg\.bootAnalytics\(\);/.test(proAnalyticsGateSrc));
+    // A classic-script load would turn the top-level `async function
+    // bootAnalytics` back into an implicit window global — invisible to the
+    // T1_NAMES walk above, which only sees explicit window.X text.
+    const analyticsTags = read(path.join(ROOT, 'docs/pro/analytics.html'))
+      .match(/<script\b[^>]*\bsrc="[^"]*\/pro-analytics\.js(?:\?[^"]*)?"[^>]*>/g) || [];
+    assert('analytics.html loads pro-analytics.js only as type="module" (a classic load would auto-global bootAnalytics)',
+      analyticsTags.length > 0 && analyticsTags.every((t) => /\btype="module"/.test(t)),
+      analyticsTags.join(' | ') || 'no pro-analytics.js tag found');
+    {
+      // Behavioural twin of the text pins above, since the T1_NAMES walk only
+      // sees the dotted `window.X` spelling. Evaluate pro-analytics.js's top
+      // level (import lines stripped — the gstatic URL cannot load under node)
+      // inside a strict function scope, which is what module scope amounts to
+      // here, against stub window/document. DOMContentLoaded never fires, so the
+      // entry must come from top-level evaluation itself, and no assignment
+      // shape (dotted, bracketed, globalThis) may leave the name on the global.
+      const vmT3c = require('vm');
+      const win = { addEventListener: () => {} };
+      const box = { window: win, document: { addEventListener: () => {} }, console };
+      vmT3c.createContext(box);
+      let evalErr = null;
+      try {
+        vmT3c.runInContext("(function () { 'use strict';\n"
+          + proAnalyticsSrc.replace(/^import [^\n]*\n/gm, '') + '\n})();', box);
+      } catch (e) { evalErr = e; }
+      assert('pro-analytics.js top level evaluates under stubs (the checks below are live)',
+        !evalErr, evalErr && evalErr.message);
+      assert('evaluating pro-analytics.js registers bootAnalytics without waiting for DOMContentLoaded',
+        !!win.__NBD_CALL_REGISTRY && typeof win.__NBD_CALL_REGISTRY.bootAnalytics === 'function');
+      assert('evaluating pro-analytics.js leaves bootAnalytics off the global object, in any spelling',
+        !Object.prototype.hasOwnProperty.call(win, 'bootAnalytics')
+        && !Object.prototype.hasOwnProperty.call(box, 'bootAnalytics'));
+    }
   }
 
   // ── Tranche 3 T3-C (2026-09-18): the pins + zones CRUD edges off

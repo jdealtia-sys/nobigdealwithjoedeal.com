@@ -337,6 +337,116 @@ console.log('\n5. Builder UI ↔ option contract');
     /function generatePhotoReport\(leadId, mode, build\)/.test(PHOTO_REPORT));
   ok('the builder passes it through', /generatePhotoReport\(window\._customerId, mode, build\)/.test(PICKER));
 
+  // The builder reads the option contract at runtime through
+  // __NBD_CALL_REGISTRY._photoReportOptions (off window since Globals Tranche 3,
+  // T3-C). Execute the WHOLE file the way the lazy 'photos' bundle does, into a
+  // window whose registry customer.html's own module already populated: the
+  // entry must land, must be the real contract, and must not replace the
+  // registry — a bare `= Object.create(null)` here would silently drop every
+  // customer-page entry the moment a rep opened the builder.
+  {
+    const pageEntry = function () {};
+    const win = { __NBD_CALL_REGISTRY: { _fetchPhotosRaw: pageEntry } };
+    const reg0 = win.__NBD_CALL_REGISTRY;
+    const box = { window: win, console: console };
+    vm.createContext(box);
+    vm.runInContext(PHOTO_REPORT, box, { filename: 'photo-report.js' });
+    const fn = win.__NBD_CALL_REGISTRY._photoReportOptions;
+    ok('photo-report.js registers _photoReportOptions on the call registry', typeof fn === 'function');
+    ok('and leaves the page\'s existing registry (and its entries) in place',
+      win.__NBD_CALL_REGISTRY === reg0 && win.__NBD_CALL_REGISTRY._fetchPhotosRaw === pageEntry);
+    // Executed, not grepped: catches a bracketed or globalThis spelling too.
+    ok('_photoReportOptions is no longer a window global',
+      !('_photoReportOptions' in win) && !('_photoReportOptions' in box));
+    ok('the registered function IS the option contract the builder mirrors',
+      typeof fn === 'function'
+      && JSON.stringify(fn('adjuster')) === JSON.stringify(optionsFor('adjuster'))
+      && JSON.stringify(fn('homeowner')) === JSON.stringify(optionsFor('homeowner')));
+  }
+
+  // The consumer half, executed: run the WHOLE picker against a stub page and
+  // read back what it seeded. Every window below also carries a DECOY
+  // `_photoReportOptions` that returns something the real contract never does,
+  // so a resolver reading window (`var reg = window;`, `reg || window`, a
+  // bracketed or globalThis spelling) seeds the decoy and goes RED, and a
+  // resolver reading the wrong registry name seeds `{}` and goes RED — neither
+  // needs the source text to match a pin. The picker's _prpSetPreset /
+  // _prpCollect test hooks are how we read the builder's state.
+  {
+    const decoy = () => ({ decoy: 'read off window' });
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const runPicker = (win) => {
+      const box = {
+        window: win,
+        document: { readyState: 'complete', getElementById: () => null, addEventListener: () => {} },
+        setTimeout: () => {},
+        console: console,
+      };
+      vm.createContext(box);
+      vm.runInContext(PICKER, box, { filename: 'customer-photo-report-picker.js' });
+      return win;
+    };
+
+    // 1. Bundle already landed: the preset seeds from the registry entry.
+    const loaded = runPicker({
+      __NBD_CALL_REGISTRY: { _photoReportOptions: optionsFor },
+      _photoReportOptions: decoy,
+    });
+    loaded._prpSetPreset('adjuster');
+    const seeded = loaded._prpCollect() && loaded._prpCollect().options;
+    ok('the builder seeds a preset from __NBD_CALL_REGISTRY._photoReportOptions, not window',
+      same(seeded, optionsFor('adjuster')), JSON.stringify(seeded));
+
+    // 2. Bundle not landed (no registry entry): not-loaded, never window's copy.
+    const cold = runPicker({ __NBD_CALL_REGISTRY: {}, _photoReportOptions: decoy });
+    cold._prpSetPreset('adjuster');
+    const coldOpts = cold._prpCollect() && cold._prpCollect().options;
+    ok('with no registry entry the builder seeds {} (not loaded), never a window copy',
+      same(coldOpts, {}), JSON.stringify(coldOpts));
+
+    // 3. Opened before the lazy bundle lands: warm 'photos', and once it has
+    // registered the entry, re-seed the open preset from it. The thenable runs
+    // its callback synchronously so this stays a plain sequential assertion.
+    const warmed = [];
+    const lazy = {
+      _customerId: 'lead-1',
+      nbdModal: { open: () => {} },
+      _photoReportOptions: decoy,
+      ScriptLoader: {
+        loadBundle: (name) => {
+          warmed.push(name);
+          return {
+            then: (cb) => {
+              lazy.__NBD_CALL_REGISTRY = { _photoReportOptions: optionsFor };
+              cb();
+              return { catch: () => {} };
+            },
+          };
+        },
+      },
+    };
+    runPicker(lazy);
+    lazy.openPhotoReportPicker();
+    const reseeded = lazy._prpCollect() && lazy._prpCollect().options;
+    ok('opening before the bundle lands warms \'photos\' and re-seeds from the registry entry',
+      warmed.join(',') === 'photos' && same(reseeded, optionsFor('homeowner')),
+      'warmed=' + warmed.join(',') + ' options=' + JSON.stringify(reseeded));
+
+    // 4. Opened after it landed: no second bundle load.
+    const warm2 = [];
+    const ready = runPicker({
+      _customerId: 'lead-1',
+      nbdModal: { open: () => {} },
+      __NBD_CALL_REGISTRY: { _photoReportOptions: optionsFor },
+      _photoReportOptions: decoy,
+      ScriptLoader: { loadBundle: (name) => { warm2.push(name); return { then: () => ({ catch: () => {} }) }; } },
+    });
+    ready.openPhotoReportPicker();
+    ok('opening after the bundle landed seeds from the registry and loads nothing',
+      warm2.length === 0 && same(ready._prpCollect().options, optionsFor('homeowner')),
+      'warmed=' + warm2.join(','));
+  }
+
   // The markup the builder drives has to exist on the page it lives on.
   const CUSTOMER = read('docs/pro/customer.html');
   ['prpBuilder', 'prpGenerate', 'prpToggle', 'prpCancel'].forEach((id) => {
