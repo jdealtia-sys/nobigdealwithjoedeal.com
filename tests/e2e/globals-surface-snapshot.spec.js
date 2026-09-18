@@ -88,8 +88,13 @@ const PINNED = [
   // <script> at all — it only arrives through the lazy ScriptLoader bundle.
   'openTaskModal', 'closeTaskModal', 'addTask', 'removeTask',
   'saveEstimate', 'cancelEstimate', 'viewEstimate',
-  // Unguarded direct exports that live in the same region and must SURVIVE —
-  // these are owned by dashboard-actions.js, not forward references.
+  // Names that must SURVIVE on window. This comment used to call them "owned
+  // by dashboard-actions.js"; that was never true. All three are declared in
+  // dashboard-ui.js (dashboard-actions.js only carried redundant re-exports,
+  // deleted 2026-09-01). Since the Tranche 3 T3-A whole-file wrap of
+  // dashboard-ui.js they stay on window through that file's explicit export
+  // block, and mobile-nav-customizer.js still replaces window.mobileNav at
+  // init.
   'mobileNav', 'toggleMobileMore', 'closeMobileMore',
 ];
 
@@ -105,8 +110,10 @@ test('globals-surface-snapshot @globals', async ({ page }) => {
   // GLOBALS_SNAPSHOT_EXTRA: comma-separated extra names to record — lets a
   // conversion slice run the SAME list before and after its change without
   // editing this file mid-measurement (Tranche 3 dispatch-map slice,
-  // 2026-09-02). A converted name is EXPECTED to read 'missing' in the
-  // after-run; the differential is the proof.
+  // 2026-09-02). A converted name is EXPECTED to read 'undefined' in the
+  // after-run (typeof of an absent window property; 'missing' is only the
+  // pre-read default and never survives a normal read). The differential is
+  // the proof.
   const extra = (process.env.GLOBALS_SNAPSHOT_EXTRA || '')
     .split(',').map((s) => s.trim()).filter(Boolean);
   const names = Array.from(new Set([...forwardRefNames(), ...PINNED, ...extra])).sort();
@@ -138,10 +145,12 @@ test('globals-surface-snapshot @globals', async ({ page }) => {
     // A name reachable only through _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS is
     // now allowed to live in __NBD_CALL_REGISTRY instead of on window, so
     // "is it on window" is no longer the question that matters for it. Call the
-    // REAL shipped resolver — _nbdResolveMapped is a top-level declaration in
-    // dashboard-ui.js, so it is reachable here — and record what each map entry
-    // actually resolves to. Any 'UNRESOLVED' is a control the user cannot
-    // operate: for the modal map specifically, a dialog that will not close.
+    // REAL shipped resolver and record what each map entry actually resolves
+    // to. _nbdResolveMapped is private to dashboard-ui.js's IIFE since the
+    // Tranche 3 T3-A wrap; that file exports it on window as a documented test
+    // seam for exactly this call, and the bare name below resolves through
+    // that export. Any 'UNRESOLVED' is a control the user cannot operate: for
+    // the modal map specifically, a dialog that will not close.
     const resolveMapped = (typeof _nbdResolveMapped === 'function') ? _nbdResolveMapped : null;
     out.__resolver = resolveMapped ? 'present' : 'MISSING — dispatch maps cannot resolve';
     const reg = window.__NBD_CALL_REGISTRY || {};
@@ -186,7 +195,8 @@ test('globals-surface-snapshot @globals', async ({ page }) => {
   const dest = path.join(__dirname, outFile);
   fs.writeFileSync(dest, JSON.stringify(snap, null, 1));
   const nameEntries = Object.entries(snap).filter(([k]) => !k.startsWith('__'));
-  const present = nameEntries.filter(([, v]) => !String(v).startsWith('missing')).length;
+  // An absent name reads 'undefined' (typeof), not 'missing'; count both as absent.
+  const present = nameEntries.filter(([, v]) => !/^(?:missing|undefined)\b/.test(String(v))).length;
   const mapEntries = Object.entries(snap).filter(([k]) => k.startsWith('__map_'));
   const backdrops = Object.entries(snap).filter(([k]) => k.startsWith('__backdrop_'));
   const badBackdrops = backdrops.filter(([, v]) => !String(v).startsWith('ok'));

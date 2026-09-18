@@ -1840,9 +1840,17 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
   assert("delegate handles action='mobileNav'",
     /if \(action === 'mobileNav'\)/.test(mainJs),
     'expected mobileNav branch in _nbdActionDelegate');
-  assert("mobileNav branch dispatches mobileNav(target)",
-    /if \(typeof mobileNav === 'function'\) mobileNav\(target\)/.test(mainJs),
-    'expected mobileNav(target) dispatch');
+  // Globals Tranche 3 T3-A (2026-09-18): dashboard-ui.js is one whole-file
+  // IIFE now, so a bare mobileNav(target) in this branch would bind to the
+  // file's LOCAL original. mobile-nav-customizer.js replaces window.mobileNav
+  // at init with its custom-tab-aware version, and that override is what the
+  // bare call reached before the wrap. So the branch prefers window.mobileNav
+  // and keeps the local declaration only as a fallback.
+  assert("mobileNav branch dispatches window.mobileNav(target), local mobileNav only as fallback",
+    /if \(typeof window\.mobileNav === 'function'\) window\.mobileNav\(target\);\r?\n\s*else mobileNav\(target\);/.test(mainJs),
+    'expected window.mobileNav(target) with a local fallback (T3-A: the customizer override lives on window)');
+  assert("mobileNav branch does not call the bare name first (inside the IIFE it would skip the customizer override)",
+    !/if \(typeof mobileNav === 'function'\) mobileNav\(target\)/.test(mainJs));
   assert("mobileNav branch honors data-close-more flag",
     /el\.hasAttribute\('data-close-more'\)[\s\S]{0,120}closeMobileMore\(\)/.test(mainJs),
     'expected closeMobileMore() called when data-close-more present');
@@ -3073,6 +3081,22 @@ section('Globals Tranches 0+1: converted names stay off window');
     // actions.js (those shims removed this slice). `function X` → `const X` + registry.
     'spyglassSearch', 'spyglassGoToLocation', 'fabToggle', 'quickStormCheck',
     'openUploadDoc', 'printDoc',
+    // Tranche 3 T3-A (2026-09-18): dashboard-ui.js whole-file IIFE wrap. These
+    // 21 function declarations were window globals only because the file was
+    // an unwrapped classic script. Nothing outside the file reaches them, so
+    // the wrap made them private with no export. NOT here: the 15 names the
+    // file exports explicitly (outside consumers or the snapshot test seam),
+    // showToast (the legacy duplicate was deleted; ui.js owns the global),
+    // initAllAutocomplete (the spyglass wrapper still writes its window slot),
+    // and the four zero-consumer explicit exports nbdComfortRefresh and
+    // nbdAutoThemeStart/Stop/ApplyForNow, left byte-identical.
+    '_nbdResolveCall', '_nbdOnChangeDelegate', '_calSignOff', 'openTips',
+    'initAddressAutocomplete', '_abbreviateRoadSuffix', '_state2letter',
+    'selectAcItem', '_nbdRepName', '_nbdDocCompany', 'openDocTemplate',
+    'loadSavedTheme', 'syncKanbanPrefControls', 'nbdAutoThemeIsDay',
+    'nbdAutoThemePreferredFor', '_nbdRememberManualTheme',
+    '_isCrmAutoCollapseOn', 'goToWithTheme', 'dsPickTheme', 'syncMobileBadge',
+    'applyCrmSecHeaderState',
     // Tranche 2c-4h (Slice H2 part 2, 2026-07-08): the 4 property-intel twins —
     // byte-identical dupes in dashboard-ui.js + property-intel.js; dashboard-ui.js
     // copies DELETED, property-intel.js owns + registers them.
@@ -3816,6 +3840,97 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     assert('dashboard-ui.js still declares function ' + n + ' (the export names a hoisted binding)',
       new RegExp('^function ' + n + '\\(', 'm').test(ui));
   }
+
+  // ── Tranche 3 T3-A (2026-09-18): the dashboard-ui.js whole-file IIFE wrap ──
+  // The file is now ONE IIFE, from (function () { on line 1 to the })(); after
+  // the __NBD_CALL_REGISTRY block. House style from #1656/#1657: no
+  // re-indentation and no 'use strict' (strict mode would also change the
+  // this the goTo wrappers forward). The 21 names in T1_NAMES are private now.
+  // The 15 exported names above, the 16 pre-existing window.X = X exports and
+  // the _syncKanbanPrefControls alias keep their window slots. The legacy
+  // showToast copy is gone, so bare showToast calls resolve to ui.js's global
+  // exactly as before.
+  assert('dashboard-ui.js opens the whole-file IIFE on line 1, ahead of the header comment (T3-A)',
+    /^\(function \(\) \{\r?\n\/\*\*\r?\n \* dashboard-ui\.js/.test(ui));
+  assert('dashboard-ui.js closes the IIFE straight after the __NBD_CALL_REGISTRY block, at end of file (T3-A)',
+    /\r?\n  closeTips: closeTips\r?\n\}\);\r?\n\}\)\(\);\r?\n?$/.test(ui));
+  // Brace-depth proof, not just the two ends: walk the CODE segments only
+  // (jsSegments, so braces in strings, comments, regexes and template text do
+  // not count; a template hole's opening brace sits in the code segment while
+  // its closing brace sits in the string segment, so the hole's own brace is
+  // skipped) and require exactly one depth-0 brace pair, closing at the file's
+  // final })();. An early })(); would leave the rest of the file at top level,
+  // where every function declaration is a window global again.
+  {
+    let depth = 0, zeroOpens = 0, closedAt = -1, minDepth = 0;
+    for (const s of jsSegments(ui)) {
+      if (s.kind !== 'code') continue;
+      const hole = ui.startsWith('$' + '{', s.start);
+      for (let i = s.start + (hole ? 2 : 0); i < s.end; i++) {
+        if (ui[i] === '{') { if (depth === 0) zeroOpens++; depth++; }
+        else if (ui[i] === '}') { depth--; if (depth < minDepth) minDepth = depth; if (depth === 0) closedAt = i; }
+      }
+    }
+    const tail = closedAt >= 0 ? ui.slice(closedAt) : '';
+    assert('dashboard-ui.js has exactly one top-level brace pair (the IIFE body) and it closes at end of file (T3-A)',
+      depth === 0 && minDepth === 0 && zeroOpens === 1 && /^\}\)\(\);\s*$/.test(tail),
+      'depth-0 opens=' + zeroOpens + ' final depth=' + depth + ' min depth=' + minDepth
+        + ' tail=' + JSON.stringify(tail.slice(0, 40)));
+  }
+  assert('dashboard-ui.js does not add \'use strict\' (T3-A house style)',
+    !/^\s*['"]use strict['"]/m.test(ui));
+  // Load-once guard, the shared Tranche 0 idiom. Before the wrap, the file's
+  // top-level consts made a second execution a redeclaration SyntaxError that
+  // aborted cleanly. Inside the IIFE a second run would succeed and bind the
+  // document-level data-action / data-on-change / data-on-input delegates
+  // twice. The guard has to run before the first listener and the exports.
+  const duGuardIdx = ui.indexOf("if (__NBD_LOADED['dashboard-ui']) return;");
+  assert('dashboard-ui.js has the __NBD_LOADED load-once guard, above the export block and every listener (T3-A)',
+    /const __NBD_LOADED = window\.__NBD_LOADED = window\.__NBD_LOADED \|\| \{\};\r?\nif \(__NBD_LOADED\['dashboard-ui'\]\) return;\r?\n__NBD_LOADED\['dashboard-ui'\] = true;/.test(ui)
+      && duGuardIdx > 0 && duExpStart > duGuardIdx
+      && ui.indexOf('addEventListener(') > duGuardIdx);
+  // The registry block: duRegBlock (2c-4g, above) captures the FIRST
+  // Object.assign(window.__NBD_CALL_REGISTRY, ...) in the file. There must be
+  // exactly one, and it must still be the full 24-entry block.
+  const duRegAll = [...ui.matchAll(/Object\.assign\(window\.__NBD_CALL_REGISTRY,\s*\{([\s\S]*?)\}\);/g)];
+  assert('dashboard-ui.js has exactly ONE __NBD_CALL_REGISTRY Object.assign block and duRegBlock is it (T3-A)',
+    duRegAll.length === 1 && duRegAll[0][1] === duRegBlock
+      && (duRegBlock.match(/\b(\w+):\s*\1\b/g) || []).length === 24);
+  const DU_T3A_PRIVATE = ['_nbdResolveCall', '_nbdOnChangeDelegate', '_calSignOff', 'openTips',
+    'initAddressAutocomplete', '_abbreviateRoadSuffix', '_state2letter', 'selectAcItem',
+    '_nbdRepName', '_nbdDocCompany', 'openDocTemplate', 'loadSavedTheme', 'syncKanbanPrefControls',
+    'nbdAutoThemeIsDay', 'nbdAutoThemePreferredFor', '_nbdRememberManualTheme',
+    '_isCrmAutoCollapseOn', 'goToWithTheme', 'dsPickTheme', 'syncMobileBadge',
+    'applyCrmSecHeaderState'];
+  for (const n of DU_T3A_PRIVATE) {
+    assert(n + ' stays private to the dashboard-ui.js IIFE: declared, no window export in any form, no registry entry (T3-A)',
+      new RegExp('^function ' + n + '\\(', 'm').test(ui)
+        && !new RegExp('window\\.' + n + '\\s*=').test(ui)
+        && !new RegExp('window\\[\\s*[\'"]' + n + '[\'"]\\s*\\]\\s*=').test(ui)
+        && !new RegExp('\\b' + n + '\\s*:\\s*' + n + '\\b').test(duRegBlock));
+  }
+  // The file's pre-existing exports are untouched, byte for byte.
+  const DU_KEPT_EXPORTS = ['setPhotoMode', 'formatMailingAddress', 'setKanbanDensity',
+    'setKanbanBoldHierarchy', 'nbdComfortSet', 'nbdAutoThemeStart', 'nbdAutoThemeStop',
+    'nbdAutoThemeApplyForNow', 'nbdComfortRefresh', 'toggleCrmToolsMenu', 'closeCrmToolsMenu',
+    'toggleCrmFiltersMenu', 'closeCrmFiltersMenu', 'syncMobileToolsMenuActive',
+    'setCrmAutoCollapse', 'setCrmSecHeaderEnabled'];
+  for (const n of DU_KEPT_EXPORTS) {
+    assert('dashboard-ui.js keeps its pre-existing window.' + n + ' = ' + n + '; line (T3-A leaves it as is)',
+      new RegExp('^window\\.' + n + ' = ' + n + ';\\r?$', 'm').test(ui));
+  }
+  assert('dashboard-ui.js keeps the window._syncKanbanPrefControls alias (ui.js switchSettingsTab calls it)',
+    /^window\._syncKanbanPrefControls = syncKanbanPrefControls;\r?$/m.test(ui));
+  // showToast: ui.js owns the global. A local declaration of any kind would
+  // shadow it for this file only, inside the IIFE, and flip every bare
+  // showToast(...) here onto a different toast.
+  assert('dashboard-ui.js declares no showToast of its own and no legacy toast queue (T3-A)',
+    !/\b(?:function|const|let|var)\s+showToast\b/.test(ui)
+      && !/\bprocessToastQueue\b/.test(ui)
+      && !/toastQueue\.(?:push|shift)\(/.test(ui));
+  const duToastOwnerSrc = read(path.join(PRO_JS, 'ui.js'));
+  assert('ui.js still owns the global showToast that dashboard-ui.js\'s bare calls resolve to',
+    /^function showToast\(/m.test(duToastOwnerSrc) && /window\.showToast = showToast;/.test(duToastOwnerSrc));
   // ── Tranche 2c-4f: the dashboard-bootstrap.module.js settings cluster ──
   // First NON-dashboard-actions module in this tranche, and a real ES module —
   // so the 15 markup-dispatched settings/debug/export handlers just move from
