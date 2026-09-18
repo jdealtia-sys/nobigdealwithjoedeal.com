@@ -5067,8 +5067,8 @@
     <div class="mrow">
       <div class="mfield"><label>Stage</label>
         <!-- The options below are the BUILT-IN pipeline only, kept as the
-             pre-module fallback. openLeadModal calls window.refreshStageOptions
-             on every open and replaces them with the resolved tenant pipeline —
+             pre-module fallback. openLeadModal calls refreshStageOptions
+             (via __NBD_CALL_REGISTRY) on every open and replaces them with the resolved tenant pipeline —
              editing this list does NOT change what a tenant with a custom
              pipeline sees (dashboard-bootstrap.module.js). -->
         <select id="lStage">
