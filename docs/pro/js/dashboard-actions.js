@@ -1874,7 +1874,10 @@ function _mJdOpenDocCreate() {
   const leadId = window._cardDetailLeadId;
   if (!leadId) return;
   const prereqs = window._DASH_DOC_PREREQUISITES;
-  if (!prereqs || typeof window._generateDocWithPreflight !== 'function') {
+  // _generateDocWithPreflight is registry-only (Globals Tranche 3 T3-C,
+  // 2026-09-18), not a bare window global.
+  const _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!prereqs || !_nbdReg || typeof _nbdReg._generateDocWithPreflight !== 'function') {
     if (typeof showToast === 'function') showToast('Document generator unavailable — reload the page.', 'error');
     return;
   }
@@ -1912,8 +1915,9 @@ function _mJdCloseDocTypeSheet() {
 function _mJdPickDocType(type) {
   _mJdCloseDocTypeSheet();
   const leadId = window._cardDetailLeadId;
-  if (!leadId || typeof window._generateDocWithPreflight !== 'function') return;
-  window._generateDocWithPreflight(type, leadId);
+  const _nbdReg = window.__NBD_CALL_REGISTRY;
+  if (!leadId || !_nbdReg || typeof _nbdReg._generateDocWithPreflight !== 'function') return;
+  _nbdReg._generateDocWithPreflight(type, leadId);
 }
 
 // ── Messages + Voice Intel: mount-once-per-lead, torn down on lead change ──

@@ -474,8 +474,11 @@ function renderLeads(leads, filtered){
     // "which lead lands in which column, and which have no column at all". The
     // board, the hidden-stage chip, and the unit test all share it so the
     // bucketing, the $ totals, and the chip's count can never drift apart.
-    if (typeof window.partitionLeadsByColumn === 'function') {
-      const _part = window.partitionLeadsByColumn(list, stageKeys, {
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window
+    // global; registry missing → the inline fallback below, as before.
+    const _nbdReg = window.__NBD_CALL_REGISTRY;
+    if (_nbdReg && typeof _nbdReg.partitionLeadsByColumn === 'function') {
+      const _part = _nbdReg.partitionLeadsByColumn(list, stageKeys, {
         stageMeta: _META, normalize: _normalize, resolve: _resolve,
       });
       Object.assign(byStage, _part.columns);
