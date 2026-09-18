@@ -394,7 +394,11 @@ function snapOf(docs, fromCache) {
 function loadCloseBoard(opts) {
   opts = opts || {};
   const LS = {};
-  LS.nbd_deal_rooms = JSON.stringify(opts.deals || []);
+  // u1's per-account cache (close-board.js keys deal rooms by uid since
+  // 2026-09-18; tests/close-board-per-uid-storage-2026-09-18.test.js covers
+  // the scoping and the legacy-key migration).
+  const DEAL_KEY = 'nbd_deal_rooms:u1';
+  LS[DEAL_KEY] = JSON.stringify(opts.deals || []);
   const calls = { toasts: [], imports: [], setDocs: [], deleteDocs: [], getDocs: 0, emails: [], sms: [], emu: [], callables: [] };
   const makeEl = () => ({
     _html: '', get innerHTML() { return this._html; }, set innerHTML(v) { this._html = String(v); },
@@ -463,8 +467,8 @@ function loadCloseBoard(opts) {
   sandbox.addEventListener = () => {};
   sandbox.showToast = (m, k) => calls.toasts.push({ m: String(m), k });
   sandbox.open = () => null;
-  sandbox._db = opts.signedIn === false ? null : { name: 'db' };
-  sandbox._user = opts.signedIn === false ? null : { uid: 'u1', email: 'rep@example.test' };
+  sandbox._db = { name: 'db' };
+  sandbox._user = { uid: 'u1', email: 'rep@example.test' };
   sandbox._userClaims = { companyId: 'c1' };
   if (opts.presetFunctions) { sandbox._functions = FNS; sandbox._httpsCallable = mintCallable; }
   sandbox.NBDComms = {
@@ -475,10 +479,14 @@ function loadCloseBoard(opts) {
   vm.runInContext(CB_SRC, ctx, { filename: 'close-board.js' });
   const CB = sandbox.CloseBoard;
   CB.init();
+  // "Not signed in" at action time. The board only loads rows for a known
+  // account, so the listed rows were loaded while u1 was signed in; auth is
+  // then gone (the hydrate in flight sees the change and bails).
+  if (opts.signedIn === false) { sandbox._db = null; sandbox._user = null; }
   return {
     CB, calls, LS, sandbox, FNS,
     ids: () => CB.getDeals().map((d) => d.id).join(','),
-    lsIds: () => JSON.parse(LS.nbd_deal_rooms || '[]').map((d) => d.id).join(','),
+    lsIds: () => JSON.parse(LS[DEAL_KEY] || '[]').map((d) => d.id).join(','),
     deal: (id) => CB.getDeals().find((d) => d.id === id),
     errored: () => calls.toasts.some((t) => t.k === 'error'),
   };
@@ -579,7 +587,7 @@ console.log('\n4. close-board.js deleteDeal — a server deal only disappears af
     t.CB.updateDeal('d1', { notes: 'edited' });
     await flush();
     ok('a successful syncDealToFirestore stamps deal.userId locally (and persists it)',
-      t.deal('d1').userId === 'u1' && JSON.parse(t.LS.nbd_deal_rooms)[0].userId === 'u1');
+      t.deal('d1').userId === 'u1' && JSON.parse(t.LS['nbd_deal_rooms:u1'])[0].userId === 'u1');
     await t.CB.deleteDeal('d1');
     ok('...so a later permission-denied delete KEEPS it instead of treating it as a draft', t.ids() === 'd1');
   }
@@ -651,7 +659,11 @@ console.log('\n4b. close-board.js hydrate — a server-confirmed deal the server
       getDocs: () => Promise.resolve(snapOf([])),
     });
     await flush();
-    ok("another account's deal (userId u2) is not judged by u1's query: KEPT", t.ids() === 'theirs');
+    // Was "KEPT" while the cache was one device-global key and u2's rows sat
+    // beside u1's. The cache is per-account now: a row stamped for another
+    // uid never belongs in u1's, so it is neither listed nor judged.
+    ok("another account's deal (userId u2) in u1's cache: never listed, and purged from u1's key",
+      t.ids() === '' && t.lsIds() === '');
   }
   {
     // getDocs offline with the memory cache resolves from CACHE (possibly
