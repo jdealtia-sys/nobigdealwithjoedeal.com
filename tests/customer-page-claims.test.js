@@ -107,8 +107,11 @@ const CUSTOMER_HTML = fs.readFileSync(path.join(ROOT, 'docs/pro/customer.html'),
 
   // NOTE: _saveReport lives in DASHBOARD-bootstrap, not the customer one —
   // BOOT above is customer-bootstrap.module.js and does not contain it.
+  // Globals Tranche 3 T3-C (2026-09-17) moved it off window into a plain
+  // function declaration, registered in __NBD_CALL_REGISTRY — the anchor
+  // below tracks that, not a `window._saveReport =` assignment anymore.
   const DASH_BOOT = read('dashboard-bootstrap.module.js');
-  const _sfStart = DASH_BOOT.indexOf('window._saveReport');
+  const _sfStart = DASH_BOOT.indexOf('async function _saveReport');
   const saveFn = DASH_BOOT.slice(_sfStart, _sfStart + 4000);
   ok('_saveReport stamps companyId',
     /const companyId = window\._userClaims\?\.companyId \|\| uid;/.test(saveFn)
