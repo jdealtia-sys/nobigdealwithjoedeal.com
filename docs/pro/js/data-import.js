@@ -401,6 +401,21 @@
       return;
     }
 
+    // FAIL CLOSED on an unhydrated lead cache (mirrors pipeline-builder.js
+    // canDeleteStage). Dedup (LeadDedup.findDuplicates) and the LITE
+    // total-leads cap below both read window._leads, which is [] until
+    // loadLeads() succeeds and is reset to [] on a failed first load
+    // (dashboard-bootstrap.module.js). Importing against it treats every CSV
+    // row as new — re-importing the onboarding CSV duplicates the whole
+    // book, each copy minting a fresh customer ID. Checked here (when the
+    // rep confirms the mapping), not in openImport, so a load that finishes
+    // while they pick a file still lets the import through.
+    if (window._leadsLoaded !== true) {
+      _toast('Your leads are still loading — wait for the board to finish, then import again.', 'error');
+      closeImport();
+      return;
+    }
+
     // Plan-cap gate (first-run audit 2026-07-28): the CSV bulk path must
     // mirror _saveLead's enforceGate check — without it a free tenant could
     // import unlimited leads around the 10/mo cap. At the cap this shows the

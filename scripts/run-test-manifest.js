@@ -282,7 +282,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               origin/main base. SET from --check on this tree; parallel
 //               fail-open lanes branch from the same base, so re-measure on
 //               the merged tree rather than trusting this literal.
-const FLOORS = { node: 159, smoke: 68, disk: 248 };
+//   2026-09-18  157/68/246 → 158/68/247, tests/unloaded-cache-gates.test.js
+//               (fail-open FO-4: sample data / CSV import / seat picker acting
+//               on an unloaded cache). MEASURED via --check on a branch cut
+//               from origin/main; sibling fail-open lanes cut the same day
+//               also move this line — whichever merges second re-measures.
+const FLOORS = { node: 160, smoke: 68, disk: 249 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
