@@ -317,7 +317,7 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → crm-pipeline.js | 4 — **re-derived to 0, see note below; not attempted** |
 | dashboard-bootstrap.module.js → maps-overlays.js (pins) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
-| dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR TBD); see note below** |
+| dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
 | long tail (1–3-name edges) | ~138 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
@@ -486,7 +486,7 @@ Convert edge-by-edge; each edge is one natural PR:
 > Windows-editing hazards (see CLAUDE.md) — clean, no lone-CR bytes, no
 > binary-flagged files.
 
-> ### Update 2026-09-18 — the estimate CRUD edge (PR TBD)
+> ### Update 2026-09-18 — the estimate CRUD edge (PR #1646)
 >
 > A third long-tail edge off `dashboard-bootstrap.module.js`, same session:
 > `_deleteEstimate`, `_renameEstimate`, `_assignEstimateToLead` — consumed by
