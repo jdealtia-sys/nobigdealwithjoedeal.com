@@ -6,11 +6,19 @@
  * on the light/navy-chip ones. Keep EXTRA_CSS in sync with
  * docs/assets/css/nbd-icons.css — that sheet links at the end of <head> and
  * wins the cascade over this injected block.
+ *
+ * 2026-09-18 (inline-CSS dedup slice 3a): pages that link nbd-icons.css are
+ * SKIPPED. nbd-icons.css is the icon-color authority there, and
+ * strip-redundant-inline-css.js removed their inline "trust-icon fix" copies.
+ * Without this skip, a re-run would see the marker missing and stamp EXTRA_CSS
+ * (stale: it colors .cm-icon/.wc-phone-icon white and falls back to #e8720c)
+ * just before </head> — AFTER the nbd-icons.css link, where it would win.
  */
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', 'docs');
+const ICONS_CSS_HREF = '/assets/css/nbd-icons.css';
 
 const EXTRA_CSS = `
 /* trust-icon fix */
@@ -32,6 +40,7 @@ function walk(dir, out = []) {
 let touched = 0;
 for (const file of walk(ROOT)) {
   const orig = fs.readFileSync(file, 'utf8');
+  if (orig.includes(ICONS_CSS_HREF)) continue; // nbd-icons.css owns icon color here
   let next = orig;
   // Strip the inline color:var(--orange) added to trust-icon during the earlier swap.
   next = next.replace(/(<div class="trust-icon")\s+style="color:var\(--orange[^"]*"/g, '$1');

@@ -276,7 +276,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               matching number that is not evidence, per this ledger's own
 //               rule. Re-measured via --check on the tree with BOTH lanes
 //               merged (this esign lane's own suite + anniversary-touch's):
-const FLOORS = { node: 157, smoke: 68, disk: 246 };
+//   2026-09-18  157/68/246 → 158/68/247, tests/strip-redundant-inline-css.test.js
+//               (inline-CSS dedup slice 3a). MEASURED via --check on a branch
+//               cut from origin/main at 4007bbbd. Other slice-3 CSS lanes are
+//               open in parallel; whichever merges second re-measures.
+const FLOORS = { node: 158, smoke: 68, disk: 247 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

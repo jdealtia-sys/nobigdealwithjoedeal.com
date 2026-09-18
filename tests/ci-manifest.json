@@ -166,7 +166,8 @@
     "anniversary-touch-stage-roles.test.js",
     "analytics-card-cache-account-switch.test.js",
     "adjuster-board-handler-tenancy.test.js",
-    "customer-audit-integrity.test.js"
+    "customer-audit-integrity.test.js",
+    "strip-redundant-inline-css.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
