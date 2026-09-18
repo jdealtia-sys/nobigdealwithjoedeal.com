@@ -449,10 +449,21 @@ body{font-family:'Montserrat',sans-serif;color:#1a1a1a;background:#fff}
 a{color:inherit}
 .nbd-skip{position:absolute;left:-9999px;top:0;z-index:100000;background:#BD5728;color:#fff;padding:10px 16px;font-weight:700;text-decoration:none;border-radius:0 0 6px 0}
 .nbd-skip:focus{left:0}
-nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;height:70px;box-shadow:0 2px 20px rgba(0,0,0,.4);border-bottom:3px solid var(--orange)}
+nav.nav{background:var(--navy-dark);padding:0 40px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1000;height:70px;box-shadow:0 2px 20px rgba(0,0,0,.4);border-bottom:3px solid var(--orange)}
 .nav-logo{display:flex;align-items:center;gap:10px;text-decoration:none}.nav-logo img{height:42px;border-radius:6px}
 .nav-links{display:flex;list-style:none;gap:24px;align-items:center}.nav-links > li > a,.nav-links a{color:rgba(255,255,255,.85);text-decoration:none;font-size:.76rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 .nav-cta{background:#BD5728;color:white!important;padding:8px 20px;border-radius:6px;font-weight:700!important}
+footer{background:var(--navy-dark);border-top:3px solid var(--orange);padding:40px;text-align:center}
+footer p{color:rgba(255,255,255,.7);font-size:.75rem;line-height:1.7}footer a{color:var(--orange-light,#dd875f);text-decoration:none}
+.nbd-social{display:inline-flex;gap:10px;align-items:center;margin-left:14px;vertical-align:middle}
+.nbd-social a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none!important;transition:transform .2s,background .2s,color .2s}
+.nbd-social a:hover{transform:translateY(-2px);color:#fff}
+.nbd-social a.s-fb:hover{background:#1877f2}
+.nbd-social a.s-ig:hover{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+.nbd-social a.s-gg:hover{background:#4285f4}
+.nbd-social a.s-yelp:hover{background:#d32323}
+.nbd-social svg{width:15px;height:15px;display:block}
+@media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
 .pd-wrap{max-width:1000px;margin:0 auto;padding:32px 5% 64px;}
 .pd-crumb{font-size:.78rem;margin-bottom:18px;}
 .pd-crumb a{color:var(--orange);text-decoration:none;font-weight:700;}
