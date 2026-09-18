@@ -103,6 +103,7 @@
     "seo-surface.test.js",
     "smart-calendar-forecast.test.js",
     "sms-optout-key.test.js",
+    "sms-send-optout-order.test.js",
     "state-store.test.js",
     "storm-geo.test.js",
     "storm-outlook.test.js",
@@ -166,7 +167,14 @@
     "anniversary-touch-stage-roles.test.js",
     "analytics-card-cache-account-switch.test.js",
     "adjuster-board-handler-tenancy.test.js",
-    "customer-audit-integrity.test.js"
+    "customer-audit-integrity.test.js",
+    "d2d-followup-sms-optout.test.js",
+    "portal-share-no-double-send.test.js",
+    "unloaded-cache-gates.test.js",
+    "failopen-destructive-false-success-2026-09-18.test.js",
+    "pipeline-builder-hydration.test.js",
+    "map-views-hydration.test.js",
+    "lead-trades-unknown.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
