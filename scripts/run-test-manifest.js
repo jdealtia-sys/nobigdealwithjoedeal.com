@@ -287,7 +287,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               on an unloaded cache). MEASURED via --check on a branch cut
 //               from origin/main; sibling fail-open lanes cut the same day
 //               also move this line — whichever merges second re-measures.
-const FLOORS = { node: 160, smoke: 68, disk: 249 };
+//   2026-09-18  FO-2 destructive-false-success lane adds one node suite
+//               (tests/failopen-destructive-false-success-2026-09-18.test.js)
+//               on a 157/68/246 main. MEASURED via --check on this tree; if
+//               a sibling fail-open lane lands first, re-measure the merged
+//               tree rather than adding +1 to its literal.
+const FLOORS = { node: 161, smoke: 68, disk: 250 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

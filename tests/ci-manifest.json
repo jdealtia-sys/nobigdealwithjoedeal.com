@@ -169,7 +169,8 @@
     "customer-audit-integrity.test.js",
     "d2d-followup-sms-optout.test.js",
     "portal-share-no-double-send.test.js",
-    "unloaded-cache-gates.test.js"
+    "unloaded-cache-gates.test.js",
+    "failopen-destructive-false-success-2026-09-18.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
