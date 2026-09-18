@@ -389,7 +389,8 @@ console.log('\ndashboard-bootstrap.module.js — wiring (source-text)');
   ok("jobStages array (controls #jobFieldsBlock visibility) includes 'warranty_claim'", /'collections','closed','warranty_claim'/.test(db));
   ok('imports CLAIM_STATUSES/preferredActionForClaim/missingClaimFields from crm-stages.js',
     /CLAIM_STATUSES, CLAIM_STATUS_ACTIONS, preferredActionForClaim/.test(db) && /REQUIRED_FIELDS_BY_CLAIM_STATUS, missingClaimFields/.test(db));
-  ok('exposes window.missingClaimFields for warranty-claim.js to consume', /window\.missingClaimFields = missingClaimFields/.test(db));
+  ok('registers missingClaimFields in __NBD_CALL_REGISTRY for warranty-claim.js to consume (Globals Tranche 3 T3-C)',
+    /missingClaimFields:\s*missingClaimFields/.test(db) && !/window\.missingClaimFields = missingClaimFields/.test(db));
 }
 
 // ═══════════════════════════════════════════════════════════════════════

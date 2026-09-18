@@ -36,8 +36,11 @@
   window.preferredActionFor = preferredActionFor;
   window.requiredFieldsFor = requiredFieldsFor;
   window.missingRequiredFields = missingRequiredFields;
-  window.subTypeOptionsFor = subTypeOptionsFor;
-  window.subTypeLabel = subTypeLabel;
+  // subTypeOptionsFor/subTypeLabel: registered in __NBD_CALL_REGISTRY at the
+  // end of this file (Globals Tranche 3 T3-C, 2026-09-18) instead — this
+  // comment block's "crm.js" framing was stale for these two specifically
+  // (crm.js never actually read them; warranty-claim.js is the real, sole
+  // external consumer).
   window.tradeLabel = tradeLabel;
   window.tradesLabel = tradesLabel;
   window.jobTypeLabel = jobTypeLabel;
@@ -52,7 +55,8 @@
   window.CLAIM_STATUS_ACTIONS = CLAIM_STATUS_ACTIONS;
   window.preferredActionForClaim = preferredActionForClaim;
   window.REQUIRED_FIELDS_BY_CLAIM_STATUS = REQUIRED_FIELDS_BY_CLAIM_STATUS;
-  window.missingClaimFields = missingClaimFields;
+  // missingClaimFields: registered in __NBD_CALL_REGISTRY at the end of
+  // this file (Globals Tranche 3 T3-C, 2026-09-18) instead.
 
   // ─── Estimate money: one reader, one stamping rule ──────────────────
   //
@@ -334,7 +338,9 @@
     const subSel = document.getElementById('lSubType');
     if (subSel) {
       const prev = subSel.value;
-      const options = (window.subTypeOptionsFor ? window.subTypeOptionsFor(jobType) : []);
+      // subTypeOptionsFor is an imported binding (crm-stages.js), always
+      // available once this module has parsed — no guard needed.
+      const options = subTypeOptionsFor(jobType);
       subSel.innerHTML = '<option value="">— optional —</option>' +
         options.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
       const stillValid = options.some(o => o.value === prev);
@@ -5826,4 +5832,17 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   // Globals Tranche 3 T3-C (2026-09-18): the crm-leads.js edge.
   filterStageDropdownByJobType: filterStageDropdownByJobType,
   getSelectedTrades: getSelectedTrades,
+  // Globals Tranche 3 T3-C (2026-09-18): the warranty-claim.js edge. All
+  // three are crm-stages.js imports bridged to a classic script — the
+  // "Expose the new helpers to non-module scripts (crm.js)" comment
+  // higher in this file was stale for subTypeOptionsFor/subTypeLabel
+  // specifically; warranty-claim.js is the real, sole consumer of all 3.
+  // Also loaded on customer.html, where these were already unavailable
+  // before this change too (customer-bootstrap.module.js never defined
+  // them) — all 3 call sites there were already guarded and degrade
+  // gracefully (a shorter reason list, a raw reason instead of a label),
+  // unchanged by this migration.
+  missingClaimFields: missingClaimFields,
+  subTypeLabel: subTypeLabel,
+  subTypeOptionsFor: subTypeOptionsFor,
 });

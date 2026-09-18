@@ -149,7 +149,11 @@
   // true so the caller can proceed with the stage change.
   // ─────────────────────────────────────────────
   async function promptIntake(lead) {
-    const reasons = (window.subTypeOptionsFor ? window.subTypeOptionsFor('warranty') : []) || [];
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window
+    // global. Not defined on customer.html (dashboard-only helper) — the
+    // fallback to [] there is pre-existing, unchanged by this migration.
+    var _nbdReg = window.__NBD_CALL_REGISTRY;
+    const reasons = (_nbdReg && _nbdReg.subTypeOptionsFor ? _nbdReg.subTypeOptionsFor('warranty') : []) || [];
     const customerName = [lead.firstName, lead.lastName].filter(Boolean).join(' ') || lead.address || 'This customer';
     const fields = await _modal(
       'File a Warranty Claim',
@@ -247,7 +251,9 @@
   async function advanceClaimStatus(lead, newStatus, extra) {
     if (!(lead && lead.openWarrantyClaimId)) throw new Error('advanceClaimStatus: no open claim on this lead');
     if (!_ready()) throw new Error('advanceClaimStatus: Firebase helpers not available on this page');
-    const missing = (window.missingClaimFields ? window.missingClaimFields(extra || {}, newStatus) : []);
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+    var _nbdReg = window.__NBD_CALL_REGISTRY;
+    const missing = (_nbdReg && _nbdReg.missingClaimFields ? _nbdReg.missingClaimFields(extra || {}, newStatus) : []);
     if (missing.length) throw new Error('advanceClaimStatus: missing ' + missing.join(', ') + ' for status ' + newStatus);
     const claimRef = window.doc(window.db, 'leads', lead.id, 'warrantyClaims', lead.openWarrantyClaimId);
     const payload = Object.assign({}, extra, { status: newStatus, updatedAt: window.serverTimestamp() });
@@ -275,7 +281,9 @@
     } catch (e) { console.warn('[warranty-claim] panel read failed:', e && e.message); return; }
     if (!claim) { el.innerHTML = ''; return; }
 
-    const reasonLabel = (window.subTypeLabel ? window.subTypeLabel('warranty', claim.reason) : claim.reason) || claim.reason || '';
+    // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
+    var _nbdReg = window.__NBD_CALL_REGISTRY;
+    const reasonLabel = (_nbdReg && _nbdReg.subTypeLabel ? _nbdReg.subTypeLabel('warranty', claim.reason) : claim.reason) || claim.reason || '';
     el.innerHTML =
       '<div class="panel" style="border-left:3px solid #c2410c;">' +
         '<div class="panel-title">🛟 Open Warranty Claim</div>' +

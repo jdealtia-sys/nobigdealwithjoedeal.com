@@ -319,7 +319,8 @@ Convert edge-by-edge; each edge is one natural PR:
 | dashboard-bootstrap.module.js → dashboard-actions.js (zones) | 2 — **shipped 2026-09-18 (PR #1645); see note below** |
 | dashboard-bootstrap.module.js → estimate-crm-ops.js | 3 — **shipped 2026-09-18 (PR #1646); see note below** |
 | dashboard-bootstrap.module.js → crm-leads.js | 2 — **shipped 2026-09-18 (PR #1647); see note below** |
-| long tail (1–3-name edges) | ~136 |
+| dashboard-bootstrap.module.js → warranty-claim.js | 3 — **shipped 2026-09-18 (PR #1650); see note below** |
+| long tail (1–3-name edges) | ~133 |
 
 > ### Update 2026-09-18 — crm-portal-bridge.js + rep-report-generator.js edges (PR #1642)
 >
@@ -594,6 +595,57 @@ Convert edge-by-edge; each edge is one natural PR:
 > `check-js-syntax`, `tests/smoke.test.js` (4129/4129), and
 > `run-test-manifest.js --bucket smoke` (68/68) green — plus an EOL/CRLF
 > hygiene check on the touched files (clean).
+
+> ### Update 2026-09-18 — the warranty-claim.js edge (PR #1650)
+>
+> A sixth long-tail edge, and a NEW shape: `missingClaimFields`,
+> `subTypeLabel`, `subTypeOptionsFor` are not local declarations in
+> `dashboard-bootstrap.module.js` — they're **imported bindings** from
+> `./crm-stages.js`, re-exported onto `window` only as a module→classic-
+> script bridge. Conversion is simpler than the function-declaration
+> cases: delete the `window.X = X;` line, add `X: X,` to the registry
+> block — no `function X(){}` transformation needed since X was already a
+> real binding, just an imported one instead of a locally-declared one.
+>
+> **A stale comment corrected in passing.** The "Expose the new helpers to
+> non-module scripts (crm.js)" comment above this exposure block claims
+> `crm.js` as the consumer for a 14-name block including these two. `crm.js`
+> reads NONE of them — independently grepped by the reviewer, zero hits for
+> the whole block, not just these two. `warranty-claim.js` is the real, sole
+> consumer of all 3 names converted here; the other 11 names in that block
+> stay untouched (data, or genuinely multi-consumer) — same misattributed-
+> comment class as the "crm.js" framing corrected in the customer.html edge
+> above.
+>
+> **One self-reference, guard REMOVED (not just rewired)**:
+> `refreshSubTypeAndTrades` (dashboard-bootstrap.module.js) called
+> `subTypeOptionsFor` internally via `window.subTypeOptionsFor ? window.
+> subTypeOptionsFor(jobType) : []` — a guard that made sense for a
+> window-property assignment (might not have executed yet) but not for an
+> ES module import (import bindings are resolved and live before any module
+> body code runs; `subTypeOptionsFor` is a hoisted `export function` in
+> `crm-stages.js`, no circular import back to `dashboard-bootstrap.
+> module.js`, and the one call site is inside an event handler, never
+> top-level synchronous code). Simplified to a bare `subTypeOptionsFor(jobType)`.
+>
+> **Cross-page availability — informational, not a new finding requiring a
+> spawned task.** `warranty-claim.js` loads on BOTH `dashboard.html` and
+> `customer.html`; `dashboard-bootstrap.module.js` (home of these 3 names)
+> loads only on `dashboard.html`. Unlike the `_assignEstimateToLead` case
+> above, all 3 consumer call sites here already had (and keep) a defensive
+> `window.X ? window.X(...) : fallback` guard — on `customer.html` they
+> degrade gracefully today (a shorter hardcoded reason list, a raw reason
+> string instead of a friendly label) exactly as they did before this PR.
+> Nothing to fix, nothing changed.
+>
+> Verification: one adversarial-review agent independently confirmed the
+> import-linking safety argument (checked for circular imports, confirmed
+> the call site is event-driven not top-level), independently re-verified
+> the "crm.js never reads these" claim via fresh grep, confirmed the other
+> 11 names in the same exposure block were undisturbed, and reran
+> `check-js-syntax`, `tests/warranty-claim.test.js` (103/103),
+> `tests/smoke.test.js` (4139/4139), and `run-test-manifest.js --bucket
+> smoke` (68/68) green, plus an EOL/CRLF hygiene check (clean).
 
 Resolution per name: registry-dispatch if markup-driven, otherwise pass the
 value/function through an existing module seam (or NBD-prefixed singleton if
