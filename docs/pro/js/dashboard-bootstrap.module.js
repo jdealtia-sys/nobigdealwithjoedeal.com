@@ -4511,7 +4511,11 @@
   // values. Reset on every (re)paint so it always describes what is on screen.
   let _countyInputsResolved = false;
 
-  window._loadEstimateDefaultsV2 = function() {
+  // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
+  // Tranche 3 T3-C, 2026-09-18), no longer a bare window global. ui.js's
+  // switchSettingsTab reads it off the registry; the in-module callers
+  // (the rehydrate poll, the reset) call it directly.
+  function _loadEstimateDefaultsV2() {
     // Resolved (tenant county policy overlaid) — the permit/tax inputs below
     // must show COMPANY values, not this device's stale localStorage copy.
     const s = _v2ReadResolvedSettings();
@@ -4600,7 +4604,7 @@
     addonField('v2addonValleyLf',        'valleyMetalLf',        null,                            8.5);
     addonField('v2addonGuttersLf',       'guttersLf',            null,                            8.5);
     addonField('v2addonMatDelivery',     'matDelivery',          'ADDON_MAT_DELIVERY',            412.50);
-  };
+  }
 
   // ── My Jurisdictions (county-jurisdiction settings, 2026-07-29) ──
   // Per-tenant custom counties/cities: display name + permit cost (USD) +
@@ -4666,8 +4670,7 @@
             // those stale numbers company-wide as a dot-path full replace.
             // No recursion risk: this pass sees _companyProfileLoaded === true,
             // so the render branch runs and installs no new poll.
-            if (typeof window._loadEstimateDefaultsV2 === 'function') window._loadEstimateDefaultsV2();
-            else _renderJurisdictionRows();
+            _loadEstimateDefaultsV2();
           }
         }, 500);
         setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
@@ -4986,7 +4989,7 @@
       }
     }
 
-    window._loadEstimateDefaultsV2();
+    _loadEstimateDefaultsV2();
     if (typeof showToast === 'function') {
       showToast(!tenantResetFailed
         ? '↺ Reset to factory defaults'
@@ -4999,7 +5002,9 @@
 
   // Legacy stubs kept for backwards compat with any other caller
   window._saveEstimateDefaults = function() { return window._saveEstimateDefaultsV2(); };
-  window._loadEstimateDefaults = function() { return window._loadEstimateDefaultsV2(); };
+  // (The load-side twin, _loadEstimateDefaults, was deleted in Globals
+  // Tranche 3 T3-C, 2026-09-18: zero readers repo-wide, and keeping it would
+  // have left _loadEstimateDefaultsV2 reachable off window under an alias.)
 
   // ═════════════════════════════════════════════════════════
   // COMPANY SETTINGS
@@ -5824,6 +5829,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _saveCompanySettings: _saveCompanySettings,
   _testNotif: _testNotif,
   _resetEstimateDefaultsV2: _resetEstimateDefaultsV2,
+  // Globals Tranche 3 T3-C (2026-09-18): the 7th ui.js-edge settings-tab
+  // loader, deferred from the 2026-09-17 sextet for its in-module callers.
+  _loadEstimateDefaultsV2: _loadEstimateDefaultsV2,
   _addJurisdictionRow: _addJurisdictionRow,
   _removeJurisdictionRow: _removeJurisdictionRow,
   _saveSiteSlug: _saveSiteSlug,
