@@ -157,6 +157,10 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     const headers = await _authHeaders();
     if (!headers) return { ok: false, status: 401, error: 'not-authenticated' };
     const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    // An abort lands in the status-0 (offline) branch below, which SMS hands
+    // off. sendSMS bounds its opt-out read (functions/sms-optout.js
+    // READ_TIMEOUT_MS, 10s) so a slow register answers 503 before this fires.
+    // Keep this the larger of the two; tests/sms-optout-key.test.js checks it.
     const timeout = controller ? setTimeout(() => controller.abort(), 25000) : null;
     try {
       const res = await fetch(FUNCTIONS_BASE + '/' + fnName, {

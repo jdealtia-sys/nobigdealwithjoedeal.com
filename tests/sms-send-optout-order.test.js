@@ -6,7 +6,7 @@
  * docs/pro/js/nbd-comms.js answers some sendSMS failures by opening the rep's
  * own Messages app with the text filled in — a "handoff". A handoff is a text
  * to that person, so it is only safe after the server has read the TCPA
- * opt-out register and found the number clean. Three ways that was not true
+ * opt-out register and found the number clean. Four ways that was not true
  * (fail-open audit, 2026-09-18):
  *
  *   1. ORDER. sendSMS ran the paid gate (402) and three limiters (429) BEFORE
@@ -21,6 +21,12 @@
  *   3. TWILIO'S OWN STOP LIST. Twilio refuses an unsubscribed recipient with
  *      error 21610. That came back as the generic 500 too, so a homeowner
  *      Twilio knew had opted out (and our register had missed) got a handoff.
+ *   4. HUNG READS (review of #1667). The 503 in (2) only covered a read that
+ *      throws. A read that never answers outlived the client's 25s fetch
+ *      abort, which the client hands off like being offline. The lookup is
+ *      now bounded (sms-optout.js READ_TIMEOUT_MS); a scenario shortens the
+ *      bound, and a watchdog turns a handler that never answers into a
+ *      failure rather than a stall.
  *
  * This file drives the REAL exported handlers in functions/sms-functions.js —
  * with the REAL functions/sms-optout.js underneath — against stubbed firebase
@@ -72,12 +78,20 @@ function makeWorld(opts) {
   const docs = Object.assign({}, opts.docs || {});
   const limited = new Set(opts.limited || []);
   const twilioCalls = [];
+  let optOutReads = 0;
 
   const docRef = (p) => ({
     get: async () => {
       if (p.startsWith('sms_opt_outs/')) {
         events.push('optout-read');
+        optOutReads++;
         if (opts.optOutReadThrows) throw new Error('simulated Firestore UNAVAILABLE');
+        // A hung RPC: the read never settles. `optOutReadHangsFrom: n` lets
+        // reads before the n-th (1-based) answer normally, so the bound is
+        // shown to cover the whole lookup and not only its first read.
+        if (opts.optOutReadHangsFrom && optOutReads >= opts.optOutReadHangsFrom) {
+          return new Promise(() => {});
+        }
       }
       return { exists: docs[p] != null, data: () => docs[p] };
     },
@@ -176,19 +190,45 @@ function load(opts) {
     delete require.cache[path.join(FUNCTIONS, f)];
   }
   const exported = require(MOD);
-  return { exported, world };
+  // The copy of sms-optout.js this sms-functions.js is bound to. The handlers
+  // read OptOut.READ_TIMEOUT_MS at call time, so a scenario can shorten the
+  // bound here instead of waiting out the real 10s.
+  const optOutMod = require(path.join(FUNCTIONS, 'sms-optout.js'));
+  if (opts && opts.readTimeoutMs) optOutMod.READ_TIMEOUT_MS = opts.readTimeoutMs;
+  return { exported, world, optOutMod };
 }
 
 // firebase-functions v2 onRequest wraps the handler (withErrorHandler) and
 // answers an uncaught throw with a plain-text 500. Mirror that, so a handler
 // that lets an error escape fails an assertion instead of crashing the suite.
+//
+// Watchdog: a handler that never answers (an unbounded opt-out read under a
+// hung Firestore stub) must FAIL the suite, not stall it — and not let Node
+// drain its event loop and exit 0 halfway through. The client in
+// docs/pro/js/nbd-comms.js gives up at 25s and hands off; here the stand-in is
+// WATCHDOG_MS, far above any bound a scenario sets.
+const WATCHDOG_MS = 3000;
 async function invoke(handler, req, res) {
-  try {
-    await handler(req, res);
-  } catch (e) {
-    res.statusCode = 500;
-    res.body = 'Internal Server Error';
-    res.threw = e;
+  let timer;
+  const watchdog = new Promise((resolve) => { timer = setTimeout(() => resolve('hung'), WATCHDOG_MS); });
+  const run = (async () => {
+    try {
+      await handler(req, res);
+    } catch (e) {
+      res.statusCode = 500;
+      res.body = 'Internal Server Error';
+      res.threw = e;
+    }
+    return 'done';
+  })();
+  const started = Date.now();
+  const outcome = await Promise.race([run, watchdog]);
+  clearTimeout(timer);
+  res.elapsedMs = Date.now() - started;
+  if (outcome === 'hung') {
+    res.hung = true;
+    res.statusCode = 0;
+    res.body = undefined;
   }
 }
 
@@ -295,6 +335,43 @@ const OPTED_OUT = { [OPT_DOC]: { phone: '+18595550134', keyword: 'STOP' } };
     ok('the read error is logged', w.logs.error.some((a) => a[0] === 'optout_check_error'));
   }
 
+  console.log('sendSMS — a register read that HANGS also fails closed, inside the bound');
+  {
+    // Review of #1667: the 503 covered a read that throws, not one that never
+    // answers. A hung RPC outlived the client's 25s abort, which the client
+    // hands off like being offline — an unchecked number staged in Messages.
+    // READ_TIMEOUT_MS is shortened to 40ms on this world's copy of the module.
+    const { res, w } = await callSendSMS({ optOutReadHangsFrom: 1, readTimeoutMs: 40 });
+    ok('hung register read: the handler still answers (does not run into the client abort)',
+      !res.hung, 'no answer within ' + WATCHDOG_MS + 'ms');
+    ok('hung register read answers 503 optout_unverified',
+      res.statusCode === 503 && res.body && res.body.code === 'optout_unverified',
+      res.statusCode + ' ' + JSON.stringify(res.body));
+    ok('hung register read: answered at the bound, not long after it',
+      !res.hung && res.elapsedMs < 1000, res.elapsedMs + 'ms');
+    ok('hung register read: Twilio never called', w.twilioCalls.length === 0);
+    ok('hung register read: no limiter or paid gate reached', GATES.every((g) => idx(w.events, g) === -1));
+    const logged = w.logs.error.find((a) => a[0] === 'optout_check_error');
+    ok('hung register read is logged as a timeout (timedOut: true)',
+      !!logged && logged[1] && logged[1].timedOut === true && logged[1].fn === 'sendSMS',
+      JSON.stringify(logged && logged[1]));
+  }
+  {
+    // The canonical key misses, then the legacy-key read hangs. A bound on
+    // each read, or on the first one only, would not have covered this.
+    const { res, w } = await callSendSMS({ optOutReadHangsFrom: 2, readTimeoutMs: 40 });
+    ok('first read answers, a later legacy-key read hangs: still 503 optout_unverified',
+      !res.hung && res.statusCode === 503 && res.body && res.body.code === 'optout_unverified',
+      (res.hung ? 'hung' : res.statusCode) + ' reads=' + w.events.filter((e) => e === 'optout-read').length);
+    ok('…and Twilio is never called', w.twilioCalls.length === 0);
+  }
+  {
+    // The bound must not turn an ordinary read into a refusal.
+    const { res } = await callSendSMS({ readTimeoutMs: 40 });
+    ok('a register that answers inside the bound still sends (200)',
+      !res.hung && res.statusCode === 200 && res.body && res.body.success === true, res.statusCode);
+  }
+
   console.log('sendSMS — Twilio 21610 (recipient on Twilio\'s STOP list)');
   {
     const err = Object.assign(new Error('Attempt to send to unsubscribed recipient'), { code: 21610, status: 400 });
@@ -357,6 +434,15 @@ const OPTED_OUT = { [OPT_DOC]: { phone: '+18595550134', keyword: 'STOP' } };
     ok('D2D: isOptedOut throwing answers 503 optout_unverified',
       res.statusCode === 503 && res.body && res.body.code === 'optout_unverified', res.statusCode);
     ok('D2D: Twilio never called when opt-out status is unknown', w.twilioCalls.length === 0);
+  }
+  {
+    const { res, w } = await callSendD2DSMS({ optOutReadHangsFrom: 1, readTimeoutMs: 40 });
+    ok('D2D: a hung register read answers 503 optout_unverified inside the bound',
+      !res.hung && res.statusCode === 503 && res.body && res.body.code === 'optout_unverified',
+      res.hung ? 'no answer within ' + WATCHDOG_MS + 'ms' : res.statusCode);
+    ok('D2D: hung register read — Twilio never called, knock not stamped',
+      w.twilioCalls.length === 0 && !w.events.includes('update:knocks/knock-1'));
+    ok('D2D: hung register read — per-recipient bucket not touched', idx(w.events, 'limit:sendSMS:to') === -1);
   }
   {
     const err = Object.assign(new Error('unsubscribed'), { code: 21610 });

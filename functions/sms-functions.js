@@ -186,9 +186,23 @@ const { requirePaidSubscription } = require('./shared');
 // back clean. These codes are how the server says which side of that line a
 // failure is on; the human-readable `error` field stays for older clients.
 //   opted_out          403 — register hit, or Twilio's own STOP list (21610)
-//   optout_unverified  503 — the register could not be read; nothing sent
+//   optout_unverified  503 — the register could not be read, or did not answer
+//                            within OptOut.READ_TIMEOUT_MS; nothing sent
 //   provider_error     502 — Twilio failed AFTER the opt-out check passed
 const OPTOUT_UNVERIFIED_MSG = 'Could not verify this number can be texted — nothing was sent. Try again in a moment.';
+
+// .catch() for the opt-out read in the two HTTP send paths. A throw, or a read
+// that outlives OptOut.READ_TIMEOUT_MS, lands here; the caller answers the
+// null with 503 optout_unverified. It never returns a verdict: an unknown
+// opt-out status is not a clean one.
+function optOutCheckFailed(fn) {
+  return (e) => {
+    logger.error('optout_check_error', {
+      fn, err: e && e.message, timedOut: !!e && e.code === 'optout_read_timeout',
+    });
+    return null;
+  };
+}
 
 // Twilio 21610 = "Attempt to send to unsubscribed recipient". Twilio keeps its
 // own STOP list for our number and its keyword set is wider than STOP_WORDS
@@ -264,10 +278,12 @@ exports.sendSMS = onRequest(
     // Fail CLOSED with a distinguishable 503 (the onAiDraftApproved stance). A
     // read error used to escape as the framework's plain-text 500, which the
     // client could not tell apart from a Twilio outage and handed off.
-    const optOut = await OptOut.isOptedOut(getFirestore(), to).catch((e) => {
-      logger.error('optout_check_error', { fn: 'sendSMS', err: e && e.message });
-      return null;
-    });
+    //
+    // Bounded (timeoutMs): a read that HANGS must also end in that 503. The
+    // client aborts at 25s and hands the abort off like being offline, so a
+    // read still pending then handed off a number nobody had checked.
+    const optOut = await OptOut.isOptedOut(getFirestore(), to, { timeoutMs: OptOut.READ_TIMEOUT_MS })
+      .catch(optOutCheckFailed('sendSMS'));
     if (optOut && optOut.optedOut) {
       if (optOut.viaLegacyKey) {
         logger.info('optout.legacy_key_hit', { fn: 'sendSMS', key: optOut.key });
@@ -504,11 +520,10 @@ exports.sendD2DSMS = onRequest(
       // nothing in docs/ calls this endpoint, so no client hands those off).
       // Ahead of the per-recipient cap so an attempt to an opted-out number
       // neither burns that bucket nor comes back as a 429. Fails CLOSED with
-      // a 503 on a read error, same as sendSMS.
-      const optOut = await OptOut.isOptedOut(getFirestore(), phoneNumber).catch((e) => {
-        logger.error('optout_check_error', { fn: 'sendD2DSMS', err: e && e.message });
-        return null;
-      });
+      // a 503 on a read error or a read that outlives the bound, same as
+      // sendSMS.
+      const optOut = await OptOut.isOptedOut(getFirestore(), phoneNumber, { timeoutMs: OptOut.READ_TIMEOUT_MS })
+        .catch(optOutCheckFailed('sendD2DSMS'));
       if (optOut && optOut.optedOut) {
         if (optOut.viaLegacyKey) {
           logger.info('optout.legacy_key_hit', { fn: 'sendD2DSMS', key: optOut.key });
