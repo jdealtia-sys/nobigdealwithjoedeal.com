@@ -307,7 +307,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               (inline-CSS dedup slice 3a). MEASURED via --check on a branch
 //               cut from origin/main at 4007bbbd. Other slice-3 CSS lanes are
 //               open in parallel; whichever merges second re-measures.
-const FLOORS = { node: 166, smoke: 68, disk: 255 };
+const FLOORS = { node: 167, smoke: 68, disk: 256 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

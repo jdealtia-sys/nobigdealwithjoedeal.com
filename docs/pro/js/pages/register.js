@@ -7,7 +7,8 @@
  * only the binding changed (addEventListener instead of onclick=/onsubmit=).
  */
 import { initializeApp }                                         from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { initializeAppCheck, ReCaptchaEnterpriseProvider }       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckToken }
+                                                                from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 import { getAuth, createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup, signInWithCustomToken, sendEmailVerification }
                                                                 from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, serverTimestamp }   from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -31,13 +32,28 @@ const app = initializeApp(firebaseConfig);
 // On localhost the emulator shim replaces reCAPTCHA (which can't mint tokens
 // off the registered origin) so the same enforced callable path works in the
 // emulator rig.
+//
+// appCheckWarm — the Google popup needs an App Check token IN MEMORY before
+// the click. firebase-auth 10.12.2's signInWithPopup builds the popup URL in
+// _getRedirectUrl, which does `await auth._getAppCheckToken()` BEFORE
+// _open() calls window.open (verified in the gstatic build this file
+// imports). On a cold page that await is an IndexedDB read, a reCAPTCHA
+// Enterprise execute and a token-exchange round trip, all between the click
+// and window.open — long enough to spend the click's user activation, so
+// Safari/iOS (and any slow network) blocks the popup: auth/popup-blocked.
+// Fetching the token at load puts it in memory; after that the SDK's await
+// resolves in microtasks and window.open stays inside the gesture. Settles
+// either way (errors swallowed): it only gates the button, never sign-in.
+// Null in the emulator/no-key paths, where nothing slow sits in that await.
+let appCheckWarm = null;
 try {
   if (!(await emulatorAppCheckIfLocal(app))
       && typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
-    initializeAppCheck(app, {
+    const appCheck = initializeAppCheck(app, {
       provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
       isTokenAutoRefreshEnabled: true,
     });
+    appCheckWarm = getAppCheckToken(appCheck, false).then(() => {}, () => {});
   }
 } catch (_) {}
 const auth = getAuth(app);
@@ -303,6 +319,60 @@ async function register(e) {
 // ─────────────────────────────────────────────────
 // GOOGLE REGISTER FLOW
 // ─────────────────────────────────────────────────
+
+// What a visitor reads in #regErr when the Google path fails. The old copy
+// said "Sign-in cancelled." for auth/popup-closed-by-user — which is also
+// what a COOP-severed popup produces, so people who cancelled nothing were
+// told they had — and dumped raw Firebase text ("Firebase: Error
+// (auth/operation-not-allowed).") for everything else. Every message offers
+// the email form as the way forward. Returns '' when there is nothing to
+// say: auth/cancelled-popup-request means a newer click replaced this popup,
+// and that newer attempt reports for itself.
+function googleSignInErrorMessage(err) {
+  const code = (err && err.code) || '';
+  switch (code) {
+    case 'auth/operation-not-allowed':
+      return "Google sign-in isn't available yet — please sign up with email.";
+    case 'auth/popup-closed-by-user':
+      return 'Sign-in window closed before finishing. Try again, or sign up with email.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google window — allow pop-ups for this site or sign up with email.';
+    case 'auth/account-exists-with-different-credential':
+      return 'This email already has an account that uses a password. Log in with your email and password instead.';
+    case 'auth/cancelled-popup-request':
+      return '';
+    case 'auth/network-request-failed':
+      return 'Network problem — check your connection and try again, or sign up with email.';
+    case 'auth/web-storage-unsupported':
+    case 'auth/operation-not-supported-in-this-environment':
+      return "Google sign-in doesn't work in this browser. Open this page in Safari or Chrome, or sign up with email.";
+    default:
+      return 'Google sign-in failed' + (code ? ' (' + code + ')' : '') + '. Try again, or sign up with email.';
+  }
+}
+
+// Hold the Google button until the App Check token is in memory (see
+// appCheckWarm at the top of this file) so the click opens the popup inside
+// the user gesture. A timeout re-enables it regardless: a slow or blocked
+// reCAPTCHA must never leave a dead button, and the worst case after that is
+// the auth/popup-blocked copy above plus a second click that works (the
+// token is warm by then). No warm-up in flight (emulator, no key) → no hold.
+const APP_CHECK_WARM_TIMEOUT_MS = 4000;
+function holdUntilAppCheckWarm(btn, warm, timeoutMs) {
+  if (!btn || !warm) return;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+  };
+  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  Promise.resolve(warm).then(release, release);
+  setTimeout(release, timeoutMs);
+}
+
 async function googleRegister() {
   const errEl = document.getElementById('regErr');
   const code  = document.getElementById('regCode').value.trim();
@@ -378,9 +448,8 @@ async function googleRegister() {
       : 'Signed in! Taking you to your workspace…';
     setTimeout(() => { window.location.href = dest; }, 1200);
   } catch (err) {
-    errEl.textContent = err.code === 'auth/popup-closed-by-user'
-      ? 'Sign-in cancelled.'
-      : 'Google sign-in failed: ' + (err.message || err.code);
+    console.warn('[register] Google sign-in failed:', (err && err.code) || err);
+    errEl.textContent = googleSignInErrorMessage(err);
   }
 }
 
@@ -402,7 +471,10 @@ function wireRegisterDom() {
   if (form) form.addEventListener('submit', register);
 
   const gbtn = document.getElementById('googleRegBtn');
-  if (gbtn) gbtn.addEventListener('click', googleRegister);
+  if (gbtn) {
+    gbtn.addEventListener('click', googleRegister);
+    holdUntilAppCheckWarm(gbtn, appCheckWarm, APP_CHECK_WARM_TIMEOUT_MS);
+  }
 
   const codeInput = document.getElementById('regCode');
   if (codeInput) codeInput.addEventListener('input', () => { codeInput.value = codeInput.value.toUpperCase(); });

@@ -10,6 +10,7 @@
     "the step environment before touching the test."
   ],
   "node": [
+    "google-signin-popup.test.js",
     "crm-logo-legibility-2026-09-16.test.js",
     "portal-timeline-docs-balance-2026-09-16.test.js",
     "portal-photo-self-announce-2026-09-16.test.js",
