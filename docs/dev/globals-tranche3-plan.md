@@ -144,7 +144,7 @@ PR #1657 — whole-file wrap, re-derived to 93 total names / ~60 genuinely
 private; see update below**),
 `dashboard-ui.js` (24 of 27 — **wrong unit, re-derived 2026-09-18 to 57
 function declarations + 34 consts; prep #1672 MERGED, whole-file wrap #1673
-OPEN and HELD for Jo; see the part-5 update below**),
+MERGED 2026-09-18 (8981f58f) on Jo's go-ahead; see the part-5 update below**),
 `dashboard-bootstrap.module.js` (23 of 25),
 `ui.js` (17 of 18), `customer-bootstrap.module.js` (15),
 `crm-portal-bridge.js` (11), `estimates.js` (10 of 13),
@@ -1065,7 +1065,7 @@ Convert edge-by-edge; each edge is one natural PR:
 
 > ### Update 2026-09-18 (part 5) — fresh census, the band-1 long tail fully
 > triaged (all 22 convertible names shipped), dashboard-ui.js prepped (#1672)
-> and wrapped but HELD (#1673)
+> and wrapped (#1673, MERGED on Jo's go-ahead)
 >
 > **Fresh census** (`node scripts/globals-xref.js docs/pro out.json`):
 >
@@ -1325,7 +1325,7 @@ Convert edge-by-edge; each edge is one natural PR:
 >   `@audit` report was identical.
 > - 5/5 mutations went RED.
 >
-> **#1673 (OPEN, HELD for Jo's explicit go-ahead).** CI is 22/22 green and
+> **#1673 (MERGED 2026-09-18 as 8981f58f after Jo's explicit go-ahead; live file verified wrapped).** CI is 22/22 green and
 > 3 reviewers approved.
 > - **The change:** a whole-file IIFE with no re-indent, CRLF kept and no
 >   `'use strict'`. It also adds the load-once guard, deletes the legacy

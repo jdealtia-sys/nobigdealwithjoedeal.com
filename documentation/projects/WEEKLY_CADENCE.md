@@ -141,7 +141,7 @@
       it. Details:
       [FAIL-OPEN-SWEEP-2026-09-18](../audit/FAIL-OPEN-SWEEP-2026-09-18.md)
       §Deferred.
-- [ ] **Go / no-go on PR #1673 (added 2026-09-18)**, the `dashboard-ui.js`
+- [x] **~~Go / no-go on PR #1673~~ DONE 2026-09-18 — Jo approved, merged as 8981f58f, live-verified**, the `dashboard-ui.js`
       whole-file IIFE wrap (Globals Tranche 3). It is 22/22 green and three
       reviewers approved it. It is held only because the part-4 brief asked
       for your explicit OK on this file. The zero-behaviour prep, #1672, is
@@ -747,9 +747,8 @@
     NEEDS_IIFE_FIRST 16, LANDMINE 21, FALSE_EDGE 8 and KEEP_AS_API 78; no
     one-consumer edge is left that converts without IIFE work or a dispatcher
     change first. For **`dashboard-ui.js` T3-A**, the zero-behaviour prep
-    (**#1672**) merged, and the whole-file wrap (**#1673**) is 22/22 green
-    with 3 approvals and **held for Jo's go-ahead** (it is in Jo's queue
-    above). **Next-slice candidates** are the NEEDS_IIFE_FIRST owner wraps
+    (**#1672**) merged, and the whole-file wrap (**#1673**) **MERGED 2026-09-18**
+    (8981f58f, on Jo's go-ahead; 3 approvals, 22/22). **Next-slice candidates** are the NEEDS_IIFE_FIRST owner wraps
     (`dashboard-api.js`, `dashboard-widgets.js`, `maps-customers.js`,
     `crm-leads.js`, `crm-snooze.js`, `tools.js`), and making customer.html's
     window-walking `_nbdCustomerActionDispatch` registry-aware, which
