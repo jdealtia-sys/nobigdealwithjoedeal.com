@@ -1511,10 +1511,15 @@
     // First tick of the page has nothing cached behind it to clear; every
     // later change of account — including a sign-out (uid null) — does.
     if (prev === undefined || prev === uid) return;
-    // _clearAnalyticsCardCaches swallows its own errors and _resetLeadsCache
-    // is plain assignment, so neither can stop the other from running.
+    // Each reset is isolated. _clearAnalyticsCardCaches already swallows its
+    // own errors, and _resetLeadsCache is plain assignment today — but that
+    // makes the guarantee depend on the ORDER of these two lines and on
+    // _resetLeadsCache never growing a throwing statement. Both are one edit
+    // away, and the failure is silent: whichever cache is skipped keeps
+    // serving the PREVIOUS account. So the isolation is written down here
+    // instead of being argued from the current bodies.
     _clearAnalyticsCardCaches();
-    _resetLeadsCache();
+    try { _resetLeadsCache(); } catch (_) { /* best-effort */ }
   }
 
   onAuthStateChanged(auth, async user => {
