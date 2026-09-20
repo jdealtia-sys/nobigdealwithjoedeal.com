@@ -1879,7 +1879,7 @@ async function loadEstimates(leadId) {
             <div class="estimate-title" style="display:flex;align-items:center;">${esc(est.title || est.name || 'Estimate')}${tierLabel}</div>
             <div style="font-size:11px;color:var(--m);margin-top:2px;">${esc(dateStr)}</div>
           </div>
-          <div style="display:flex;align-items:center;gap:10px;">
+          <div class="nbd-est-actions" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:flex-end;">
             <div class="estimate-amount" style="font-size:15px;font-weight:700;color:var(--green);">${est.grandTotal ? '$'+parseFloat(est.grandTotal).toLocaleString() : est.amount ? '$'+parseFloat(est.amount).toLocaleString() : 'Draft'}</div>
             ${primaryControl}
             <button class="nbd-est-export" data-est-id="${esc(est.id)}" style="background:transparent;border:1px solid var(--br);border-radius:4px;padding:4px 8px;font-size:10px;color:var(--m);cursor:pointer;font-family:inherit;" title="Export PDF">📤</button>
