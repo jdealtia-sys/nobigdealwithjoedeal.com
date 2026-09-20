@@ -878,7 +878,16 @@
         }
         openForEstimate(estId, parent);
       });
-      el.appendChild(btn);
+      // Join the row's own right-hand actions cluster (amount + badges +
+      // export/share/cert) when present, rather than becoming a THIRD
+      // flex child of the row itself. .nbd-est-row is a 2-child flex row
+      // (title/address block | actions cluster) — a bare el.appendChild
+      // here forced the browser to split width three ways, squeezing the
+      // address into a several-line-tall wrap (screenshot, 2026-09-20).
+      // Other/future data-estimate-id surfaces have no known cluster to
+      // join, so they keep the old row-level append.
+      const actions = el.querySelector('.nbd-est-actions');
+      (actions || el).appendChild(btn);
     });
   }
 
