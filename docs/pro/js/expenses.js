@@ -585,6 +585,34 @@
     };
   }
 
+  // Lead spend rollup (2026-09-20). Two subcategories, matching
+  // expense-config.js's own taxonomy exactly: per-lead acquisition cost
+  // (DIRECT — leadCost lives on the LEAD doc, not an expenses/{id} row, by
+  // deliberate 09-06 decision, so it never double-books the same dollar in
+  // two places) and Marketing & Advertising (OVERHEAD — the real expenses
+  // ledger: Yelp/Angi monthly invoices, general ads, logged by hand since
+  // those arrive as invoices, not a per-lead API figure). Reads
+  // window._leads directly so this has real numbers even before anyone logs
+  // a conventional expense.
+  function leadSpendSummary() {
+    var leads = (window._leads || []).filter(function (l) { return l && !l.deleted && !l.isProspect; });
+    var leadCents = 0, leadCount = 0, bySource = {};
+    leads.forEach(function (l) {
+      var n = parseFloat(l.leadCost);
+      if (!isFinite(n) || n <= 0) return;
+      var c = Math.round(n * 100);
+      leadCents += c; leadCount++;
+      var src = (l.source || 'Unknown').trim() || 'Unknown';
+      bySource[src] = (bySource[src] || 0) + c;
+    });
+    var sourceRows = Object.keys(bySource).map(function (k) {
+      return { source: k, cents: bySource[k] };
+    }).sort(function (a, b) { return b.cents - a.cents; });
+    var marketingCents = _expenses.filter(function (e) { return e.category === 'marketing'; })
+      .reduce(function (sum, e) { return sum + (parseInt(e.amountCents, 10) || 0) + (parseInt(e.taxCents, 10) || 0); }, 0);
+    return { leadCents: leadCents, leadCount: leadCount, sourceRows: sourceRows, marketingCents: marketingCents };
+  }
+
   // Per-job gross margin from the expense ledger, via the existing margin
   // engine. Returns null when revenue or ProfitTracker is unavailable.
   function jobMargin(lead, jobExpenses) {
@@ -631,6 +659,38 @@
     html += card('Direct / Job Costs', money(agg.directCents), 'COGS — feeds margin', 'var(--green,#16a34a)');
     html += card('Overhead', money(agg.overheadCents), 'Operating costs', 'var(--blue,#3b82f6)');
     html += '</div>';
+
+    // Lead Spend — two subcategories (see leadSpendSummary above). Independent
+    // of _expenses.length: leadCost lives on the lead doc, so this can have
+    // real numbers before anyone logs a conventional expense.
+    var ls = leadSpendSummary();
+    if (ls.leadCents > 0 || ls.marketingCents > 0) {
+      var lsTotal = ls.leadCents + ls.marketingCents;
+      var leadPct = lsTotal ? (ls.leadCents / lsTotal * 100) : 0;
+      var mktPct = lsTotal ? (ls.marketingCents / lsTotal * 100) : 0;
+      html += '<div style="background:var(--s,#12223D);border:1px solid var(--br,rgba(255,255,255,.08));border-radius:12px;padding:16px;margin-bottom:20px;">' +
+        '<h3 style="margin:0 0 4px;font-size:14px;color:var(--t,#fff);">📣 Lead Spend</h3>' +
+        '<div style="font-size:11px;color:var(--m,#9ca3af);margin-bottom:12px;">What it costs to generate a lead — per-lead marketplace fees plus the marketing/advertising you log by hand.</div>' +
+        '<div style="margin-bottom:14px;">' +
+          '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t,#fff);">' +
+          '<span>Lead / Acquisition Cost <span style="font-size:10px;color:var(--m,#9ca3af);">(job cost — Thumbtack auto-captured)</span></span>' +
+          '<span style="font-weight:700;">' + money(ls.leadCents) + '</span></div>' +
+          bar(leadPct, 'var(--green,#16a34a)') +
+          (ls.leadCount
+            ? '<div style="font-size:11px;color:var(--m,#9ca3af);margin-top:4px;">' + ls.leadCount + ' lead' + (ls.leadCount === 1 ? '' : 's') +
+              ' · ' + money(Math.round(ls.leadCents / ls.leadCount)) + ' avg' +
+              (ls.sourceRows.length ? ' · ' + ls.sourceRows.slice(0, 3).map(function (r) { return esc(r.source) + ' ' + money(r.cents); }).join(' · ') : '') +
+              '</div>'
+            : '<div style="font-size:11px;color:var(--m,#9ca3af);margin-top:4px;">No per-lead cost captured yet.</div>') +
+        '</div>' +
+        '<div>' +
+          '<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t,#fff);">' +
+          '<span>Marketing &amp; Advertising <span style="font-size:10px;color:var(--m,#9ca3af);">(overhead — logged by hand, e.g. Yelp/Angi invoices)</span></span>' +
+          '<span style="font-weight:700;">' + money(ls.marketingCents) + '</span></div>' +
+          bar(mktPct, 'var(--blue,#3b82f6)') +
+        '</div>' +
+        '</div>';
+    }
 
     if (_expenses.length === 0) {
       html += '<div style="border:1px dashed var(--br,rgba(255,255,255,.12));border-radius:12px;">' +
@@ -1133,6 +1193,7 @@
     // pure functions (exported for unit tests)
     aggregate: aggregate,
     jobMargin: jobMargin,
+    leadSpendSummary: leadSpendSummary,
     estVsActual: estVsActual,
     findDuplicate: findDuplicate,
     csvCell: csvCell,

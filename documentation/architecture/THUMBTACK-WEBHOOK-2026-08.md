@@ -1,6 +1,26 @@
 # Thumbtack Webhook Integration — 2026-08-16
 
-**Status: built, not yet connected.** The receiving endpoint (`thumbtackWebhook`) and the CRM bridge (`leadBridgeThumbtack`) are in the repo and unit-tested. Nothing is live on the Thumbtack side — no webhook exists on the profile yet, by design: Thumbtack's own guidance is to stand the endpoint up first. Connecting it needs a secret set and a deploy.
+> **Update — 2026-09-20:** This doc's original "not yet connected" status line
+> below was stale — [INDEX.md](../INDEX.md) has carried "LIVE in prod since
+> 2026-08-16, real leads flowing" since the day this was written, and
+> `thumbtack-logic.js` has carried "VERIFIED 2026-08-16 against a live
+> delivery" comments the whole time. The webhook was connected same-day; only
+> this status line never got updated. The §Open question below is also
+> stale for the same reason — the payload **was** captured and the `pick()`
+> paths **were** tightened against real deliveries; see the "VERIFIED
+> 2026-08-16" comments in `thumbtack-logic.js` for the confirmed shape
+> (`event.eventType: "NegotiationCreatedV4"`, price at `data.leadPrice`).
+>
+> **Known live gap (found 2026-09-20):** `data.leadPrice` is captured into the
+> CRM lead's `notes` text (via `leadNotes()`) but is **not** written to the
+> structured `leadCost` field on the `/leads` doc at ingest time — only
+> `docs/pro/js/crm-leads.js` (manual dashboard entry) and the one-off
+> `scripts/backfill-lead-cost.js` (historical notes-parsing) populate that
+> field. Every Thumbtack lead bridged since the 2026-09-06 backfill is
+> missing a structured `leadCost` unless someone re-runs the backfill or
+> types it in by hand.
+
+**Status: LIVE in prod since 2026-08-16 — real leads flowing.** The receiving endpoint (`thumbtackWebhook`) and the CRM bridge (`leadBridgeThumbtack`) are in the repo, unit-tested, and connected on the Thumbtack side.
 
 ## Why this exists
 
