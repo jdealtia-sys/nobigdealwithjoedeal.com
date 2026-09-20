@@ -1441,29 +1441,44 @@
     console.warn('Unhandled promise rejection:', e.reason);
   });
 
-  // ── ANALYTICS CARD-CACHE ACCOUNT BOUNDARY ──────────────────
-  // adjuster-tactic-card.js and ai-texting-stats-card.js each memoize their
-  // callable response in a module-scope `_cache` and serve it forever
-  // (`if (_cache) return _cache;`), so a stale cache renders the PREVIOUS
-  // tenant's carrier/adjuster and AI-texting board with no network call —
-  // the callable's own companyId scoping cannot stop a request that is
-  // never made. The clear therefore has to key on THIS tab's signed-in uid.
+  // ── IN-MEMORY ACCOUNT BOUNDARY ─────────────────────────────
+  // Two module-scope caches outlive a same-tab account switch, and neither is
+  // reachable by the server-side companyId scoping that keeps tenants apart —
+  // a cache that is served is a request that is never made.
   //
-  // It used to key on localStorage's nbd_last_uid (see the purge block at
-  // the top of the callback), and that key is shared by every tab on the
-  // origin while this module's caches are not. Same-tab account switch, two
-  // tabs: tab 1 holds A's board; tab 2 signs in as B, and tab 2's own
-  // callback writes nbd_last_uid = B. Tab 1's callback runs later —
-  // Firebase restores auth state from IndexedDB, and a backgrounded tab's
-  // timers are throttled, so "later" is routine, not exotic — reads
-  // nbd_last_uid, finds B, and concludes nothing changed. A's board stayed
-  // in memory and the next goTo('board') rendered it into B's session.
-  // A storage exception skips that block outright, with the same result.
+  // 1. ANALYTICS CARDS. adjuster-tactic-card.js and ai-texting-stats-card.js
+  //    each memoize their callable response in a module-scope `_cache` and
+  //    serve it forever (`if (_cache) return _cache;`), so a stale cache
+  //    renders the PREVIOUS tenant's carrier/adjuster and AI-texting board.
+  // 2. THE LEAD BOOK. window._leads + window._leadsLoaded describe ONE
+  //    account's book, and `_leadsLoaded === true` is what the destructive
+  //    and bulk guards trust as "this book is real": loadSampleData's
+  //    empty-book check (dashboard-actions.js), runImport's dedup
+  //    (data-import.js), canDeleteStage (pipeline-builder.js). Nothing ever
+  //    set the flag back to false, so after a switch it stayed true over the
+  //    PREVIOUS account's leads — or over [] while the new account's first
+  //    load was in flight or had failed — and all three guards passed
+  //    against the wrong book.
   //
-  // NOTE: PR #1676 adds a sibling `_bindLeadsCacheToSession` here for the
-  // lead cache, on the identical in-memory-uid rule. Whichever lands second
-  // should collapse the two into one binder rather than keep both.
-  let _cardCacheSessionUid;   // uid onAuthStateChanged last reported (undefined = not yet, null = signed out)
+  // Both clears key on THIS tab's signed-in uid, NOT on localStorage's
+  // nbd_last_uid (see the purge block at the top of the callback): that key is
+  // shared by every tab on the origin while these caches are per-module.
+  // Same-tab account switch, two tabs: tab 1 holds A's data; tab 2 signs in as
+  // B, and tab 2's own callback writes nbd_last_uid = B. Tab 1's callback runs
+  // later — Firebase restores auth state from IndexedDB, and a backgrounded
+  // tab's timers are throttled, so "later" is routine, not exotic — reads
+  // nbd_last_uid, finds B, and concludes nothing changed. A's data stayed in
+  // memory and the next goTo('board') rendered it into B's session. A storage
+  // exception skips that block outright, with the same result.
+  //
+  // ONE binder, not two. These arrived as separate PRs (#1679 cards, #1676
+  // leads) and were collapsed when the second landed, so a later change to
+  // what counts as an account switch cannot update one cache and miss the
+  // other. The lead book additionally tracks WHICH account its rows belong to
+  // (_leadsCacheUid) so an in-flight load that resolves after its account
+  // stopped being current is discarded rather than committed.
+  let _sessionUid;               // uid onAuthStateChanged last reported (undefined = not yet, null = signed out)
+  let _leadsCacheUid = null;     // account whose leads window._leads holds (null = none)
   function _clearAnalyticsCardCaches() {
     // Separately guarded so one card throwing cannot leave the OTHER
     // tenant's board memoized — the whole point of this call.
@@ -1478,18 +1493,41 @@
       }
     } catch (_) { /* best-effort */ }
   }
-  function _bindAnalyticsCardsToSession(uid) {
-    const prev = _cardCacheSessionUid;
-    _cardCacheSessionUid = uid;
+  function _resetLeadsCache() {
+    window._leadsLoaded = false;
+    window._leads = [];
+    _leadsCacheUid = null;
+    // The next account gets a full cold-start retry budget and a clean
+    // load-status banner, not the previous account's leftovers.
+    window._loadLeadsRetryAttempt = 0;
+    window._loadLeadsSlowAttempt = 0;
+    window._loadLeadsExhausted = false;
+    window._loadLeadsNextRetryAt = null;
+    window._loadLeadsLastError = null;
+  }
+  function _bindCachesToSession(uid) {
+    const prev = _sessionUid;
+    _sessionUid = uid;
     // First tick of the page has nothing cached behind it to clear; every
     // later change of account — including a sign-out (uid null) — does.
-    if (prev !== undefined && prev !== uid) _clearAnalyticsCardCaches();
+    if (prev === undefined || prev === uid) return;
+    // Each reset is isolated. _clearAnalyticsCardCaches already swallows its
+    // own errors, and _resetLeadsCache is plain assignment today — but that
+    // makes the guarantee depend on the ORDER of these two lines and on
+    // _resetLeadsCache never growing a throwing statement. Both are one edit
+    // away, and the failure is silent: whichever cache is skipped keeps
+    // serving the PREVIOUS account. So the isolation is written down here
+    // instead of being argued from the current bodies.
+    _clearAnalyticsCardCaches();
+    try { _resetLeadsCache(); } catch (_) { /* best-effort */ }
   }
 
   onAuthStateChanged(auth, async user => {
     // FIRST, before the redirect and before any await: the cards must stop
-    // serving the old account's board from the instant the account changes.
-    _bindAnalyticsCardsToSession(user ? user.uid : null);
+    // serving the old account's board, and the lead-book guards must refuse,
+    // from the instant the account changes — not from whenever the claims and
+    // subscription reads below finish and loadLeads() runs for the new uid.
+    _bindCachesToSession(user ? user.uid : null);
     if (!user) { window.location.replace("/pro/login.html"); return; }
 
     // Shared-device PII guard: if a DIFFERENT account was last active on this
@@ -1508,7 +1546,7 @@
         // They are not, any more: nbd_last_uid is shared by every tab and
         // these caches are per-module, so another tab's write silently
         // skipped this branch and left the prior tenant's board in memory.
-        // _bindAnalyticsCardsToSession (declared above onAuthStateChanged)
+        // _bindCachesToSession (declared above onAuthStateChanged)
         // owns that now, keyed on this tab's own uid. The purge below stays
         // keyed on nbd_last_uid on purpose — localStorage IS shared, and
         // purging on an in-memory switch would wipe prefs the new account
@@ -2603,7 +2641,9 @@
         const retryUid = window._user?.uid;
         if (!retryUid) {
           console.error('❌ loadLeads: Still no user after retry — auth failure');
-          window._leads = [];
+          // Not just `_leads = []`: a still-true _leadsLoaded would present
+          // the emptied cache as a confirmed-empty book to the guards.
+          _resetLeadsCache();
           // Update health indicator to error
           if (healthBadge) {
             healthBadge.className = 'health-indicator error';
@@ -2616,6 +2656,12 @@
       }
       
       const finalUid = window._user?.uid;
+      // A load for a different account than the one the cache holds (the
+      // switch reached window._user before this module's auth callback):
+      // drop the old book NOW, so nothing reads it as this account's while
+      // the read below is in flight — or keeps it as a "stale cache" if the
+      // read fails.
+      if (_leadsCacheUid !== null && _leadsCacheUid !== finalUid) _resetLeadsCache();
 
       // Wave 187: PRE-FLIGHT connection cycle on FIRST loadLeads per
       // page load. The Firestore SDK's WebSocket/long-poll often
@@ -2744,6 +2790,15 @@
         console.log('✅ loadLeads recovered on retry');
       }
 
+      // The signed-in account changed (or signed out) while this read was in
+      // flight: these are the PREVIOUS account's leads. Committing them would
+      // re-arm _leadsLoaded over the wrong book, so drop the result — the new
+      // account's own loadLeads() fills the cache.
+      if (finalUid !== _sessionUid) {
+        console.warn('loadLeads: account changed mid-load — discarding the stale result');
+        return;
+      }
+
       // Wave 110: when the rep has the 'sales_rep' role claim,
       // narrow the in-memory cache to ONLY leads they own. Was
       // previously a render-time filter in crm.js — meaning all
@@ -2784,6 +2839,7 @@
       // Flag so downstream modules (Ask Joe Proactive morning briefing,
       // widgets, etc.) know the lead cache is hydrated vs still pending.
       window._leadsLoaded = true;
+      _leadsCacheUid = finalUid;
       console.log('✅ loadLeads: Processed', window._leads.length, 'leads after filtering deleted');
       // Wave 13: tell the notification bell + any other listeners that
       // the lead cache just refreshed so they can recompute counts.
@@ -2813,8 +2869,10 @@
       // lead), keep the existing cache so just-saved leads added via
       // optimistic update don't vanish from the kanban while we're
       // offline. The next successful loadLeads — or the visibilitychange
-      // handler — will overwrite with fresh data.
-      if (!window._leadsLoaded) {
+      // handler — will overwrite with fresh data. The same holds for a
+      // FIRST load that fails after a save: _optimisticInsertLead claimed the
+      // cache for this account (without marking it loaded), so keep its cards.
+      if (!window._leadsLoaded && _leadsCacheUid === null) {
         window._leads = [];
       } else {
         console.warn('loadLeads kept stale cache of ' + (window._leads?.length || 0) + ' leads (transient failure)');
@@ -3374,6 +3432,10 @@
   // and I see it on the kanban" and "I saved a lead and nothing happened".
   function _optimisticInsertLead(leadId, data) {
     if (!leadId) return;
+    // Never mix accounts: a cache still holding another account's book is
+    // dropped before this account's card goes in.
+    const _uid = window._user?.uid || null;
+    if (_leadsCacheUid !== null && _leadsCacheUid !== _uid) _resetLeadsCache();
     window._leads = window._leads || [];
     // If we already have this lead (edit case), replace it; otherwise prepend.
     const idx = window._leads.findIndex(l => l.id === leadId);
@@ -3396,7 +3458,14 @@
     merged._stageRole = stageRole(merged._stageKey);
     if (idx >= 0) window._leads[idx] = merged;
     else window._leads.unshift(merged);
-    window._leadsLoaded = true; // ensure stale-cache guard treats this as populated
+    // Claim the cache for this account so a failed loadLeads() keeps this
+    // card (its catch path only zeroes an UNOWNED cache) — but do NOT set
+    // _leadsLoaded. That flag means "a server load of this book succeeded";
+    // setting it here after a failed first load made one saved lead read as
+    // the whole confirmed book (loadSampleData / runImport / canDeleteStage
+    // all passed) and stopped the cold-start retry, whose timer bails once
+    // the flag is true, so the real book never loaded.
+    _leadsCacheUid = _uid;
     if (typeof renderLeads === 'function') {
       try { renderLeads(window._leads); } catch (_) {}
     }

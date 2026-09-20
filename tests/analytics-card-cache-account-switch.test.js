@@ -42,7 +42,7 @@
  *
  * A storage exception skips the block outright, with the same result.
  * So the card clear now keys on the IN-MEMORY uid this tab's own callback
- * last reported (`_bindAnalyticsCardsToSession`, declared immediately above
+ * last reported (`_bindCachesToSession`, declared immediately above
  * onAuthStateChanged and called as the callback's first statement). The
  * localStorage purge deliberately stays keyed on nbd_last_uid — that state
  * IS shared, and purging on an in-memory switch would wipe prefs the new
@@ -102,20 +102,41 @@ function countOf(haystack, needle) {
 // every scenario throws, instead of silently testing nothing.
 const BOOTSTRAP_SRC = read('docs/pro/js/dashboard-bootstrap.module.js');
 
-const BINDER_START_ANCHOR = 'let _cardCacheSessionUid;';
-const BINDER_END_ANCHOR = 'if (prev !== undefined && prev !== uid) _clearAnalyticsCardCaches();';
-const BIND_CALL = '_bindAnalyticsCardsToSession(user ? user.uid : null);';
+// One binder serves BOTH in-memory caches — the card memos here and the lead
+// book from #1676 — collapsed when the second landed so a later change to what
+// counts as an account switch cannot update one and miss the other. The lifted
+// region therefore also carries _resetLeadsCache, which is harmless in this
+// harness: it only assigns to the fake `window` this suite passes in.
+const BINDER_START_ANCHOR = 'let _sessionUid;';
+const BINDER_END_ANCHOR = 'if (prev === undefined || prev === uid) return;';
+const BIND_CALL = '_bindCachesToSession(user ? user.uid : null);';
 const CALLBACK_ANCHOR = 'onAuthStateChanged(auth, async user => {';
 const REDIRECT_ANCHOR = 'if (!user) { window.location.replace("/pro/login.html"); return; }';
 const START_ANCHOR = "const _lastUid = localStorage.getItem('nbd_last_uid');";
 const END_ANCHOR = '} catch (_) { /* best-effort; never block boot on a storage error */ }';
 
+// Brace-MATCHED end-of-function. "The next `}` after the first-tick guard"
+// only worked while every statement below that guard was a brace-free call:
+// wrapping one of them in a try/catch silently truncated the lift mid-block,
+// and the composed harness died with "Missing catch or finally after try"
+// instead of reporting a real result. Anchoring on the guard (not on the
+// last call) still keeps this independent of the ORDER the caches clear in.
+function closeOfFunction(src, marker) {
+  const start = src.indexOf(marker);
+  if (start < 0) return -1;
+  const bodyStart = src.indexOf('{', start + marker.length - 1);
+  if (bodyStart < 0) return -1;
+  let depth = 0;
+  for (let i = bodyStart; i < src.length; i++) {
+    if (src[i] === '{') depth++;
+    else if (src[i] === '}') { depth--; if (depth === 0) return i; }
+  }
+  return -1;
+}
+
 const binderStartIdx = BOOTSTRAP_SRC.indexOf(BINDER_START_ANCHOR);
 const binderEndAnchorIdx = BOOTSTRAP_SRC.indexOf(BINDER_END_ANCHOR);
-// The end anchor is a brace-free one-line `if`, so the next `}` closes
-// _bindAnalyticsCardsToSession itself.
-const binderCloseIdx = binderEndAnchorIdx === -1
-  ? -1 : BOOTSTRAP_SRC.indexOf('}', binderEndAnchorIdx + BINDER_END_ANCHOR.length);
+const binderCloseIdx = closeOfFunction(BOOTSTRAP_SRC, 'function _bindCachesToSession(uid)');
 const bindCallIdx = BOOTSTRAP_SRC.indexOf(BIND_CALL);
 const callbackIdx = BOOTSTRAP_SRC.indexOf(CALLBACK_ANCHOR);
 const redirectIdx = BOOTSTRAP_SRC.indexOf(REDIRECT_ANCHOR);
@@ -144,6 +165,11 @@ ok('extracted binder is non-trivial (guards against an empty/garbage slice)',
   !!BINDER_SRC && BINDER_SRC.length > 100);
 ok('extracted binder actually clears BOTH card caches',
   !!BINDER_SRC && BINDER_SRC.includes('AdjusterTacticCard') && BINDER_SRC.includes('AiTextingStatsCard'));
+ok('extracted binder also drops the LEAD cache — one binder owns every per-tab cache',
+  !!BINDER_SRC && BINDER_SRC.includes('_resetLeadsCache();'));
+ok('the file declares exactly ONE session-uid variable (the #1676/#1679 collapse holds)',
+  (BOOTSTRAP_SRC.match(/let\s+_\w*[Ss]ession[Uu]id\b/g) || []).length === 1,
+  'a second per-cache session uid is the duplication those two PRs collapsed away; two can drift apart');
 ok('extracted purge block is non-trivial (guards against an empty/garbage slice)',
   !!ACCOUNT_SWITCH_BLOCK && ACCOUNT_SWITCH_BLOCK.length > 100);
 
@@ -498,6 +524,39 @@ async function scenarioOneCardThrows() {
     `failure strand the other tenant's board in memory`);
 }
 
+// SCENARIO 7 — the binder is SHARED with the lead cache (#1676). Same
+// one-failure-strands-the-other shape as scenario 6, but across the two
+// HALVES of the collapsed binder rather than across the two cards. Without
+// this, the board's safety rests on the order of the two calls inside
+// _bindCachesToSession plus _resetLeadsCache never throwing — neither of
+// which anything else pins, and both one edit away from silently reopening
+// the cross-tenant leak.
+async function scenarioLeadResetThrows() {
+  section('shared binder — [7] a throwing lead reset must not strand the board');
+  const spec = CARDS[0];
+  const s = stand(spec, { nbd_last_uid: UID_A });
+  s.tick({ uid: UID_A });
+  await s.card.render();
+  ok('cache is populated and serving Company A', s.stub.calls.length === 1);
+
+  // _resetLeadsCache()'s first statement is `window._leadsLoaded = false`.
+  Object.defineProperty(s.win, '_leadsLoaded', {
+    configurable: true,
+    get() { return false; },
+    set() { throw new Error('boom: lead reset failed'); },
+  });
+
+  let threw = null;
+  try { s.tick({ uid: UID_B }); } catch (e) { threw = e; }
+  ok('the tick survives a throwing lead reset', !threw, threw && threw.message);
+
+  await s.card.render();
+  ok('THE FIX: the board was still cleared although the lead reset threw',
+    s.stub.calls.length === 2,
+    `expected 2 callable invocations, saw ${s.stub.calls.length} — the shared binder let the lead ` +
+    `reset's failure skip the card clear, stranding the previous tenant's board in memory`);
+}
+
 // A scenario that throws (extraction failed, a card module blew up) must be
 // reported as a named failure and let the REST of the run continue —
 // aborting the process at the first throw hides which scenarios still cover
@@ -516,6 +575,7 @@ async function attempt(label, fn, arg) {
     await attempt(spec.global + ' [5] card absent', scenarioCardAbsent, spec);
   }
   await attempt('both cards [6] one card throws', scenarioOneCardThrows);
+  await attempt('shared binder [7] lead reset throws', scenarioLeadResetThrows);
 
   console.log('\n──────────────────────────────');
   console.log(`${passed} passed, ${failed} failed`);
