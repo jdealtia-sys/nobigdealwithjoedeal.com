@@ -1441,7 +1441,55 @@
     console.warn('Unhandled promise rejection:', e.reason);
   });
 
+  // ── ANALYTICS CARD-CACHE ACCOUNT BOUNDARY ──────────────────
+  // adjuster-tactic-card.js and ai-texting-stats-card.js each memoize their
+  // callable response in a module-scope `_cache` and serve it forever
+  // (`if (_cache) return _cache;`), so a stale cache renders the PREVIOUS
+  // tenant's carrier/adjuster and AI-texting board with no network call —
+  // the callable's own companyId scoping cannot stop a request that is
+  // never made. The clear therefore has to key on THIS tab's signed-in uid.
+  //
+  // It used to key on localStorage's nbd_last_uid (see the purge block at
+  // the top of the callback), and that key is shared by every tab on the
+  // origin while this module's caches are not. Same-tab account switch, two
+  // tabs: tab 1 holds A's board; tab 2 signs in as B, and tab 2's own
+  // callback writes nbd_last_uid = B. Tab 1's callback runs later —
+  // Firebase restores auth state from IndexedDB, and a backgrounded tab's
+  // timers are throttled, so "later" is routine, not exotic — reads
+  // nbd_last_uid, finds B, and concludes nothing changed. A's board stayed
+  // in memory and the next goTo('board') rendered it into B's session.
+  // A storage exception skips that block outright, with the same result.
+  //
+  // NOTE: PR #1676 adds a sibling `_bindLeadsCacheToSession` here for the
+  // lead cache, on the identical in-memory-uid rule. Whichever lands second
+  // should collapse the two into one binder rather than keep both.
+  let _cardCacheSessionUid;   // uid onAuthStateChanged last reported (undefined = not yet, null = signed out)
+  function _clearAnalyticsCardCaches() {
+    // Separately guarded so one card throwing cannot leave the OTHER
+    // tenant's board memoized — the whole point of this call.
+    try {
+      if (window.AdjusterTacticCard && typeof window.AdjusterTacticCard._clearCache === 'function') {
+        window.AdjusterTacticCard._clearCache();
+      }
+    } catch (_) { /* best-effort */ }
+    try {
+      if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard._clearCache === 'function') {
+        window.AiTextingStatsCard._clearCache();
+      }
+    } catch (_) { /* best-effort */ }
+  }
+  function _bindAnalyticsCardsToSession(uid) {
+    const prev = _cardCacheSessionUid;
+    _cardCacheSessionUid = uid;
+    // First tick of the page has nothing cached behind it to clear; every
+    // later change of account — including a sign-out (uid null) — does.
+    if (prev !== undefined && prev !== uid) _clearAnalyticsCardCaches();
+  }
+
   onAuthStateChanged(auth, async user => {
+    // FIRST, before the redirect and before any await: the cards must stop
+    // serving the old account's board from the instant the account changes.
+    _bindAnalyticsCardsToSession(user ? user.uid : null);
     if (!user) { window.location.replace("/pro/login.html"); return; }
 
     // Shared-device PII guard: if a DIFFERENT account was last active on this
@@ -1456,18 +1504,15 @@
         if (window.NBDAuth && typeof window.NBDAuth.purgeAccountStorage === 'function') {
           window.NBDAuth.purgeAccountStorage();
         }
-        // localStorage-only purge misses IN-MEMORY module caches. The
-        // analytics ('board') cards memoize their callable response forever
-        // once populated, so without this a same-tab account switch renders
-        // the PRIOR tenant's cached carrier/adjuster or AI-texting data into
-        // the newly-authenticated session — the callable's own companyId
-        // scoping can't stop this because the network call never happens.
-        if (window.AdjusterTacticCard && typeof window.AdjusterTacticCard._clearCache === 'function') {
-          window.AdjusterTacticCard._clearCache();
-        }
-        if (window.AiTextingStatsCard && typeof window.AiTextingStatsCard._clearCache === 'function') {
-          window.AiTextingStatsCard._clearCache();
-        }
+        // The IN-MEMORY analytics card caches used to be cleared here too.
+        // They are not, any more: nbd_last_uid is shared by every tab and
+        // these caches are per-module, so another tab's write silently
+        // skipped this branch and left the prior tenant's board in memory.
+        // _bindAnalyticsCardsToSession (declared above onAuthStateChanged)
+        // owns that now, keyed on this tab's own uid. The purge below stays
+        // keyed on nbd_last_uid on purpose — localStorage IS shared, and
+        // purging on an in-memory switch would wipe prefs the new account
+        // has already written in another tab.
       }
       localStorage.setItem('nbd_last_uid', user.uid);
     } catch (_) { /* best-effort; never block boot on a storage error */ }
