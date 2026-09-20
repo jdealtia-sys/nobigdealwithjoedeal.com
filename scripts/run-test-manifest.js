@@ -313,7 +313,6 @@ const RUNNABLE = ['node', 'smoke'];
 //               rebasing onto origin/main at 91705d78 (main alone: 166/68/255;
 //               with this suite: 167/68/256), so these are the merged-tree
 //               numbers, not a +1 carried over from the original cut.
-<<<<<<< HEAD
 //   2026-09-20  167/68/256 -> 168/68/257, tests/xactimate-human-readable.test.js
 //               (Xactimate was JSON-LD-only on index.html and absent from
 //               storm-damage.html). MEASURED via --check on a branch cut from

@@ -514,21 +514,22 @@ ${p.photos.map(detailPhotoCard).join('\n')}
 // (docs/assets/js/homeowner-wall.js: entries need image+alt, name optional,
 // wall reveals at >=3 and caps at 12).
 //
-// slug/tag/price added 2026-09-20. Until then this map kept only image+city+alt,
-// so all twelve cards were dead thumbnails — while .hw-card:hover already lifted
+// slug/tag added 2026-09-20. Until then this map kept only image+city+alt, so
+// all twelve cards were dead thumbnails — while .hw-card:hover already lifted
 // them and deepened their shadow, i.e. the wall advertised a click it could not
-// deliver, on top of 45 fully written, individually-URL'd project pages. The slug
-// is what lets homeowner-wall.js link each photo to its write-up; tag and price
-// are what make the caption worth reading ("Cincinnati, OH · Full Tear-Off ·
-// $22,500–$23,500") rather than a bare town name.
+// deliver, on top of 45 fully written, individually-URL'd project pages. The
+// slug is what lets homeowner-wall.js link each photo to its write-up; the tag
+// is what makes the caption worth reading ("Cincinnati, OH · Full Tear-Off")
+// rather than a bare town name.
 //
-// price is emitted as the already-formatted RANGE, not as two integers, so the
-// renderer never does money math — this is a marketing surface under docs/, and
-// the one rule here is that retail figures are fine while cost/margin never
-// appear. priceLow/priceHigh are the same public retail numbers /our-work
-// already prints and ships in AggregateOffer schema; nothing new is exposed.
-// 38 of 45 projects carry a price and 10 of the current 12 wall entries do, so
-// the renderer must treat it as optional.
+// DELIBERATELY NO PRICE (Jo's call, same day). The first cut emitted the
+// formatted range and the caption showed it. The live twelve span $100–$200 to
+// $73,000–$74,000, and a homepage tile reading $73,000 sets a very different
+// expectation from the one a homeowner pricing a re-roof should leave with.
+// Prices stay on every /our-work detail page and in their AggregateOffer
+// schema. Not emitted at all rather than emitted-and-ignored: a public manifest
+// carrying a field nothing renders is how it gets picked up again by accident.
+// Restoring it is this one line plus the caption array in homeowner-wall.js.
 const wallJson = JSON.stringify(
   live.slice(0, 12).map((p) => ({
     image: p.hero,
@@ -536,7 +537,6 @@ const wallJson = JSON.stringify(
     alt: heroAlt(p),
     slug: p.slug,
     tag: p.tag || null,
-    price: priceLine(p),
   })),
   null, 2,
 ) + '\n';

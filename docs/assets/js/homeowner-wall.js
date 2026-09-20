@@ -14,8 +14,17 @@
  *     "name":  "Sarah K.",          // first name + last initial only
  *     "alt":   "New GAF Timberline roof on a two-story home in Milford",
  *     "slug":  "milford-oh-full-tearoff-replacement-2026",  // → /our-work/<slug>
- *     "tag":   "Full Replacement",
- *     "price": "$24,500–$25,500" }  // pre-formatted upstream; never computed here
+ *     "tag":   "Full Replacement" }
+ *
+ * NO PRICE ON THE TILES (Jo's call, 2026-09-20). The first cut of this carried
+ * the price range in the caption. The live twelve span $100–$200 (an EPDM
+ * inspection) to $73,000–$74,000 (the Milford commercial rebuild), and a
+ * homepage tile reading $73,000 sets a very different expectation from the one
+ * a homeowner pricing a re-roof should leave with. Prices still live on every
+ * /our-work detail page and in their AggregateOffer schema — the wall's job is
+ * to earn the click, and the CTA under it promises prices on the other side.
+ * Pinned by tests/homeowner-wall-links.test.js so it is not re-added by
+ * accident; if it ever should come back, that assertion is the place to argue.
  *
  * LINKING (2026-09-20). Every card used to be a dead thumbnail while
  * `.hw-card:hover` lifted it and deepened its shadow — the wall advertised a
@@ -58,9 +67,9 @@
 
   function render(mount, items) {
     var grid = items.slice(0, MAX_ENTRIES).map(function (e) {
-      // City first, then what the job WAS, then what it cost. Each part is
-      // independently optional — 2 of the 12 live entries have no price.
-      var cap = [e.name, e.city, e.tag, e.price].filter(Boolean).map(esc).join(' · ');
+      // City, then what the job WAS. Each part is independently optional.
+      // Price is deliberately absent — see the header note.
+      var cap = [e.name, e.city, e.tag].filter(Boolean).map(esc).join(' · ');
       var body = '<img class="hw-img" src="' + esc(e.image) + '" alt="' + esc(e.alt) + '"'
         + ' width="400" height="300" loading="lazy" decoding="async">'
         + (cap ? '<figcaption class="hw-cap">' + cap + '</figcaption>' : '');

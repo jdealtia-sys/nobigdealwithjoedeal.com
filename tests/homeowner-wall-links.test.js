@@ -15,10 +15,16 @@
  *
  * WHAT THIS SUITE PINS
  * ────────────────────
- * 1. The GENERATOR still emits slug/tag/price. If that map regresses to
+ * 1. The GENERATOR still emits slug and tag. If that map regresses to
  *    image+city+alt, the renderer silently falls back to unlinked figures and
  *    every card goes dead again with no other symptom — the exact failure this
  *    file exists to prevent, and one no visual or integrity gate would catch.
+ *    It also pins that the map emits NO price, and that the renderer drops one
+ *    even if fed it — Jo's call, 2026-09-20. The live twelve span $100–$200 to
+ *    $73,000–$74,000, and a $73,000 homepage tile sets the wrong expectation
+ *    for a homeowner pricing a re-roof. Prices stay on the /our-work detail
+ *    pages. Locked in both places so restoring the field upstream for some
+ *    other consumer cannot quietly put it back on the homepage.
  * 2. The RENDERER links a card when — and only when — the slug is well-formed.
  *    It is lifted out of the shipped file and EXECUTED against a fake mount,
  *    not matched with a regex.
@@ -64,7 +70,7 @@ const GEN_SRC = read('scripts/build-projects.mjs');
 const MANIFEST = JSON.parse(read('docs/assets/data/homeowner-wall.json'));
 
 // ── 1. The generator still carries the fields through ────────────────
-section('generator — the wall map still emits slug/tag/price');
+section('generator — the wall map emits slug/tag, and deliberately no price');
 
 const wallMap = (() => {
   const i = GEN_SRC.indexOf('const wallJson = JSON.stringify(');
@@ -77,8 +83,11 @@ ok('the wall manifest builder was found in build-projects.mjs', !!wallMap);
 ok('it maps slug through', !!wallMap && /\bslug:\s*p\.slug\b/.test(wallMap),
   'without slug the renderer cannot link a card — every tile goes dead silently');
 ok('it maps tag through', !!wallMap && /\btag:\s*p\.tag\b/.test(wallMap));
-ok('it maps a pre-formatted price through', !!wallMap && /\bprice:\s*priceLine\(p\)/.test(wallMap),
-  'the renderer must never do money math on a public page');
+ok('it does NOT emit a price (Jo\'s call 2026-09-20 — see the note above the map)',
+  !!wallMap && !/\bprice\b/.test(wallMap),
+  'the live twelve span $100 to $74,000; a $73,000 homepage tile misprices the whole wall. '
+  + 'Prices stay on the /our-work detail pages. Not emitted at all, rather than '
+  + 'emitted-and-ignored — a public manifest field nothing renders gets picked up by accident');
 ok('it does NOT leak cost/margin fields onto a public manifest',
   !!wallMap && !/cost|margin|contractor|profit/i.test(wallMap));
 
@@ -90,10 +99,11 @@ ok('every entry has a slug', MANIFEST.every((e) => typeof e.slug === 'string' &&
   'run: node scripts/build-projects.mjs — the manifest is GENERATED');
 ok('every slug is kebab-case', MANIFEST.every((e) => /^[a-z0-9]+(-[a-z0-9]+)*$/.test(e.slug)));
 ok('every entry has a tag', MANIFEST.every((e) => typeof e.tag === 'string' && e.tag));
-ok('at least two-thirds carry a price (38 of 45 projects are priced)',
-  MANIFEST.filter((e) => e.price).length >= Math.ceil(MANIFEST.length * 2 / 3));
-ok('prices are pre-formatted strings, not raw numbers',
-  MANIFEST.filter((e) => e.price).every((e) => typeof e.price === 'string' && e.price.startsWith('$')));
+ok('NO entry carries a price', MANIFEST.every((e) => e.price === undefined),
+  'run: node scripts/build-projects.mjs — the manifest is GENERATED');
+ok('...and no entry carries a bare dollar figure in any field',
+  MANIFEST.every((e) => !/\$\s?[\d,]/.test(JSON.stringify(e))),
+  'a price smuggled into alt text or a tag is the same decision, reversed quietly');
 ok('no manifest entry carries a CRM storage URL or a token',
   MANIFEST.every((e) => !/\?|token|firebasestorage|googleapis/i.test(JSON.stringify(e))),
   'photos on public pages ship as EXIF-stripped copies under docs/assets');
@@ -151,23 +161,28 @@ const renderWith = new Function(
     !/href="\/our-work\/[^"]*\.html"/.test(out.html));
   ok('...the image is INSIDE the link, so the photo is the hit target',
     /<a class="hw-link"[^>]*>\s*<img/.test(out.html));
-  ok('...the caption reads city, job type, price',
-    out.html.includes('Cincinnati, OH \u00b7 Full Tear-Off \u00b7 $22,500\u2013$23,500'));
+  ok('...the caption reads city then job type', out.html.includes('Cincinnati, OH \u00b7 Full Tear-Off'));
+  // Fed a price ON PURPOSE. The generator no longer emits one, but the
+  // renderer must drop it independently \u2014 otherwise restoring the field
+  // upstream for some other consumer would silently put $73,000 back on the
+  // homepage. Two locks on one decision.
+  ok('...and DROPS a price even when the entry carries one',
+    !out.html.includes('$22,500') && !/\$[\d,]/.test(out.html),
+    'price belongs on the /our-work detail page, not on a homepage tile');
   ok('...the link has its own accessible name (not the photo alt text)',
     out.html.includes('aria-label="See the full write-up: Cincinnati, OH \u2014 Full Tear-Off"'));
   ok('...the mount is revealed', out.hidden === false);
 }
 
 {
-  // 2 of the 12 live entries have no price.
   const out = renderWith([{
     image: '/assets/images/projects/y-1.jpg', alt: 'A gable',
     city: 'Loveland, OH', tag: 'Small Repair', slug: 'loveland-oh-siding-peak-reseal-2026',
   }]);
-  ok('an unpriced card still links and still shows city + tag',
+  ok('a card links and shows city + tag',
     out.html.includes('href="/our-work/loveland-oh-siding-peak-reseal-2026"')
     && out.html.includes('Loveland, OH \u00b7 Small Repair'));
-  ok('...and renders no empty price separator', !/\u00b7\s*<\/figcaption>/.test(out.html));
+  ok('...and renders no dangling separator', !/\u00b7\s*<\/figcaption>/.test(out.html));
 }
 
 section('renderer — degradation and safety');
