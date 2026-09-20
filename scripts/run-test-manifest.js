@@ -313,7 +313,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               rebasing onto origin/main at 91705d78 (main alone: 166/68/255;
 //               with this suite: 167/68/256), so these are the merged-tree
 //               numbers, not a +1 carried over from the original cut.
-const FLOORS = { node: 167, smoke: 68, disk: 256 };
+//   2026-09-20  167/68/256 -> 168/68/257, tests/xactimate-human-readable.test.js
+//               (Xactimate was JSON-LD-only on index.html and absent from
+//               storm-damage.html). MEASURED via --check on a branch cut from
+//               origin/main at 2d9deef5. PRs #1684 and #1685 each add one node
+//               suite from the same base -- whichever merges last re-measures.
+const FLOORS = { node: 168, smoke: 68, disk: 257 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
