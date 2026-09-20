@@ -99,6 +99,30 @@ for (const page of PAGES) {
         await pw.addStyleTag({
           content: '*, *::before, *::after { transition: none !important; animation: none !important; }'
         });
+        // ...and freeze JS-driven content, which no CSS override can stop.
+        //
+        // WHY (2026-09-20): the homepage announcement bar rotates every 4s via
+        // a bare `setInterval` in assets/js/inline/72f02d79d0.js — it moves
+        // `.active` across four `.ann-slide`s. The style tag above does not
+        // touch it, so two captures of the SAME commit differ by whichever
+        // slide happened to be showing: identical page height, ~1KB of pixels.
+        // Found on PR #1684, where landing--tablet-768 came back byte-stable in
+        // 3 of 4 attempts and different in the 4th. Blessing the majority would
+        // have committed a baseline that ~1 run in 4 could not match, and a
+        // gate that reddens at random is a gate everyone learns to ignore.
+        //
+        // Clearing the timers rather than masking the bar keeps it INSIDE the
+        // comparison, so a real regression in it is still caught. Parking the
+        // rotator on slide 0 makes the frozen state the same one every run
+        // instead of whichever slide won the race.
+        await pw.evaluate(() => {
+          const highest = setInterval(() => {}, 1 << 30);
+          for (let i = 1; i <= highest; i++) { clearInterval(i); clearTimeout(i); }
+          document.querySelectorAll('.ann-slide').forEach((s, i) => {
+            s.classList.toggle('active', i === 0);
+            s.classList.remove('exit');
+          });
+        });
         await expect(pw).toHaveScreenshot(page.name + '--' + vp.name + '.png', {
           fullPage:        true,
           maxDiffPixelRatio: 0.02,
