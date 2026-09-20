@@ -340,7 +340,12 @@ const RUNNABLE = ['node', 'smoke'];
 //               of the ledger above. RE-MEASURED via --check after rebasing
 //               onto origin/main at bb8d79b7 (main alone: 169/68/258; with
 //               this suite: 170/68/259).
-const FLOORS = { node: 170, smoke: 68, disk: 259 };
+//   2026-09-20  170/68/259 -> 171/68/260, tests/careers-posting-parked.test.js
+//               (the roofing-helper job posting was taken down; this pins that
+//               the page stays reachable but advertises no employment terms).
+//               MEASURED via --check on a branch cut from origin/main at
+//               1b3a1398, with no sibling lane open on this line.
+const FLOORS = { node: 171, smoke: 68, disk: 260 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
