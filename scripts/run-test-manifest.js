@@ -318,7 +318,19 @@ const RUNNABLE = ['node', 'smoke'];
 //               storm-damage.html). MEASURED via --check on a branch cut from
 //               origin/main at 2d9deef5. PRs #1684 and #1685 each add one node
 //               suite from the same base -- whichever merges last re-measures.
-const FLOORS = { node: 168, smoke: 68, disk: 257 };
+//   2026-09-20  168/68/257 → 169/68/258, tests/google-reviews-static-hooks.test.js
+//               (homepage #reviews summary row hydrates from the live payload
+//               instead of hardcoding 5.0/★★★★★). NINTH collision on this line
+//               — and the THIRD where both sides carried the IDENTICAL literal
+//               so only the comments conflicted, which is exactly why this
+//               ledger says a matching number is not evidence. This branch and
+//               #1686 both read 168/68/257 against different bases; #1686
+//               landed first, so taking either side verbatim would have
+//               shipped a floor one short. RE-MEASURED via --check after
+//               rebasing onto origin/main at 7ec3e34b (main alone: 168/68/257;
+//               with this suite: 169/68/258). #1685 still adds one more node
+//               suite and will have to re-measure again on top of this.
+const FLOORS = { node: 169, smoke: 68, disk: 258 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
