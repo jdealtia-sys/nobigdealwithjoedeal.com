@@ -171,6 +171,7 @@
     "d2d-followup-sms-optout.test.js",
     "portal-share-no-double-send.test.js",
     "unloaded-cache-gates.test.js",
+    "xactimate-human-readable.test.js",
     "leads-loaded-account-switch.test.js",
     "failopen-destructive-false-success-2026-09-18.test.js",
     "pipeline-builder-hydration.test.js",
