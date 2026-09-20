@@ -140,8 +140,23 @@
   }
 
   // Hydrate any static rating/count hooks elsewhere on the page (e.g. the
-  // /review hero score box) from the same payload. The hooks ship with
-  // static fallback text, so a failed fetch simply leaves them untouched.
+  // /review hero score box, the homepage #reviews summary) from the same
+  // payload. The hooks ship with static fallback text, so a failed fetch
+  // simply leaves them untouched — last-known-true beats a zero.
+  //
+  // Four hooks, because the pages need different shapes of the same numbers:
+  //   data-nbd-gr-rating  the score alone ("5.0")
+  //   data-nbd-gr-total   the count alone ("29") — the page owns the wording
+  //   data-nbd-gr-count   a whole ready-made sentence (/review's tap target)
+  //   data-nbd-gr-stars   the star row, re-rendered from the live rating
+  // The star row matters: a hardcoded ★★★★★ keeps claiming five stars after
+  // the profile drops below 4.5, and nothing on the page would correct it.
+  // stars() rounds exactly as the review cards do, so both agree.
+  //
+  // The star hook is the one innerHTML write here. It is safe by construction:
+  // stars() emits only the two frozen SVG constants above plus Math.round() of
+  // a number, so no API string ever reaches it — unlike the review text and
+  // author names, which go through esc()/truncate(). Keep it that way.
   function hydrateStaticHooks(data) {
     const rating = data.rating || 0;
     const total = data.total || 0;
@@ -149,8 +164,14 @@
     document.querySelectorAll('[data-nbd-gr-rating]').forEach((el) => {
       el.textContent = rating.toFixed(1);
     });
+    document.querySelectorAll('[data-nbd-gr-total]').forEach((el) => {
+      el.textContent = String(total);
+    });
     document.querySelectorAll('[data-nbd-gr-count]').forEach((el) => {
       el.textContent = total + ' Google review' + (total === 1 ? '' : 's') + ' • tap to see them all';
+    });
+    document.querySelectorAll('[data-nbd-gr-stars]').forEach((el) => {
+      el.innerHTML = stars(rating);
     });
   }
 
