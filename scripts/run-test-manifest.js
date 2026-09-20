@@ -313,6 +313,7 @@ const RUNNABLE = ['node', 'smoke'];
 //               rebasing onto origin/main at 91705d78 (main alone: 166/68/255;
 //               with this suite: 167/68/256), so these are the merged-tree
 //               numbers, not a +1 carried over from the original cut.
+<<<<<<< HEAD
 //   2026-09-20  167/68/256 -> 168/68/257, tests/xactimate-human-readable.test.js
 //               (Xactimate was JSON-LD-only on index.html and absent from
 //               storm-damage.html). MEASURED via --check on a branch cut from
@@ -330,7 +331,17 @@ const RUNNABLE = ['node', 'smoke'];
 //               rebasing onto origin/main at 7ec3e34b (main alone: 168/68/257;
 //               with this suite: 169/68/258). #1685 still adds one more node
 //               suite and will have to re-measure again on top of this.
-const FLOORS = { node: 169, smoke: 68, disk: 258 };
+//   2026-09-20  169/68/258 → 170/68/259, tests/homeowner-wall-links.test.js
+//               (homepage photo wall links each card to its project page).
+//               TENTH collision on this line, and the third in a single
+//               session: #1686, #1684 and this branch were all cut from
+//               2d9deef5 and all three independently read 168/68/257. Each
+//               merge moved main, so the only correct number was the one
+//               measured AFTER the previous merge — which is the whole point
+//               of the ledger above. RE-MEASURED via --check after rebasing
+//               onto origin/main at bb8d79b7 (main alone: 169/68/258; with
+//               this suite: 170/68/259).
+const FLOORS = { node: 170, smoke: 68, disk: 259 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

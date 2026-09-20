@@ -1480,8 +1480,19 @@ footer.foot a,.review-footer a{color:#bd5728!important}
 <section class="homeowner-wall-section" id="homeowner-wall" hidden aria-hidden="true">
   <div style="max-width:1160px;margin:0 auto;padding:0 24px;text-align:center">
     <h2 class="sec-title reveal">Real Roofs. <span>Real Neighbors.</span></h2>
-    <p class="sec-desc reveal">Actual jobs on actual homes around Greater Cincinnati — no stock photos, no stand-ins.</p>
+    <p class="sec-desc reveal">Actual jobs on actual homes around Greater Cincinnati — no stock photos, no stand-ins. Tap any photo for the full write-up.</p>
     <div class="hw-grid"></div>
+    <!-- The one hub with no body-level door before 2026-09-20: /our-work was
+         reachable from the nav, the drawer and the footer, and from nowhere a
+         reader actually looks. Deliberately NO count — the "See all 7 free
+         tools" / "See All 31 Service Areas" idiom elsewhere on this page
+         hardcodes numbers that nothing guards, and this list grows every time
+         Jo closes a job. Sits INSIDE the section on purpose: it reads as
+         "here are more of these", which only makes sense once the photos above
+         it rendered, and the section is JS-revealed as one unit. -->
+    <div style="margin-top:28px">
+      <a href="/our-work" class="btn-ghost">See every job — photos, towns and prices →</a>
+    </div>
   </div>
 </section>
 

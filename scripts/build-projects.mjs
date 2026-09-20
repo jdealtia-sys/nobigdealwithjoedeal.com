@@ -513,8 +513,31 @@ ${p.photos.map(detailPhotoCard).join('\n')}
 // Same live projects feed the homepage "Real Roofs. Real Neighbors." wall
 // (docs/assets/js/homeowner-wall.js: entries need image+alt, name optional,
 // wall reveals at >=3 and caps at 12).
+//
+// slug/tag/price added 2026-09-20. Until then this map kept only image+city+alt,
+// so all twelve cards were dead thumbnails — while .hw-card:hover already lifted
+// them and deepened their shadow, i.e. the wall advertised a click it could not
+// deliver, on top of 45 fully written, individually-URL'd project pages. The slug
+// is what lets homeowner-wall.js link each photo to its write-up; tag and price
+// are what make the caption worth reading ("Cincinnati, OH · Full Tear-Off ·
+// $22,500–$23,500") rather than a bare town name.
+//
+// price is emitted as the already-formatted RANGE, not as two integers, so the
+// renderer never does money math — this is a marketing surface under docs/, and
+// the one rule here is that retail figures are fine while cost/margin never
+// appear. priceLow/priceHigh are the same public retail numbers /our-work
+// already prints and ships in AggregateOffer schema; nothing new is exposed.
+// 38 of 45 projects carry a price and 10 of the current 12 wall entries do, so
+// the renderer must treat it as optional.
 const wallJson = JSON.stringify(
-  live.slice(0, 12).map((p) => ({ image: p.hero, city: p.city, alt: heroAlt(p) })),
+  live.slice(0, 12).map((p) => ({
+    image: p.hero,
+    city: p.city,
+    alt: heroAlt(p),
+    slug: p.slug,
+    tag: p.tag || null,
+    price: priceLine(p),
+  })),
   null, 2,
 ) + '\n';
 
