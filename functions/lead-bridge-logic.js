@@ -256,6 +256,21 @@ function mapPublicLeadToLead(args) {
   // side effect of persisting the fact.
   if (data.tcpaConsent === true) doc.tcpaConsent = true;
 
+  // Per-lead acquisition cost (2026-09-20). Thumbtack's leadPrice (webhook
+  // payload, thumbtack-logic.js normalizeLead) previously only reached the
+  // CRM as a text line inside `notes` ("Lead cost: $51.96") — nothing wrote
+  // the structured `leadCost` field lead-source-roi.js and expense-config.js's
+  // DIRECT `lead_acquisition` category actually key on, so every Thumbtack
+  // lead bridged after the one-off 09-06 backfill silently carried no
+  // trackable cost until someone typed it in by hand. Scoped to EXTERNAL
+  // sources only — leadPrice is Thumbtack's own field name, not something an
+  // NBD web form sends. Never stamp a speculative 0 (mirrors the backfill
+  // script's own rule): "no cost line" and "cost of $0" are different facts.
+  if (isExternal && data.leadPrice != null) {
+    const leadCostNum = parseFloat(String(data.leadPrice).replace(/[^0-9.]/g, ''));
+    if (isFinite(leadCostNum) && leadCostNum > 0) doc.leadCost = leadCostNum;
+  }
+
   return doc;
 }
 

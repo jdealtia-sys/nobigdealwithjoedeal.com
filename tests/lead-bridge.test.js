@@ -180,6 +180,44 @@ console.log('\nLEAD-BRIDGE — public lead → CRM leads doc mapping');
   ok('estimate notes: no context line on legacy docs', !/Instant Estimate —/.test(estBare.notes));
 }
 
+console.log('\nLEAD-BRIDGE — Thumbtack per-lead acquisition cost (leadCost)');
+{
+  // Thumbtack's leadPrice previously only reached the CRM as a text line
+  // inside notes ("Lead cost: $51.96") — nothing promoted it to the
+  // structured leadCost field lead-source-roi.js and expense-config.js's
+  // DIRECT lead_acquisition category actually key on.
+  const ttLead = L.mapPublicLeadToLead({
+    collection: 'thumbtack_leads', sourceId: 'tt1', ownerUid: NBD, companyId: NBD,
+    data: { firstName: 'Pat', lastName: 'Thumbtack', phone: '5135550199', leadPrice: '51.96',
+            notes: 'Thumbtack — Roof Repair\nLead cost: 51.96' },
+  });
+  ok('thumbtack: leadPrice → structured leadCost (number)', ttLead.leadCost === 51.96);
+
+  const ttDollarSign = L.mapPublicLeadToLead({
+    collection: 'thumbtack_leads', sourceId: 'tt2', ownerUid: NBD, companyId: NBD,
+    data: { name: 'Dollar Sign', leadPrice: '$1,234.56' },
+  });
+  ok('thumbtack: leadPrice strips $ and thousands comma', ttDollarSign.leadCost === 1234.56);
+
+  const ttNoPrice = L.mapPublicLeadToLead({
+    collection: 'thumbtack_leads', sourceId: 'tt3', ownerUid: NBD, companyId: NBD,
+    data: { name: 'No Price' },
+  });
+  ok('thumbtack: no leadPrice → leadCost absent (never a speculative 0)', !('leadCost' in ttNoPrice));
+
+  const ttZeroPrice = L.mapPublicLeadToLead({
+    collection: 'thumbtack_leads', sourceId: 'tt4', ownerUid: NBD, companyId: NBD,
+    data: { name: 'Free Lead', leadPrice: '0' },
+  });
+  ok('thumbtack: leadPrice of 0 stays absent (genuinely free ≠ untracked — matches backfill convention)', !('leadCost' in ttZeroPrice));
+
+  const nonTt = L.mapPublicLeadToLead({
+    collection: 'contact_leads', sourceId: 'c1', ownerUid: NBD, companyId: NBD,
+    data: { firstName: 'No', lastName: 'Cost', leadPrice: '99.00' },
+  });
+  ok('non-external collection ignores a stray leadPrice-shaped field', !('leadCost' in nonTt));
+}
+
 console.log('\n──────────────────────────────────────────────────');
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }

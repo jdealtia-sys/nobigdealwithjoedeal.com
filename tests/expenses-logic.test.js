@@ -106,6 +106,36 @@ eq('supplier label = first-seen raw name', aggTax.suppliers[0].supplier, 'ABC Su
 eq('supplier total includes tax', aggTax.suppliers[0].cents, 16200);
 eq('job L1 total includes tax', aggTax.byJob['L1'].cents, 16200);
 
+// ── Lead Spend rollup (2026-09-20) ────────────────────────────
+console.log('EXPENSES — leadSpendSummary (per-lead cost + marketing ledger)');
+win._leads = [
+  { id: 'L1', source: 'Thumbtack', leadCost: '51.96', deleted: false },
+  { id: 'L2', source: 'Thumbtack', leadCost: 20.78, deleted: false },
+  { id: 'L3', source: 'Yelp', leadCost: 15, deleted: false },
+  { id: 'L4', source: 'Referral', leadCost: 0, deleted: false },     // 0 excluded — not a real spend
+  { id: 'L5', source: 'Thumbtack', deleted: false },                 // no leadCost at all
+  { id: 'L6', source: 'Thumbtack', leadCost: 99, deleted: true },    // soft-deleted — excluded
+  { id: 'L7', source: 'Door Knock', leadCost: 40, isProspect: true },// prospect — excluded
+];
+EX._setData([
+  { category: 'marketing', amountCents: 20000, taxCents: 0 },
+  { category: 'marketing', amountCents: 5000, taxCents: 400 },
+  { category: 'materials', amountCents: 999999 }, // not marketing — must not leak in
+]);
+const lsAgg = EX.leadSpendSummary();
+eq('leadCents sums only real per-lead costs (51.96+20.78+15 = 87.74)', lsAgg.leadCents, 8774);
+eq('leadCount excludes 0 / missing / deleted / prospect', lsAgg.leadCount, 3);
+eq('marketingCents = expenses category=marketing incl. tax (200+50+4=254)', lsAgg.marketingCents, 25400);
+eq('sourceRows top is Thumbtack (5196+2078=7274)', lsAgg.sourceRows[0].source, 'Thumbtack');
+eq('sourceRows Thumbtack total', lsAgg.sourceRows[0].cents, 7274);
+eq('sourceRows Yelp total', lsAgg.sourceRows.find(r => r.source === 'Yelp').cents, 1500);
+win._leads = [];
+EX._setData([]);
+const lsEmpty = EX.leadSpendSummary();
+eq('empty: leadCents 0', lsEmpty.leadCents, 0);
+eq('empty: marketingCents 0', lsEmpty.marketingCents, 0);
+eq('empty: sourceRows []', lsEmpty.sourceRows.length, 0);
+
 // ── ProfitTracker.computeJobPLWithExpenses ───────────────────
 console.log('PROFIT TRACKER — computeJobPLWithExpenses (feed margin from ledger)');
 ok('computeJobPLWithExpenses exported', typeof PT.computeJobPLWithExpenses === 'function');
