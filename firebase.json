@@ -51,8 +51,6 @@
       { "source": "/pro/privacy.html", "destination": "/privacy", "type": 301 }
     ],
     "rewrites": [
-      { "_comment": "Bots, link previewers, and old browsers probe /favicon.ico by reflex. We don't ship a .ico file (favicon.svg covers modern browsers via <link rel=icon>). Rewriting the .ico URL to favicon.svg returns the SVG bytes with Content-Type image/svg+xml — modern browsers accept that fine. The alternative was a 404 every time a crawler hits the URL.",
-        "source": "/favicon.ico", "destination": "/favicon.svg" },
       { "_comment": "Pillar 5 phase 1: universal tenant microsite. /sites/t/<companyId-or-slug> serves the one static template (rewrites only fire when no real file matches, so site.js/site.css still serve directly); /api/site-config is the whitelisted server-side companyProfile read behind it.",
         "source": "/api/site-config", "function": { "functionId": "getPublicSiteConfig", "region": "us-central1" } },
       { "_comment": "Serves the Oaks homepage at a url whose base directory is /sites/oaks/. A rewrite (not a redirect) on purpose: it leaves the address bar alone, which is the entire point — the relative links in index.html must resolve against /sites/oaks/. See the /sites/oaks redirect above for the loop this replaced.",
