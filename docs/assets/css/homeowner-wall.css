@@ -22,6 +22,27 @@
   transition: transform .2s ease, box-shadow .2s ease;
 }
 .hw-card:hover { transform: translateY(-3px); box-shadow: 0 12px 28px rgba(18, 34, 61, .12); }
+/* The whole card is the hit target. Until 2026-09-20 the lift above was the
+   only thing a hover produced — the cards looked clickable and weren't.
+   `display:block` so the <a> does not add an inline-element baseline gap under
+   the image, and `color:inherit`/`text-decoration:none` so the caption keeps
+   reading as a caption rather than turning into blue underlined link text. */
+.hw-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+/* Keyboard users get the same affordance a mouse user gets from the lift.
+   On the LINK, not the card: :focus-visible never fires on the <figure>. */
+.hw-link:focus-visible {
+  outline: 3px solid var(--orange, #bd5728);
+  outline-offset: 2px;
+}
+.hw-link:hover .hw-cap { color: var(--orange, #bd5728); }
+@media (prefers-reduced-motion: reduce) {
+  .hw-card { transition: none; }
+  .hw-card:hover { transform: none; }
+}
 .hw-img {
   display: block;
   width: 100%;
