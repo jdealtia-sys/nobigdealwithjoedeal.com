@@ -71,6 +71,7 @@ const SERVICES = {
   'gutter-replacement': 'Gutters',
   'storm-damage': 'Storm & Hail',
   'roof-inspection': 'Inspection',
+  'interior-repair': 'Interior Repair',
 };
 
 // Legacy display facet — optional since the services[] taxonomy (2026-08-10);

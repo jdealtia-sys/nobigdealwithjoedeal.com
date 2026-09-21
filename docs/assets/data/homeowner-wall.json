@@ -14,6 +14,13 @@
     "tag": "Woodpecker & Rot Repair"
   },
   {
+    "image": "/assets/images/projects/cincinnati-oh-interior-drywall-repair-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Hairline crack running across a garage ceiling near a fluorescent light fixture",
+    "slug": "cincinnati-oh-interior-drywall-repair-2026",
+    "tag": "Drywall Crack Repair"
+  },
+  {
     "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
     "city": "Mason, OH",
     "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind",
@@ -75,12 +82,5 @@
     "alt": "Extension ladder reaching a third-story gable while a technician re-secures a piece of vinyl siding at the top",
     "slug": "cincinnati-oh-siding-repair-2026",
     "tag": "Same-Day Repair"
-  },
-  {
-    "image": "/assets/images/projects/sharonville-oh-storm-siding-repair-2026-1.jpg",
-    "city": "Sharonville, OH",
-    "alt": "Three extension ladders set against the tall gable while a crew member installs new vinyl siding over fresh house wrap",
-    "slug": "sharonville-oh-storm-siding-repair-2026",
-    "tag": "Storm Damage"
   }
 ]
