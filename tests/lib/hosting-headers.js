@@ -2,7 +2,7 @@
  *
  * Compute the headers Firebase Hosting actually sends for a URL path, from
  * firebase.json — the EFFECTIVE value per header key, not "does some block
- * mention it". Shared by tests/google-signin-popup-coop.test.js (static
+ * mention it". Shared by tests/google-signin-popup.test.js (static
  * contract) and tests/e2e/google-signin-popup.spec.js (which injects the
  * result, because the Hosting emulator serves none of firebase.json's
  * headers — measured 2026-09-18 on firebase-tools 15: no CSP, no COOP, not

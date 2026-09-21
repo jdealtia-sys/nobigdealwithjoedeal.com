@@ -95,6 +95,21 @@ async function startCoopProxy(opt = {}) {
       const headers = { ...ur.headers };
       if (headers.location) headers.location = headers.location.split(upstream.origin).join(origin);
       const coop = opt.force || effectiveHeader(HOSTING, pathname, 'Cross-Origin-Opener-Policy');
+      // ACTUALLY SERVE IT. Until 2026-09-21 this proxy computed `coop`, logged
+      // it into `served`, and threw it away — there was no setHeader anywhere in
+      // the file. So the rig sent NO COOP at all: the positive test passed
+      // without ever exercising a real header, and the negative control could
+      // never sever anything. The hosting emulator serves none of firebase.json's
+      // headers, which is the whole reason this proxy exists, so computing the
+      // header without writing it made the suite prove nothing in either
+      // direction while looking green.
+      //
+      // Guarded on truthiness: res.writeHead(200, {'cross-origin-opener-policy':
+      // undefined}) throws ERR_HTTP_INVALID_HEADER_VALUE on Node 24, which would
+      // turn this proxy into a 500-emitter for any path effectiveHeader misses.
+      // Lowercase key — Node has already lowercased ur.headers, so this replaces
+      // rather than duplicating.
+      if (coop) headers['cross-origin-opener-policy'] = coop;
       if (/text\/html/.test(String(headers['content-type'] || ''))) served.push({ pathname, coop, status: ur.statusCode });
       res.writeHead(ur.statusCode || 502, headers);
       ur.pipe(res);
@@ -128,10 +143,25 @@ async function openRegisterWired(page, origin) {
     predicate: (m) => m.text().includes('[nbd-emulator-connect] LOCAL emulator mode'),
     timeout: 30_000,
   }).catch(() => null);
+  // Capture the COOP header the BROWSER actually received for the document.
+  // The assertions used to read proxy.served — the rig's own log of what it
+  // intended to send — which is satisfiable without a single byte reaching
+  // Chromium, and stayed green through the entire period the proxy sent no
+  // header at all. Reading it off the response makes the claim falsifiable.
+  let wireCoop;
+  page.on('response', (r) => {
+    try {
+      const u = new URL(r.url());
+      if (u.origin === origin && /^\/pro\/register(\.html)?$/.test(u.pathname) && r.request().resourceType() === 'document') {
+        wireCoop = r.headers()['cross-origin-opener-policy'];
+      }
+    } catch (_) { /* non-parseable URL — not our document */ }
+  });
   await page.goto(origin + '/pro/register');
   await Promise.race([wiredLog, page.waitForLoadState('networkidle')]);
   await page.evaluate(() => new Promise((r) => setTimeout(r, 0)));
   await expect(page.locator('#googleRegBtn')).toBeEnabled();
+  return { wireCoop: () => wireCoop };
 }
 
 test.describe('Google sign-in popup survives the COOP firebase.json serves @stranger', () => {
@@ -156,11 +186,15 @@ test.describe('Google sign-in popup survives the COOP firebase.json serves @stra
     const idp = [];
     page.on('response', (r) => { if (/accounts:signInWithIdp/.test(r.url())) idp.push(r.status()); });
 
-    await openRegisterWired(page, proxy.origin);
+    const wired = await openRegisterWired(page, proxy.origin);
     const doc = proxy.served.find((s) => s.pathname === '/pro/register');
     expect(doc, 'the /pro/register document went through the header proxy').toBeTruthy();
     expect(POPUP_SAFE_COOP, `firebase.json must serve /pro/register a popup-safe COOP (resolved ${JSON.stringify(doc && doc.coop)})`)
       .toContain(doc && doc.coop);
+    // ...and the browser actually received it. Without this the test asserts
+    // only on the proxy's own log of its intent.
+    expect(POPUP_SAFE_COOP, `the browser received a popup-safe COOP on the wire (got ${JSON.stringify(wired.wireCoop())})`)
+      .toContain(wired.wireCoop());
 
     const popupP = context.waitForEvent('page', { timeout: 20_000 });
     await page.click('#googleRegBtn');
@@ -193,8 +227,12 @@ test.describe('Google sign-in popup survives the COOP firebase.json serves @stra
 
   test('negative control: under COOP same-origin the same click is severed', async ({ page, context }) => {
     proxy = await startCoopProxy({ force: 'same-origin' });
-    await openRegisterWired(page, proxy.origin);
+    const wired = await openRegisterWired(page, proxy.origin);
     expect((proxy.served.find((s) => s.pathname === '/pro/register') || {}).coop).toBe('same-origin');
+    // The control is only a control if the severing header really arrived.
+    // This is the assertion whose absence let the rig "prove" severance while
+    // sending no COOP whatsoever.
+    expect(wired.wireCoop(), 'the browser received COOP: same-origin on the wire').toBe('same-origin');
 
     const popupP = context.waitForEvent('page', { timeout: 20_000 });
     await page.click('#googleRegBtn');
