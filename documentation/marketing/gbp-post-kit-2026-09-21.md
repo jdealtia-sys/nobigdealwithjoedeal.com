@@ -1,7 +1,10 @@
 # GBP + Facebook post kit — 2026-09-21
 
-Three Google Business Profile updates + two Facebook variants, built from the
-three jobs published this session (`documentation/audit/PHOTO-SWEEP-2026-09-21.md`).
+**UPDATE (same day):** added Post 4 (a generic pipe-boot educational post —
+no customer/address needed, see below) and Post 5 (John Reynolds' storm
+siding + gutter repair, Batavia OH) once those landed. Originally three
+GBP updates + two Facebook variants, built from the first three jobs
+published this session (`documentation/audit/PHOTO-SWEEP-2026-09-21.md`).
 Photos are the EXIF-stripped site copies — safe to attach as-is from
 `docs/assets/images/projects/`. Voice per [VOICE_BIBLE](../brand/VOICE_BIBLE.md);
 posting mechanics per [citation-kit](citation-kit-2026-07.md) (Tue/Wed
@@ -62,6 +65,38 @@ Button: **Call now** · Photos: `cincinnati-oh-gutter-shingle-repair-2026-1.jpg`
 (aerial, full roof context), `-2.jpg` (new gutter, ground level), `-3.jpg`
 (the shingle repair, close-up).
 
+## Post 4 — educational: why your pipe boot cracks (attach pipe-boot-gasket-replacement-2026 photos 1, 2, 3)
+
+> That rubber collar around the pipe sticking out of your roof has an
+> expiration date — usually 10 to 15 years of sun before it splits. Once it
+> cracks, it's a direct path for water straight into your attic, and you'd
+> never see it from the ground. Same-day fix: pull the old boot, set a new
+> one, seal it right. One of the cheapest problems on a roof, if you catch
+> it before it isn't. — Joe
+
+Button: **Call now** · Photos: `pipe-boot-gasket-replacement-2026-1.jpg`
+(the old boot, collar split at the base), `-2.jpg` (new boot set), `-3.jpg`
+(sealed and finished).
+
+**Why this one's easy to ship:** the photos are pure close-ups of the
+repair itself — no house, no address, no customer visible anywhere in
+frame — so there's nothing to attribute and nothing to clear. Generic,
+educational, safe. No price was attached to it (no job/customer behind
+these particular photos), so the copy stays general rather than quoting a
+number — that's deliberate, not an oversight.
+
+## Post 5 — job post: storm siding refasten + gutter repair (attach batavia-oh-storm-siding-gutter-repair-2026 photos 1, 2, 3)
+
+> Wind got under the siding on this Batavia home and popped it loose across
+> several courses. We unlocked what needed it, refastened, and re-locked
+> the wall so it lies flat again — no bubbles, no gaps. While we were up
+> there: a matching aluminum gutter extension to get the downspout the rest
+> of the way to the ground. $900–1,200, one visit. — Joe
+
+Button: **Call now** · Photos: `batavia-oh-storm-siding-gutter-repair-2026-1.jpg`
+(house exterior, repaired wall), `-2.jpg` (new gutter corner, rooftop view),
+`-3.jpg` (gutter detail close-up).
+
 ---
 
 ## Facebook variants (longer, more personal — same photos)
@@ -100,18 +135,52 @@ Button: **Call now** · Photos: `cincinnati-oh-gutter-shingle-repair-2026-1.jpg`
 > Same crews, same honesty, just indoors now too.
 > (859) 420-7382 — Joe
 
+**FB 3 (pairs with Post 4 — the pipe boot explainer):**
+
+> The part of your roof you've never looked at. 👀
+>
+> That rubber collar around every plumbing vent pipe is doing quiet, boring
+> work — until the sun ages it enough to split. Ten to fifteen years is
+> about all it gets before the rubber cracks, and once it does, every rain
+> is finding a way in around that pipe. You won't see it from the ground.
+> I will, because I'm up there anyway.
+>
+> Old boot off, new one set, sealed right. Fifteen minutes, one of the
+> cheapest fixes on a roof — if it gets caught before it becomes a ceiling
+> stain instead.
+> (859) 420-7382 — Joe
+
+**FB 4 (pairs with Post 5 — the storm siding job):**
+
+> Wind doesn't rip siding off. It usually just... unlocks it. 💨
+>
+> This Batavia home took a wind event that popped several courses of siding
+> loose from the locking strip underneath — no missing panels, just siding
+> riding loose and bubbled where it should lie flat. We worked our way
+> across, unlocked what needed it, drove new fasteners where the wind had
+> pulled the old ones, and re-locked every course.
+>
+> While the ladder was already up: matched a gutter extension to the
+> existing downspouts so the corner drains the way the rest of the house
+> does.
+>
+> $900–1,200, one visit, nothing left rattling in the next storm.
+> (859) 420-7382 — Joe
+
 ---
 
-## GBP photo gallery — 9 fresh photos ready to add
+## GBP photo gallery — 15 fresh photos ready to add
 
 Per the 08-31 posting log, the **photo gallery may be the highest-reach
 surface on the profile** (individual photos there have out-drawn typical
 posts, one past 1,000 views) and it was last refreshed that same day. All
-nine re-encoded photos from this round are graded and ready:
+fifteen re-encoded photos from this round are graded and ready:
 
 - `cincinnati-oh-smartside-trim-repair-2026-1/2/3` — Joe working, wide gable, rot evidence
 - `cincinnati-oh-gutter-shingle-repair-2026-1/2/3` — aerial, gutter, shingle repair
 - `cincinnati-oh-interior-drywall-repair-2026-1/2/3` — the ceiling/wall crack set
+- `batavia-oh-storm-siding-gutter-repair-2026-1/2/3` — house exterior, gutter corner, gutter detail
+- `pipe-boot-gasket-replacement-2026-1/2/3` — the pipe boot before/during/after (no address attached, safe as a pure technique gallery add)
 
 Same mechanics as before: Jo drives the native picker, agent stages files
 and verifies. Worth doing alongside (not instead of) the posts above — per
@@ -121,12 +190,10 @@ the prior finding, photos alone earn real views without needing a caption.
 
 ## Not in this kit — needs more from Jo first
 
-- **Pipe boot / gasket replacement photos** (10 fresh phone shots in the
-  Drive `Content` staging folder, not a customer job folder) — no town,
-  price, or customer name attached, so no copy can be written yet. Flagged
-  in the 2026-09-21 session; still open.
 - **Bryce Williams — additional interior jobs** — Jo said more are coming;
   this kit only covers the one already published.
+- **Albeliz Santiago's job** — invoiced but her Photos subfolder is still
+  empty. Nothing to build until photos exist.
 
 *Photos for every post live in `docs/assets/images/projects/` — already
 EXIF-stripped and consented. Never attach raw CRM/Drive originals to a post.*
