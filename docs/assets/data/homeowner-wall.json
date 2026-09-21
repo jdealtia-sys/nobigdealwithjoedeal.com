@@ -1,5 +1,19 @@
 [
   {
+    "image": "/assets/images/projects/cincinnati-oh-gutter-shingle-repair-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Aerial view of a shingle roof between two neighboring houses, showing the ridge, chimney vent, and dormer window",
+    "slug": "cincinnati-oh-gutter-shingle-repair-2026",
+    "tag": "Gutter & Shingle Repair"
+  },
+  {
+    "image": "/assets/images/projects/cincinnati-oh-smartside-trim-repair-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Joe kneeling on a roof edge removing a damaged corner trim board with a pry tool",
+    "slug": "cincinnati-oh-smartside-trim-repair-2026",
+    "tag": "Woodpecker & Rot Repair"
+  },
+  {
     "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
     "city": "Mason, OH",
     "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind",
@@ -68,19 +82,5 @@
     "alt": "Three extension ladders set against the tall gable while a crew member installs new vinyl siding over fresh house wrap",
     "slug": "sharonville-oh-storm-siding-repair-2026",
     "tag": "Storm Damage"
-  },
-  {
-    "image": "/assets/images/projects/milford-oh-full-tearoff-replacement-2026-1.jpg",
-    "city": "Milford, OH",
-    "alt": "Drone view at eave height of the brick ranch before work, its old dark three-tab roof weathered and streaked",
-    "slug": "milford-oh-full-tearoff-replacement-2026",
-    "tag": "Full Replacement"
-  },
-  {
-    "image": "/assets/images/projects/cincinnati-oh-storm-tarp-replacement-2023-1.jpg",
-    "city": "Cincinnati, OH",
-    "alt": "Wind-stripped low-slope roof section with the mineral-surfaced roll roofing peeled back in a large ragged sheet",
-    "slug": "cincinnati-oh-storm-tarp-replacement-2023",
-    "tag": "Storm Response"
   }
 ]

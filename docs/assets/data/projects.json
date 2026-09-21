@@ -1781,6 +1781,67 @@
       "priceLow": 2000,
       "priceHigh": 2500,
       "year": 2026
+    },
+    {
+      "slug": "cincinnati-oh-gutter-shingle-repair-2026",
+      "title": "Gutter Section & Shingle Repair",
+      "services": [
+        "gutter-replacement",
+        "roof-repair"
+      ],
+      "tag": "Gutter & Shingle Repair",
+      "city": "Cincinnati, OH",
+      "description": "Replaced a damaged gutter section and tied it back into the existing downspout, then repaired storm-loosened shingles on the roof, matching the field as closely as the existing shingle allowed.",
+      "hero": "/assets/images/projects/cincinnati-oh-gutter-shingle-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-shingle-repair-2026-1.jpg",
+          "alt": "Aerial view of a shingle roof between two neighboring houses, showing the ridge, chimney vent, and dormer window"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-shingle-repair-2026-2.jpg",
+          "alt": "Ground-level view of a new white gutter and downspout running down the corner of a blue-sided house"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-shingle-repair-2026-3.jpg",
+          "alt": "Overhead view of a repaired section of architectural shingles, color-matched against the surrounding roof field"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 500,
+      "priceHigh": 800,
+      "year": 2026
+    },
+    {
+      "slug": "cincinnati-oh-smartside-trim-repair-2026",
+      "title": "LP SmartSide Trim & Corner Repair",
+      "services": [
+        "siding-repair"
+      ],
+      "tag": "Woodpecker & Rot Repair",
+      "city": "Cincinnati, OH",
+      "description": "Replaced woodpecker-damaged and rotted corner trim and door-surround boards on LP SmartSide siding, primed and painted to match, with a roof walk to catch and seal exposed fasteners along the way.",
+      "hero": "/assets/images/projects/cincinnati-oh-smartside-trim-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-smartside-trim-repair-2026-1.jpg",
+          "alt": "Joe kneeling on a roof edge removing a damaged corner trim board with a pry tool"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-smartside-trim-repair-2026-2.jpg",
+          "alt": "Wide view of a gable end with LP SmartSide siding, corner trim board opened up mid-repair to expose the substrate beneath"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-smartside-trim-repair-2026-3.jpg",
+          "alt": "Removed length of rotted wood trim laid on the grass, showing split and decayed wood along its length"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 1750,
+      "priceHigh": 2000,
+      "year": 2026
     }
   ]
 }
