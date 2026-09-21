@@ -256,7 +256,10 @@ main#main {
   transition: all .15s;
   margin-bottom: 20px;
 }
-.google-btn:hover { border-color: rgba(255,255,255,.18); background: var(--s3); }
+.google-btn:hover:not(:disabled) { border-color: rgba(255,255,255,.18); background: var(--s3); }
+/* Held for up to 4s at load while js/pages/register.js warms the App Check
+   token the Google popup needs before window.open (see holdUntilAppCheckWarm). */
+.google-btn:disabled { opacity: .6; cursor: progress; }
 .google-icon { font-size: 16px; }
 
 .or-divider {
