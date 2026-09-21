@@ -175,6 +175,7 @@
     "xactimate-human-readable.test.js",
     "homeowner-wall-links.test.js",
     "careers-posting-parked.test.js",
+    "subcontracting-honesty.test.js",
     "leads-loaded-account-switch.test.js",
     "failopen-destructive-false-success-2026-09-18.test.js",
     "close-board-per-uid-storage-2026-09-18.test.js",

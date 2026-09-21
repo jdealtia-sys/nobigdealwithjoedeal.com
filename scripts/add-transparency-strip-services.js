@@ -7,7 +7,7 @@
  *
  * The strip sits right after the service hero's closing </section>
  * and surfaces four concrete honest-work signals:
- *   I don't subcontract · Free written estimates · Clean job site · Licensed & insured
+ *   You deal with me, start to finish · Free written estimates · Clean job site · Licensed & insured
  *
  * Idempotent via data-nbd-transparency marker.
  */
@@ -32,7 +32,7 @@ const STRIP_HTML = `<!-- Transparency strip (injected) -->
   <div style="max-width:1100px;margin:0 auto;display:flex;flex-wrap:wrap;justify-content:space-around;align-items:center;gap:14px 28px;font-size:.82rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#142a52">
     <span style="display:inline-flex;align-items:center;gap:8px">
       <svg viewBox="0 0 24 24" fill="none" stroke="#e8720c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="4 12 10 18 20 6"/></svg>
-      I don't subcontract
+      You deal with me, start to finish
     </span>
     <span style="display:inline-flex;align-items:center;gap:8px">
       <svg viewBox="0 0 24 24" fill="none" stroke="#e8720c" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18" aria-hidden="true"><polyline points="4 12 10 18 20 6"/></svg>
