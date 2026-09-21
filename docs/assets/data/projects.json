@@ -1904,6 +1904,67 @@
       "priceLow": 900,
       "priceHigh": 1200,
       "year": 2026
+    },
+    {
+      "slug": "cincinnati-oh-gutter-replacement-screens-2026",
+      "title": "122 Ft. of New Gutters + Micromesh Screens",
+      "services": [
+        "gutter-replacement"
+      ],
+      "tag": "Gutter Replacement",
+      "city": "Cincinnati, OH",
+      "description": "122 linear feet of new 5-inch seamless aluminum gutter across a full two-story run, capped end to end with micromesh leaf screens — no exposed seams, no gaps at the corners.",
+      "hero": "/assets/images/projects/cincinnati-oh-gutter-replacement-screens-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-replacement-screens-2026-1.jpg",
+          "alt": "New seamless gutter with micromesh leaf screen installed along a shingled roofline"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-replacement-screens-2026-2.jpg",
+          "alt": "Ladder set against a second roofline showing the micromesh screen running the gutter edge, trees in the background"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-replacement-screens-2026-3.jpg",
+          "alt": "Close-up of a micromesh gutter screen panel held up next to a sample of black mesh guard"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 3800,
+      "priceHigh": 4200,
+      "year": 2026
+    },
+    {
+      "slug": "franklin-oh-soffit-repair-2026",
+      "title": "Tongue-and-Groove Soffit Repair Near the Roofline",
+      "services": [
+        "siding-repair",
+        "wood-siding-repair"
+      ],
+      "tag": "Soffit Repair",
+      "city": "Franklin, OH",
+      "description": "A gap in the tongue-and-groove soffit seam had opened up at the roofline, exposing the cavity underneath — closed back in and resealed so the gable line reads clean again.",
+      "hero": "/assets/images/projects/franklin-oh-soffit-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/franklin-oh-soffit-repair-2026-1.jpg",
+          "alt": "Open soffit cavity at a roofline corner showing the sheathing and framing before repair"
+        },
+        {
+          "src": "/assets/images/projects/franklin-oh-soffit-repair-2026-2.jpg",
+          "alt": "Cut tongue-and-groove soffit boards and hand tools laid out on a drop cloth ready for installation"
+        },
+        {
+          "src": "/assets/images/projects/franklin-oh-soffit-repair-2026-3.jpg",
+          "alt": "Gable roofline exterior with the soffit line closed and resealed after the repair"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 400,
+      "priceHigh": 600,
+      "year": 2026
     }
   ]
 }
