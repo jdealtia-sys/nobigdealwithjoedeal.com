@@ -176,9 +176,31 @@ test.describe('Google sign-in popup survives the COOP firebase.json serves @stra
     await installLocalSdkShim(context); // sandbox-only; no-op in CI
   });
 
+  /** uids this spec created, torn down after each test. @type {string[]} */
+  let created = [];
+
   test.afterEach(async () => {
     if (proxy) await proxy.close();
     proxy = null;
+    // CLEAN UP AFTER OURSELVES. The @stranger shard runs --workers=1 against
+    // ONE shared emulator, and stranger.spec.js asserts on tenant isolation and
+    // seat gating — it counts users and companies. This spec signs up a brand
+    // new Google user and lets createCompany provision companies/{uid} for it,
+    // so leaving them behind changes what the next spec sees. Adding this file
+    // to the shard without this teardown reddened
+    // stranger.spec.js:346 ("free plan is seat-gated; upgraded tenant invites a
+    // MANAGER...") on a shard that is green on main.
+    //
+    // Best-effort and never throws: a failed cleanup must not convert a passing
+    // test into a red one, and the emulator is wiped between CI jobs anyway.
+    if (created.length) {
+      const { auth, db } = admin();
+      for (const uid of created) {
+        await db.doc(`companies/${uid}`).delete().catch(() => {});
+        await auth.deleteUser(uid).catch(() => {});
+      }
+      created = [];
+    }
   });
 
   test('new Google user: popup completes → createCompany → onboarding, under the effective header', async ({ page, context }) => {
@@ -219,6 +241,7 @@ test.describe('Google sign-in popup survives the COOP firebase.json serves @stra
 
     const { auth, db } = admin();
     const user = await auth.getUserByEmail(email);
+    created.push(user.uid);   // torn down in afterEach — see the note there
     expect(user.providerData.map((p) => p.providerId), 'a google.com account was created').toContain('google.com');
     const co = await db.doc(`companies/${user.uid}`).get();
     expect(co.exists, 'createCompany provisioned companies/{uid} for the Google newcomer').toBe(true);
