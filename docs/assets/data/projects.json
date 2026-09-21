@@ -1965,6 +1965,62 @@
       "priceLow": 400,
       "priceHigh": 600,
       "year": 2026
+    },
+    {
+      "slug": "cincinnati-oh-gutter-cleaning-2026",
+      "title": "Same-Day Gutter Cleaning, Cleared by Hand",
+      "services": [
+        "gutter-cleaning"
+      ],
+      "tag": "Gutter Cleaning",
+      "city": "Cincinnati, OH",
+      "description": "A clogged downspout and packed leaf debris cleared by hand across every run, then flush-tested to confirm free flow — same-day service, no shortcuts.",
+      "hero": "/assets/images/projects/cincinnati-oh-gutter-cleaning-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-cleaning-2026-1.jpg",
+          "alt": "Gloved hand clearing packed leaf debris out of a gutter run by hand, mesh guard lifted for access"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-cleaning-2026-2.jpg",
+          "alt": "Downspout opening packed with dark decomposed leaf debris before cleaning"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-gutter-cleaning-2026-3.jpg",
+          "alt": "Clean shingle roofline with a clear gutter and mesh screen after the cleaning was completed"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 200,
+      "priceHigh": 300,
+      "year": 2026
+    },
+    {
+      "slug": "cincinnati-oh-downspout-connector-repair-2026",
+      "title": "Downspout Base Connector Replaced & Reconnected",
+      "services": [
+        "gutter-replacement"
+      ],
+      "tag": "Gutter Repair",
+      "city": "Cincinnati, OH",
+      "description": "The base section of a downspout had failed where it met the underground drain line — replaced with a new connector, tied back into the existing PVC line, and painted to match.",
+      "hero": "/assets/images/projects/cincinnati-oh-downspout-connector-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-downspout-connector-repair-2026-1.jpg",
+          "alt": "Close-up of a new black downspout base connector fitted where the downspout meets the foundation"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-downspout-connector-repair-2026-2.jpg",
+          "alt": "Downspout base connector tied into the underground drain line at the foundation of a brick home"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 100,
+      "priceHigh": 200,
+      "year": 2026
     }
   ]
 }
