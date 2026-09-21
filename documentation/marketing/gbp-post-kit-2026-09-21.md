@@ -5,6 +5,12 @@ no customer/address needed, see below) and Post 5 (John Reynolds' storm
 siding + gutter repair, Batavia OH) once those landed. Originally three
 GBP updates + two Facebook variants, built from the first three jobs
 published this session (`documentation/audit/PHOTO-SWEEP-2026-09-21.md`).
+
+**UPDATE 2 (same day):** added Post 6 (Rebecca Hildeman's two-story gutter
+replacement + micromesh screens, Cincinnati OH) and Post 7 (Rachel Henry's
+soffit repair, Franklin OH), sourced from the follow-up sweep
+(`documentation/audit/PHOTO-SWEEP-2-2026-09-21.md`) and published in
+[PR #1702](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1702).
 Photos are the EXIF-stripped site copies — safe to attach as-is from
 `docs/assets/images/projects/`. Voice per [VOICE_BIBLE](../brand/VOICE_BIBLE.md);
 posting mechanics per [citation-kit](citation-kit-2026-07.md) (Tue/Wed
@@ -97,6 +103,40 @@ Button: **Call now** · Photos: `batavia-oh-storm-siding-gutter-repair-2026-1.jp
 (house exterior, repaired wall), `-2.jpg` (new gutter corner, rooftop view),
 `-3.jpg` (gutter detail close-up).
 
+## Post 6 — job post: 122 ft. of gutters + micromesh screens (attach cincinnati-oh-gutter-replacement-screens-2026 photos 1, 2, 3)
+
+> 122 feet of new 5-inch seamless gutter across a full two-story run in
+> Cincinnati, capped end to end with micromesh screens — no exposed seams,
+> no gaps at the corners, nothing for leaves to catch on. Full replacement,
+> not a patch. $3,800–4,200, done in a day. — Joe
+
+Button: **Call now** · Photos: `cincinnati-oh-gutter-replacement-screens-2026-1.jpg`
+(new gutter + micromesh screen along the shingle edge), `-2.jpg` (second
+roofline, ladder set, screen running the gutter edge), `-3.jpg` (screen
+panel held up close, showing the mesh).
+
+**Why this one's easy to ship:** it's the biggest gutter job shown on the
+page yet — two full stories, 122 linear feet — and the paperwork is the
+freshest of anything in this kit (paid the day before this post was
+drafted).
+
+## Post 7 — job post: a gap in the soffit, closed back in (attach franklin-oh-soffit-repair-2026 photos 1, 2, 3)
+
+> A seam in the tongue-and-groove soffit had opened up at the roofline on
+> this Franklin home, leaving the cavity behind it exposed — small gap, but
+> it's a straight line in for water and whatever else wants a way into the
+> attic. Boards cut, fit, and sealed back in so the gable line reads clean
+> again. $400–600, small job, same attention as a big one. — Joe
+
+Button: **Call now** · Photos: `franklin-oh-soffit-repair-2026-1.jpg` (the
+open cavity before repair), `-2.jpg` (replacement boards and tools staged
+on a drop cloth), `-3.jpg` (the gable line closed and resealed).
+
+**Why this one's worth posting even though it's small:** it's the second
+soffit-repair card on the site now, in a different town at a different
+price point — reinforces that small repairs are a normal call, not just
+full replacements.
+
 ---
 
 ## Facebook variants (longer, more personal — same photos)
@@ -167,20 +207,50 @@ Button: **Call now** · Photos: `batavia-oh-storm-siding-gutter-repair-2026-1.jp
 > $900–1,200, one visit, nothing left rattling in the next storm.
 > (859) 420-7382 — Joe
 
+**FB 5 (pairs with Post 6 — the two-story gutter job):**
+
+> 122 feet, two stories, zero shortcuts. 🪜
+>
+> This Cincinnati home needed a full gutter replacement — not a patch, not
+> a re-hang, the whole run torn off and redone in new 5-inch seamless
+> aluminum across two full stories. Then micromesh screens the entire
+> length, end to end, so there's no gap at a corner or a seam for leaves to
+> find.
+>
+> It's the biggest gutter job we've shown on the page, and it went up in a
+> single day.
+>
+> $3,800–4,200. (859) 420-7382 — Joe
+
+**FB 6 (pairs with Post 7 — the soffit repair):**
+
+> Small gap. Same attention as a big job. 🔧
+>
+> A seam in the tongue-and-groove soffit had come open at the roofline on
+> this Franklin home — not dramatic, just a straight line in for water and
+> anything else that wants into the attic. We cut new boards, fit them
+> tight, sealed the seam, and closed the gable line back up.
+>
+> $400–600. Small jobs get the same attention as the big ones — that's kind
+> of the whole point of the name.
+> (859) 420-7382 — Joe
+
 ---
 
-## GBP photo gallery — 15 fresh photos ready to add
+## GBP photo gallery — 21 fresh photos ready to add
 
 Per the 08-31 posting log, the **photo gallery may be the highest-reach
 surface on the profile** (individual photos there have out-drawn typical
 posts, one past 1,000 views) and it was last refreshed that same day. All
-fifteen re-encoded photos from this round are graded and ready:
+twenty-one re-encoded photos from this round are graded and ready:
 
 - `cincinnati-oh-smartside-trim-repair-2026-1/2/3` — Joe working, wide gable, rot evidence
 - `cincinnati-oh-gutter-shingle-repair-2026-1/2/3` — aerial, gutter, shingle repair
 - `cincinnati-oh-interior-drywall-repair-2026-1/2/3` — the ceiling/wall crack set
 - `batavia-oh-storm-siding-gutter-repair-2026-1/2/3` — house exterior, gutter corner, gutter detail
 - `pipe-boot-gasket-replacement-2026-1/2/3` — the pipe boot before/during/after (no address attached, safe as a pure technique gallery add)
+- `cincinnati-oh-gutter-replacement-screens-2026-1/2/3` — micromesh screen close-up, second roofline with ladder, screen panel detail
+- `franklin-oh-soffit-repair-2026-1/2/3` — open cavity before, boards staged, gable line closed after
 
 Same mechanics as before: Jo drives the native picker, agent stages files
 and verifies. Worth doing alongside (not instead of) the posts above — per
