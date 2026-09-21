@@ -1423,6 +1423,53 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     ok('…the lock write was still ATTEMPTED (latency compensation keeps the double-tap guard honest)',
       writes.some((w) => w.data && w.data.status === 'sending'));
   }
+
+  {
+    // ── OFFLINE + PAID: the send lock must be RELEASED, not left on ────────
+    // The round-3 review's blocker. _releaseSendLock prefers window.runTransaction,
+    // and BOTH CRM pages define it — but a Firestore transaction cannot run
+    // offline, and the queued path only ever executes BECAUSE we are offline.
+    // So the restore was routed through the one primitive guaranteed not to
+    // work there, and a PAID invoice whose queued text was later discarded sat
+    // at status:'sending' forever. money-dashboard.js skips only
+    // status === 'paid', so its full face value re-entered Outstanding A/R and
+    // the Collections queue, and the detail view re-offered "Mark Paid".
+    //
+    // This asserts the OUTCOME (the invoice ends up 'paid' again), not the
+    // mechanism, so it stays honest if the implementation changes.
+    const writes = [];
+    let status = 'paid';
+    const listeners = {};
+    const win = {
+      console: QUIET,
+      _db: { name: 'db' },
+      __nbdInvoiceLockTimeoutMs: 10,
+      doc: (db, col, id) => ({ path: col + '/' + id }),
+      collection: () => ({}),
+      getDoc: async (ref) => ({ exists: () => true, data: () => ({ status, sendingPriorStatus: status === 'sending' ? 'paid' : null, customerPhone: '(859) 555-0134', leadId: 'lead-1', total: 12000, balanceDue: 0 }) }),
+      updateDoc: async (ref, data) => { writes.push({ path: ref.path, data }); if (data.status) status = data.status; },
+      // A transaction is what the real page exposes — and offline it never
+      // settles. Before the fix the release went through here and stalled.
+      runTransaction: () => new Promise(() => {}),
+      showToast: () => {},
+      NBDComms: { sendSMS: async (o) => { win._smsArgs = o; return QUEUED; } },
+      addEventListener: (t, fn) => { (listeners[t] = listeners[t] || []).push(fn); },
+    };
+    win.window = win;
+    const ctx = vm.createContext(Object.assign(win, { Date, JSON, Math, Promise, Object, Array, String, Number, Error, isNaN, parseFloat, setTimeout, clearTimeout }));
+    vm.runInContext(INV_SRC, ctx, { filename: 'invoice-pipeline.js' });
+
+    const r = await win.InvoicePipeline.sendInvoice('inv-paid', 'sms');
+    await wait(40);
+    ok('offline PAID invoice: the text still queues', r && r.queued === true, JSON.stringify(r));
+    ok('THE FIX: the send lock is released even though runTransaction cannot run offline',
+      status !== 'sending',
+      `invoice left at status='${status}' — a paid invoice stuck 'sending' re-enters Outstanding A/R and Collections`);
+    ok('…and it is restored to PAID, never "draft"', status === 'paid',
+      `got '${status}'`);
+    ok('…the restore went through the non-transactional arm (an updateDoc actually happened)',
+      writes.some((w) => w.data && w.data.status === 'paid'));
+  }
   {
     // invoice-pipeline.js sendInvoiceUI — the method-picker click the rep
     // actually taps. A queued text must not toast "Invoice sent successfully".

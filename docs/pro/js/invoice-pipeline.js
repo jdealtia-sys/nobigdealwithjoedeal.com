@@ -737,14 +737,27 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
    * rule lets the next send through and markInvoiceSentAfterQueuedSms resolves
    * a 'sending' invoice from its sendingPriorStatus.
    */
-  function _releaseSendLock(db, invRef, priorStatus, extra) {
+  function _releaseSendLock(db, invRef, priorStatus, extra, opt) {
     const restore = (cur) => Object.assign({
       status: (cur && cur.sendingPriorStatus) || priorStatus || 'draft',
       sendingAt: null,
       sendingPriorStatus: null,
       updatedAt: new Date(),
     }, extra || {});
-    if (typeof window.runTransaction === 'function') {
+    // preferLocal: skip the transaction arm. A Firestore transaction CANNOT run
+    // offline (see the JSDoc above), so on a call site that only ever executes
+    // while offline — the queued path — preferring it means the release never
+    // happens at all. getDoc reads the in-memory cache and updateDoc is
+    // latency-compensated, so both apply immediately and land on reconnect.
+    //
+    // This was the blocker the round-3 review found: sendingPriorStatus was
+    // wired correctly at every write path, but the one restore that matters on
+    // the queued path was routed through the one primitive guaranteed not to
+    // work there. A PAID invoice whose queued text was later discarded stayed
+    // 'sending' forever, and money-dashboard.js only skips status === 'paid' —
+    // so its full face value re-entered Outstanding A/R and the Collections
+    // queue, and the detail view re-offered "Mark Paid".
+    if (!(opt && opt.preferLocal) && typeof window.runTransaction === 'function') {
       return Promise.resolve(window.runTransaction(db, async (tx) => {
         const snap = await tx.get(invRef);
         if (!snap.exists()) return false;
@@ -964,8 +977,11 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           // Firestore call does not resolve until the connection is back, and
           // the lock self-expires anyway.
           if (smsResult.mode === 'queued') {
+            // preferLocal: this branch runs BECAUSE we are offline, and a
+            // transaction cannot run offline — routing the release through one
+            // meant it never happened. See _releaseSendLock.
             Promise.resolve()
-              .then(() => _releaseSendLock(db, invRef, priorStatus))
+              .then(() => _releaseSendLock(db, invRef, priorStatus, null, { preferLocal: true }))
               .catch((e) => console.warn('sendInvoice queued-lock release failed:', e && e.message));
             return { queued: true, id: smsResult.id || null };
           }
@@ -1004,9 +1020,20 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       // check at the top owns those branches.
       try {
         const invRef2 = window.doc(db, 'invoices', invoiceId);
-        await _releaseSendLock(db, invRef2, priorStatus, {
-          lastSendError: (error && error.message) ? error.message.slice(0, 200) : 'unknown',
-        });
+        // Bounded for the same reason the lock ACQUIRE is (see the Promise.race
+        // above): both arms of _releaseSendLock are offline-incapable, and a
+        // transaction that hangs rather than rejecting would park this catch
+        // and the caller would never see the throw. The lock also self-expires
+        // via the 2-minute stale rule, so abandoning the wait is safe.
+        const releaseTimeoutMs = (typeof window !== 'undefined'
+          && typeof window.__nbdInvoiceLockTimeoutMs === 'number'
+          && window.__nbdInvoiceLockTimeoutMs > 0) ? window.__nbdInvoiceLockTimeoutMs : 4000;
+        await Promise.race([
+          _releaseSendLock(db, invRef2, priorStatus, {
+            lastSendError: (error && error.message) ? error.message.slice(0, 200) : 'unknown',
+          }),
+          new Promise((resolve) => setTimeout(resolve, releaseTimeoutMs)),
+        ]);
       } catch (releaseErr) {
         console.warn('sendInvoice lock release failed:', releaseErr && releaseErr.message);
       }
