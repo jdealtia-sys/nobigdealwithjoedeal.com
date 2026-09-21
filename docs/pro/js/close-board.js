@@ -13,6 +13,11 @@
   // ============================================================================
 
   const DEAL_COLLECTION = 'deal_rooms';
+  // Per-account key prefix: rows live under 'nbd_deal_rooms:<uid>' (see
+  // STORAGE). The bare prefix is the pre-2026-09-18 device-global key, read
+  // once to migrate and then removed. Keep the 'nbd_' prefix: it is what puts
+  // these keys on NBDAuth.purgeAccountStorage()'s sign-out / account-switch
+  // purge (tests/close-board-per-uid-storage-2026-09-18.test.js runs it).
   const DEAL_STORAGE_KEY = 'nbd_deal_rooms';
   const FINANCING_RATES = [
     { term: 12, rate: 0, label: '12 mo Same-as-Cash' },
@@ -69,6 +74,10 @@
   // ============================================================================
 
   let dealRooms = [];
+  // The account dealRooms was loaded for, or null before any account is
+  // known. dealRooms only ever holds this account's rows and is only ever
+  // written back to this account's key.
+  let _dealRoomsUid = null;
   let activeDeal = null;
   let currentTab = 'active'; // 'active' | 'create' | 'analytics'
 
@@ -122,17 +131,97 @@
   // STORAGE
   // ============================================================================
 
-  function loadDealRooms() {
+  // Per-account cache (2026-09-18, deferred from the PR #1663 review). Deal
+  // rooms used to live under ONE device-global key, so on a shared device the
+  // next rep's board listed the previous rep's deals (customer names,
+  // addresses, prices) and any edits that had not synced — and could never
+  // clear them, because the owner rule refuses B's delete of A's deal. The
+  // account-switch purge in dashboard-bootstrap only helps when nbd_last_uid
+  // names the prior account, and it never reached this module's in-memory
+  // array.
+  //
+  // Rows now live under 'nbd_deal_rooms:<uid>'. dealRooms is tagged with the
+  // account it was loaded for: when a different account is signed in, the
+  // board reloads from that account's key, and a save never writes one
+  // account's rows under another's key. With no account known, nothing is
+  // read — there is no way to tell whose rows they would be.
+  function _currentUid() { return (window._user && window._user.uid) || null; }
+  function _dealStorageKey(uid) { return DEAL_STORAGE_KEY + ':' + uid; }
+  function _parseRows(raw) {
     try {
-      const raw = localStorage.getItem(DEAL_STORAGE_KEY);
-      dealRooms = raw ? JSON.parse(raw) : [];
-    } catch (e) { dealRooms = []; }
+      const rows = JSON.parse(raw || '[]');
+      return Array.isArray(rows) ? rows.filter(d => d && d.id) : [];
+    } catch (e) { return []; }
   }
 
-  function saveDealRooms() {
-    try { localStorage.setItem(DEAL_STORAGE_KEY, JSON.stringify(dealRooms)); }
-    catch (e) { console.error('Deal rooms save error:', e); }
+  // The legacy device-global key: hand this account only the rows that
+  // provably belong to it. A stamped row (userId, set by a sync or a hydrate)
+  // belongs to exactly that account. An unstamped row — a never-synced draft
+  // — names its creator only through repEmail (createDealRoom stamps the
+  // signed-in rep's email), so it moves only when it names this rep AND
+  // nothing on the device points at a second account: no row stamped or
+  // created by anyone else, no other account's per-account key. Everything
+  // else is dropped with the key. A dropped row that was ever synced is still
+  // on the server, and hydrate restores it for its owner; a dropped draft is
+  // lost — the same trade the account-switch purge already makes.
+  function _legacyRowsFor(uid, raw) {
+    const rows = _parseRows(raw);
+    const email = String((window._user && window._user.email) || '').trim().toLowerCase();
+    const namesMe = (e) => !!email && String(e || '').trim().toLowerCase() === email;
+    let otherAccount = rows.some(d => (d.userId && d.userId !== uid) || (d.repEmail && !namesMe(d.repEmail)));
+    try {
+      for (let i = 0; !otherAccount && i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.indexOf(DEAL_STORAGE_KEY + ':') === 0 && k !== _dealStorageKey(uid)) otherAccount = true;
+      }
+    } catch (e) { otherAccount = true; }
+    return rows.filter(d => (d.userId ? d.userId === uid : !otherAccount && namesMe(d.repEmail)));
   }
+
+  function loadDealRooms() {
+    const uid = _currentUid();
+    _dealRoomsUid = uid;
+    dealRooms = [];
+    if (!uid) return;
+    let stored = [];
+    let legacy = null;
+    try {
+      stored = _parseRows(localStorage.getItem(_dealStorageKey(uid)));
+      legacy = localStorage.getItem(DEAL_STORAGE_KEY);
+    } catch (e) { /* storage unavailable: an empty board, never someone else's */ }
+    // A row stamped for another account never belongs in this one's cache.
+    dealRooms = stored.filter(d => !d.userId || d.userId === uid);
+    if (legacy != null) {
+      const have = new Set(dealRooms.map(d => d.id));
+      _legacyRowsFor(uid, legacy).forEach(d => { if (!have.has(d.id)) { have.add(d.id); dealRooms.push(d); } });
+    }
+    // Persist the migration / the purge. The legacy key goes only once this
+    // account's rows are safely under its own key; a failed write leaves it
+    // for the next load to retry.
+    if ((legacy != null || dealRooms.length !== stored.length) && saveDealRooms() && legacy != null) {
+      try { localStorage.removeItem(DEAL_STORAGE_KEY); } catch (e) { /* retried next load */ }
+    }
+  }
+
+  // Writes dealRooms to the key of the account it was loaded for — never to
+  // whoever is signed in now, if that is a different account. Returns whether
+  // the write landed.
+  function saveDealRooms() {
+    const uid = _currentUid();
+    if (!_dealRoomsUid || (uid && uid !== _dealRoomsUid)) return false;
+    try { localStorage.setItem(_dealStorageKey(_dealRoomsUid), JSON.stringify(dealRooms)); return true; }
+    catch (e) { console.error('Deal rooms save error:', e); return false; }
+  }
+
+  // Every entry point reads deals through this: when a different account is
+  // signed in than the one dealRooms holds (a same-tab account switch, or the
+  // first call after auth resolved), reload from that account's key first.
+  function _dealRoomsForCurrentUser() {
+    const uid = _currentUid();
+    if (uid && uid !== _dealRoomsUid) loadDealRooms();
+    return dealRooms;
+  }
+  function _findDeal(dealId) { return _dealRoomsForCurrentUser().find(d => d.id === dealId); }
 
   // Also save to Firestore if available
   async function syncDealToFirestore(deal) {
@@ -176,8 +265,9 @@
   //
   // Prune only what (1) was confirmed BEFORE the read started — a sync that
   // lands mid-read stamps userId on a doc the snapshot may predate; (2) this
-  // user's query can speak for — another account's row (shared device, the
-  // localStorage key is not per-user) is not in it; (3) is not being deleted
+  // user's query can speak for — another account's row is not in it (the
+  // cache is per-account now and loadDealRooms drops rows stamped for another
+  // uid, but the query still judges only this uid's); (3) is not being deleted
   // right now — deleteDeal owns it until its delete settles; and only (4) from
   // a SERVER snapshot: offline, getDocs resolves from the local cache, which
   // is no evidence the server lost anything.
@@ -191,13 +281,17 @@
   async function hydrateFromFirestore() {
     if (!window._db || !window._user) return;
     const uid = window._user.uid;
-    const confirmedBeforeRead = dealRooms.filter(d => _isConfirmedBy(d, uid)).map(d => d.id);
+    const confirmedBeforeRead = _dealRoomsForCurrentUser().filter(d => _isConfirmedBy(d, uid)).map(d => d.id);
     try {
       const { getDocs, query, collection, where } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const snap = await getDocs(query(
         collection(window._db, DEAL_COLLECTION),
         where('userId', '==', uid)
       ));
+      // The account changed while the read was in flight: this is the
+      // previous account's snapshot, and merging it would put their deals on
+      // (and under the key of) the account now signed in.
+      if (_currentUid() !== uid || _dealRoomsUid !== uid) return;
       const byId = {};
       dealRooms.forEach(d => { if (d && d.id) byId[d.id] = d; });
       const returned = new Set();
@@ -298,14 +392,16 @@
       notes: opts.notes || ''
     };
 
-    dealRooms.unshift(deal);
+    // Into the signed-in account's list: after an account switch, dealRooms
+    // may still hold the previous account's rows until something reloads it.
+    _dealRoomsForCurrentUser().unshift(deal);
     saveDealRooms();
     syncDealToFirestore(deal);
     return deal;
   }
 
   function updateDeal(dealId, updates) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     if (deal) {
       Object.assign(deal, updates, { updatedAt: new Date().toISOString() });
       saveDealRooms();
@@ -335,7 +431,7 @@
   // Resolves true when the deal was removed, false when it was kept.
   const _dealDeletesInFlight = new Set();
   async function deleteDeal(dealId) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     if (!deal || _dealDeletesInFlight.has(dealId)) return false;
     const onServer = !!(deal.userId || deal.acceptUrl);
     if (window._db && window._user) {
@@ -376,7 +472,7 @@
   // native confirm on desktop. Only caller is the delegated data-cb-action
   // dispatcher, which ignores the return value — safe to make async.
   async function confirmDeleteDeal(dealId) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     const name = (deal && deal.customerName) || 'this deal';
     const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
     if (await _ask('Delete the deal room for ' + name + '?\nThis removes it from all your devices and cannot be undone.')) {
@@ -673,7 +769,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   // CloseBoard.preview export, whose sole consumers (estimate-v2-ui,
   // rep-os) use createFromEstimate/getDeals — nothing awaits this.
   async function openDealPreview(dealId) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     if (!deal) return;
     const html = generateDealPageHTML(deal);
     // CB fix: the deal preview is INTERACTIVE (pick tier, choose financing,
@@ -708,7 +804,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   }
 
   async function sendViaSMS(dealId) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     if (!deal || !deal.customerPhone) {
       if (window.showToast) window.showToast('No phone number for this customer', 'error');
       return;
@@ -745,7 +841,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   }
 
   async function sendViaEmail(dealId) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     if (!deal || !deal.customerEmail) {
       if (window.showToast) window.showToast('No email for this customer', 'error');
       return;
@@ -840,7 +936,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   }
 
   async function copyDealLink(dealId) {
-    const deal = dealRooms.find(d => d.id === dealId);
+    const deal = _findDeal(dealId);
     if (!deal) return;
     if (window.showToast) window.showToast('Creating accept link…', 'info');
     const url = await getDealAcceptLink(deal);
@@ -875,6 +971,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     const container = document.getElementById('view-closeboard');
     if (!container) return;
     const scroll = container.querySelector('.view-scroll') || container;
+    _dealRoomsForCurrentUser();
 
     // Lapse past-expiry, non-closed deals to 'expired' so the Active list/count
     // stop carrying them forever — nothing else transitions them (no server
@@ -1185,12 +1282,54 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   // INIT & PUBLIC API
   // ============================================================================
 
+  let _awaitingUser = false;
+  let _awaitTimer = null;
+  // Cancel a live waitForUser chain. _awaitingUser alone is not enough: it is
+  // only cleared INSIDE the poll, so a re-entrant init() that finds a user and
+  // takes the fast path below would leave the 250ms chain running, and its next
+  // tick would hydrate a second time — a duplicate Firestore read plus a second
+  // repaint. init() is re-entrant in practice: goTo('closeboard') calls it on
+  // every navigation to the board.
+  function _stopAwaitingUser() {
+    _awaitingUser = false;
+    if (_awaitTimer !== null) { clearTimeout(_awaitTimer); _awaitTimer = null; }
+  }
   function init() {
     loadDealRooms();
     render();
     // Pull server state so remote homeowner acceptances + deals from another
     // device appear and reflect their real status. Async; re-renders on return.
-    hydrateFromFirestore();
+    if (_currentUid()) { _stopAwaitingUser(); hydrateFromFirestore(); return; }
+    // dashboard.html#closeboard runs init() from DOMContentLoaded, which can
+    // beat the auth callback that publishes window._user. Until it does there
+    // is no account key to read, so the board is empty; wait for the user
+    // (as D2D does), then load, paint and hydrate.
+    if (_awaitingUser) return;
+    _awaitingUser = true;
+    let tries = 0;
+    (function waitForUser() {
+      if (_currentUid()) {
+        // Via the helper so the (already-fired) timer handle is nulled too,
+        // leaving no stale id behind for a later _stopAwaitingUser() to clear.
+        _stopAwaitingUser();
+        _dealRoomsForCurrentUser();
+        // Same guard hydrateFromFirestore() uses: never repaint over a rep
+        // who is mid-way through the New Deal form. render() rebuilds the
+        // scroll container's innerHTML, and renderCreateForm() emits fresh
+        // inputs with no value attribute, so an unconditional repaint here
+        // silently blanked every field they had typed — no toast, no warning.
+        // This poll is exactly when it happens: init() runs from
+        // DOMContentLoaded before auth publishes window._user, so the rep can
+        // reach "+ NEW DEAL" and start typing while the 250ms chain is still
+        // waiting. hydrateFromFirestore() below re-renders on its own once
+        // the data lands, under the same guard.
+        if (currentTab !== 'create') render();
+        hydrateFromFirestore();
+        return;
+      }
+      if (++tries >= 120) { _stopAwaitingUser(); return; }
+      _awaitTimer = setTimeout(waitForUser, 250);
+    })();
     // Insurance toggle is bound inside render() (it reattaches on every paint,
     // surviving tab switches); the old one-shot setTimeout bind here fired
     // before the create form existed on the default 'active' tab and is removed.
@@ -1215,7 +1354,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     remove: confirmDeleteDeal,
     updateDeal,
     deleteDeal,
-    getDeals: () => dealRooms,
+    getDeals: () => _dealRoomsForCurrentUser(),
     generatePageHTML: generateDealPageHTML
   };
 

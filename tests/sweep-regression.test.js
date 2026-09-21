@@ -58,11 +58,13 @@ function makeSandbox(extra) {
 console.log('\nClose Board — Closed Value reads the accepted tier/price (#777)');
 (() => {
   const { ctx, sandbox, getById, LS } = makeSandbox({});
-  sandbox.window._db = null; sandbox.window._user = null;
+  // Signed in (the board reads only the signed-in account's per-uid cache);
+  // no _db, so there is no Firestore hydrate to stub.
+  sandbox.window._db = null; sandbox.window._user = { uid: 'u1' };
   vm.runInContext(read('close-board.js'), ctx, { filename: 'close-board.js' });
   const CB = ctx.window.CloseBoard;
   const tiers = { good: { price: 8000 }, better: { price: 11000 }, best: { price: 15000 } };
-  LS['nbd_deal_rooms'] = JSON.stringify([{ id: 'd1', status: 'accepted', acceptedTier: 'best', acceptedPrice: 15000, customerName: 'T', tiers, createdAt: '2026-06-20T00:00:00Z', expiresAt: '2099-01-01T00:00:00Z' }]);
+  LS['nbd_deal_rooms:u1'] = JSON.stringify([{ id: 'd1', status: 'accepted', acceptedTier: 'best', acceptedPrice: 15000, customerName: 'T', tiers, createdAt: '2026-06-20T00:00:00Z', expiresAt: '2099-01-01T00:00:00Z' }]);
   CB.init();
   const html = getById('view-closeboard').innerHTML;
   ok('Closed Value uses the accepted $15,000.00, not the better-tier $11,000.00', html.includes('15,000.00') && !html.includes('11,000.00'));
