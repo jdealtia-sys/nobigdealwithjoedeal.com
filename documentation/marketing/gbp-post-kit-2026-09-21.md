@@ -11,6 +11,14 @@ replacement + micromesh screens, Cincinnati OH) and Post 7 (Rachel Henry's
 soffit repair, Franklin OH), sourced from the follow-up sweep
 (`documentation/audit/PHOTO-SWEEP-2-2026-09-21.md`) and published in
 [PR #1702](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1702).
+
+**UPDATE 3 (same day):** added Post 8 (Brad Musuraca's same-day gutter
+cleaning — the first job in the new `gutter-cleaning` category) and
+Post 9 (Albeliz Santiago's downspout base connector repair), both
+Cincinnati OH. Both were briefly thought blocked on unpaid invoices per
+the internal jobs tracker; both confirmed paid directly against Stripe
+(see [PAYMENT-TRACKER-STALENESS-2026-09-21](../audit/PAYMENT-TRACKER-STALENESS-2026-09-21.md)).
+Published in [PR #1704](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1704).
 Photos are the EXIF-stripped site copies — safe to attach as-is from
 `docs/assets/images/projects/`. Voice per [VOICE_BIBLE](../brand/VOICE_BIBLE.md);
 posting mechanics per [citation-kit](citation-kit-2026-07.md) (Tue/Wed
@@ -137,6 +145,42 @@ soffit-repair card on the site now, in a different town at a different
 price point — reinforces that small repairs are a normal call, not just
 full replacements.
 
+## Post 8 — job post: a gutter cleaning done right (attach cincinnati-oh-gutter-cleaning-2026 photos 1, 2, 3)
+
+> Gutters don't need to be a mystery. This Cincinnati home had a
+> downspout packed solid with decomposed leaf debris and a run that
+> wasn't draining right — cleared every foot of it by hand, not just
+> blown off the top, then flush-tested every downspout to confirm it
+> actually drains free. Before/after photos included, same-day. $200–300.
+> — Joe
+
+Button: **Call now** · Photos: `cincinnati-oh-gutter-cleaning-2026-1.jpg`
+(gloved hand clearing packed debris, mesh guard lifted), `-2.jpg` (the
+clogged downspout opening before), `-3.jpg` (the clean roofline and
+gutter after).
+
+**Why this one's worth its own post:** it's the debut of gutter cleaning
+as a standalone offer on the site — first card in the new
+`/services/gutter-cleaning` category — and the photo set is a genuine
+before/during/after, which this kit has been short on for smaller jobs.
+
+## Post 9 — job post: a downspout connector, done right (attach cincinnati-oh-downspout-connector-repair-2026 photos 1, 2)
+
+> The base of a downspout had failed right where it met the underground
+> drain line on this Cincinnati home — water was finding its way out at
+> the foundation instead of carrying away below grade like it's supposed
+> to. New connector fitted, tied back into the existing line, painted to
+> match. Flow checked before we left. $100–200, one visit. — Joe
+
+Button: **Call now** · Photos:
+`cincinnati-oh-downspout-connector-repair-2026-1.jpg` (close-up of the
+new connector), `-2.jpg` (the connector tied into the drain line at the
+foundation).
+
+**Why this one's easy to ship:** it's the smallest job in this kit and
+exactly the kind of thing that never gets photographed — proof that a
+$125 fix gets the same documentation as a $10,000 one.
+
 ---
 
 ## Facebook variants (longer, more personal — same photos)
@@ -235,14 +279,43 @@ full replacements.
 > of the whole point of the name.
 > (859) 420-7382 — Joe
 
+**FB 7 (pairs with Post 8 — the gutter cleaning debut):**
+
+> "Just blow it out" isn't cleaning it. 🧤
+>
+> This Cincinnati home's downspout was packed solid with decomposed leaf
+> debris — the kind of thing a leaf blower moves around on top of but
+> never actually clears. We pulled it by hand, every run, then
+> flush-tested every downspout with water to confirm it drains free
+> before calling it done.
+>
+> Before/after photos included, because you shouldn't have to climb a
+> ladder to check somebody else's work.
+>
+> $200–300, same-day. (859) 420-7382 — Joe
+
+**FB 8 (pairs with Post 9 — the downspout connector):**
+
+> The $125 jobs get photographed too. 📸
+>
+> The base of a downspout had failed right at the foundation on this
+> Cincinnati home — water finding its way out at ground level instead of
+> carrying away below grade where it belongs. New connector, tied back
+> into the existing drain line, painted to match, flow checked before we
+> left.
+>
+> Small fix, same paperwork and the same photo documentation as
+> everything else we do.
+> (859) 420-7382 — Joe
+
 ---
 
-## GBP photo gallery — 21 fresh photos ready to add
+## GBP photo gallery — 26 fresh photos ready to add
 
 Per the 08-31 posting log, the **photo gallery may be the highest-reach
 surface on the profile** (individual photos there have out-drawn typical
 posts, one past 1,000 views) and it was last refreshed that same day. All
-twenty-one re-encoded photos from this round are graded and ready:
+twenty-six re-encoded photos from this round are graded and ready:
 
 - `cincinnati-oh-smartside-trim-repair-2026-1/2/3` — Joe working, wide gable, rot evidence
 - `cincinnati-oh-gutter-shingle-repair-2026-1/2/3` — aerial, gutter, shingle repair
@@ -251,6 +324,8 @@ twenty-one re-encoded photos from this round are graded and ready:
 - `pipe-boot-gasket-replacement-2026-1/2/3` — the pipe boot before/during/after (no address attached, safe as a pure technique gallery add)
 - `cincinnati-oh-gutter-replacement-screens-2026-1/2/3` — micromesh screen close-up, second roofline with ladder, screen panel detail
 - `franklin-oh-soffit-repair-2026-1/2/3` — open cavity before, boards staged, gable line closed after
+- `cincinnati-oh-gutter-cleaning-2026-1/2/3` — gloved hand clearing debris, clogged downspout before, clean roofline after
+- `cincinnati-oh-downspout-connector-repair-2026-1/2` — new connector close-up, connector tied into the drain line
 
 Same mechanics as before: Jo drives the native picker, agent stages files
 and verifies. Worth doing alongside (not instead of) the posts above — per
