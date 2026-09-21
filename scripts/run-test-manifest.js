@@ -357,7 +357,9 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-21  173/68/262 -> 174/68/263, tests/subcontracting-honesty.test.js.
 //               THIRTEENTH collision. RE-MEASURED via --check after rebasing
 //               onto origin/main once #1690 landed.
-const FLOORS = { node: 174, smoke: 68, disk: 263 };
+//   2026-09-21  FIFTEENTH collision on this line, and the fifth in one
+//               session. RE-MEASURED after #1688 landed: 175/68/264.
+const FLOORS = { node: 175, smoke: 68, disk: 264 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
