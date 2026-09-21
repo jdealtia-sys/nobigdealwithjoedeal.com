@@ -354,7 +354,10 @@ const RUNNABLE = ['node', 'smoke'];
 //               origin/main at dd978b84. PRs #1688 and #1689 are open and
 //               each read their own figure from a different base -- whoever
 //               merges last re-measures rather than adding a delta.
-const FLOORS = { node: 173, smoke: 68, disk: 262 };
+//   2026-09-21  173/68/262 -> 174/68/263, tests/subcontracting-honesty.test.js.
+//               THIRTEENTH collision. RE-MEASURED via --check after rebasing
+//               onto origin/main once #1690 landed.
+const FLOORS = { node: 174, smoke: 68, disk: 263 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
