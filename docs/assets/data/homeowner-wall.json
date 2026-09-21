@@ -21,6 +21,13 @@
     "tag": "Drywall Crack Repair"
   },
   {
+    "image": "/assets/images/projects/batavia-oh-storm-siding-gutter-repair-2026-1.jpg",
+    "city": "Batavia, OH",
+    "alt": "Two-story home with navy board-and-batten gable and blue vinyl siding, repaired wall lying flat",
+    "slug": "batavia-oh-storm-siding-gutter-repair-2026",
+    "tag": "Storm Damage"
+  },
+  {
     "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
     "city": "Mason, OH",
     "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind",
@@ -75,12 +82,5 @@
     "alt": "Overhead drone view of a gray shingle roof with seven new low-profile vents and turbines installed, large fenced backyard below",
     "slug": "blue-ash-oh-roof-vents-thermal-2026",
     "tag": "Thermal Imaging"
-  },
-  {
-    "image": "/assets/images/projects/cincinnati-oh-siding-repair-2026-1.jpg",
-    "city": "Cincinnati, OH",
-    "alt": "Extension ladder reaching a third-story gable while a technician re-secures a piece of vinyl siding at the top",
-    "slug": "cincinnati-oh-siding-repair-2026",
-    "tag": "Same-Day Repair"
   }
 ]
