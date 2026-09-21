@@ -42,6 +42,20 @@
     "tag": "Soffit Repair"
   },
   {
+    "image": "/assets/images/projects/cincinnati-oh-gutter-cleaning-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Gloved hand clearing packed leaf debris out of a gutter run by hand, mesh guard lifted for access",
+    "slug": "cincinnati-oh-gutter-cleaning-2026",
+    "tag": "Gutter Cleaning"
+  },
+  {
+    "image": "/assets/images/projects/cincinnati-oh-downspout-connector-repair-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "Close-up of a new black downspout base connector fitted where the downspout meets the foundation",
+    "slug": "cincinnati-oh-downspout-connector-repair-2026",
+    "tag": "Gutter Repair"
+  },
+  {
     "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
     "city": "Mason, OH",
     "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind",
@@ -68,19 +82,5 @@
     "alt": "Fingertip pointing to torn, bunched EPDM membrane at a corner drain fitting on a flat roof edge, where the sheet should lap flat and sealed",
     "slug": "loveland-oh-epdm-inspection-2026",
     "tag": "Flat Roof"
-  },
-  {
-    "image": "/assets/images/projects/milford-oh-commercial-epdm-rebuild-2023-1.jpg",
-    "city": "Milford, OH",
-    "alt": "Crew tearing off a commercial low-slope roof, with the old EPDM membrane peeled back over water-stained recovery board and rotted layers exposed beside new parapet framing",
-    "slug": "milford-oh-commercial-epdm-rebuild-2023",
-    "tag": "Commercial"
-  },
-  {
-    "image": "/assets/images/projects/loveland-oh-shingle-samples-2026-1.jpg",
-    "city": "Loveland, OH",
-    "alt": "Full strip of aged three-tab asphalt shingle laid on a concrete walkway after removal from the roof, showing heavy granule loss, a worn seam line, and torn spots along one edge",
-    "slug": "loveland-oh-shingle-samples-2026",
-    "tag": "Warranty Support"
   }
 ]
