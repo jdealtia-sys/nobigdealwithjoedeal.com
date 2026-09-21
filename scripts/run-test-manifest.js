@@ -345,7 +345,16 @@ const RUNNABLE = ['node', 'smoke'];
 //               the page stays reachable but advertises no employment terms).
 //               MEASURED via --check on a branch cut from origin/main at
 //               1b3a1398, with no sibling lane open on this line.
-const FLOORS = { node: 171, smoke: 68, disk: 260 };
+//   2026-09-21  171/68/260 -> 173/68/262, the Close Board lane: its own
+//               per-uid storage suite (rebased from an older base) plus
+//               tests/close-board-deferred-auth-repaint.test.js. TWELFTH
+//               collision on this line; the branch carried a stale literal
+//               from before this session, so main's ledger was kept and the
+//               merged tree RE-MEASURED via --check after rebasing onto
+//               origin/main at dd978b84. PRs #1688 and #1689 are open and
+//               each read their own figure from a different base -- whoever
+//               merges last re-measures rather than adding a delta.
+const FLOORS = { node: 173, smoke: 68, disk: 262 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

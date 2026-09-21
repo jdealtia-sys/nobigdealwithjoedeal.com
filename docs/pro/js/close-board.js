@@ -1283,12 +1283,23 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
   // ============================================================================
 
   let _awaitingUser = false;
+  let _awaitTimer = null;
+  // Cancel a live waitForUser chain. _awaitingUser alone is not enough: it is
+  // only cleared INSIDE the poll, so a re-entrant init() that finds a user and
+  // takes the fast path below would leave the 250ms chain running, and its next
+  // tick would hydrate a second time — a duplicate Firestore read plus a second
+  // repaint. init() is re-entrant in practice: goTo('closeboard') calls it on
+  // every navigation to the board.
+  function _stopAwaitingUser() {
+    _awaitingUser = false;
+    if (_awaitTimer !== null) { clearTimeout(_awaitTimer); _awaitTimer = null; }
+  }
   function init() {
     loadDealRooms();
     render();
     // Pull server state so remote homeowner acceptances + deals from another
     // device appear and reflect their real status. Async; re-renders on return.
-    if (_currentUid()) { hydrateFromFirestore(); return; }
+    if (_currentUid()) { _stopAwaitingUser(); hydrateFromFirestore(); return; }
     // dashboard.html#closeboard runs init() from DOMContentLoaded, which can
     // beat the auth callback that publishes window._user. Until it does there
     // is no account key to read, so the board is empty; wait for the user
@@ -1297,9 +1308,27 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     _awaitingUser = true;
     let tries = 0;
     (function waitForUser() {
-      if (_currentUid()) { _awaitingUser = false; _dealRoomsForCurrentUser(); render(); hydrateFromFirestore(); return; }
-      if (++tries >= 120) { _awaitingUser = false; return; }
-      setTimeout(waitForUser, 250);
+      if (_currentUid()) {
+        // Via the helper so the (already-fired) timer handle is nulled too,
+        // leaving no stale id behind for a later _stopAwaitingUser() to clear.
+        _stopAwaitingUser();
+        _dealRoomsForCurrentUser();
+        // Same guard hydrateFromFirestore() uses: never repaint over a rep
+        // who is mid-way through the New Deal form. render() rebuilds the
+        // scroll container's innerHTML, and renderCreateForm() emits fresh
+        // inputs with no value attribute, so an unconditional repaint here
+        // silently blanked every field they had typed — no toast, no warning.
+        // This poll is exactly when it happens: init() runs from
+        // DOMContentLoaded before auth publishes window._user, so the rep can
+        // reach "+ NEW DEAL" and start typing while the 250ms chain is still
+        // waiting. hydrateFromFirestore() below re-renders on its own once
+        // the data lands, under the same guard.
+        if (currentTab !== 'create') render();
+        hydrateFromFirestore();
+        return;
+      }
+      if (++tries >= 120) { _stopAwaitingUser(); return; }
+      _awaitTimer = setTimeout(waitForUser, 250);
     })();
     // Insurance toggle is bound inside render() (it reattaches on every paint,
     // surviving tab switches); the old one-shot setTimeout bind here fired
