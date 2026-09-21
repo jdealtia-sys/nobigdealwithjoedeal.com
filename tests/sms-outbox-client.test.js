@@ -1538,7 +1538,14 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
       open: () => { win._opened = true; },
     };
     const updateDeal = (id, u) => { updates.push({ id, u }); Object.assign(dealRooms.find((d) => d.id === id), u); };
-    const factory = new Function('window', 'getDealAcceptLink', '_dealBrand', 'DEAL_STATUS', 'updateDeal', 'loadDealRooms', 'render', 'getRooms', 'setRooms',
+    // _findDeal / _dealRoomsForCurrentUser arrived with the Close Board
+    // per-account cache (#1690): sendViaSMS no longer indexes `dealRooms`
+    // directly, it goes through the account-scoped accessor. This lift has to
+    // supply it or the composed function throws ReferenceError — which is what
+    // happened the moment this branch was rebased onto that merge. Kept as a
+    // named collaborator rather than inlined so the next refactor over there
+    // fails loudly here instead of silently testing a stale shape.
+    const factory = new Function('window', 'getDealAcceptLink', '_dealBrand', 'DEAL_STATUS', 'updateDeal', 'loadDealRooms', 'render', 'getRooms', 'setRooms', '_findDeal',
       "const DEAL_SMS_SOURCE = 'deal-sms'; let currentTab = 'active';\n"
       + 'let dealRooms = getRooms();\n'
       + applySrc.replace('loadDealRooms();', 'loadDealRooms(); dealRooms = getRooms();') + '\n' + regSrc + '\nasync ' + sendSrc
@@ -1546,7 +1553,8 @@ const SMS = { to: '(859) 555-0134', message: 'Running 10 min late', leadId: 'lea
     const api = factory(win, async () => 'https://nobigdealwithjoedeal.com/deal/tok', () => ({ name: 'NBD' }),
       { DRAFT: 'draft', SENT: 'sent' }, updateDeal,
       () => { calls.push('load'); dealRooms = stored; }, () => calls.push('render'),
-      () => dealRooms, (v) => { dealRooms = v; });
+      () => dealRooms, (v) => { dealRooms = v; },
+      (id) => dealRooms.find((d) => d.id === id));
     ok('close-board registers a "deal-sms" receipt handler with the outbox at load', typeof handlers['deal-sms'] === 'function');
     // A receipt drained before the board's init(): the deal is still only in localStorage.
     const applied = await handlers['deal-sms']({ source: 'deal-sms', sourceRef: 'd1' });
