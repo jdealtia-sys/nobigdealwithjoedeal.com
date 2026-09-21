@@ -28,6 +28,20 @@
     "tag": "Storm Damage"
   },
   {
+    "image": "/assets/images/projects/cincinnati-oh-gutter-replacement-screens-2026-1.jpg",
+    "city": "Cincinnati, OH",
+    "alt": "New seamless gutter with micromesh leaf screen installed along a shingled roofline",
+    "slug": "cincinnati-oh-gutter-replacement-screens-2026",
+    "tag": "Gutter Replacement"
+  },
+  {
+    "image": "/assets/images/projects/franklin-oh-soffit-repair-2026-1.jpg",
+    "city": "Franklin, OH",
+    "alt": "Open soffit cavity at a roofline corner showing the sheathing and framing before repair",
+    "slug": "franklin-oh-soffit-repair-2026",
+    "tag": "Soffit Repair"
+  },
+  {
     "image": "/assets/images/projects/mason-oh-shed-reroof-2026-1.jpg",
     "city": "Mason, OH",
     "alt": "White gambrel shed with dark green trim and double doors under a new charcoal shingle roof, chain-link fence and woods behind",
@@ -68,19 +82,5 @@
     "alt": "Full strip of aged three-tab asphalt shingle laid on a concrete walkway after removal from the roof, showing heavy granule loss, a worn seam line, and torn spots along one edge",
     "slug": "loveland-oh-shingle-samples-2026",
     "tag": "Warranty Support"
-  },
-  {
-    "image": "/assets/images/projects/cincinnati-oh-full-tearoff-reroof-2026-1.jpg",
-    "city": "Cincinnati, OH",
-    "alt": "Drone view of the crew stripping two layers of shingles down to plank decking on a two-story hip roof",
-    "slug": "cincinnati-oh-full-tearoff-reroof-2026",
-    "tag": "Full Tear-Off"
-  },
-  {
-    "image": "/assets/images/projects/blue-ash-oh-roof-vents-thermal-2026-1.jpg",
-    "city": "Blue Ash, OH",
-    "alt": "Overhead drone view of a gray shingle roof with seven new low-profile vents and turbines installed, large fenced backyard below",
-    "slug": "blue-ash-oh-roof-vents-thermal-2026",
-    "tag": "Thermal Imaging"
   }
 ]
