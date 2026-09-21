@@ -1796,6 +1796,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── SMS OUTBOX IDEMPOTENCY CLAIMS (admin-SDK only) ─
+    // sendSMS claims {uid}_{clientMsgId} in a transaction before it replays a
+    // text from the offline outbox (docs/pro/js/sms-outbox.js), so a retry of
+    // a text that already went out answers "duplicate" instead of texting the
+    // homeowner twice. A client that could write here could pre-claim ids and
+    // make its own queued texts report "sent" without sending; one that could
+    // read would see recipient keys. Covered by the default deny below;
+    // spelled out so the intent survives a future rules edit.
+    match /sms_client_ids/{claimId} {
+      allow read, write: if false;
+    }
+
     // Entries for the annual "One Free Roof" giveaway. Written only by
     // the submitPublicLead Cloud Function via admin SDK; NBD staff
     // triages entries through the Firebase console (server-side) so no

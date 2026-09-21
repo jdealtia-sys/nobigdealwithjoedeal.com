@@ -201,6 +201,15 @@ async function run() {
   await assertFails(getDoc(doc(admin,   'report_share_tokens/RPTTOK1')));
   await assertFails(setDoc(doc(alice,   'report_share_tokens/FORGED'), { reportId: 'x', status: 'active' }));
 
+  // 14d. sms_client_ids (offline SMS outbox idempotency claims, sendSMS) —
+  // admin-SDK only. A client that could write here could pre-claim its own
+  // queued texts' ids so they answer "duplicate" (reported sent, never sent);
+  // one that could read would see recipients' canonical phone keys.
+  await assertFails(getDoc(doc(alice,   'sms_client_ids/alice_3f2b8c1e-5d6a-4b7c-9e8f-0a1b2c3d4e5f')));
+  await assertFails(getDoc(doc(admin,   'sms_client_ids/alice_3f2b8c1e-5d6a-4b7c-9e8f-0a1b2c3d4e5f')));
+  await assertFails(setDoc(doc(alice,   'sms_client_ids/alice_3f2b8c1e-5d6a-4b7c-9e8f-0a1b2c3d4e5f'), { status: 'sent' }));
+  await assertFails(setDoc(doc(coAdmin, 'sms_client_ids/alice_anything-else-0000000000'), { status: 'claimed' }));
+
   // 15. parcel_cache — admin-SDK only (fixture seeded above).
   await assertFails(getDoc(doc(alice, 'parcel_cache/abc')));
   await assertFails(getDoc(doc(admin, 'parcel_cache/abc')));

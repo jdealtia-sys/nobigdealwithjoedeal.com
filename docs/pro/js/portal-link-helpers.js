@@ -233,6 +233,31 @@
     return true;
   }
 
+  // A portal-link text queued offline (sms-outbox.js) becomes a share when
+  // the outbox actually sends it — never at queue time. The send can happen
+  // in another tab or on a later page load, so the outbox keeps a receipt and
+  // hands it over through onSent(). This file loads BEFORE sms-outbox.js on
+  // dashboard.html, hence the ready-event fallback.
+  const PORTAL_SMS_SOURCE = 'portal-share-sms';
+  function _applyPortalSmsReceipt(d) {
+    if (!d || typeof d.sourceRef !== 'string' || !d.sourceRef) return false;
+    // _recordShare's Firestore write is best-effort and silently skipped
+    // while the page's Firestore globals are not up; keep the receipt until
+    // they are (a throw leaves it for the next drain).
+    if (!window.db || !window.doc || !window.updateDoc) throw new Error('Firestore not ready');
+    _recordShare(d.sourceRef, 'sms');
+    return true;
+  }
+  function _registerPortalSmsReceipts() {
+    const ob = window.NBDSmsOutbox;
+    if (!ob || typeof ob.onSent !== 'function') return false;
+    ob.onSent(PORTAL_SMS_SOURCE, _applyPortalSmsReceipt);
+    return true;
+  }
+  if (!_registerPortalSmsReceipts() && typeof window.addEventListener === 'function') {
+    window.addEventListener('nbd:sms-outbox-ready', _registerPortalSmsReceipts, { once: true });
+  }
+
   // ─── SMS ────────────────────────────────────────────────────────
   // Mirror of Wave 41's prefilled-body + sms: handoff. Bails with a
   // toast when the lead has no phone (since there's no phone on the
@@ -282,7 +307,15 @@
           to: lead.phone || phone,
           message: body,
           leadId: lead.id,
+          leadStage: typeof lead.stage === 'string' ? lead.stage : undefined,
+          source: PORTAL_SMS_SOURCE,
+          sourceRef: lead.id,
         });
+        // Offline: stored in the outbox, NOT sent — not a share yet. The
+        // outbox receipt (_applyPortalSmsReceipt) records it when the text goes.
+        if (result && result.success && result.mode === 'queued') {
+          return;
+        }
         if (result && result.success) {
           _recordShare(lead.id, 'sms');
           return;

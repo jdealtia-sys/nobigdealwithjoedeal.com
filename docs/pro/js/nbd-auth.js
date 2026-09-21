@@ -742,13 +742,77 @@ export const NBDAuth = {
       }
       drop.forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
     } catch (_) { /* best-effort; never block on a storage error */ }
+    // The offline SMS outbox holds homeowner phone numbers and message text
+    // in IndexedDB until they are sent (docs/pro/js/sms-outbox.js). Same
+    // shared-device rule as the keys above: gone on sign-out and on account
+    // switch. Returned so logout() can wait for it; other callers need not.
+    return NBDAuth.purgeSmsOutbox();
+  },
+
+  /**
+   * Delete every queued text on this device (all accounts) — every phone
+   * number and message. Uses the outbox module when this page loaded it (it
+   * also clears the tray), otherwise opens its database directly — a page
+   * that never loaded the outbox can still be holding one from an earlier
+   * page. Either way RECEIPTS of texts that already went (ids only: no
+   * number, no message) are kept, so the same rep's invoice / deal / share is
+   * still stamped after they sign back in (sms-outbox.js purgeAll — the same
+   * rule, _isPiiFreeReceipt). Resolves true/false, never rejects, and gives
+   * up after 2s so a blocked purge cannot stall sign-out.
+   */
+  purgeSmsOutbox() {
+    const keep = (x) => !!x && typeof x.source === 'string' && !!x.source
+      && typeof x.sourceRef === 'string' && !!x.sourceRef
+      && (x.status === 'sent' || x.status === 'acking') && !x.to && !x.toDigits && !x.body;
+    const work = new Promise((resolve) => {
+      try {
+        const ob = window.NBDSmsOutbox;
+        if (ob && typeof ob.purgeAll === 'function') {
+          Promise.resolve(ob.purgeAll()).then((ok) => resolve(!!ok), () => resolve(false));
+          return;
+        }
+        const idb = window.indexedDB;
+        if (!idb || typeof idb.open !== 'function') { resolve(true); return; }
+        let created = false;
+        const req = idb.open('nbd-sms-outbox-db', 1);
+        req.onupgradeneeded = (e) => {
+          // No outbox database on this device: nothing to purge. Abort the
+          // upgrade so looking does not leave an empty database behind.
+          created = true;
+          try { e.target.transaction.abort(); } catch (_) {}
+        };
+        req.onsuccess = () => {
+          const db = req.result;
+          const close = () => { try { db.close(); } catch (_) {} };
+          if (created || !db.objectStoreNames.contains('outbox')) { close(); resolve(true); return; }
+          let tx;
+          try { tx = db.transaction('outbox', 'readwrite'); } catch (_) { close(); resolve(false); return; }
+          const store = tx.objectStore('outbox');
+          const all = store.getAll();
+          all.onsuccess = () => {
+            (Array.isArray(all.result) ? all.result : []).forEach((x) => {
+              if (x && x.id != null && !keep(x)) store.delete(x.id);
+            });
+          };
+          tx.oncomplete = () => { close(); resolve(true); };
+          tx.onabort = () => { close(); resolve(false); };
+        };
+        // An aborted first-time open (nothing existed) lands here too.
+        req.onerror = () => resolve(created);
+        req.onblocked = () => resolve(false);
+      } catch (_) { resolve(false); }
+    });
+    const cap = new Promise((resolve) => setTimeout(() => resolve(false), 2000));
+    return Promise.race([work, cap]);
   },
 
   /**
    * Sign out and redirect
    */
   async logout(redirect = '/pro/login.html') {
-    this.purgeAccountStorage();
+    // Awaited (bounded inside) so the queued-text purge finishes before the
+    // navigation below can cut its IndexedDB transaction off.
+    try { await this.purgeAccountStorage(); } catch (_) {}
     try {
       await signOut(_auth);
     } catch(e) { console.warn('Logout error:', e.message); }

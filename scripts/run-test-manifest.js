@@ -359,7 +359,10 @@ const RUNNABLE = ['node', 'smoke'];
 //               onto origin/main once #1690 landed.
 //   2026-09-21  FIFTEENTH collision on this line, and the fifth in one
 //               session. RE-MEASURED after #1688 landed: 175/68/264.
-const FLOORS = { node: 175, smoke: 68, disk: 264 };
+//   2026-09-21  SIXTEENTH collision. The SMS outbox lane adds two node suites
+//               (sms-outbox-client, sms-outbox-server). RE-MEASURED after the
+//               nine PRs that landed ahead of it today: 177/68/266.
+const FLOORS = { node: 177, smoke: 68, disk: 266 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
