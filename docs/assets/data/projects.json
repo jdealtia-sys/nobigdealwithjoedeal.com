@@ -1872,6 +1872,38 @@
       "priceLow": 1250,
       "priceHigh": 1500,
       "year": 2026
+    },
+    {
+      "slug": "batavia-oh-storm-siding-gutter-repair-2026",
+      "title": "Storm Siding Refasten + Gutter Repair",
+      "services": [
+        "siding-repair",
+        "storm-damage",
+        "gutter-replacement"
+      ],
+      "tag": "Storm Damage",
+      "city": "Batavia, OH",
+      "description": "Wind pulled the siding fasteners loose across several courses — we unlocked, refastened and re-locked the wall so it lies flat with no bubbles, plus a matching aluminum gutter extension carried the downspout the rest of the way to the ground.",
+      "hero": "/assets/images/projects/batavia-oh-storm-siding-gutter-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/batavia-oh-storm-siding-gutter-repair-2026-1.jpg",
+          "alt": "Two-story home with navy board-and-batten gable and blue vinyl siding, repaired wall lying flat"
+        },
+        {
+          "src": "/assets/images/projects/batavia-oh-storm-siding-gutter-repair-2026-2.jpg",
+          "alt": "Rooftop view of a new gutter corner and downspout at the eave, overlooking the neighborhood street"
+        },
+        {
+          "src": "/assets/images/projects/batavia-oh-storm-siding-gutter-repair-2026-3.jpg",
+          "alt": "Close-up of a gutter corner miter and downspout outlet against gray vinyl siding"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 900,
+      "priceHigh": 1200,
+      "year": 2026
     }
   ]
 }
