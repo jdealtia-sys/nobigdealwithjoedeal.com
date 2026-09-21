@@ -69,6 +69,7 @@ const SERVICES = {
   'wood-siding-repair': 'Wood Siding Repair',
   'shed-roof-replacement': 'Sheds & Outbuildings',
   'gutter-replacement': 'Gutters',
+  'gutter-cleaning': 'Gutter Cleaning',
   'storm-damage': 'Storm & Hail',
   'roof-inspection': 'Inspection',
   'interior-repair': 'Interior Repair',
