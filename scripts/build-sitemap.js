@@ -77,7 +77,12 @@ const CORE_PAGES = [
   ['privacy',      'privacy.html',          '0.6',  'monthly'],
   ['review',       'review.html',           '0.6',  'monthly'],
   ['partners',     'partners.html',         '0.6',  'monthly'],
-  ['careers',      'careers.html',          '0.5',  'monthly'],
+  // ['careers',   'careers.html',          '0.5',  'monthly'],
+  //   Pulled 2026-09-20 with the job posting itself. careers.html still EXISTS
+  //   and still resolves — 219 pages link to it from the footer partial — but
+  //   it now says "nothing open" and carries robots noindex, so listing it in
+  //   the sitemap would be asking Google to index a noindex page. Restore this
+  //   row in the same change that puts a corrected posting back up.
 ];
 
 // Index hubs. No trailing slash: Firebase Hosting runs trailingSlash:false,
