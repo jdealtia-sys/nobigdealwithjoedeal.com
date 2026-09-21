@@ -80,9 +80,13 @@ true and a human confirmed them.
 
 ---
 
-## 2. STILL OPEN — #1675, offline SMS outbox
+## 2. CLOSED LATE — offline SMS outbox shipped as #1692
 
-**Do not merge without reading this.**
+**This section said "STILL OPEN" when it was first written.** The review landed
+before the session actually ended, its blocker was fixed, and the lane merged.
+Corrected in place rather than left to mislead — see the UPDATE at the end of
+this section for what changed. The history below is kept because the *reasoning*
+still matters to anyone touching this code.
 
 The branch `feat/sms-offline-outbox-v2` (worktree `C:/Users/jonat/nbd-wt-sms`)
 now contains, as ONE commit:
@@ -112,16 +116,55 @@ it never settle, and reverting the `Promise.race` turns it red with `"HUNG"`.
 
 Suites green: **client 197, server 208.**
 
-**A 4-lens adversarial review of the adopted delta was still running when the
-session ended** (run `wf_047d7d37-b5a`, journal at
-`.claude/projects/.../subagents/workflows/wf_047d7d37-b5a/journal.jsonl`).
-It covers clock-skew/TCPA, double-send, money/invoice, and deploy sequencing.
-**Read its verdict before merging.** The branch has no PR yet; #1675 still points
-at the old `feat/sms-offline-outbox` and is `DIRTY`.
+A 4-lens adversarial review of the adopted delta ran as run `wf_047d7d37-b5a`
+(journal at `.claude/projects/.../subagents/workflows/wf_047d7d37-b5a/journal.jsonl`),
+covering clock-skew/TCPA, double-send, money/invoice, and deploy sequencing.
 
-Known from round 2, still true, **flagged not fixed**: the `{toDigits, date}`
-composite index must finish BUILDING before the functions deploy, or every queued
-text parks in the tray until it does (fails closed — safe, just confusing).
+### UPDATE — merged as #1692, 2026-09-21
+
+**Verdict: "MERGE AFTER FIXES — one required. Adopting the round-3 delta was
+sound. Nothing in the delta should be backed out."** 5 findings, 3 survived
+3-refuter verification: 1 blocker, 2 nits.
+
+**The blocker was money-visible.** `_releaseSendLock` prefers
+`window.runTransaction`, and both CRM pages define it — but a Firestore
+transaction **cannot run offline**, and the queued path only ever executes
+*because* we are offline. So `sendingPriorStatus` was wired correctly at every
+write path and the one restore that mattered was routed through the one
+primitive guaranteed not to work there. A **paid** invoice whose queued text was
+later discarded sat at `status:'sending'` with nothing to clear it (`discard()`
+and `lead_gone` emit no receipt); `money-dashboard.js:149` skips only
+`status === 'paid'` and then promotes a zero `balanceDue` to full total, so it
+re-entered Outstanding A/R and the Collections queue and re-offered "Mark Paid".
+Fixed with a `preferLocal` flag taking the non-transactional arm.
+
+**Not a regression, and the review was careful to say so:** at `HEAD~1` the
+acquire was an unbounded `await` with no `sendingPriorStatus` at all, and the
+same phantom A/R hit **100%** of offline paid-invoice texts. The delta narrowed
+it; this closed the residue. The catch-path release was bounded in the same pass
+for the same reason.
+
+**The rebase also caught a cross-branch break nobody could have seen:** the
+client suite crashed with `ReferenceError: _findDeal is not defined`, because
+#1690's Close Board per-account cache refactored `sendViaSMS` to go through
+`_findDeal` / `_dealRoomsForCurrentUser`. Two branches developed in parallel
+cannot see that until one rebases. The lift now supplies it as a named
+collaborator.
+
+**Logged, deliberately NOT fixed** (both survived verification as nits):
+`sms-functions.js:414` skips the unrouted-inbound scan when there is no
+`leadId` — a documented privacy boundary, rep-overridable, and the reply lands
+in `unmatched_sms` either way; and `sms-outbox-guard.js:358`'s `ownEarlierQueued`
+is scoped by `uid` alone, so a same-uid second device's copy is exempted rather
+than held. The latter is **byte-identical in `0c26734a`**, which round 2's
+refuters already passed — pre-existing, one duplicate text, no opt-out bypass,
+and unfixable without minting a per-outbox id. Backlog.
+
+**STILL TRUE AND STILL THE THING TO WATCH:** the `{toDigits, date}` composite
+index must finish BUILDING before the functions serve traffic. If functions land
+first every queued text parks in the tray until it completes. It **fails closed**
+(`FAILED_PRECONDITION` → 503 → client retries), so nothing is lost — but a first
+test in that window will look broken when it is not.
 
 ---
 
