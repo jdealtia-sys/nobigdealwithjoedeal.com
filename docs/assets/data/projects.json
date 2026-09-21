@@ -1842,6 +1842,36 @@
       "priceLow": 1750,
       "priceHigh": 2000,
       "year": 2026
+    },
+    {
+      "slug": "cincinnati-oh-interior-drywall-repair-2026",
+      "title": "Ceiling & Wall Crack Repair",
+      "services": [
+        "interior-repair"
+      ],
+      "tag": "Drywall Crack Repair",
+      "city": "Cincinnati, OH",
+      "description": "Filled and finished cracks, gaps and separated joints across a full ceiling and walls, re-taped and re-mudded where the old tape had lifted, caulked and sanded smooth — left ready for the homeowner's own paint.",
+      "hero": "/assets/images/projects/cincinnati-oh-interior-drywall-repair-2026-1.jpg",
+      "photos": [
+        {
+          "src": "/assets/images/projects/cincinnati-oh-interior-drywall-repair-2026-1.jpg",
+          "alt": "Hairline crack running across a garage ceiling near a fluorescent light fixture"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-interior-drywall-repair-2026-2.jpg",
+          "alt": "Crack along a ceiling-to-wall corner seam above a window"
+        },
+        {
+          "src": "/assets/images/projects/cincinnati-oh-interior-drywall-repair-2026-3.jpg",
+          "alt": "Freshly re-mudded ceiling and wall joint, patched and feathered smooth ahead of paint"
+        }
+      ],
+      "consentOnFile": true,
+      "published": "2026-09-21",
+      "priceLow": 1250,
+      "priceHigh": 1500,
+      "year": 2026
     }
   ]
 }

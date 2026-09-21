@@ -116,13 +116,14 @@ const PREMIUM_BLOG_POSTS = [
 ];
 const GAF_TIMBERLINE_BLOG = ['why-class-4-impact-shingles', '0.7'];
 
-// The 12 plain service pages (no city suffix). Everything else under
+// The 15 plain service pages (no city suffix). Everything else under
 // docs/services/*.html is a service+city combo page.
 const PLAIN_SERVICES = new Set([
   'financing',
   'fire-water-smoke-damage',
   'gutter-replacement',
   'hail-damage-insurance-claim',
+  'interior-repair',
   'roof-care-plan',
   'roof-cleaning-soft-wash',
   'roof-inspection',
