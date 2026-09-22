@@ -28,7 +28,7 @@
  *     closeMobileJobDetail, populateProspectQuickActions
  *     → dashboard-widgets.js
  *   - updateBreadcrumb, _hydrateViewTemplate, data-action delegate,
- *     showToast, Cal.com UI, autocomplete UI, DOC_TEMPLATES + doc
+ *     Cal.com UI, autocomplete UI, DOC_TEMPLATES + doc
  *     viewer UI, property-intel modal UI, applyTheme + loadSavedTheme
  *     + nbdComfort*, kanban density UI, sidebar/fullscreen/Tools
  *     menu / scroll-collapse, ds floor/theme grid render, mobileNav,
@@ -51,8 +51,11 @@
  *     _mCreatePhotoPicked, openLeadDetail, confirmPromoteProspect,
  *     toggleProspectHidden, viewProspectOnMap, absoluteDeleteProspect,
  *     _stashLeadForCustomerPage, openPhotosForLead, openDocsForLead,
- *     openFullCustomerDetails, editCardDetails, and the long block of
- *     forward-references onto window → dashboard-actions.js
+ *     openFullCustomerDetails, editCardDetails → dashboard-actions.js
+ *     (its long block of forward-references onto window was deleted
+ *     in Globals Tranche 3 T3-A part 1, 2026-08-31)
+ *   - showToast → js/ui.js (dashboard-ui.js's legacy copy was deleted
+ *     in the T3-A whole-file IIFE wrap, 2026-09-18)
  *
  * The behavioural surface area is unchanged. Smoke tests pre-split
  * (`1404 passed, 0 failed`) must still pass post-split.

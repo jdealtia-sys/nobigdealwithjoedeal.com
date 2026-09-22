@@ -972,8 +972,9 @@ const shareCalViaEmail = function() {
 // declaration would SHADOW the global for this file only and flip those calls
 // back onto the legacy queue, so it was deleted instead. Bare showToast here
 // resolves to the global: dashboard-ui-prefs-boot.js's fallback until ui.js
-// runs, then ui.js's owner. dashboard-state.js's toastQueue / toastActive are
-// unused since. Do not re-declare showToast in this file.
+// runs, then ui.js's owner. dashboard-state.js's old toastQueue / toastActive
+// state went unused and was deleted 2026-09-22. Do not re-declare showToast in
+// this file.
 
 // ══════════════════════════════════════════════
 // DAMAGE PHOTOS — modal close + photo mode toggle
@@ -1917,9 +1918,10 @@ const toggleKanbanFullscreen = function () {
   if (btn) btn.classList.toggle('active', fullscreen);
 };
 // The bootPageBreathe Esc listener (further down this file) bare-calls
-// toggleKanbanFullscreen from inside its own IIFE — a top-level const is a
-// script-level lexical binding, visible there without any global-object hop,
-// so Esc-to-exit keeps working with the name off window.
+// toggleKanbanFullscreen from inside its own IIFE. That IIFE is nested in
+// this file's whole-file IIFE, where this const is declared, so the bare name
+// resolves lexically with no global-object hop and Esc-to-exit keeps working
+// with the name off window.
 
 // Tools dropdown (collapsed secondary toolbar)
 function toggleCrmToolsMenu(ev) {
@@ -2554,42 +2556,13 @@ const quickStormCheck = async function() {
   );
 };
 
-// ── Auto-setup spyglass autocomplete ──────────────────────────
-(function() {
-  // Wait for initAllAutocomplete to run, then add spyglass
-  const _origInit = window.initAllAutocomplete;
-  window.initAllAutocomplete = function() {
-    if(_origInit) _origInit();
-    if(!window._acCallbacks) window._acCallbacks = {};
-    window._acCallbacks['spyglassInput'] = (r, label) => {
-      window._lastMapSearch = r;
-      if(mainMap) mainMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 18);
-      // propCard/propCardInner live in tpl-view-map — guard.
-      const propCard = document.getElementById('propCard');
-      const propCardInner = document.getElementById('propCardInner');
-      if (propCard && propCardInner) {
-        propCard.style.display = 'block';
-        propCardInner.innerHTML = `
-          <div class="pi-card">
-            <div class="pi-header"><span class="pi-title">🏠 Property Intel</span></div>
-            <div class="pi-loading"><div class="pi-spinner"></div>Estimating property profile...</div>
-          </div>
-          <button class="make-lead-btn" data-du-action="makeLeadFromSearch">＋ Make This a Lead</button>`;
-        fetchPropertyIntel(r, 'propCardInner');
-      }
-    };
-    if(typeof initAddressAutocomplete === 'function') {
-      initAddressAutocomplete('spyglassInput');
-    }
-  };
-})();
-
-// ── Hook pin stats refresh into dropPin and deletePin ──────────
-const _origDropPin = window.dropPin || null;
-const _origDeletePin = window.deletePin || null;
-
-// Refresh stats after map init
-const _origInitMainMap = window.initMainMap;
+// (Removed 2026-09-22: a spyglass autocomplete wrapper that replaced
+// initAllAutocomplete's global slot to also bind #spyglassInput, and three unused
+// _origDropPin/_origDeletePin/_origInitMainMap captures. The wrapper never ran:
+// the boot call above binds the original function before this point, and nothing
+// else ever called it through the global object. After the whole-file IIFE wrap it
+// had nothing left to wrap either. #spyglassInput therefore has no address
+// autocomplete, only Enter -> spyglassSearch, which is what it has always done.)
 
 // ── Zone tooltip CSS ─────────────────────────────────────────
 (function injectZoneCSS(){
@@ -2628,10 +2601,12 @@ const _origInitMainMap = window.initMainMap;
 // ── Delegate registration (Globals Tranche 2c-4g — 2026-07-08) ──
 // Three leaf comfort/kanban handlers dispatched ONLY from markup, through THIS
 // file’s own registry-first resolver (_nbdResolveCall). Converted from auto-global
-// `function X` declarations to top-level `const X = function` (off window in this
-// classic, non-IIFE-wrapped script) + registered here; their _NBD_CALL_ALLOWLIST
-// entries are dropped in dashboard-state.js. MUST-STAY siblings keep window +
-// allowlist: setKanbanDensity (auto-global backing), setPhotoMode (widgets.js
+// `function X` declarations to `const X = function` (off window: a const never
+// becomes a window property, and since T3-A the whole file is one IIFE anyway)
+// + registered here; their _NBD_CALL_ALLOWLIST entries are dropped in
+// dashboard-state.js. MUST-STAY siblings keep window + allowlist (via explicit
+// `window.X = X` exports since the T3-A wrap): setKanbanDensity (allowlist
+// dispatch backing), setPhotoMode (widgets.js
 // cross-file call), nbdComfortSet (prefs-boot.js cross-file calls).
 window.__NBD_CALL_REGISTRY = window.__NBD_CALL_REGISTRY || Object.create(null);
 Object.assign(window.__NBD_CALL_REGISTRY, {
@@ -2640,9 +2615,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   nbdComfortSetWhisperKey: nbdComfortSetWhisperKey,
   // Tranche 2c-4h (Slice H1, 2026-07-08): 9 leaf cal/photo/template handlers,
   // each a bare `function X` living ONLY in this file with zero cross-file
-  // callers (21-agent audit). Converted to `const X = function` (off window in
-  // this classic script) + registered here; allowlist entries dropped in
-  // dashboard-state.js. TDZ-safe: the sole non-markup caller (loadCalSettings →
+  // callers (21-agent audit). Converted to `const X = function` (off window;
+  // file-private since the T3-A IIFE wrap) + registered here; allowlist
+  // entries dropped in dashboard-state.js. TDZ-safe: the sole non-markup caller (loadCalSettings →
   // updateCalEmbed) runs from dashboard-main.js's DOMContentLoaded, long after
   // these consts initialize.
   saveCalSettings: saveCalSettings,
@@ -2668,9 +2643,9 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   printDoc: printDoc,
   // Tranche 3 dispatch-map slice (2026-09-02): six handlers whose ONLY reach
   // is _NBD_TOGGLE_FNS / _NBD_MODAL_CLOSE_FNS (registry-first since T3-M).
-  // Each converted from an auto-global declaration to a top-level const in
-  // this classic script + registered here — same scope as the definitions,
-  // so no cross-IIFE ordering trap. Their map entries in dashboard-state.js
+  // Each converted from an auto-global declaration to a const in this file
+  // (file-private since the T3-A IIFE wrap) + registered here — same scope
+  // as the definitions, so no cross-IIFE ordering trap. Their map entries in dashboard-state.js
   // are now the only dispatch path: losing either half of a pair is a
   // modal-Joe-cannot-close bug, and the graduate pins in
   // tests/smoke/dashboard.test.js lock both halves. Per-name reach proofs

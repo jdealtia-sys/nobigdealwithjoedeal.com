@@ -987,15 +987,17 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
 //     window.mobileNav = mobileNav;
 //     window.toggleMobileMore = toggleMobileMore;
 //     window.closeMobileMore = closeMobileMore;
-// All three are defined in dashboard-ui.js (mobileNav:2231, toggleMobileMore:2250,
-// closeMobileMore:2259), each a TOP-LEVEL declaration — verified by brace depth,
-// not indentation, since the house style puts IIFE bodies at column 0 too.
-// dashboard-ui.js loads first (dashboard.html:5457 before :5458), so all three
-// were already window properties when these lines ran: `window.X = window.X`.
+// All three are defined in dashboard-ui.js, which loads first. On 2026-09-01
+// each was a TOP-LEVEL declaration there (verified by brace depth, not
+// indentation, since the house style puts IIFE bodies at column 0 too), so all
+// three were already window properties when these lines ran: `window.X = window.X`.
+// Since the Tranche 3 T3-A whole-file IIFE wrap of dashboard-ui.js (2026-09-18)
+// they reach window through that file's explicit export block instead.
 // Deleted 2026-09-01. Verified by running tests/e2e/globals-surface-snapshot.spec.js
 // against the live emulator-backed dashboard AFTER the deletion: all three still
 // resolve as functions on window (via dashboard-ui.js's auto-globals), which is
-// what the spec pins them for. Note this is an after-state check, not a
+// what the spec pins them for (today via dashboard-ui.js's explicit exports,
+// not auto-globals — see above). Note this is an after-state check, not a
 // before/after diff — the BEFORE7/AFTER7 pair on disk belongs to slice T3-A
 // part 1, which did NOT touch these three lines.
 
@@ -1122,7 +1124,9 @@ if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportE
 //     anywhere in the tree.
 //   • 24 were REDUNDANT. The subject is a top-level `function` declaration in
 //     an EARLIER classic script, which already makes it a window property, so
-//     `window.X = X` re-assigned a name to the value it already held.
+//     `window.X = X` re-assigned a name to the value it already held. (True
+//     on 2026-08-31. dashboard-ui.js has since been wrapped in one IIFE, so
+//     its names now reach window only through its explicit export block.)
 //
 // KEPT DELIBERATELY: the `if (typeof startNewEstimate === 'function') { … }
 // else { … }` block above only LOOKS like one of these. Its else-branch is
@@ -1159,7 +1163,8 @@ if (typeof window.PhotoEngine === 'undefined' || typeof window.InspectionReportE
 // handler, both of which call dsLoadConfig) are wrapped in this one IIFE so the
 // internal helpers (dsGetConfig/dsLoadConfig/dsDefaultFloors) go module-local.
 // dsAddFloor/dsSaveConfig/dsResetDefaults register in __NBD_CALL_REGISTRY;
-// dsRemoveFloor keeps a window re-export (bare-called at dashboard-ui.js:2208).
+// dsRemoveFloor keeps a window re-export (bare-called by dashboard-ui.js's
+// dsRenderFloors remove buttons).
 // Shared state (dsFloors, DS_* consts) lives in dashboard-state.js up-scope and
 // dsRenderFloors/dsBuildThemeGrid in dashboard-ui.js — all resolve up-scope,
 // unaffected by the wrap. See docs/dev/dashboard-actions-globals-audit.md.
@@ -1300,7 +1305,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-  // dsRemoveFloor is bare-called from dashboard-ui.js:2208 (the floor-row delete
+  // dsRemoveFloor is bare-called from dashboard-ui.js dsRenderFloors (the floor-row delete
   // button) — MUST keep a window export. The other three convert to the registry;
   // dsGetConfig/dsLoadConfig/dsDefaultFloors are private (intra-IIFE callers only).
   window.dsRemoveFloor = dsRemoveFloor;

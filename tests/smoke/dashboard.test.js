@@ -3107,9 +3107,12 @@ section('Globals Tranches 0+1: converted names stay off window');
     // the wrap made them private with no export. NOT here: the 15 names the
     // file exports explicitly (outside consumers or the snapshot test seam),
     // showToast (the legacy duplicate was deleted; ui.js owns the global),
-    // initAllAutocomplete (the spyglass wrapper still writes its window slot),
     // and the four zero-consumer explicit exports nbdComfortRefresh and
     // nbdAutoThemeStart/Stop/ApplyForNow, left byte-identical.
+    // initAllAutocomplete joined 2026-09-22: its last window write was a dead
+    // spyglass wrapper (it never ran; nothing called window.initAllAutocomplete),
+    // deleted then. The file boots it with a bare, file-private call.
+    'initAllAutocomplete',
     '_nbdResolveCall', '_nbdOnChangeDelegate', '_calSignOff', 'openTips',
     'initAddressAutocomplete', '_abbreviateRoadSuffix', '_state2letter',
     'selectAcItem', '_nbdRepName', '_nbdDocCompany', 'openDocTemplate',
@@ -3125,7 +3128,8 @@ section('Globals Tranches 0+1: converted names stay off window');
     // Tranche 2c-4f (2026-07-07): dashboard-bootstrap.module.js settings/debug/
     // export handlers — module-scoped (real ES module, no IIFE), dispatched via
     // __NBD_CALL_REGISTRY. NOT here (MUST-STAY window exports): loadSampleData
-    // (dashboard-actions.js twin), _saveEstimateDefaultsV2 (self-read).
+    // (owned by dashboard-actions.js — the module's shadowed twin was deleted
+    // 2026-09-22), _saveEstimateDefaultsV2 (self-read).
     'runLeadAction', 'retryLoadLeads', 'copyDebugInfo', 'testFirestoreRules',
     '_saveSettings', '_saveNotifSettings', '_saveCompanySettings', '_testNotif',
     '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
@@ -3270,6 +3274,43 @@ section('Globals Tranches 0+1: converted names stay off window');
     'OfflineManager', 'PWAInstallNudge', 'PipelineBottleneck', 'PrefsSync',
     'ROOFIVENT_CATALOG', 'ShortcutsHelp', 'SmartFollowupBriefing',
     'StaleSharesWidget'];
+  // Three shapes put a name back on the global object, and the walk must see
+  // all of them (2026-09-22 — before this it only matched the dotted form, so
+  // the other two re-grew a converted name silently):
+  //   window.X = …                      dotted (the original check)
+  //   window['X'] = … / window["X"]     bracket notation with a literal key
+  //   Object.assign(window, { X, … })   bulk re-export (keys only: shorthand,
+  //                                     `X: …`, quoted `'X': …`, method `X() {}`)
+  // globalThis is treated the same as window for the last two. Dynamic
+  // window[fnName] dispatch is not a re-export and is not flagged.
+  // Object.assign(window.__NBD_CALL_REGISTRY, …) is the REGISTRY, not window,
+  // and must not match.
+  const windowReexportedNames = (src) => {
+    const out = new Set();
+    for (const m of src.matchAll(/\b(?:window|globalThis)\s*\[\s*(['"`])([A-Za-z_$][\w$]*)\1\s*\]/g)) out.add(m[2]);
+    const OA = /\bObject\.assign\s*\(\s*(?:window|globalThis)\s*,/g;
+    let m;
+    while ((m = OA.exec(src))) {
+      // Scan to the matching close paren, skipping string literals and comments.
+      let depth = 1, i = OA.lastIndex, arg = '';
+      while (i < src.length && depth > 0) {
+        const c = src[i];
+        if (c === '"' || c === "'" || c === '`') {
+          let j = i + 1;
+          while (j < src.length && src[j] !== c) j += (src[j] === '\\') ? 2 : 1;
+          arg += src.slice(i, j + 1); i = j + 1; continue;
+        }
+        if (c === '/' && src[i + 1] === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+        if (c === '/' && src[i + 1] === '*') { const e = src.indexOf('*/', i + 2); i = e < 0 ? src.length : e + 2; continue; }
+        if (c === '(') depth++;
+        else if (c === ')') { depth--; if (depth === 0) break; }
+        arg += c; i++;
+      }
+      // A key sits right after `{` or `,`; a value sits after `:` and is not a key.
+      for (const k of arg.matchAll(/[{,]\s*(['"]?)([A-Za-z_$][\w$]*)\1\s*(?=[:,}(])/g)) out.add(k[2]);
+    }
+    return out;
+  };
   const offenders = [];
   const walk = (dir) => {
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -3277,15 +3318,47 @@ section('Globals Tranches 0+1: converted names stay off window');
       if (entry.isDirectory()) { walk(fp); continue; }
       if (!/\.(js|html)$/.test(entry.name)) continue;
       const src = fs.readFileSync(fp, 'utf8');
+      const reexported = windowReexportedNames(src);
       for (const n of NAMES) {
         // $-prefixed names must be escaped or the RegExp reads them as anchors
         const esc = n.replace(/\$/g, '\\$');
-        if (new RegExp('window\\.' + esc + '\\b').test(src)) {
+        if (new RegExp('window\\.' + esc + '\\b').test(src) || reexported.has(n)) {
           offenders.push(path.relative(ROOT, fp) + ':' + n);
         }
       }
     }
   };
+  // The walk's own detector, pinned on fixtures so it cannot quietly go blind.
+  // Each POSITIVE shape was missed by the dotted-only check this replaced.
+  {
+    const pos = {
+      'bracket, single quote': "window['fooName'] = fooName;",
+      'bracket, double quote + spaces': 'window[ "fooName" ] = fooName;',
+      'bracket, globalThis': "globalThis['fooName'] = fooName;",
+      'Object.assign shorthand': 'Object.assign(window, { barName, fooName });',
+      'Object.assign key: value': 'Object.assign(window, {\n  fooName: fooName,\n});',
+      'Object.assign quoted key': "Object.assign(window, { 'fooName': fooImpl });",
+      'Object.assign after a comment': 'Object.assign(window, { // exports\n  fooName });',
+      'Object.assign method shorthand': 'Object.assign(window, { fooName() { return 1; } });',
+      'Object.assign(globalThis, …)': 'Object.assign(globalThis, { fooName });',
+    };
+    for (const [label, src] of Object.entries(pos)) {
+      assert('T1 walk detector catches the ' + label + ' re-export shape',
+        windowReexportedNames(src).has('fooName'));
+    }
+    const neg = {
+      'the registry (Object.assign(window.__NBD_CALL_REGISTRY, …))':
+        'Object.assign(window.__NBD_CALL_REGISTRY, { fooName: fooName });',
+      'a value, not a key': 'Object.assign(window, { other: fooName });',
+      'dynamic window[fnName] dispatch': 'const fnName = "fooName"; window[fnName]();',
+      'the name inside a string value': "Object.assign(window, { other: 'fooName' });",
+      'the name only in a comment': 'Object.assign(window, { /* fooName */ other });',
+    };
+    for (const [label, src] of Object.entries(neg)) {
+      assert('T1 walk detector does NOT flag ' + label,
+        !windowReexportedNames(src).has('fooName'));
+    }
+  }
   walk(path.join(ROOT, 'docs'));
   assert('no window.<TrancheZeroName> references anywhere under docs/ — '
       + (offenders.slice(0, 5).join(', ') || 'clean'), offenders.length === 0);
@@ -4053,6 +4126,8 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     !/\b(?:function|const|let|var)\s+showToast\b/.test(ui)
       && !/\bprocessToastQueue\b/.test(ui)
       && !/toastQueue\.(?:push|shift)\(/.test(ui));
+  assert('dashboard-state.js no longer declares the dead toastQueue / toastActive toast state (deleted 2026-09-22)',
+    !/\b(?:const|let|var)\s+(?:toastQueue|toastActive)\b/.test(stateSrc));
   const duToastOwnerSrc = read(path.join(PRO_JS, 'ui.js'));
   assert('ui.js still owns the global showToast that dashboard-ui.js\'s bare calls resolve to',
     /^function showToast\(/m.test(duToastOwnerSrc) && /window\.showToast = showToast;/.test(duToastOwnerSrc));
@@ -4060,8 +4135,9 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   // First NON-dashboard-actions module in this tranche, and a real ES module —
   // so the 15 markup-dispatched settings/debug/export handlers just move from
   // window.X to a single __NBD_CALL_REGISTRY block (no IIFE). Three MUST-STAY
-  // names keep BOTH window export + allowlist (self-read / ui.js cross-file);
-  // loadSampleData also stays (dashboard-actions.js:913 exports its own twin).
+  // names keep BOTH window export + allowlist (self-read / ui.js cross-file).
+  // loadSampleData stays on window + allowlist too, but it is owned by
+  // dashboard-actions.js alone — see the pin block right below.
   const T2C4F_NAMES = ['runLeadAction', 'retryLoadLeads', 'copyDebugInfo',
     'testFirestoreRules', '_saveSettings', '_saveNotifSettings', '_saveCompanySettings',
     '_testNotif', '_resetEstimateDefaultsV2', '_saveSiteSlug', '_saveCompanyProfileSettings',
@@ -4080,6 +4156,32 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   for (const [n, why] of [['_saveEstimateDefaultsV2', 'intra-module self-read']]) {
     assert('dashboard-bootstrap keeps window.' + n + ' (' + why + ')',
       new RegExp('window\\.' + n + '\\s*=').test(bootReg) && new RegExp("'" + n + "'").test(stateSrc));
+  }
+  // loadSampleData (2026-09-22). The module used to carry a confirm-less twin
+  // (no _leadsLoaded gate, no "you already have N leads" confirm) and export it
+  // as window.loadSampleData. It was always shadowed: the module runs first
+  // (document order, no top-level await) and dashboard-actions.js's top-level
+  // declaration then replaces the window property. The twin was deleted; these
+  // pins keep what the old MUST-STAY entry protected — a live, guarded,
+  // markup-dispatchable loadSampleData — and keep the twin from coming back.
+  {
+    const lsdActions = read(path.join(PRO_JS, 'dashboard-actions.js'));
+    const lsdAt = lsdActions.search(/^async function loadSampleData\(\)/m);
+    const lsdBody = lsdAt >= 0 ? lsdActions.slice(lsdAt, lsdActions.indexOf('\n}', lsdAt)) : '';
+    assert('dashboard-actions.js declares loadSampleData at top level (a window property, so data-fn dispatch reaches it)',
+      lsdAt >= 0);
+    assert('loadSampleData stays in _NBD_CALL_ALLOWLIST (window-dispatched, not registered)',
+      /'loadSampleData'/.test(stateSrc));
+    assert('loadSampleData refuses on an unconfirmed lead cache (_leadsLoaded gate)',
+      /if \(window\._leadsLoaded !== true\)[\s\S]{0,200}return;/.test(lsdBody));
+    assert('loadSampleData asks before seeding into a populated book (nbdConfirm-first confirm)',
+      /window\.nbdConfirm \|\| \(\(m\) => Promise\.resolve\(window\.confirm\(m\)\)\)/.test(lsdBody)
+        && /if\(!\(await _ask\(/.test(lsdBody));
+    assert('loadSampleData seeds through demo.js seedDemoLeads (whose phoneDigits stamp phone-digits.test.js pins)',
+      /await seedDemoLeads\(user\.uid\)/.test(lsdBody));
+    assert('dashboard-bootstrap.module.js has no loadSampleData twin and no window.loadSampleData export',
+      !/\bfunction loadSampleData\b/.test(bootReg) && !/window\.loadSampleData\s*=/.test(bootReg)
+        && !/window\[\s*['"]loadSampleData['"]\s*\]\s*=/.test(bootReg));
   }
 
   // ── Tranche 3 T3-C (2026-09-17): the settings-tab loader sextet ──
@@ -4748,7 +4850,37 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
   //   if (typeof startNewEstimate === 'function') { window.startNewEstimate = ... }
   //   else { ...install load-then-run stubs for the estimates bundle... }
   // whose else-branch is load-bearing and must stay.
-  const FWD_GUARD = /^[ \t]*if[ \t]*\([ \t]*typeof[ \t]+([A-Za-z_$][\w$]*)[ \t]*(?:!==|!=|===|==)[ \t]*['"](?:undefined|function)['"][ \t]*\)[ \t]*\{?[ \t]*window\.\1[ \t]*=[ \t]*\1[ \t]*;[ \t]*\}?[ \t]*$/gm;
+  //
+  // Widened 2026-09-22. The original pattern ended `;[ \t]*\}?[ \t]*$`, so a
+  // trailing `// comment` (the house style for export lines), a missing
+  // semicolon, or the bracket form `window['X'] = X` each slipped through.
+  // Still single-line, still requires the value to be exactly the subject.
+  const FWD_GUARD = /^[ \t]*if[ \t]*\([ \t]*typeof[ \t]+([A-Za-z_$][\w$]*)[ \t]*(?:!==|!=|===|==)[ \t]*['"](?:undefined|function)['"][ \t]*\)[ \t]*\{?[ \t]*window(?:[ \t]*\.[ \t]*\1|[ \t]*\[[ \t]*(['"`])\1\2[ \t]*\])[ \t]*=[ \t]*\1[ \t]*;?[ \t]*\}?[ \t]*;?[ \t]*(?:\/\/[^\r\n]*|\/\*[^\r\n]*?\*\/[ \t]*)?\r?$/gm;
+  {
+    const fwdPos = {
+      'plain': "if (typeof fooName !== 'undefined') window.fooName = fooName;",
+      'trailing line comment': "if (typeof fooName !== 'undefined') window.fooName = fooName; // re-export",
+      'braced + trailing comment': "if (typeof fooName === 'function') { window.fooName = fooName; } // why",
+      'trailing block comment': "if (typeof fooName != 'undefined') window.fooName = fooName; /* legacy */",
+      'no semicolon': "if (typeof fooName !== 'undefined') window.fooName = fooName",
+      'bracket form': "if (typeof fooName !== 'undefined') window['fooName'] = fooName;",
+      'CRLF line end + comment': "if (typeof fooName !== 'undefined') window.fooName = fooName; // x\r\nnext();",
+    };
+    for (const [label, src] of Object.entries(fwdPos)) {
+      assert('FWD_GUARD catches the ' + label + ' forward-reference shape',
+        [...src.matchAll(FWD_GUARD)].map(m => m[1]).includes('fooName'));
+    }
+    const fwdNeg = {
+      'the multi-line lazy-stub installer (real startNewEstimate shape)': "if (typeof fooName === 'function') {\n  window.fooName = fooName;\n} else {\n  window.fooName = stub;\n}",
+      'a same-line else branch': "if (typeof fooName === 'function') { window.fooName = fooName; } else { window.fooName = stub; }",
+      'a different value': "if (typeof fooName !== 'undefined') window.fooName = fooName || stub;",
+      'a plain unguarded export': 'window.fooName = fooName; // consumer',
+    };
+    for (const [label, src] of Object.entries(fwdNeg)) {
+      assert('FWD_GUARD does NOT flag ' + label,
+        ![...src.matchAll(FWD_GUARD)].map(m => m[1]).includes('fooName'));
+    }
+  }
   const fwdLeft = [...dashActions.matchAll(FWD_GUARD)].map(m => m[1]);
   assert('dashboard-actions.js has NO `typeof X` forward-reference re-exports left — '
       + (fwdLeft.slice(0, 6).join(', ') || 'clean'),
