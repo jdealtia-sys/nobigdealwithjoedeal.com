@@ -6,12 +6,16 @@
  * handlers are now wired via addEventListener.
  */
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { initializeAppCheck, ReCaptchaEnterpriseProvider, getToken as getAppCheckToken }
+  from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js';
 import {
   getAuth, signInWithEmailAndPassword, signInWithCustomToken, sendPasswordResetEmail,
-  setPersistence, browserLocalPersistence, browserSessionPersistence
+  setPersistence, browserLocalPersistence, browserSessionPersistence,
+  GoogleAuthProvider, signInWithPopup, signOut
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import { getFirestore, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { getFunctions, httpsCallable } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';
-import { connectEmulatorsIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
+import { connectEmulatorsIfLocal, emulatorAppCheckIfLocal } from '../nbd-emulator-connect.js'; // Audit #3: localhost-only, no-op in prod
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTrotINzl2YjdGbH25BpC-FPv8i_fXNvg",
@@ -24,9 +28,33 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+// App Check — only here so "Continue with Google" can open its popup inside
+// the click (same reasoning as pages/register.js, which this mirrors).
+// firebase-auth 10.12.2's signInWithPopup does `await auth._getAppCheckToken()`
+// between the click and window.open; cold, that await is IndexedDB +
+// reCAPTCHA Enterprise + a token exchange, long enough to spend the user
+// activation so Safari/iOS blocks the popup (auth/popup-blocked). Fetching
+// the token at load puts it in memory and the Google button is held until it
+// lands (or a short timeout — see holdUntilAppCheckWarm). Key comes from
+// js/dashboard-appcheck-config.js, loaded before this module in login.html.
+// Initialised before getAuth (C-4 ordering). On localhost the emulator shim
+// replaces reCAPTCHA. appCheckWarm settles either way (errors swallowed): it
+// only gates the button, never sign-in. Null when nothing slow is awaited.
+let appCheckWarm = null;
+try {
+  if (!(await emulatorAppCheckIfLocal(app))
+      && typeof window.__NBD_APP_CHECK_KEY === 'string' && window.__NBD_APP_CHECK_KEY) {
+    const appCheck = initializeAppCheck(app, {
+      provider: new ReCaptchaEnterpriseProvider(window.__NBD_APP_CHECK_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
+    appCheckWarm = getAppCheckToken(appCheck, false).then(() => {}, () => {});
+  }
+} catch (_) {}
 const auth = getAuth(app);
+const db = getFirestore(app);
 const functions = getFunctions(app);
-await connectEmulatorsIfLocal({ auth, functions }); // Audit #3: localhost-only, no-op in prod
+await connectEmulatorsIfLocal({ auth, db, functions }); // Audit #3: localhost-only, no-op in prod
 
 const validateAccessCodeFn = httpsCallable(functions, 'validateAccessCode');
 
@@ -176,6 +204,137 @@ async function doLogin() {
   } finally {
     setLoading(loginBtn, false);
   }
+}
+
+// ─────────────────────────────────────────────────
+// CONTINUE WITH GOOGLE — sign-in only, never provisioning
+// ─────────────────────────────────────────────────
+// This page signs EXISTING members in. Creating an account (users/{uid},
+// createCompany, plan intent, invites, access codes) is /pro/register's job,
+// so a Google identity with no NBD Pro account is signed back out and sent
+// there instead of getting a half-built workspace from the login page.
+//
+// Note: by the time signInWithPopup resolves, Firebase Auth has ALREADY
+// created an Auth user record for a first-time Google identity. That is
+// accepted: the record owns no Firestore data, gets no claims, and is the
+// same uid register.js picks up if that person signs up with Google later.
+// No Auth-triggered function provisions on that path — onRepSignup
+// (beforeUserCreated, functions/handlers/auth.js) is in the deploy
+// workflow's NBD_DEPLOY_SKIP_LIST and has never been registered in prod
+// (blocking functions need GCIP), and there is no auth.user().onCreate.
+//
+// One account per email: a password account whose email is VERIFIED gets
+// google.com linked to the same uid by Firebase itself, so it lands on the
+// existing users/{uid} and goes straight in. No linking UI here.
+const googleLoginBtn = document.getElementById('googleLoginBtn');
+
+const LOGIN_FALLBACK = 'sign in with your email and password';
+// Mirrors googleSignInErrorMessage in pages/register.js (kept separate so
+// each page's copy points at ITS email form). '' = say nothing:
+// auth/cancelled-popup-request means a newer click replaced this popup, and
+// that attempt reports for itself.
+function googleSignInErrorMessage(err) {
+  const code = (err && err.code) || '';
+  switch (code) {
+    case 'auth/operation-not-allowed':
+      return "Google sign-in isn't available yet — please " + LOGIN_FALLBACK + '.';
+    case 'auth/popup-closed-by-user':
+      return 'Sign-in window closed before finishing. Try again, or ' + LOGIN_FALLBACK + '.';
+    case 'auth/popup-blocked':
+      return 'Your browser blocked the Google window — allow pop-ups for this site or ' + LOGIN_FALLBACK + '.';
+    case 'auth/account-exists-with-different-credential':
+      return 'This email already has an account that uses a password. Sign in with your email and password instead.';
+    case 'auth/cancelled-popup-request':
+      return '';
+    case 'auth/user-disabled':
+      return 'Account disabled. Contact Joe for help.';
+    case 'auth/network-request-failed':
+      return 'Network problem — check your connection and try again, or ' + LOGIN_FALLBACK + '.';
+    case 'auth/web-storage-unsupported':
+    case 'auth/operation-not-supported-in-this-environment':
+      return "Google sign-in doesn't work in this browser. Open this page in Safari or Chrome, or " + LOGIN_FALLBACK + '.';
+    default:
+      return 'Google sign-in failed' + (code ? ' (' + code + ')' : '') + '. Try again, or ' + LOGIN_FALLBACK + '.';
+  }
+}
+
+// Hold the Google button until the App Check token is in memory (see
+// appCheckWarm above) so the click opens the popup inside the user gesture.
+// The timeout re-enables it regardless — a slow or blocked reCAPTCHA must
+// never leave a dead button. No warm-up in flight (emulator, no key) → no hold.
+const APP_CHECK_WARM_TIMEOUT_MS = 4000;
+function holdUntilAppCheckWarm(btn, warm, timeoutMs) {
+  if (!btn || !warm) return;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+  };
+  btn.disabled = true;
+  btn.setAttribute('aria-busy', 'true');
+  Promise.resolve(warm).then(release, release);
+  setTimeout(release, timeoutMs);
+}
+
+function showLoginError(text) {
+  loginErrorMsg.textContent = text;
+  loginError.classList.add('show');
+}
+
+// "No account" message + a real link to /pro/register, built with DOM APIs
+// (no innerHTML). The next showLoginError's textContent clears the link.
+function showNoAccountError() {
+  loginErrorMsg.textContent = 'No NBD Pro account is linked to that Google account yet. ';
+  const a = document.createElement('a');
+  a.href = '/pro/register';
+  a.id = 'googleNoAccountRegister';
+  a.textContent = 'Create a free account →';
+  loginErrorMsg.appendChild(a);
+  loginError.classList.add('show');
+}
+
+async function doGoogleLogin() {
+  loginError.classList.remove('show');
+  googleLoginBtn.disabled = true;
+  let signedIn = false;
+  try {
+    const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+    signedIn = true;
+    const profile = await getDoc(doc(db, 'users', cred.user.uid));
+    if (!profile.exists()) {
+      // No NBD Pro account behind this Google identity. Do NOT write
+      // users/{uid} or call createCompany here — sign out and point at signup.
+      await signOut(auth);
+      signedIn = false;
+      showNoAccountError();
+      return;
+    }
+    await setPersistence(auth, rememberMe.checked ? browserLocalPersistence : browserSessionPersistence);
+    window.location.replace(POST_LOGIN_DEST);
+  } catch (err) {
+    console.warn('[login] Google sign-in failed:', (err && err.code) || err);
+    // Signed in but the profile check (or persistence) failed: we cannot
+    // tell a member from a stranger, so fail closed — sign out, ask to retry.
+    if (signedIn) {
+      try { await signOut(auth); } catch (_) {}
+      showLoginError("Couldn't check your NBD Pro account — try again, or " + LOGIN_FALLBACK + '.');
+      return;
+    }
+    const msg = googleSignInErrorMessage(err);
+    if (msg) showLoginError(msg);
+  } finally {
+    googleLoginBtn.disabled = false;
+  }
+}
+
+if (googleLoginBtn) {
+  googleLoginBtn.addEventListener('click', doGoogleLogin);
+  // Ships disabled in the HTML (like #loginBtn) so a tap before this module
+  // has loaded is not a silent no-op; the warm-up hold may re-disable it.
+  googleLoginBtn.removeAttribute('disabled');
+  holdUntilAppCheckWarm(googleLoginBtn, appCheckWarm, APP_CHECK_WARM_TIMEOUT_MS);
 }
 
 // RESET PASSWORD
