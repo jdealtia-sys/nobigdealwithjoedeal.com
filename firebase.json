@@ -74,7 +74,9 @@
       { "_comment": "Read-only per-rep calendar feed. /calendar/<token>.ics serves text/calendar so the iPhone Calendar app can subscribe; token-authed, no login, one active token per rep (minting rotates). The .ics suffix is what makes iOS treat it as a calendar. See functions/calendar-feed.js.",
         "source": "/calendar/**", "function": { "functionId": "getCalendarFeed", "region": "us-central1" } },
       { "_comment": "Email unsubscribe (CAN-SPAM). /unsubscribe/<token> is the footer link AND the RFC 8058 List-Unsubscribe one-click URL on every commercial email. GET renders a confirm page with no side effect (link scanners prefetch GET); POST records the per-tenant suppression. Token-authed, no login. See functions/email-unsubscribe.js.",
-        "source": "/unsubscribe/**", "function": { "functionId": "emailUnsubscribe", "region": "us-central1" } }
+        "source": "/unsubscribe/**", "function": { "functionId": "emailUnsubscribe", "region": "us-central1" } },
+      { "_comment": "Resend bounce/spam-complaint webhook, folded into the same per-tenant suppression register (sources 'bounce' and 'complaint'). Signed with Svix/standard-webhooks; DARK until the owner adds this endpoint in the Resend dashboard (events email.bounced + email.complained) and sets RESEND_WEBHOOK_SECRET — unconfigured it answers 503 before parsing anything. Served through Hosting so the site's security headers apply. See functions/resend-webhook.js.",
+        "source": "/hooks/resend", "function": { "functionId": "resendWebhook", "region": "us-central1" } }
     ],
     "headers": [
       {

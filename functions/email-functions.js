@@ -449,6 +449,9 @@ exports.sendEmail = onRequest(
         attachments: attachments || []
       };
       if (unsubGate && unsubGate.headers) message.headers = unsubGate.headers;
+      // Carries the unsubscribe token so Resend's bounce/complaint webhook can
+      // attribute the event to this tenant (functions/resend-webhook.js).
+      if (unsubGate && unsubGate.tags) message.tags = unsubGate.tags;
 
       const response = await resend.emails.send(message);
 

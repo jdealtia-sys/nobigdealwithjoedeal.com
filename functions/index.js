@@ -380,6 +380,13 @@ Object.assign(exports, calendarFeedFunctions);
 const emailUnsubscribeFunctions = require('./email-unsubscribe');
 Object.assign(exports, emailUnsubscribeFunctions);
 
+// Resend's own bounce / spam-complaint signal, folded into the same register
+// (sources 'bounce' and 'complaint'). DARK until the owner adds the endpoint
+// in the Resend dashboard and sets RESEND_WEBHOOK_SECRET — unconfigured, it
+// refuses every request 503 before parsing anything.
+const resendWebhookFunctions = require('./resend-webhook');
+Object.assign(exports, resendWebhookFunctions);
+
 // Generated-document read-back. Replaces the permanent getDownloadURL that
 // document-generator.js used to persist as documents/{id}.htmlUrl — an
 // unrevocable no-auth URL for a signed contract. Authed callable + admin-SDK

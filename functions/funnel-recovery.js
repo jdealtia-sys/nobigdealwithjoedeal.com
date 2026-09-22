@@ -419,6 +419,9 @@ exports.runAbandonRecovery = onSchedule(
           headers: Object.assign({
             'X-NBD-Campaign': 'funnel-recovery-v1',
           }, unsub.headers),
+          // Attributes a bounce/complaint back to this tenant — see
+          // functions/resend-webhook.js.
+          tags: unsub.tags,
         });
         // Resend resolves { data: null, error } on an API-level rejection
         // instead of throwing — without this check recoveryEmailSentAt

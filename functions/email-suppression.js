@@ -279,6 +279,20 @@ function footerText(url, postalAddress) {
     + (addr ? addr + '\n' : '');
 }
 
+// Resend TAG carrying the per-send unsubscribe token, so Resend's own
+// bounce/complaint webhook can find the tenant a bounced address belongs to
+// (functions/resend-webhook.js). Resend's payload names the ADDRESS but never
+// our tenant, and suppression is per tenant, so the send has to carry the
+// answer. The token doc already holds companyId + email + leadId, and a
+// 43-char base64url token is exactly Resend's tag charset ([A-Za-z0-9_-]), so
+// nothing needs encoding. Only COMMERCIAL sends are tagged — which is also
+// the only mail suppression applies to.
+const UNSUB_TAG_NAME = 'nbd_unsub';
+
+function unsubscribeTags(token) {
+  return [{ name: UNSUB_TAG_NAME, value: String(token) }];
+}
+
 /** RFC 2369 + RFC 8058 headers for one-click unsubscribe. */
 function listUnsubscribeHeaders(url) {
   return {
@@ -315,6 +329,7 @@ async function gateCommercialEmail(db, fields, opts) {
     token: minted.token,
     url: minted.url,
     postalAddress: postal,
+    tags: unsubscribeTags(minted.token),
     headers: listUnsubscribeHeaders(minted.url),
     footerHtml: footerHtml(minted.url, postal),
     footerText: footerText(minted.url, postal),
@@ -389,6 +404,8 @@ module.exports = {
   TOKEN_RE,
   SEND_PATHS,
   POSTAL_MAX,
+  UNSUB_TAG_NAME,
+  unsubscribeTags,
   normalizeEmail,
   normalizePostalAddress,
   tenantPostalAddress,

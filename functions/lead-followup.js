@@ -174,6 +174,9 @@ exports.leadFollowUpSweep = onSchedule(
             html: body.html,
             text: body.text,
             headers: Object.assign({ 'X-NBD-Campaign': 'lead-followup-v1' }, unsub.headers),
+            // Attributes a bounce/complaint back to this tenant — see
+            // functions/resend-webhook.js.
+            tags: unsub.tags,
           });
           // Resend resolves { data: null, error } on an API-level rejection
           // instead of throwing — without this check followUpEmailSentAt
