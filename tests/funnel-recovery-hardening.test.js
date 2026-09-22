@@ -95,6 +95,13 @@ function makeFakeDb() {
   return {
     _collections: collections,
     setFailPredicate(fn) { failPredicate = fn; },
+    // db.doc('coll/id') — the email-unsubscribe gate (functions/
+    // email-suppression.js, 2026-09-22) reads email_suppressions/{id} and
+    // mints email_unsub_tokens/{token} this way before every recovery send.
+    doc(p) {
+      const i = String(p).lastIndexOf('/');
+      return docRef(String(p).slice(0, i), String(p).slice(i + 1));
+    },
     collection(name) {
       return {
         doc: (id) => docRef(name, id),

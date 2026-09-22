@@ -41,6 +41,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { httpRateLimit, enforceRateLimit } = require('./integrations/upstash-ratelimit');
 const { resendRejected, resendErrorMessage } = require('./resend-guard');
+const Suppression = require('./email-suppression');
 
 // ───────────────────────────────────────────────────────────────
 // Config
@@ -58,6 +59,10 @@ const SITE_URL = 'https://nobigdealwithjoedeal.com';
 const REPLY_TO = 'jd@nobigdealwithjoedeal.com';
 const ABANDON_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RECOVERY_MAX_AGE_DAYS = 30; // Don't send recovery if record is older than this
+// The /estimate funnel is NBD's own public site (tenant zero): its visitors'
+// unsubscribes are recorded against NBD's tenant key. Same constant +
+// override as lead-bridge.js / estimate-email.js.
+const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
 
 // ───────────────────────────────────────────────────────────────
 // Helpers
@@ -332,6 +337,8 @@ exports.runAbandonRecovery = onSchedule(
       // whether the post-send "sent" stamp ever lands — see the claim write
       // for why that is the only way to guarantee no re-send.
       if (data.recoveryEmailStatus === 'sending') { skipped++; continue; }
+      // Unsubscribed on a previous run: already decided, never re-evaluated.
+      if (data.recoveryEmailStatus === 'suppressed') { skipped++; continue; }
       if (!isValidEmail(data.email)) { skipped++; continue; }
 
       const firstName = sanitizeString(data.firstName, 80);
@@ -343,6 +350,32 @@ exports.runAbandonRecovery = onSchedule(
           firstName,
           age_min: Math.round((now - data.createdAt.toMillis()) / 60000),
         });
+        skipped++;
+        continue;
+      }
+
+      // Email unsubscribe (CAN-SPAM, 2026-09-22). A recovery email is
+      // COMMERCIAL: skip an address on NBD's suppression register, and give
+      // every one that goes a footer link + one-click List-Unsubscribe
+      // headers. Checked BEFORE the claim so a suppressed record is stamped
+      // 'suppressed' (terminal) rather than 'sending'. A gate error (register
+      // unreadable, token not minted) sends nothing and leaves the record
+      // unclaimed — it is retried next hour, never sent unchecked.
+      let unsub;
+      try {
+        unsub = await Suppression.gateCommercialEmail(db, {
+          companyId: NBD_OWNER_UID, email: data.email, source: 'funnel-recovery',
+        }, { timeoutMs: Suppression.READ_TIMEOUT_MS, serverTimestamp: FieldValue.serverTimestamp });
+      } catch (gateErr) {
+        logger.error('funnel_recovery_suppression_unverified', {
+          funnelId: doc.id, error: gateErr && gateErr.message,
+        });
+        failed++;
+        continue;
+      }
+      if (unsub.suppressed) {
+        logger.info('funnel_recovery_suppressed', { funnelId: doc.id });
+        await doc.ref.update({ recoveryEmailStatus: 'suppressed' }).catch(() => {});
         skipped++;
         continue;
       }
@@ -374,16 +407,18 @@ exports.runAbandonRecovery = onSchedule(
       }
 
       try {
+        const body = Suppression.applyFooter(unsub,
+          buildRecoveryEmailHtml({ firstName }), buildRecoveryEmailText({ firstName }));
         const response = await resend.emails.send({
           from: fromAddress,
           to: data.email,
           replyTo: REPLY_TO,
           subject: 'You started an estimate — want me to finish it?',
-          html: buildRecoveryEmailHtml({ firstName }),
-          text: buildRecoveryEmailText({ firstName }),
-          headers: {
+          html: body.html,
+          text: body.text,
+          headers: Object.assign({
             'X-NBD-Campaign': 'funnel-recovery-v1',
-          },
+          }, unsub.headers),
         });
         // Resend resolves { data: null, error } on an API-level rejection
         // instead of throwing — without this check recoveryEmailSentAt

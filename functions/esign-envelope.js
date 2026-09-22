@@ -417,6 +417,7 @@ exports.sendEsignEnvelope = onCall(
         const resend = new Resend(RESEND_API_KEY.value());
         const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
         const brand = escHtml(env.companyName || 'No Big Deal Home Solutions');
+        // Email category: TRANSACTIONAL — a contract / document envelope to sign. Not gated by the unsubscribe register (email-suppression.js SEND_PATHS).
         const response = await resend.emails.send({
           from, to: email,
           subject: `Please sign: ${env.title || 'your document'}`,

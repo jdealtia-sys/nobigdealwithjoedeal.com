@@ -49,6 +49,16 @@
  * REFUSAL the rep has already been told about; an SMS caller must not follow
  * it with its own sms: fallback or a re-send.
  *
+ * EMAIL UNSUBSCRIBE (2026-09-22). Every sendEmail carries a `kind` saying what
+ * the message IS. The server (functions/email-suppression.js) treats only
+ * invoice / receipt / estimate / proposal / contract / portal_link / document /
+ * appointment as transactional; no kind, or anything else, is COMMERCIAL and is
+ * refused for an address that unsubscribed from this tenant:
+ *   403 {code:'unsubscribed'}          — final. Toast, no mailto: handoff.
+ *   503 {code:'suppression_unverified'} — the register could not be read.
+ *                                        Nothing was sent; no handoff either.
+ * Both come back as { success:false, mode:'platform' } like the SMS refusals.
+ *
  * Also defines window.EmailDrip — stage-change toast (opt-in review, no auto-send).
  *
  * Loaded on dashboard.html + customer.html as a defer-script before
@@ -98,6 +108,7 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         leadId: a.leadId || null,
         replyTo: a.replyTo || null,
         forceHandoff: !!a.forceHandoff,
+        kind: typeof a.kind === 'string' ? a.kind : null,
       };
     }
     return {
@@ -108,6 +119,7 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       leadId: (d && d.leadId) || null,
       replyTo: (d && d.replyTo) || null,
       forceHandoff: !!(d && d.forceHandoff),
+      kind: (d && typeof d.kind === 'string') ? d.kind : null,
     };
   }
 
@@ -377,14 +389,28 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
     return { outcome: 'held', reason: plat.status === 400 ? 'invalid' : 'error', message };
   }
 
+  // Stage-template emails that are transactional (functions/email-suppression.js
+  // TRANSACTIONAL_KINDS). Everything else a stage template sends is commercial
+  // and honours the tenant's unsubscribe register.
+  const STAGE_EMAIL_KINDS = {
+    adjuster_meeting_scheduled: 'appointment',
+    crew_scheduled: 'appointment',
+    estimate_sent_cash: 'estimate',
+  };
+
   // ── NBDComms ────────────────────────────────────────────────────
   window.NBDComms = {
+    /** kind for a stage-template email, or null (= commercial). */
+    emailKindForStage(stage) {
+      return Object.prototype.hasOwnProperty.call(STAGE_EMAIL_KINDS, stage) ? STAGE_EMAIL_KINDS[stage] : null;
+    },
+
     /**
      * Send email via platform (Resend) with mailto: fallback.
      * @returns {Promise<{success:boolean, mode:string, id?:string, error?:string}>}
      */
     async sendEmail() {
-      const { to, subject, body, html, leadId, replyTo, forceHandoff } = normalizeEmailArgs.apply(null, arguments);
+      const { to, subject, body, html, leadId, replyTo, forceHandoff, kind } = normalizeEmailArgs.apply(null, arguments);
       if (!to) {
         const msg = 'No recipient — add an email to the customer record first.';
         if (window.showToast) window.showToast(msg, 'error');
@@ -408,6 +434,8 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           html: html || undefined,
           replyTo: replyTo || undefined,
           leadId: leadId || undefined,
+          // What this email IS (see header). Omitted = commercial.
+          kind: kind || undefined,
         });
         if (plat.ok) {
           if (window.showToast) window.showToast('Email sent', 'success');
@@ -422,7 +450,16 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
         if (plat.status === 403 || plat.status === 401) {
           const msg = plat.error || 'Not allowed to send email from this account.';
           if (window.showToast) window.showToast(msg, 'error');
-          return { success: false, mode: 'platform', error: plat.error || 'forbidden' };
+          // 403 'unsubscribed': this person opted out of this tenant's email.
+          // Final — the same refusal contract as an SMS opt-out.
+          return { success: false, mode: 'platform', error: plat.code || plat.error || 'forbidden', message: msg };
+        }
+        // The unsubscribe register could not be read: nothing was sent, and a
+        // mailto: handoff would email someone who may have opted out.
+        if (plat.code === 'suppression_unverified') {
+          const msg = plat.error || 'Could not confirm this person can be emailed — nothing was sent. Try again in a moment.';
+          if (window.showToast) window.showToast(msg, 'error');
+          return { success: false, mode: 'platform', error: plat.code, message: msg };
         }
         // Rate limit: tell the rep; fall through to mailto so work continues.
         if (plat.status === 429 && window.showToast) {
@@ -698,6 +735,7 @@ let _NBD_NC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
           subject: built.subject,
           body: built.body,
           leadId: leadId,
+          kind: window.NBDComms.emailKindForStage(built.stage),
         });
       }
       // buildStageEmail missing — open review modal instead.

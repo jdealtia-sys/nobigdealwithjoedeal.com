@@ -1254,6 +1254,59 @@ async function run() {
   });
   await assertFails(deleteDoc(doc(mgrA, 'invoices/inv-mgr-del')));
 
+  // 33. email_suppressions + email_unsub_tokens (2026-09-22, CAN-SPAM email
+  //     unsubscribe — functions/email-suppression.js). Suppressions are
+  //     server-write only; a GET is allowed to a member of the tenant named in
+  //     the doc-id PREFIX (companyId claim, or uid for a claim-less solo), so
+  //     the customer page can show an "Unsubscribed" badge. Missing doc in my
+  //     tenant → readable (badge off). Other tenant → denied whether or not the
+  //     doc exists (no existence probe). No list. Tokens: no client access.
+  //     Writes are tested as BOTH create and update (rules-testing rule).
+  const SUPH = 'a'.repeat(64);
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const sdb = ctx.firestore();
+    await setDoc(doc(sdb, 'email_suppressions/co-a__' + SUPH), { companyId: 'co-a', emailHash: SUPH, email: 'h@x.test', source: 'link', createdAt: 1 });
+    await setDoc(doc(sdb, 'email_suppressions/solo1__' + SUPH), { companyId: 'solo1', emailHash: SUPH, email: 'h@x.test', source: 'rep', createdAt: 1 });
+    // A doc filed under co-a's prefix but claiming another tenant — must not be readable.
+    await setDoc(doc(sdb, 'email_suppressions/co-a__' + 'b'.repeat(64)), { companyId: 'co-b', emailHash: 'b', email: 'x@x.test', source: 'link', createdAt: 1 });
+    await setDoc(doc(sdb, 'email_unsub_tokens/TOKEN_A'), { companyId: 'co-a', email: 'h@x.test', emailHash: SUPH, createdAt: 1 });
+  });
+  // ✅ same-tenant members (rep, company_admin) read the badge doc
+  await assertSucceeds(getDoc(doc(alice,   'email_suppressions/co-a__' + SUPH)));
+  await assertSucceeds(getDoc(doc(coAdmin, 'email_suppressions/co-a__' + SUPH)));
+  // ✅ a missing doc in MY tenant reads as not-found (badge off), not denied
+  await assertSucceeds(getDoc(doc(alice,   'email_suppressions/co-a__' + 'c'.repeat(64))));
+  // ✅ claim-less solo operator: tenant key is the uid
+  await assertSucceeds(getDoc(doc(solo,    'email_suppressions/solo1__' + SUPH)));
+  // ❌ another tenant — existing AND missing docs both denied (no probe)
+  await assertFails(getDoc(doc(bob,        'email_suppressions/co-a__' + SUPH)));
+  await assertFails(getDoc(doc(bob,        'email_suppressions/co-a__' + 'c'.repeat(64))));
+  await assertFails(getDoc(doc(dave,       'email_suppressions/co-a__' + SUPH)));
+  await assertFails(getDoc(doc(solo,       'email_suppressions/co-a__' + SUPH)));
+  await assertFails(getDoc(doc(anon,       'email_suppressions/co-a__' + SUPH)));
+  // ❌ a doc whose companyId disagrees with its prefix is not readable by the prefix tenant
+  await assertFails(getDoc(doc(alice,      'email_suppressions/co-a__' + 'b'.repeat(64))));
+  // ❌ no list, even filtered to my own tenant
+  await assertFails(getDocs(query(collection(alice, 'email_suppressions'), where('companyId', '==', 'co-a'))));
+  // ❌ no client write — create (forge an opt-out) ...
+  await assertFails(setDoc(doc(alice,   'email_suppressions/co-a__' + 'd'.repeat(64)), { companyId: 'co-a', emailHash: 'd', email: 'n@x.test', source: 'rep', createdAt: 1 }));
+  await assertFails(setDoc(doc(coAdmin, 'email_suppressions/co-a__' + 'd'.repeat(64)), { companyId: 'co-a', emailHash: 'd', email: 'n@x.test', source: 'rep', createdAt: 1 }));
+  await assertFails(setDoc(doc(admin,   'email_suppressions/co-a__' + 'd'.repeat(64)), { companyId: 'co-a', emailHash: 'd', email: 'n@x.test', source: 'rep', createdAt: 1 }));
+  // ... update / delete (un-suppress someone who opted out)
+  await assertFails(updateDoc(doc(alice,   'email_suppressions/co-a__' + SUPH), { source: 'rep' }));
+  await assertFails(updateDoc(doc(coAdmin, 'email_suppressions/co-a__' + SUPH), { companyId: 'co-z' }));
+  await assertFails(deleteDoc(doc(coAdmin, 'email_suppressions/co-a__' + SUPH)));
+  await assertFails(deleteDoc(doc(solo,    'email_suppressions/solo1__' + SUPH)));
+  // ❌ tokens: no client access at all — read, list, create, update, delete
+  await assertFails(getDoc(doc(alice,   'email_unsub_tokens/TOKEN_A')));
+  await assertFails(getDoc(doc(coAdmin, 'email_unsub_tokens/TOKEN_A')));
+  await assertFails(getDoc(doc(admin,   'email_unsub_tokens/TOKEN_A')));
+  await assertFails(getDoc(doc(anon,    'email_unsub_tokens/TOKEN_A')));
+  await assertFails(getDocs(query(collection(alice, 'email_unsub_tokens'), where('companyId', '==', 'co-a'))));
+  await assertFails(setDoc(doc(alice,   'email_unsub_tokens/FORGED'), { companyId: 'co-a', email: 'v@x.test', createdAt: 1 }));
+  await assertFails(updateDoc(doc(coAdmin, 'email_unsub_tokens/TOKEN_A'), { email: 'other@x.test' }));
+  await assertFails(deleteDoc(doc(coAdmin, 'email_unsub_tokens/TOKEN_A')));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }

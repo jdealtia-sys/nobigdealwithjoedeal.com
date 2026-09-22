@@ -286,6 +286,7 @@ exports.createSignRequest = onCall(
       const link = SIGN_URL_BASE + token;
       const docName = escHtml(docMeta.typeName || docMeta.type || 'document');
       const repName = escHtml(tenantName || lead.repName || 'No Big Deal Home Solutions');
+      // Email category: TRANSACTIONAL — a document signing link. Not gated by the unsubscribe register (email-suppression.js SEND_PATHS).
       const response = await resend.emails.send({
         from: fromEmail,
         to: signerEmail,

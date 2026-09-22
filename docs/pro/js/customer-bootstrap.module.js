@@ -661,6 +661,10 @@ async function loadCustomerData(id) {
     document.getElementById('customerAddress').textContent = lead.address || '—';
     document.getElementById('customerPhone').textContent = lead.phone || '—';
     document.getElementById('customerEmail').textContent = lead.email || '—';
+    // Email unsubscribe badge + rep "Mark unsubscribed" (2026-09-22). Advisory
+    // only — sendEmail refuses a commercial send to a suppressed address
+    // whatever this shows.
+    _renderEmailUnsubState(lead, id);
     
     // Last updated indicator (R3-2: tsToDate handles plain {seconds} reads)
     const updatedAt = tsToDate(lead.updatedAt) || tsToDate(lead.createdAt);
@@ -3760,3 +3764,93 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   // customer-quick-action-bar.js's Comm Log tap listener (T3-C, 2026-09-18).
   logCommunication: logCommunication,
 });
+
+// ═══════════════════════════════════════════════════════════════
+// EMAIL UNSUBSCRIBE — badge + rep "Mark unsubscribed" (2026-09-22)
+// ═══════════════════════════════════════════════════════════════
+// email_suppressions/{tenantKey}__{sha256(lowercased email)} is the tenant's
+// unsubscribe register (functions/email-suppression.js). Tenant key =
+// claims.companyId || uid — the same key sendEmail and the unsubscribe link
+// file under. firestore.rules lets a tenant member GET its own tenant's docs;
+// a missing doc reads as "not unsubscribed". Everything here is advisory: the
+// server is what refuses the send.
+let _emailUnsubSeq = 0;
+async function _sha256Hex(text) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+async function _emailUnsubTenantKey() {
+  const u = auth.currentUser;
+  if (!u) return '';
+  let claims = window._userClaims;
+  if (!claims) {
+    try { claims = (await u.getIdTokenResult()).claims || {}; } catch (_) { claims = {}; }
+  }
+  return String(claims.companyId || u.uid || '');
+}
+function _emailUnsubClear() {
+  ['emailUnsubBadge', 'emailUnsubMarkBtn'].forEach((i) => { const el = document.getElementById(i); if (el) el.remove(); });
+}
+async function _renderEmailUnsubState(lead, leadId) {
+  const seq = ++_emailUnsubSeq;
+  _emailUnsubClear();
+  const host = document.getElementById('customerEmail');
+  const email = String((lead && lead.email) || '').trim().toLowerCase();
+  if (!host || !email || !(window.crypto && crypto.subtle)) return;
+  let suppressed = false;
+  try {
+    const tenant = await _emailUnsubTenantKey();
+    if (!tenant) return;
+    const snap = await getDoc(doc(db, 'email_suppressions', tenant + '__' + await _sha256Hex(email)));
+    suppressed = snap.exists();
+  } catch (e) {
+    console.warn('[customer] email unsubscribe lookup failed:', e && e.message);
+    return;
+  }
+  if (seq !== _emailUnsubSeq) return; // a newer render (lead edited) owns the slot
+  _emailUnsubClear();
+  if (suppressed) {
+    const b = document.createElement('span');
+    b.id = 'emailUnsubBadge';
+    b.textContent = 'Unsubscribed from email';
+    b.title = 'This person unsubscribed from marketing and follow-up email. Estimates, invoices, receipts, contracts and appointment confirmations still send.';
+    Object.assign(b.style, {
+      marginLeft: '8px', padding: '1px 8px', borderRadius: '999px', fontSize: '11px', fontWeight: '600',
+      background: 'rgba(220,38,38,.12)', color: '#b91c1c', border: '1px solid rgba(220,38,38,.35)', whiteSpace: 'nowrap',
+    });
+    host.insertAdjacentElement('afterend', b);
+    return;
+  }
+  const role = (window._userClaims && window._userClaims.role) || '';
+  if (role === 'viewer' || role === 'member') return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'emailUnsubMarkBtn';
+  btn.textContent = 'Mark unsubscribed';
+  btn.title = 'They asked not to get marketing email. Stops follow-ups and marketing; transactional email still sends.';
+  Object.assign(btn.style, {
+    marginLeft: '8px', padding: '0 6px', fontSize: '11px', background: 'none', border: 'none',
+    color: 'var(--m, #6b7280)', textDecoration: 'underline', cursor: 'pointer',
+  });
+  btn.addEventListener('click', async () => {
+    // nbdConfirm, not confirm(): standalone-compat.js makes a native confirm()
+    // silently answer true in PWA mode (tests/pwa-confirm-guard.test.js).
+    const ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
+    if (!(await ask('Mark ' + email + ' as unsubscribed from marketing and follow-up email for your company? This can\'t be undone from the CRM.'))) return;
+    btn.disabled = true;
+    try {
+      if (!window._functions || !window._httpsCallable) {
+        const mod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js');
+        window._functions = mod.getFunctions();
+        window._httpsCallable = mod.httpsCallable;
+      }
+      await window._httpsCallable(window._functions, 'markEmailUnsubscribed')({ leadId });
+      if (typeof window.showToast === 'function') window.showToast('Marked unsubscribed from email', 'success');
+      _renderEmailUnsubState(lead, leadId);
+    } catch (e) {
+      btn.disabled = false;
+      if (typeof window.showToast === 'function') window.showToast('Could not mark unsubscribed: ' + ((e && e.message) || 'try again'), 'error');
+    }
+  });
+  host.insertAdjacentElement('afterend', btn);
+}

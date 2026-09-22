@@ -232,6 +232,7 @@ async function ackHomeowner(collection, d, leadId, target) {
   try {
     const resend = new Resend(RESEND_API_KEY.value());
     const firstName = String(d.firstName || d.name || '').trim().split(/\s+/)[0] || '';
+    // Email category: TRANSACTIONAL — acknowledges the homeowner's own request, sent once at submit time. Not gated by the unsubscribe register (email-suppression.js SEND_PATHS).
     const response = await resend.emails.send({
       from: 'Joe Deal <jd@nobigdealwithjoedeal.com>',
       to: email,
@@ -324,6 +325,7 @@ async function alertJoe(collection, d, leadId, opts = {}) {
   if (target.emails && target.emails.length) try {
     const resend = new Resend(RESEND_API_KEY.value());
     const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
+    // Email category: INTERNAL — the tenant's own new-lead alert inbox. Out of scope for the homeowner unsubscribe register (email-suppression.js SEND_PATHS).
     const resp = await resend.emails.send({
       from,
       to: target.emails,

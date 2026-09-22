@@ -275,14 +275,21 @@ window.sendEmail = async function() {
     if (window.NBDComms && typeof window.NBDComms.sendEmail === 'function') {
       const result = await window.NBDComms.sendEmail(to, subject, body, {
         leadId: _emailLeadId,
-        html: null
+        html: null,
+        // What this email IS — the server's unsubscribe gate reads it
+        // (functions/email-suppression.js). null = commercial.
+        kind: window.emailSystem.kindForContext(_emailContext)
       });
 
       if (result.success) {
         closeEmailModal();
         return;
       }
-      // If NBDComms fails, fall through to mailto fallback
+      // A platform REFUSAL (unsubscribed, role, register unreadable) is final:
+      // NBDComms already told the rep why. Opening mailto: here would send the
+      // same email from the rep's own mail app to someone who opted out.
+      if (result && result.mode === 'platform') return;
+      // Any other failure: fall through to the mailto fallback
     }
 
     // Fallback: Log and use mailto
@@ -409,6 +416,21 @@ emailFollowUp = async function(leadId) {
     leadId: leadId,
     context: 'followUp'
   });
+};
+
+// Email-modal context → the server's email kind (functions/email-suppression.js
+// TRANSACTIONAL_KINDS). An estimate or photo report the customer is receiving
+// is transactional; a stage template is whatever NBDComms says that stage is;
+// 'followUp' / 'general' / anything else is commercial (null) and honours the
+// tenant's unsubscribe register.
+window.emailSystem.kindForContext = function (context) {
+  const c = String(context || '');
+  if (c === 'estimate') return 'estimate';
+  if (c === 'photoReport') return 'document';
+  if (c.indexOf('stage_') === 0 && window.NBDComms && typeof window.NBDComms.emailKindForStage === 'function') {
+    return window.NBDComms.emailKindForStage(c.slice(6));
+  }
+  return null;
 };
 
 // Helper: Get lead data from Firestore

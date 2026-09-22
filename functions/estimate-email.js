@@ -316,6 +316,7 @@ exports.estimateEmail = onDocumentCreated(
     if (process.env.EMAIL_FROM) fromAddress = process.env.EMAIL_FROM;
 
     try {
+      // Email category: TRANSACTIONAL — the homeowner pressed "Email My Estimate"; this is the estimate they asked for. Not gated by the unsubscribe register (email-suppression.js SEND_PATHS).
       const response = await resend.emails.send({
         from: fromAddress,
         to: data.email,

@@ -1796,6 +1796,41 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── EMAIL UNSUBSCRIBE REGISTER (2026-09-22, CAN-SPAM) ──
+    // email_suppressions/{companyId}__{sha256(email)} — per TENANT. Written
+    // ONLY by the admin SDK (functions/email-unsubscribe.js: the public
+    // unsubscribe endpoint and the markEmailUnsubscribed callable). A client
+    // write could un-suppress someone who opted out (legal exposure) or forge
+    // an opt-out.
+    //
+    // READ: a single-doc GET by a member of the tenant named in the doc id —
+    // the customer page's "Unsubscribed from email" badge. The tenant key is
+    // the companyId claim, or the uid for a claim-less solo operator (the
+    // companyProfile convention). The check is on the ID PREFIX, not
+    // resource.data, so a missing doc answers not-found (badge off) instead
+    // of permission-denied, and another tenant cannot probe existence: its
+    // get is denied whether or not the doc exists. An existing doc must also
+    // carry the same companyId it is filed under. No list: nothing needs it.
+    match /email_suppressions/{supId} {
+      function supTenant() { return supId.split('__')[0]; }
+      function supMember() {
+        return isAuth() && supTenant() != ''
+          && (supTenant() == request.auth.token.get('companyId', '')
+              || supTenant() == request.auth.uid);
+      }
+      allow get: if supMember()
+        && (resource == null || resource.data.companyId == supTenant());
+      allow list: if false;
+      allow write: if false;
+    }
+
+    // email_unsub_tokens/{token} — the 256-bit secret behind every
+    // unsubscribe link. Admin SDK only; no client may read, list or write
+    // one (a readable token is a working unsubscribe for someone else).
+    match /email_unsub_tokens/{token} {
+      allow read, write: if false;
+    }
+
     // ── SMS OUTBOX IDEMPOTENCY CLAIMS (admin-SDK only) ─
     // sendSMS claims {uid}_{clientMsgId} in a transaction before it replays a
     // text from the offline outbox (docs/pro/js/sms-outbox.js), so a retry of

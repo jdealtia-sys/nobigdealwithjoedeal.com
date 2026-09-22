@@ -29,6 +29,7 @@ const { Resend } = require('resend');
 const { Timestamp, FieldValue, getFirestore } = require('firebase-admin/firestore');
 const L = require('./lead-bridge-logic');
 const { resendRejected, resendErrorMessage } = require('./resend-guard');
+const Suppression = require('./email-suppression');
 
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
 const EMAIL_FROM = defineSecret('EMAIL_FROM');
@@ -36,6 +37,9 @@ const EMAIL_FROM = defineSecret('EMAIL_FROM');
 const WINDOW_OLDEST_H = 48;
 const WINDOW_YOUNGEST_H = 20;
 const SOURCES = ['estimate_leads', 'inspect_leads', 'contact_leads', 'free_roof_entries'];
+// Tenant-zero (NBD) key, same constant + override as lead-bridge.js. An
+// untagged public lead is NBD's, so its unsubscribe lives under this key.
+const NBD_OWNER_UID = process.env.NBD_OWNER_UID || '1phDvAVXHSg82wDLegAbQFq14Ci1';
 
 // Same tenant rule as lead-alert's ack: a configured tenant's homeowners are
 // not ours to email. (Mirror of resolveAlertTarget's fallback logic — a lead
@@ -115,6 +119,7 @@ exports.leadFollowUpSweep = onSchedule(
         const d = doc.data() || {};
         if (L.isFollowUpEvent(collection, d)) { skipped++; continue; }
         if (d.followUpEmailSentAt) { skipped++; continue; }
+        if (d.followUpEmailSuppressedAt) { skipped++; continue; }
         const email = String(d.email || '').trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { skipped++; continue; }
         if (!(await isNbdLead(d.companyId))) { skipped++; continue; }
@@ -133,17 +138,42 @@ exports.leadFollowUpSweep = onSchedule(
           String(card.status || '').toLowerCase() === 'new';
         if (!untouched) { skipped++; continue; }
 
+        // Email unsubscribe (CAN-SPAM, 2026-09-22). This follow-up is
+        // COMMERCIAL: an address on the lead's tenant's suppression register
+        // is skipped (and stamped so it is not re-checked), and every one that
+        // goes carries a footer link + one-click List-Unsubscribe headers. A
+        // gate error sends nothing; the next sweep retries while the lead is
+        // still inside the window.
+        const tenantKey = String(card.companyId || d.companyId || NBD_OWNER_UID);
+        let unsub;
+        try {
+          unsub = await Suppression.gateCommercialEmail(db, {
+            companyId: tenantKey, email, leadId: crm.docs[0].id, source: 'lead-followup',
+          }, { timeoutMs: Suppression.READ_TIMEOUT_MS, serverTimestamp: FieldValue.serverTimestamp });
+        } catch (e) {
+          logger.error('leadFollowUp: suppression_unverified', { collection, leadId: doc.id, err: e && e.message });
+          skipped++;
+          continue;
+        }
+        if (unsub.suppressed) {
+          logger.info('leadFollowUp: suppressed', { collection, leadId: doc.id });
+          await doc.ref.update({ followUpEmailSuppressedAt: FieldValue.serverTimestamp() }).catch(() => {});
+          skipped++;
+          continue;
+        }
+
         try {
           if (!resend) resend = new Resend(RESEND_API_KEY.value());
           const firstName = String(d.firstName || d.name || '').trim().split(/\s+/)[0] || '';
+          const body = Suppression.applyFooter(unsub, followUpHtml(firstName), followUpText(firstName));
           const response = await resend.emails.send({
             from: 'Joe Deal <jd@nobigdealwithjoedeal.com>',
             to: email,
             reply_to: 'jd@nobigdealwithjoedeal.com',
             subject: "We haven't connected yet — Joe",
-            html: followUpHtml(firstName),
-            text: followUpText(firstName),
-            headers: { 'X-NBD-Campaign': 'lead-followup-v1' },
+            html: body.html,
+            text: body.text,
+            headers: Object.assign({ 'X-NBD-Campaign': 'lead-followup-v1' }, unsub.headers),
           });
           // Resend resolves { data: null, error } on an API-level rejection
           // instead of throwing — without this check followUpEmailSentAt
