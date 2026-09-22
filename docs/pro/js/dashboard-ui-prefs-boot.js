@@ -281,9 +281,13 @@ function nbdSetSidebarLabels(show) {
   var cb = document.getElementById('sidebarLabelsToggle');
   if (cb) cb.checked = show;
   // Leaflet maps need an invalidate-size after the rail width changes.
+  // window.mainMap / window.d2dMap are never set (see toggleSidebarCollapse
+  // in dashboard-ui.js) — bare typeof-guarded names + one 'resize' event,
+  // which every Leaflet map answers with its own invalidateSize.
   setTimeout(function () {
-    if (window.mainMap && window.mainMap.invalidateSize) window.mainMap.invalidateSize();
-    if (window.d2dMap && window.d2dMap.invalidateSize) window.d2dMap.invalidateSize();
+    if (typeof mainMap !== 'undefined' && mainMap && mainMap.invalidateSize) mainMap.invalidateSize();
+    if (typeof drawMap !== 'undefined' && drawMap && drawMap.invalidateSize) drawMap.invalidateSize();
+    window.dispatchEvent(new Event('resize'));
   }, 200);
   if (typeof showToast === 'function') showToast(show ? 'Sidebar tool names shown' : 'Sidebar tool names hidden', 'info');
 }
