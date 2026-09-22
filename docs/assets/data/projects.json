@@ -337,6 +337,7 @@
       "title": "Apartment Complex — Multi-Building Tear-Off",
       "category": "commercial",
       "services": [
+        "commercial-roofing",
         "roof-replacement"
       ],
       "tag": "Commercial",
@@ -371,6 +372,7 @@
       "title": "Apartment Complex — All Buildings Complete",
       "category": "commercial",
       "services": [
+        "commercial-roofing",
         "roof-replacement"
       ],
       "tag": "Commercial",
@@ -1683,6 +1685,7 @@
       "slug": "milford-oh-commercial-epdm-rebuild-2023",
       "title": "By Golly’s: Emergency Calls to Full Rebuild",
       "services": [
+        "commercial-roofing",
         "storm-damage",
         "roof-replacement"
       ],

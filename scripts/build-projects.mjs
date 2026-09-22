@@ -64,6 +64,7 @@ const CHECK = process.argv.includes('--check');
 const SERVICES = {
   'roof-replacement': 'Roof Replacement',
   'roof-repair': 'Roof Repair',
+  'commercial-roofing': 'Commercial Roofing',
   'siding-replacement': 'Siding Replacement',
   'siding-repair': 'Siding Repair',
   'wood-siding-repair': 'Wood Siding Repair',
