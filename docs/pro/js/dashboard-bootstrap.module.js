@@ -3837,10 +3837,17 @@
     return true;
   }
 
+  // Same true/false contract as _deleteLead (2026-09-22, a #1663 residual):
+  // resolves true ONLY when the un-delete write landed (or the id is a
+  // local-only 'd-' draft), false when it failed or the rules denied it. It
+  // used to swallow the error and resolve undefined, so the trash drawer's
+  // restoreDeletedLead toasted "Lead restored" for a lead that was still in
+  // the Deleted bin on the server.
   window._restoreLead = async (id) => {
-    try {
-      if(!id.startsWith('d-')) await updateDoc(doc(db,'leads',id), { deleted: false, deletedAt: null });
-    } catch(e) { console.error('restoreLead error:', e); }
+    if (!id) return false;
+    if (String(id).startsWith('d-')) return true; // local-only: nothing server-side
+    try { await updateDoc(doc(db,'leads',id), { deleted: false, deletedAt: null }); return true; }
+    catch(e) { console.error('restoreLead error:', e && e.code, e); return false; }
   };
 
   // Same true/false contract as _deleteLead: the trash drawer's "Remove"

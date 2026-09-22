@@ -223,25 +223,59 @@
   }
   function _findDeal(dealId) { return _dealRoomsForCurrentUser().find(d => d.id === dealId); }
 
-  // Also save to Firestore if available
+  // Also save to Firestore if available.
+  //
+  // A delete wins over a sync (2026-09-22, a #1663 residual). updateDeal
+  // fires this without awaiting it, and the write is only ISSUED after the
+  // SDK import resolves. Firestore applies a client's writes in the order
+  // they are issued, so a sync whose setDoc was issued before deleteDeal's
+  // deleteDoc is harmless (the delete lands last). But a sync still waiting
+  // on the import when the rep deleted the deal — or one fired by an edit or
+  // a send while the delete was in flight — issued setDoc(merge) AFTER the
+  // deleteDoc, and setDoc(merge) creates a missing doc: the deal came back
+  // on the next hydrate, and because deleteDeal does not burn the
+  // deal_accept_tokens, the homeowner's /deal/<token> link became acceptable
+  // again. Two guards, both checked right before the write with no await in
+  // between (so the issue order is what they judge):
+  //   1. An id this tab is deleting (in flight) or has deleted is not
+  //      written. A sync held back by an in-flight delete is replayed only
+  //      if that delete fails (the deal stays, and so must its edit).
+  //   2. A deal the server has confirmed (userId stamped by an acked write or
+  //      by hydrate) is written with updateDoc, which fails on a missing doc,
+  //      instead of setDoc(merge), which recreates it — so a deal deleted on
+  //      ANOTHER device cannot be brought back by a stale edit here either.
+  //      Only an unconfirmed deal (the first save, or a retry of one) uses
+  //      setDoc(merge), since creating the doc is what that write is for.
+  // Resolves true when the write landed.
+  function _dealIsGone(id) { return _dealDeletesInFlight.has(id) || _dealsDeletedHere.has(id); }
   async function syncDealToFirestore(deal) {
-    if (!window._db || !window._user) return;
+    if (!window._db || !window._user) return false;
     try {
-      const { setDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const { setDoc, updateDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       const uid = window._user.uid;
-      await setDoc(doc(window._db, DEAL_COLLECTION, deal.id), {
+      // Checked AFTER the import await, with nothing awaited between it and
+      // the write: that await is the window the race lived in.
+      if (_dealIsGone(deal.id)) {
+        if (_dealDeletesInFlight.has(deal.id)) _dealSyncsHeldForDelete.add(deal.id);
+        return false;
+      }
+      const ref = doc(window._db, DEAL_COLLECTION, deal.id);
+      const data = {
         ...deal,
         userId: uid,
         companyId: window._userClaims?.companyId || uid,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      };
+      if (deal.userId === uid) await updateDoc(ref, data);
+      else await setDoc(ref, data, { merge: true });
       // The server now holds this deal. Stamp that on the LOCAL copy too:
       // deleteDeal reads deal.userId as "a deal_rooms doc exists", and only
       // such deals must wait for a confirmed server delete (a never-synced
       // draft has nothing server-side to delete). Hydrated deals already carry
       // userId from the remote doc.
       if (deal.userId !== uid) { deal.userId = uid; saveDealRooms(); }
-    } catch (e) { console.error('Deal Firestore sync error:', e); }
+      return true;
+    } catch (e) { console.error('Deal Firestore sync error:', e); return false; }
   }
 
   // Hydrate from Firestore so the board reflects SERVER state — most importantly
@@ -430,6 +464,10 @@
   // pending and the deal stays visible, which is the fail-closed outcome.
   // Resolves true when the deal was removed, false when it was kept.
   const _dealDeletesInFlight = new Set();
+  // Syncs syncDealToFirestore held back because a delete of that deal was in
+  // flight. Replayed when the delete fails (the deal is kept, with its edit);
+  // dropped when it succeeds (the edit belonged to a deleted deal).
+  const _dealSyncsHeldForDelete = new Set();
   async function deleteDeal(dealId) {
     const deal = _findDeal(dealId);
     if (!deal || _dealDeletesInFlight.has(dealId)) return false;
@@ -437,6 +475,7 @@
     if (window._db && window._user) {
       if (window.showToast) window.showToast('Deleting…', 'info');
       _dealDeletesInFlight.add(dealId);
+      let kept = false;
       try {
         const { deleteDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         await deleteDoc(doc(window._db, DEAL_COLLECTION, dealId));
@@ -444,11 +483,14 @@
         if (onServer || !e || e.code !== 'permission-denied') {
           console.error('Deal delete (Firestore) error:', e);
           if (window.showToast) window.showToast("Could not delete this deal — the customer's link is still live. Check your connection and try again.", 'error');
+          kept = true;
           return false;
         }
         // Never-synced draft: no server doc to delete. Safe to drop locally.
       } finally {
         _dealDeletesInFlight.delete(dealId);
+        const held = _dealSyncsHeldForDelete.delete(dealId);
+        if (kept && held) syncDealToFirestore(deal);
       }
     } else if (onServer) {
       if (window.showToast) window.showToast('Still signing in — try again in a moment. The deal was not deleted.', 'error');

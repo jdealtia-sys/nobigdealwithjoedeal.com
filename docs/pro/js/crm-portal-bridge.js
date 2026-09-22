@@ -646,11 +646,23 @@ async function renderDeletedDrawer() {
   });
 }
 
+// _restoreLead resolves true only when the un-delete write landed. On anything
+// else the lead is still deleted on the server: un-dim its trash card so the
+// restore can be retried, say it failed, and leave the board and the badge
+// alone — never "Lead restored" for a lead that is still in the Deleted bin.
 async function restoreDeletedLead(id) {
   const card = document.getElementById('dc-'+id);
   if(card) { card.style.opacity='0.4'; card.style.pointerEvents='none'; }
-  await window._restoreLead(id);
-  await window._loadLeads();
+  let ok = false;
+  try { ok = await window._restoreLead(id); } catch (e) { ok = false; }
+  if (ok !== true) {
+    if(card) { card.style.opacity=''; card.style.pointerEvents=''; }
+    showToast('Could not restore this lead — your role may not allow it. It is still in the Deleted bin.', 'error');
+    return;
+  }
+  // The write landed: reload the board from the server, so the restored lead
+  // shows exactly as the server now holds it.
+  try { await window._loadLeads(); } catch (e) { console.warn('restore reload:', e); }
   showToast('Lead restored');
   refreshTrashBadge();
   await renderDeletedDrawer();

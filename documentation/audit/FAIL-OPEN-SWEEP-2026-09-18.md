@@ -325,9 +325,12 @@ deliberate, or backed by the server.
     - A mid-import `_leads` array swap is low risk.
   - #1663:
     - `_restoreLead`/`restoreDeletedLead` has the same swallow-then-"Lead restored"
-      shape.
+      shape. **Fixed 2026-09-22** (branch `fix/restore-deal-resurrection`): true/false
+      callee, the drawer proceeds only on `=== true`.
     - An in-flight `updateDeal` sync that lands after a delete can recreate the doc
-      through `setDoc(merge)`.
+      through `setDoc(merge)`. **Fixed 2026-09-22** (same branch): the sync skips ids
+      being or already deleted in this tab, and writes a server-confirmed deal with
+      `updateDoc`, which cannot create a doc.
   - #1665:
     - Trade chips aren't reset when the modal closes.
     - Concurrent admins overwrite each other's `mapViews`/`pipelines` (last write
