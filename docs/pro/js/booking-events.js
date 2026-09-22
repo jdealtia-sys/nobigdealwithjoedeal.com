@@ -74,6 +74,13 @@
       blurb: 'Gutters, guards, siding, wood trim — no roof work required.'
     },
     {
+      kind: 'interior',
+      slug: 'interior-repair-estimate',
+      label: 'Interior Repair Estimate',
+      meta: '30 min · At the home',
+      blurb: 'Drywall and ceilings — cracks, seams, or leak damage once the roof is fixed.'
+    },
+    {
       kind: 'lexington',
       slug: 'roof-inspection-lexington',
       label: 'Lexington & Central KY',
@@ -185,6 +192,10 @@
     if (hasClaim && stage !== 'complete' && stage !== 'closed') return 'adjuster';
 
     if (/gutter|siding|trim|soffit|fascia/.test(damage)) return 'gutters';
+
+    /* Interior-only work. A leak, roof or storm mention keeps the roof
+     * inspection: the roof gets fixed before the ceiling does. */
+    if (/drywall|interior|ceiling/.test(damage) && !/leak|roof|storm|hail|wind/.test(damage)) return 'interior';
 
     return 'inspection';
   }

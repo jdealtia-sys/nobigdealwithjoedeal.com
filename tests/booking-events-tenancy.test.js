@@ -46,15 +46,16 @@ function eq(label, got, want) {
 }
 function group(name, fn) { console.log('\n' + name); fn(); }
 
-group('NBD tenant — all six house events resolve', () => {
+group('NBD tenant — all seven house events resolve', () => {
   const B = load({ rep: { calcomUsername: 'nobigdeal', calcomEventSlug: 'roof-inspection' }, brand: null });
-  eq('six distinct options', B.options().length, 6);
+  eq('seven distinct options', B.options().length, 7);
   eq('inspection', B.urlFor('inspection'), 'https://cal.com/nobigdeal/roof-inspection');
   eq('question', B.urlFor('question'), 'https://cal.com/nobigdeal/roof-question-call');
   eq('adjuster', B.urlFor('adjuster'), 'https://cal.com/nobigdeal/adjuster-meeting');
   eq('estimate', B.urlFor('estimate'), 'https://cal.com/nobigdeal/estimate-walkthrough');
   eq('gutters', B.urlFor('gutters'), 'https://cal.com/nobigdeal/gutter-siding-estimate');
   eq('lexington', B.urlFor('lexington'), 'https://cal.com/nobigdeal/roof-inspection-lexington');
+  eq('interior', B.urlFor('interior'), 'https://cal.com/nobigdeal/interior-repair-estimate');
 });
 
 group('Non-NBD tenant with their own single slug — no NBD slug leaks', () => {
@@ -125,6 +126,8 @@ group('suggest() picks the visit that matches where the job is', () => {
   eq('open claim -> adjuster', B.suggest({ stage: 'Inspected', insCarrier: 'State Farm' }), 'adjuster');
   eq('gutter job -> gutters', B.suggest({ stage: 'New', damageType: 'Gutter - Wind' }), 'gutters');
   eq('siding job -> gutters', B.suggest({ stage: 'New', damageType: 'Siding damage' }), 'gutters');
+  eq('drywall job -> interior', B.suggest({ stage: 'New', damageType: 'Drywall crack' }), 'interior');
+  eq('ceiling stain from a leak -> inspection (roof first)', B.suggest({ stage: 'New', damageType: 'Ceiling stain - roof leak' }), 'inspection');
   eq('finished job -> inspection', B.suggest({ stage: 'Complete', signatureStatus: 'signed' }), 'inspection');
   eq('no lead at all -> inspection', B.suggest(null), 'inspection');
 });
