@@ -3078,103 +3078,6 @@
   // where the user is guaranteed to exist.
 
   // ══════════════════════════════════════════════════════════════
-  // LOAD SAMPLE DATA (for testing when account has zero leads)
-  // ══════════════════════════════════════════════════════════════
-  async function loadSampleData() {
-    if (!window._user?.uid) {
-      showToast('Please sign in first', 'error');
-      return;
-    }
-    
-    const sampleLeads = [
-      {
-        firstName: 'Sarah', lastName: 'Martinez',
-        address: '1234 Oakwood Drive, Cincinnati, OH 45202',
-        phone: '513-555-0123', email: 'sarah.martinez@email.com',
-        damageType: 'Roof - Hail', stage: 'New',
-        jobValue: 8500, source: 'Referral',
-        claimNumber: 'HO-2024-8472',
-        carrier: 'State Farm',
-        notes: 'Called about hail damage from March storm. Needs inspection ASAP.'
-      },
-      {
-        firstName: 'Michael', lastName: 'Chen',
-        address: '5678 Maple Street, Mason, OH 45040',
-        phone: '513-555-0456', email: 'm.chen@email.com',
-        damageType: 'Roof - Wind', stage: 'Inspected',
-        jobValue: 12300, source: 'Door Knock',
-        claimNumber: 'WS-2024-3391',
-        carrier: 'Allstate',
-        notes: 'Inspection complete. Several missing shingles on north slope.'
-      },
-      {
-        firstName: 'Jennifer', lastName: 'Williams',
-        address: '910 Birch Lane, West Chester, OH 45069',
-        phone: '513-555-0789', email: 'jen.williams@email.com',
-        damageType: 'Siding - Hail', stage: 'Estimate Sent',
-        jobValue: 15700, source: 'Web Lead',
-        claimNumber: 'SI-2024-5612',
-        carrier: 'Liberty Mutual',
-        notes: 'Estimate sent 2 days ago. Waiting for adjuster approval.'
-      },
-      {
-        firstName: 'Robert', lastName: 'Thompson',
-        address: '2468 Cedar Court, Hamilton, OH 45011',
-        phone: '513-555-0321', email: 'rob.thompson@email.com',
-        damageType: 'Full Exterior', stage: 'Approved',
-        jobValue: 24500, source: 'Referral',
-        claimNumber: 'FE-2024-7823',
-        carrier: 'Nationwide',
-        notes: 'Full exterior replacement approved. Scheduling start date.'
-      },
-      {
-        firstName: 'Emily', lastName: 'Davis',
-        address: '1357 Pine Ridge Road, Lebanon, OH 45036',
-        phone: '513-555-0654', email: 'emily.davis@email.com',
-        damageType: 'Gutters', stage: 'In Progress',
-        jobValue: 3200, source: 'Door Knock',
-        claimNumber: 'GU-2024-9104',
-        carrier: 'Farmers',
-        notes: 'Gutter replacement in progress. 60% complete.'
-      }
-    ];
-
-    try {
-      showToast('Loading sample data...', 'info');
-      const batch = [];
-      
-      for (const lead of sampleLeads) {
-        const docRef = await addDoc(collection(db, 'leads'), {
-          ...lead,
-          userId: window._user.uid,
-          companyId: window._userClaims?.companyId || window._user.uid,
-          // Normalized inbound-SMS match key — see functions/phone-utils.js.
-          phoneDigits: String(lead.phone || '').replace(/\D/g, '').replace(/^1/, '').slice(-10),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-          deleted: false
-        });
-        batch.push(docRef.id);
-      }
-      
-      console.log('✅ Created', batch.length, 'sample leads');
-      showToast(`✅ Added ${batch.length} sample leads to your CRM`, 'success');
-      
-      // Reload leads and refresh kanban
-      await loadLeads();
-      
-      // Hide the sample data button
-      const btn = document.getElementById('loadSampleDataBtn');
-      if (btn) btn.style.display = 'none';
-      
-    } catch (error) {
-      console.error('❌ loadSampleData error:', error);
-      showToast('Failed to load sample data: ' + error.message, 'error');
-    }
-  }
-  window.loadSampleData = loadSampleData;
-
-  // ══════════════════════════════════════════════════════════════
   // DEBUG CONSOLE HELPERS
   // ══════════════════════════════════════════════════════════════
   function toggleDebugConsole() {
@@ -5936,8 +5839,11 @@
 // resolves window.__NBD_CALL_REGISTRY FIRST. Registration here replaces each
 // name's _NBD_CALL_ALLOWLIST entry as the security opt-in; the functions stay
 // module-scoped (this is a real ES module — no IIFE needed). MUST-STAY siblings
-// keep their window.X exposure: _saveEstimateDefaultsV2 (intra-module self-read)
-// and loadSampleData (dashboard-actions.js:913 also exports it).
+// keep their window.X exposure: _saveEstimateDefaultsV2 (intra-module self-read).
+// (loadSampleData used to be listed here too. This module carried a
+// confirm-less twin of it, always shadowed by dashboard-actions.js's
+// top-level declaration, which loads later. The twin was deleted 2026-09-22;
+// dashboard-actions.js owns the only loadSampleData.)
 // Tranche 3 map-graduate follow-on (2026-09-02): toggleDebugConsole and
 // toggleRecentDropdown joined — dispatched via _NBD_TOGGLE_FNS through
 // _nbdResolveMapped (registry-first since T3-M), never data-fn, so they have

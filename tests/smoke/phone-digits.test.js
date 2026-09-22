@@ -139,8 +139,22 @@ module.exports.run = function run(ctx) {
     const dash = read(path.join(PRO_JS, 'dashboard-bootstrap.module.js'));
     assert('dashboard _saveLead stamps data.phoneDigits (canonical inline)',
       /data\.phoneDigits\s*=\s*String\(data\.phone[\s\S]{0,40}/.test(dash) && CANON_INLINE.test(dash));
-    assert('dashboard loadSampleData seeder stamps phoneDigits',
-      /phoneDigits:\s*String\(lead\.phone/.test(dash));
+    // The dashboard's Load Sample Data button runs dashboard-actions.js
+    // loadSampleData, which seeds through demo.js seedDemoLeads (pinned just
+    // below). The bootstrap module's own seeder was a shadowed, never-live
+    // twin, deleted 2026-09-22; this pin used to guard ITS stamp. It now
+    // guards the live path's routing into the stamped seeder, and that no
+    // unstamped lead seeder reappears in the module.
+    const dashActionsPd = read(path.join(PRO_JS, 'dashboard-actions.js'));
+    const lsdAtPd = dashActionsPd.search(/^async function loadSampleData\(\)/m);
+    const lsdBodyPd = lsdAtPd >= 0 ? dashActionsPd.slice(lsdAtPd, dashActionsPd.indexOf('\n}', lsdAtPd)) : '';
+    assert('dashboard loadSampleData seeds via demo.js seedDemoLeads (the phoneDigits-stamping seeder)',
+      /await seedDemoLeads\(/.test(lsdBodyPd));
+    assert('dashboard-bootstrap.module.js carries no separate loadSampleData seeder',
+      !/\bfunction loadSampleData\b/.test(dash));
+    const dashHtmlPd = read(path.join(PRO_JS, '..', 'dashboard.html'));
+    assert('dashboard.html loads demo.js (seedDemoLeads is only defined there)',
+      /<script[^>]+src="js\/demo\.js(?:\?v=\d+)?"/.test(dashHtmlPd));
 
     const demo = read(path.join(PRO_JS, 'demo.js'));
     assert('demo seeder stamps phoneDigits (canonical inline)',

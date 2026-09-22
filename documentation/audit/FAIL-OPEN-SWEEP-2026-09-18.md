@@ -307,7 +307,9 @@ deliberate, or backed by the server.
   (~2950–3045). It is shadowed today, because `dashboard-actions.js` loads later and
   redefines it. Deleting it touches MUST-STAY pins: the comments at bootstrap ~5771
   and `dashboard-state.js` ~316, `tests/smoke/dashboard.test.js` ~3083/3788, and
-  `tests/smoke/phone-digits.test.js` ~142–143.
+  `tests/smoke/phone-digits.test.js` ~142–143. **Deleted 2026-09-22** (branch
+  `chore/dashboard-dead-code-cleanup`); the pins were rewritten to guard the live
+  dashboard-actions.js version (gate, confirm, seedDemoLeads routing).
 - **The `?v=` cache-bust sweep is still pending.** Every fail-open and T3 PR this
   session deferred its bumps to session end. That covers `invoice-pipeline.js` and the
   other touched files. These pairs must bump together:

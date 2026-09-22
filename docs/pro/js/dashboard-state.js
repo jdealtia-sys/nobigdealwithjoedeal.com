@@ -313,7 +313,10 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  _exportAllData, _saveCompanyProfileSettings, _resetCompanyProfileSettings,
   //  _saveSiteSlug, retryLoadLeads, copyDebugInfo, testFirestoreRules. Do NOT
   //  re-add. MUST-STAY (kept below): _saveEstimateDefaultsV2 (intra-module
-  //  self-read), loadSampleData (dashboard-actions.js twin).
+  //  self-read), loadSampleData (declared ONLY in dashboard-actions.js — a
+  //  top-level function in a classic script, so it is a window property
+  //  that data-fn dispatch reaches through this allowlist; the module's
+  //  shadowed confirm-less twin was deleted 2026-09-22).
   //  Tranche 3 T3-C (2026-09-17): _loadCompanySettings and
   //  _loadCompanyProfileSettings also moved OFF window into
   //  __NBD_CALL_REGISTRY — the "ui.js cross-file window calls" that kept
@@ -406,12 +409,6 @@ const _NBD_CALL_ALLOWLIST = new Set([
   // 2026-06-09, now the data-on-change delegate (same shape as toggleHotkey)
   'toggleSidebarItem',
 ]);
-
-// ══════════════════════════════════════════════
-// TOAST state
-// ══════════════════════════════════════════════
-const toastQueue = [];
-let toastActive = false;
 
 // ══════════════════════════════════════════════
 // ESTIMATE BUILDER state + rates

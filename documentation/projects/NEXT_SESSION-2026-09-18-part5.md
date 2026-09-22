@@ -105,12 +105,15 @@ building; until then queued sends 503 and stay queued (safe).
 - dashboard-ui.js post-wrap cleanup: dead spyglass `initAllAutocomplete`
   wrapper (now reads undefined), stale comments (~2632/~1921/~2609,
   dashboard-actions.js:957-975/:1139, dashboard-main.js:31), dead
-  `toastQueue`/`toastActive` in dashboard-state.js.
+  `toastQueue`/`toastActive` in dashboard-state.js. **Done 2026-09-22**
+  (branch `chore/dashboard-dead-code-cleanup`).
 - Confirm-less `loadSampleData` twin in dashboard-bootstrap.module.js (shadowed; delete with its MUST-STAY pins).
+  **Done 2026-09-22** (same branch); the pins now guard the live dashboard-actions.js version.
 - Close Board brand gate (`_dealBrand`) pre-hydration — unreachable with one tenant.
 - Smoke-pin weaknesses shared by every tranche: FWD_GUARD misses a
   typeof-guarded re-export with a trailing comment; the T1 walk misses
-  bracket-notation / `Object.assign(window, …)` re-exports.
+  bracket-notation / `Object.assign(window, …)` re-exports. **Done 2026-09-22**
+  (same branch), with in-test fixtures for each shape.
 - Open PRs from spawned sessions (not this session's): #1676
   (`_leadsLoaded` reset on account switch), #1677 (Close Board per-user storage).
 
