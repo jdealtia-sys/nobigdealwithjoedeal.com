@@ -27,6 +27,10 @@
  *      now bounded (sms-optout.js READ_TIMEOUT_MS); a scenario shortens the
  *      bound, and a watchdog turns a handler that never answers into a
  *      failure rather than a stall.
+ *   5. AI-DRAFT 21610 (opt-out residual, 2026-09-22). onAiDraftApproved
+ *      consults only the register, and its Twilio catch did not copy a 21610
+ *      into it (sendSMS/sendD2DSMS did). It now uses the same
+ *      recordCarrierOptOut helper and fails the draft 'opted_out'.
  *
  * This file drives the REAL exported handlers in functions/sms-functions.js —
  * with the REAL functions/sms-optout.js underneath — against stubbed firebase
@@ -103,6 +107,8 @@ function makeWorld(opts) {
     },
     update: async (data) => { events.push('update:' + p); writes.push({ path: p, data, update: true }); },
     delete: async () => { delete docs[p]; },
+    // onAiDraftApproved's success path writes leads/{id}/notes.
+    collection: (n) => db.collection(p + '/' + n),
   });
   const db = {
     doc: docRef,
@@ -463,6 +469,86 @@ const OPTED_OUT = { [OPT_DOC]: { phone: '+18595550134', keyword: 'STOP' } };
       res.statusCode === 200 && res.body && res.body.success === true && w.events.includes('update:knocks/knock-1'));
     ok('D2D: opt-out read precedes the per-recipient limiter',
       idx(w.events, 'optout-read') > -1 && idx(w.events, 'optout-read') < idx(w.events, 'limit:sendSMS:to'), w.events.join(' > '));
+  }
+
+  // ═══ onAiDraftApproved ═════════════════════════════════════════════════
+  // Opt-out residual from #1667: the AI-draft trigger consults ONLY the
+  // register, and its Twilio catch did not copy a 21610 into it — so every
+  // re-approval to a number on Twilio's STOP list failed at Twilio again
+  // ('twilio_error'), and nothing else learned the person had opted out.
+  console.log('onAiDraftApproved — Twilio 21610 is recorded into the register');
+  const DRAFT_DOC = 'leads/lead-1/ai_drafts/draft-1';
+  async function approveDraft(exported, text) {
+    const before = { status: 'pending' };
+    const after = {
+      status: 'approved', draftText: text || 'Thanks Sam — we can come Tuesday.',
+      customerPhone: PHONE_TYPED, userId: 'rep-1', companyId: 'co-1', approvedBy: 'rep-1',
+    };
+    await exported.onAiDraftApproved.__handler({
+      data: { before: { data: () => before }, after: { data: () => after } },
+      params: { leadId: 'lead-1', draftId: 'draft-1' },
+    });
+  }
+  const draftMarks = (w) => w.writes.filter((x) => x.path === DRAFT_DOC && x.update).map((x) => x.data);
+  {
+    const err = Object.assign(new Error('Attempt to send to unsubscribed recipient'), { code: 21610, status: 400 });
+    const { exported, world: w } = load({ twilioError: err });
+    await approveDraft(exported);
+    ok('AI draft: Twilio was attempted once (the register was clean)', w.twilioCalls.length === 1);
+    const rec = w.writes.find((x) => x.path === OPT_DOC);
+    ok('AI draft: 21610 records the opt-out under the canonical register key', !!rec, w.writes.map((x) => x.path).join(','));
+    ok('AI draft: the recorded opt-out is tagged source "twilio_21610" (the shared recordCarrierOptOut shape)',
+      rec && rec.data && rec.data.source === 'twilio_21610' && rec.data.optedOutAt === '__server_ts__');
+    const marks = draftMarks(w);
+    ok('AI draft: the draft is marked failed with reason "opted_out"',
+      marks.length === 1 && marks[0].status === 'failed' && marks[0].failureReason === 'opted_out', JSON.stringify(marks));
+
+    // End to end: re-approving a draft to the same person (same loaded module
+    // and world, so the register now holds the record) stops at the register.
+    const before = w.twilioCalls.length;
+    await approveDraft(exported, 'Second try');
+    ok('AI draft: a re-approval is refused by the register, Twilio untouched',
+      w.twilioCalls.length === before, 'twilio calls ' + before + ' → ' + w.twilioCalls.length);
+    const marks2 = draftMarks(w);
+    ok('AI draft: …and that re-approval is marked failed "opted_out"',
+      marks2.length === 2 && marks2[1].failureReason === 'opted_out', JSON.stringify(marks2));
+  }
+  {
+    const err = Object.assign(new Error('unsubscribed'), { code: '21610' });
+    const { exported, world: w } = load({ twilioError: err, optOutWriteThrows: true });
+    await approveDraft(exported);
+    const marks = draftMarks(w);
+    ok('AI draft: 21610 still marks the draft failed "opted_out" when recording the opt-out fails',
+      marks.length === 1 && marks[0].failureReason === 'opted_out', JSON.stringify(marks));
+    ok('AI draft: the failed record write is logged, not thrown',
+      w.logs.error.some((a) => a[0] === 'optout_record_error' && a[1] && a[1].fn === 'onAiDraftApproved'));
+  }
+  {
+    // Control: only 21610 means "opted out".
+    const err = Object.assign(new Error('Twilio down'), { code: 20500 });
+    const { exported, world: w } = load({ twilioError: err });
+    await approveDraft(exported);
+    ok('AI draft: a non-21610 Twilio error writes nothing to the register',
+      !w.writes.some((x) => x.path.startsWith('sms_opt_outs/')));
+    const marks = draftMarks(w);
+    ok('AI draft: …and keeps failureReason "twilio_error"',
+      marks.length === 1 && marks[0].failureReason === 'twilio_error', JSON.stringify(marks));
+  }
+  {
+    // Control: the harness reaches a real send.
+    const { exported, world: w } = load({});
+    await approveDraft(exported);
+    const marks = draftMarks(w);
+    ok('AI draft: clean number sends and marks the draft sent (control)',
+      w.twilioCalls.length === 1 && marks.some((m) => m.status === 'sent' && m.twilioSid === 'SM-test-1')
+      && !w.writes.some((x) => x.path.startsWith('sms_opt_outs/')), JSON.stringify(marks));
+  }
+  {
+    // Control: an opted-out number never reaches Twilio on this path.
+    const { exported, world: w } = load({ docs: OPTED_OUT });
+    await approveDraft(exported);
+    ok('AI draft: a number already in the register is refused before Twilio (control)',
+      w.twilioCalls.length === 0 && draftMarks(w).some((m) => m.failureReason === 'opted_out'));
   }
 
   world = null;

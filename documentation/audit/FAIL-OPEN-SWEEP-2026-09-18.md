@@ -337,8 +337,12 @@ deliberate, or backed by the server.
     - A deleted custom stage leaves `stages.<key>` on the server.
   - #1667:
     - `onAiDraftApproved` doesn't record Twilio 21610 into the register.
+      **Fixed 2026-09-22** (branch `fix/comms-optout-residuals`): it now calls the
+      same `recordCarrierOptOut` helper and fails the draft `opted_out`.
     - The smart-follow-up panel's **email** fallback after a platform refusal is the
-      email twin of the SMS issue fixed here.
+      email twin of the SMS issue fixed here. **Fixed 2026-09-22** (same branch): a
+      refusal on either channel is final, with no `emailForLead` re-post. There is
+      no email-specific suppression list in the platform for it to respect.
     - `sendD2DSMS` keeps its paid gate and per-uid limit ahead of the opt-out check
       (no client consumer today).
 
