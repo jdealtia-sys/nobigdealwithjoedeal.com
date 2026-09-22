@@ -359,8 +359,78 @@ const tick = () => new Promise((r) => setImmediate(r));
       (await panel('sms', { success: false, error: 'no-phone' })).join() === 'smsForLead');
     ok('panel: no result at all keeps the smsForLead fallback',
       (await panel('sms', null)).join() === 'smsForLead');
-    ok('panel: email failures keep their existing emailForLead fallback',
-      (await panel('email', { success: false, mode: 'platform', error: 'forbidden' })).join() === 'emailForLead');
+    // Email twin (opt-out residuals, 2026-09-22): an email platform refusal
+    // fell back to emailForLead, which minted a portal token and sent a
+    // DIFFERENT email (the portal-link one) straight after the refusal.
+    ok('panel: an email 403 refusal does NOT fall back to emailForLead (or anything else)',
+      (await panel('email', { success: false, mode: 'platform', error: 'forbidden' })).length === 0);
+    ok('panel: an email 401 refusal does NOT fall back to emailForLead',
+      (await panel('email', { success: false, mode: 'platform', error: 'Unauthorized' })).length === 0);
+    ok('panel: an SMS refusal never switches channel to email',
+      !(await panel('sms', { success: false, mode: 'platform', error: 'opted_out' })).includes('emailForLead'));
+    // Controls: the guard is scoped to refusals, not to the email channel.
+    ok('panel: a local email pre-flight failure (comms not loaded) keeps the emailForLead fallback',
+      (await panel('email', { success: false, error: 'comms-unavailable' })).join() === 'emailForLead');
+    ok('panel: no email result at all keeps the emailForLead fallback',
+      (await panel('email', null)).join() === 'emailForLead');
+    ok('panel: a sent email (mode platform) triggers no fallback',
+      (await panel('email', { success: true, mode: 'platform', id: 'em_1' })).length === 0);
+    ok('panel: an email handoff (mode mailto) triggers no second send',
+      (await panel('email', { success: true, mode: 'mailto' })).length === 0);
+  }
+  {
+    // End to end through the REAL chain: panel wireActions → real
+    // SmartFollowup.executeSuggestion → real NBDComms.sendEmail → stubbed
+    // fetch answering the server's role refusal (functions/email-functions.js
+    // sendEmail: 403 "Your account role cannot send email").
+    const panelFactory = new Function('window', '_dismissedThisSession', 'update',
+      extractFunction(PANEL, 'wireActions') + '\nreturn wireActions;');
+    const execFactory = new Function('window', 'computeSuggestion', 'recordOutcome', 'leadName',
+      'async ' + extractFunction(SF, 'executeSuggestion') + '\nreturn executeSuggestion;');
+    async function chain(respond) {
+      const h = loadComms(respond);
+      const calls = [];
+      const outcomes = [];
+      let handler = null;
+      const btn = { getAttribute: () => 'email', addEventListener: (ev, fn) => { handler = fn; }, disabled: false };
+      const host = {
+        querySelectorAll: (sel) => (sel === '[data-csf-action]' ? [btn] : []),
+        querySelector: () => ({ textContent: 'Hi Sam, quick check-in on the roof.' }),
+      };
+      const sfWin = { NBDComms: h.NBDComms };
+      const exec = execFactory(sfWin, () => null, (id, o) => outcomes.push(id), () => 'Sam Lee');
+      const win = {
+        SmartFollowup: {
+          computeSuggestion: () => ({ action: 'email', channel: 'email', draft: 'x' }),
+          executeSuggestion: exec,
+          recordOutcome: () => {},
+        },
+        PortalLinkHelpers: {
+          smsForLead: () => calls.push('smsForLead'),
+          emailForLead: () => calls.push('emailForLead'),
+        },
+      };
+      panelFactory(win, new Set(), () => {})(host, { id: 'lead-1', firstName: 'Sam', email: 'sam@example.com', phone: '8595550134' });
+      await handler({ stopPropagation() {} });
+      return Object.assign(h, { calls, outcomes, btn });
+    }
+    let r = await chain(jsonRes(403, { error: 'Your account role cannot send email' }));
+    ok('e2e email 403: exactly ONE sendEmail POST (no second send attempt)',
+      r.posts.length === 1 && /\/sendEmail$/.test(r.posts[0].url), r.posts.map((p) => p.url).join());
+    ok('e2e email 403: the POST carried leadId (server email_log stamp)', r.posts[0] && r.posts[0].body.leadId === 'lead-1');
+    ok('e2e email 403: no emailForLead / smsForLead fallback', r.calls.length === 0);
+    ok('e2e email 403: no mailto: or sms: opened', r.opened.length === 0);
+    ok('e2e email 403: the rep is told why (error toast with the server reason)',
+      r.toasts.some((t) => t.type === 'error' && /role cannot send email/.test(t.msg)));
+    ok('e2e email 403: not recorded as "acted" on the suggestion', r.outcomes.length === 0);
+    ok('e2e email 403: the Email button is re-enabled (rep can retry deliberately)', r.btn.disabled === false);
+    r = await chain(jsonRes(401, { error: 'Unauthorized' }));
+    ok('e2e email 401: one POST, no fallback, nothing opened',
+      r.posts.length === 1 && r.calls.length === 0 && r.opened.length === 0);
+    // Control: the same chain on success sends once and records the action.
+    r = await chain(jsonRes(200, { success: true, id: 'em_1' }));
+    ok('e2e email 200 (control): one POST, no fallback, recorded as acted',
+      r.posts.length === 1 && r.calls.length === 0 && r.outcomes.length === 1);
   }
   // invoice-pipeline.js: display-only — the refusal's `error` is now a code
   // ('opted_out'), so the thrown message must prefer the sentence the rep saw.

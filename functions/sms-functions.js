@@ -1885,6 +1885,15 @@ exports.onAiDraftApproved = onDocumentUpdated(
       logger.info('[ai-draft-send] sent', { leadId, draftId, sid: message.sid });
     } catch (e) {
       logger.error('[ai-draft-send] twilio send failed', { leadId, draftId, err: e.message });
+      // Twilio's own STOP list refused it (21610): copy that into the register,
+      // the same as sendSMS/sendD2DSMS, so the next approval of a draft to
+      // this number stops at the opt-out check above instead of failing at
+      // Twilio again, and every other send path sees it too.
+      if (isTwilioUnsubscribed(e)) {
+        await recordCarrierOptOut(db, to, 'onAiDraftApproved');
+        await fail('opted_out');
+        return;
+      }
       await fail('twilio_error', e.message);
     }
   }

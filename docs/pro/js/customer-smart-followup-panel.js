@@ -229,15 +229,22 @@
                 channel: channel,
                 draft: draftText || null,
               });
-              // An SMS platform REFUSAL (mode 'platform': opted out, opt-out
-              // status unknown, signed out) is final — NBDComms already told
-              // the rep why. Falling back to smsForLead re-posted a DIFFERENT
-              // message (the portal-link text, sent with no further prompt
-              // unless the rep has 2+ templates) the moment a transient
-              // refusal cleared, and re-prompted on a STOP'd number. Email
-              // keeps its existing fallback.
-              const smsRefused = channel === 'sms' && !!result && result.mode === 'platform';
-              if ((!result || result.success === false) && !smsRefused) {
+              // A platform REFUSAL (success:false, mode 'platform') is final on
+              // BOTH channels — NBDComms owns the whole outcome and has already
+              // told the rep why (SMS: opted out, opt-out status unknown,
+              // signed out; email: 401 signed out, 403 role not allowed to
+              // send). Falling back to smsForLead/emailForLead re-posted a
+              // DIFFERENT message (the portal-link text/email, sent with no
+              // further prompt unless the rep has 2+ templates, after minting
+              // a portal token) straight after the refusal — a second send
+              // attempt the rep never asked for. Refusals are per-channel: an
+              // SMS refusal never switches to email here; the Email button
+              // stays available for the rep to choose deliberately. Only
+              // local pre-flight failures (comms not loaded, a missing
+              // contact field, no result) keep the helper fallback — nothing
+              // was refused there.
+              const refused = !!result && result.success === false && result.mode === 'platform';
+              if ((!result || result.success === false) && !refused) {
                 // Fallback: portal-link helpers (prefilled native client).
                 if (action === 'sms' && window.PortalLinkHelpers
                     && typeof window.PortalLinkHelpers.smsForLead === 'function') {
