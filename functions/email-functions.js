@@ -18,6 +18,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const { Resend } = require('resend');
 const { enforceRateLimit, httpRateLimit } = require('./rate-limit');
 const { resendRejected, resendErrorMessage } = require('./resend-guard');
+const Suppression = require('./email-suppression');
 
 // Secrets
 const RESEND_API_KEY = defineSecret('RESEND_API_KEY');
@@ -341,19 +342,12 @@ exports.sendEmail = onRequest(
       res.status(405).json({ error: 'Method not allowed' });
       return;
     }
-    if (!(await httpRateLimit(req, res, 'sendEmail:ip', 60, 3_600_000))) return;
 
     // Verify Firebase auth
     const decoded = await verifyAuth(req);
     if (!decoded) {
       res.status(401).json({ error: 'Unauthorized' });
       return;
-    }
-    try {
-      await enforceRateLimit('sendEmail:uid', decoded.uid, 200, 86_400_000);
-    } catch (e) {
-      if (e.rateLimited) { res.status(429).json({ error: 'Daily email limit exceeded' }); return; }
-      throw e;
     }
 
     // Block read-only / access-code-only accounts from using this generic
@@ -386,18 +380,77 @@ exports.sendEmail = onRequest(
       return;
     }
 
+    // ── Email unsubscribe (CAN-SPAM, 2026-09-22) ──────────────────────
+    // The caller says what this email IS via `kind` (email-suppression.js
+    // TRANSACTIONAL_KINDS: invoice, receipt, estimate, proposal, contract,
+    // portal_link, document, appointment). No kind, or any other value, is
+    // COMMERCIAL — fail closed for marketing. A commercial send to an address
+    // this tenant has on its suppression register is REFUSED (403
+    // 'unsubscribed'); the browser client surfaces that as a final refusal
+    // and never hands it off to mailto:. Transactional sends skip the check.
+    //
+    // This runs BEFORE both limiters, on purpose (the sendSMS opt-out lesson,
+    // #1667): the client answers a 429 by opening the rep's mail app with the
+    // message filled in, so a 429 ahead of this check could hand an
+    // unsubscribed address to a device-side send.
+    //
+    // Tenant key = claims.companyId || uid (the Phase-1.5 convention the CRM
+    // badge, the unsubscribe token and markEmailUnsubscribed all use).
+    const db = getFirestore();
+    const companyId = decoded.companyId || null;
+    const tenantKey = decoded.companyId || decoded.uid;
+    const kind = req.body && typeof req.body.kind === 'string' ? req.body.kind : '';
+    const category = Suppression.resolveCategory({ kind });
+    let unsubGate = null;
+    if (category === Suppression.CATEGORY.COMMERCIAL) {
+      try {
+        unsubGate = await Suppression.gateCommercialEmail(db, {
+          companyId: tenantKey, email: to, leadId: leadId || null, source: 'sendEmail',
+        }, { timeoutMs: Suppression.READ_TIMEOUT_MS, serverTimestamp: FieldValue.serverTimestamp });
+      } catch (e) {
+        // Unknown opt-out state is "do not send", never "probably fine". A
+        // distinguishable 503 (not the framework's plain 500) so the client
+        // refuses instead of handing off to mailto:.
+        logger.error('sendEmail suppression_unverified', { err: e && e.message, code: e && e.code });
+        res.status(503).json({
+          error: 'Could not confirm this person can be emailed — nothing was sent. Try again in a moment.',
+          code: 'suppression_unverified',
+        });
+        return;
+      }
+      if (unsubGate.suppressed) {
+        await logEmailToFirestore(db, to, subject, decoded.uid, 'suppressed', leadId || null, companyId);
+        res.status(403).json({ error: 'This person unsubscribed from email', code: 'unsubscribed' });
+        return;
+      }
+    }
+
+    if (!(await httpRateLimit(req, res, 'sendEmail:ip', 60, 3_600_000))) return;
+    try {
+      await enforceRateLimit('sendEmail:uid', decoded.uid, 200, 86_400_000);
+    } catch (e) {
+      if (e.rateLimited) { res.status(429).json({ error: 'Daily email limit exceeded' }); return; }
+      throw e;
+    }
+
     try {
       const resend = new Resend(RESEND_API_KEY.value());
       const fromEmail = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
 
-      const response = await resend.emails.send({
+      // Commercial: footer link + RFC 8058 one-click headers. Transactional:
+      // the message goes exactly as the caller built it.
+      const bodyHtml = Suppression.applyFooter(unsubGate, html || `<p>${body}</p>`, null).html;
+      const message = {
         from: fromEmail,
         to,
         subject,
-        html: html || `<p>${body}</p>`,
+        html: bodyHtml,
         reply_to: replyTo,
         attachments: attachments || []
-      });
+      };
+      if (unsubGate && unsubGate.headers) message.headers = unsubGate.headers;
+
+      const response = await resend.emails.send(message);
 
       // The Resend SDK does NOT throw on an API-level rejection (bad/expired
       // key, suspended account, invalid sender domain, etc.) — it resolves
@@ -408,8 +461,6 @@ exports.sendEmail = onRequest(
       // ~18 more call sites across functions/ was fixed as a follow-up
       // (documentation/audit/RESEND-ERROR-SURFACING-SWEEP-2026-09-08.md),
       // sharing this check via resend-guard.js.
-      const db = getFirestore();
-      const companyId = decoded.companyId || null;
       if (resendRejected(response)) {
         const msg = resendErrorMessage(response);
         logger.error('sendEmail resend_rejected', { err: msg });
@@ -430,8 +481,6 @@ exports.sendEmail = onRequest(
       logger.error('sendEmail error', { err: e.message });
 
       // Log failure
-      const db = getFirestore();
-      const companyId = decoded.companyId || null;
       await logEmailToFirestore(db, to, subject, decoded.uid, 'failed', leadId || null, companyId);
 
       res.status(500).json({

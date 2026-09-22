@@ -669,6 +669,9 @@ Rules:
         body: draft || ('Hi' + (first ? ' ' + first : '') + ',\n\nWanted to check in on your project. When is a good time to connect?\n'),
         leadId: lead.id,
         forceHandoff: !!opts.forceHandoff,
+        // A portal send is transactional; every other suggestion email is a
+        // follow-up (commercial) and honours the tenant's unsubscribe register.
+        kind: s.action === 'send-portal' ? 'portal_link' : undefined,
       });
       if (result && result.success) recordOutcome(lead.id, 'acted', s);
       return result || { success: false, error: 'send-failed' };

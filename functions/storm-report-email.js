@@ -170,6 +170,7 @@ exports.stormReportEmail = onDocumentCreated(
     try {
       const resend = new Resend(RESEND_API_KEY.value());
       const from = secretOr(EMAIL_FROM, 'noreply@nobigdealwithjoedeal.com');
+      // Email category: TRANSACTIONAL — the homeowner asked for this storm-history report on /storm-report. Not gated by the unsubscribe register (email-suppression.js SEND_PATHS).
       const resp = await resend.emails.send({
         from,
         to: d.email,

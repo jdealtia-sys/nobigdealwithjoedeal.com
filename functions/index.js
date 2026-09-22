@@ -373,6 +373,13 @@ Object.assign(exports, reportSharingFunctions);
 const calendarFeedFunctions = require('./calendar-feed');
 Object.assign(exports, calendarFeedFunctions);
 
+// Email unsubscribe (CAN-SPAM, 2026-09-22): public /unsubscribe/<token> page +
+// RFC 8058 one-click POST (emailUnsubscribe), and the rep's "Mark
+// unsubscribed" callable. Register + commercial-send gate live in
+// functions/email-suppression.js. See functions/email-unsubscribe.js.
+const emailUnsubscribeFunctions = require('./email-unsubscribe');
+Object.assign(exports, emailUnsubscribeFunctions);
+
 // Generated-document read-back. Replaces the permanent getDownloadURL that
 // document-generator.js used to persist as documents/{id}.htmlUrl — an
 // unrevocable no-auth URL for a signed contract. Authed callable + admin-SDK

@@ -934,9 +934,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             subject: `Invoice ${invoiceId} from ${_invoiceCompany()}`,
             html: invoiceHtml,
             leadId: invoice.leadId || null,
+            kind: 'invoice', // transactional: never blocked by an email unsubscribe
           });
           if (!emailResult || emailResult.success === false) {
-            throw new Error((emailResult && emailResult.error) || 'Email send failed');
+            throw new Error((emailResult && (emailResult.message || emailResult.error)) || 'Email send failed');
           }
         } else {
           throw new Error('Email service not available');
@@ -1158,6 +1159,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           subject: `Payment Received - ${_invoiceCompany()} Invoice ${invoiceId}`,
           html: `<p>Thank you! We received your payment of ${formatCurrency(amount)}.</p><p>Your invoice is now ${newBalanceDue === 0 ? 'fully paid' : 'partially paid'}.</p>`,
           leadId: invoice.leadId || null,
+          kind: 'receipt', // transactional: payment confirmation
         });
       }
 

@@ -952,6 +952,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
         subject: subject,
         body: body,
         leadId: deal.leadId || null,
+        kind: 'proposal', // transactional: the estimate/accept link for this deal
       });
       if (result && result.success) {
         updateDeal(dealId, { status: DEAL_STATUS.SENT, sentAt: new Date().toISOString(), sentVia: 'email' });

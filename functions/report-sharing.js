@@ -385,6 +385,7 @@ exports.createReportShareToken = onCall(
         // string while the body used the report's own type; keeping them
         // separate is what makes the /reports path byte-identical here.
         const reportName = escHtml(subject.bodyNoun);
+        // Email category: TRANSACTIONAL — delivers a report / document the customer is receiving. Not gated by the unsubscribe register (email-suppression.js SEND_PATHS).
         const response = await resend.emails.send({
           from: fromEmail,
           to: toEmail,

@@ -406,6 +406,7 @@ Bookmark it; the link stays live as we work through the project.
           subject: subject,
           body: body,
           leadId: lead.id,
+          kind: 'portal_link', // transactional: the portal for this customer's job
         });
         if (result && result.success) {
           _recordShare(lead.id, 'email');

@@ -67,7 +67,7 @@ If you add a new export, list it here so the next audit doesn't have to re-deriv
 | `attachStormProof` | onCall | Attaches hail/wind history proof to the caller's lead (handlers/storm-proof.js) |
 | `getAdjusterTacticBoard` | onCall | Adjuster tactic board read for the caller's claim (handlers/adjuster-board.js, #1137) |
 | `reserveCompanyPrefix` | onCall | Pillar 1 — reserves the tenant's unique customer-ID doc prefix (handlers/provisioning.js, claims-scoped) |
-| `sendEmail` | onRequest | Generic Resend email send — ID-token verified + 60/hr/IP rate limit |
+| `sendEmail` | onRequest | Generic Resend email send — ID-token verified + 60/hr/IP rate limit. Per-request `kind` → commercial (default) / transactional; a commercial send to an address on the tenant's email_suppressions register answers 403 `unsubscribed` (503 `suppression_unverified` when the register can't be read), checked BEFORE the limiters; commercial sends get the unsubscribe footer + RFC 8058 List-Unsubscribe headers (functions/email-suppression.js) |
 | `sendSMS` | onRequest | Twilio SMS send — ID-token verified, paid-subscription gate, 30/hr/IP + 100/day/uid |
 | `sendQueuedSMS` | onRequest | Offline SMS outbox replay endpoint (added 2026-09-18, PR #1675) — the SAME handler as `sendSMS` with `queued` forced on: opt-out first, then a per-uid queued-gate budget (300/hr, 503 `outbox_throttled`), idempotency claim, quiet hours, staleness, tenant-scoped competing activity, lead checks, then sendSMS's gates. Also answers `{ peek: true }` from claims alone (never sends). Separate from `sendSMS` so an old fleet (hosting deployed before functions, a failed functions deploy, a rollback) has no endpoint to serve a replay with: 404 / CORS → the text stays queued |
 | `sendD2DSMS` | onRequest | Door-to-door SMS send — ID-token verified + rate limits |
@@ -115,6 +115,8 @@ Module helpers re-exported by `Object.assign(exports, …)` and therefore reacha
 | `submitDealAcceptance` | onRequest | Deal acceptance: burns token, records tier + signature, notifies rep |
 | `getSharedReport` | onRequest | Report share: ~120-bit REUSABLE token, 30-day default expiry, per-IP rate limit (view-only) |
 | `getCalendarFeed` | onRequest | Read-only `.ics` feed served at `/calendar/<token>.ics` for the iPhone Calendar app. ~120-bit token, deliberately NO expiry (a subscription that stops refreshing is silent), per-IP + per-token rate limits, `text/calendar`, never an empty 200 — a calendar client reads that as "all events deleted" |
+| `emailUnsubscribe` | onRequest | CAN-SPAM unsubscribe at `/unsubscribe/<token>` (hosting rewrite): 256-bit opaque token per commercial send, no expiry. GET = confirm page, NO side effect (link scanners); POST (page button or RFC 8058 one-click) records the per-tenant suppression idempotently. Neutral page for unknown tokens, per-IP rate limit, intentionally public |
+| `markEmailUnsubscribed` | onCall | Rep marks a lead's email unsubscribed (source `rep`) — lead owner, same-company company_admin/manager, or platform admin; App Check enforced |
 | `getPublicSiteConfig` | onRequest | Pillar 5 tenant-microsite config read — strict public-marketing whitelist, active-tenant check, rate-limited |
 | `submitReferral` | onRequest | Per-IP (5/10min) + per-source-customer (10/24h) rate limit, phone/email validation |
 | `stormReport` | onRequest | Public IEM storm-history proxy for /storm-report — server-side yearly chunking + Firestore cache (no API key needed) |
