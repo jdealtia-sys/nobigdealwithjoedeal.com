@@ -252,6 +252,14 @@ jobs:
       # canonical copy or a page carrying both the link and the marker.
       - name: Check readability-CSS extraction (assert mode)
         run: node scripts/ensure-readability-css.js
+      # nav-responsive-fix v3 extraction (2026-09-22, dedup slice 4): the block
+      # was byte-identical inline CSS on 173 pages (~151 KB of HTML). Same
+      # contract and same reason as readability above — every rule in it is
+      # !important and nbd-mobile.css carries its own !important nav padding,
+      # so the link must stay exactly where the <style> was. Fails on a
+      # re-injected inline copy or a page carrying both the link and the marker.
+      - name: Check nav-responsive-CSS extraction (assert mode)
+        run: node scripts/ensure-nav-responsive-css.js
       # Favicon contract (2026-09-13): two icons across every page, by
       # audience — the roof mark (/favicon.svg + /assets/images/apple-touch-icon.png)
       # for homeowner pages, NBD PRO (/pro/favicon.svg + /pro/img/nbd-icon-192.png)
