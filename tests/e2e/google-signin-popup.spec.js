@@ -45,6 +45,9 @@
 //      proves the rig can see the severance, so test 1 cannot go green just
 //      because the header stopped reaching the browser.
 //
+// Tests 3-4 (second describe, bottom of file) cover /pro/login's sign-in-only
+// "Continue with Google".
+//
 // @stranger shard because createCompany needs the Functions emulator, which
 // only the @stranger/@gauntlet shards boot.
 // ─────────────────────────────────────────────────────────────────────
@@ -265,5 +268,158 @@ test.describe('Google sign-in popup survives the COOP firebase.json serves @stra
       .toHaveText(CLOSED_COPY, { timeout: 30_000 });
     expect(new URL(page.url()).pathname).toMatch(/^\/pro\/register(\.html)?$/);
     await popup.close().catch(() => {});
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// /pro/login — "Continue with Google" is SIGN-IN ONLY (2026-09-22)
+//
+// Same COOP fault as register (the popup is severed under same-origin), so
+// the same proxy serves the effective header. Two journeys:
+//   3. A Google identity with NO NBD Pro account: signed back out, shown the
+//      "No NBD Pro account…" copy with a link to /pro/register, and NOTHING
+//      is provisioned — no users/{uid}, no companies/{uid}. (The Auth user
+//      record itself is created by the popup sign-in; that is expected and
+//      is torn down below.)
+//   4. An existing member whose account has google.com linked: the popup
+//      lands them on POST_LOGIN_DEST.
+// Both tear down every user/doc they create — see the register describe's
+// afterEach for why that matters on the shared @stranger emulator.
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Open /pro/login and wait until login.js has wired #googleLoginBtn. The
+ * button ships `disabled` in login.html and login.js enables it only after
+ * binding its click handler, so "enabled" IS the wiring signal.
+ * @param {import('@playwright/test').Page} page
+ * @param {string} origin
+ * @param {string} [search]
+ */
+async function openLoginWired(page, origin, search = '') {
+  let wireCoop;
+  page.on('response', (r) => {
+    try {
+      const u = new URL(r.url());
+      if (u.origin === origin && /^\/pro\/login(\.html)?$/.test(u.pathname) && r.request().resourceType() === 'document') {
+        wireCoop = r.headers()['cross-origin-opener-policy'];
+      }
+    } catch (_) { /* non-parseable URL — not our document */ }
+  });
+  await page.goto(origin + '/pro/login' + search);
+  await expect(page.locator('#googleLoginBtn')).toBeEnabled({ timeout: 30_000 });
+  return { wireCoop: () => wireCoop };
+}
+
+test.describe('Continue with Google on /pro/login signs members in and never provisions @stranger', () => {
+  /** @type {Awaited<ReturnType<typeof startCoopProxy>> | null} */
+  let proxy = null;
+  /** uids this describe created, torn down after each test. @type {string[]} */
+  let created = [];
+
+  test.beforeEach(async ({ context }, testInfo) => {
+    if (!EMULATOR_MODE) {
+      testInfo.skip(true, 'emulator mode only (auth + firestore + functions + hosting emulators)');
+    }
+    testInfo.setTimeout(120_000);
+    await installLocalSdkShim(context); // sandbox-only; no-op in CI
+  });
+
+  test.afterEach(async () => {
+    if (proxy) await proxy.close();
+    proxy = null;
+    // Best-effort, never throws (same contract as the register describe).
+    if (created.length) {
+      const { auth, db } = admin();
+      for (const uid of created) {
+        await db.doc(`users/${uid}`).delete().catch(() => {});
+        await db.doc(`companies/${uid}`).delete().catch(() => {});
+        await auth.deleteUser(uid).catch(() => {});
+      }
+      created = [];
+    }
+  });
+
+  test('Google identity with no NBD Pro account: signed out, pointed at /pro/register, nothing provisioned', async ({ page, context }) => {
+    proxy = await startCoopProxy();
+    const wired = await openLoginWired(page, proxy.origin);
+    expect(POPUP_SAFE_COOP, `the browser received a popup-safe COOP for /pro/login (got ${JSON.stringify(wired.wireCoop())})`)
+      .toContain(wired.wireCoop());
+
+    const popupP = context.waitForEvent('page', { timeout: 20_000 });
+    await page.click('#googleLoginBtn');
+    const popup = await popupP;
+    await popup.waitForLoadState('domcontentloaded');
+    await popup.click('#add-account-button', { timeout: 15_000 });
+    await popup.click('#autogen-button', { timeout: 10_000 });
+    const email = (await popup.inputValue('#email-input')).trim();
+    expect(email, 'the emulator generated an account email').toMatch(/@/);
+    await popup.click('#sign-in', { timeout: 10_000 });
+
+    const msg = page.locator('#loginErrorMsg');
+    // Register the Auth user for teardown as soon as it exists, BEFORE any
+    // assertion can fail — the popup sign-in creates it whatever login.js does.
+    const { auth, db } = admin();
+    await expect.poll(async () => {
+      const u = await auth.getUserByEmail(email).catch(() => null);
+      if (u && !created.includes(u.uid)) created.push(u.uid);
+      return !!u;
+    }, { timeout: 30_000, message: 'the popup sign-in created an Auth user' }).toBe(true);
+
+    await expect(msg).toContainText('No NBD Pro account is linked to that Google account yet.', { timeout: 30_000 });
+    await expect(page.locator('#loginError')).toHaveClass(/\bshow\b/);
+    await expect(msg.locator('a[href="/pro/register"]'), 'a link to /pro/register sits in the message').toBeVisible();
+    expect(new URL(page.url()).pathname).toMatch(/^\/pro\/login(\.html)?$/);
+
+    const uid = created[0];
+    expect((await db.doc(`users/${uid}`).get()).exists, 'login did NOT write users/{uid}').toBe(false);
+    expect((await db.doc(`companies/${uid}`).get()).exists, 'login did NOT provision companies/{uid}').toBe(false);
+    // Signed back out: the page's Auth SDK keeps no user in IndexedDB.
+    const persisted = await page.evaluate(() => new Promise((resolve) => {
+      const req = indexedDB.open('firebaseLocalStorageDb');
+      req.onerror = () => resolve(-1);
+      req.onsuccess = () => {
+        const idb = req.result;
+        if (!idb.objectStoreNames.contains('firebaseLocalStorage')) { idb.close(); resolve(0); return; }
+        const all = idb.transaction('firebaseLocalStorage', 'readonly').objectStore('firebaseLocalStorage').getAll();
+        all.onsuccess = () => { idb.close(); resolve((all.result || []).filter((r) => String(r && r.fbase_key).startsWith('firebase:authUser:')).length); };
+        all.onerror = () => { idb.close(); resolve(-1); };
+      };
+    }));
+    expect(persisted, 'no signed-in user left in the page\'s Auth persistence').toBe(0);
+    await popup.close().catch(() => {});
+  });
+
+  test('existing member with Google linked: popup → users/{uid} found → POST_LOGIN_DEST', async ({ page, context }) => {
+    const { auth, db } = admin();
+    const stamp = Date.now().toString(36);
+    const uid = `glogin-${stamp}`;
+    const email = `glogin.member.${stamp}@example.com`;
+    const rawId = String(Date.now()).padEnd(21, '7');
+    await auth.importUsers([{
+      uid, email, emailVerified: true, displayName: 'Google Member',
+      providerData: [{ uid: rawId, email, displayName: 'Google Member', providerId: 'google.com' }],
+    }]);
+    created.push(uid);
+    await db.doc(`users/${uid}`).set({ email, firstName: 'Google', lastName: 'Member', onboarded: true });
+
+    proxy = await startCoopProxy();
+    await openLoginWired(page, proxy.origin);
+
+    const popupP = context.waitForEvent('page', { timeout: 20_000 });
+    await page.click('#googleLoginBtn');
+    const popup = await popupP;
+    await popup.waitForLoadState('domcontentloaded');
+    // The emulator lists existing google.com identities as reusable accounts.
+    await popup.locator('.js-reuse-account', { hasText: email }).click({ timeout: 15_000 });
+
+    try {
+      await page.waitForURL(/\/pro\/dashboard(\.html)?([?#]|$)/, { timeout: 45_000, waitUntil: 'commit' });
+    } catch (e) {
+      const err = await page.locator('#loginErrorMsg').textContent().catch(() => '');
+      throw new Error('existing member never reached POST_LOGIN_DEST — #loginErrorMsg: ' + JSON.stringify((err || '').trim()));
+    }
+    // Stop the dashboard from booting against this throwaway account.
+    await page.goto('about:blank').catch(() => {});
+    expect((await db.doc(`companies/${uid}`).get()).exists, 'login did not provision a company').toBe(false);
   });
 });

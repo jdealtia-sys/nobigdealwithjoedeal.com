@@ -47,6 +47,16 @@
  *      each error code and reads #regErr, so the new copy is proven through
  *      the real catch block, not by grepping for strings.
  *
+ *   D. login.js runs in the same kind of vm: App Check warm-up and button
+ *      hold, mirrored from register.js (/pro/login grew its own "Continue
+ *      with Google" 2026-09-22).
+ *
+ *   E. login.js's Google handler is SIGN-IN ONLY: an existing users/{uid}
+ *      lands on POST_LOGIN_DEST (?redirect=pricing / plan intent honoured);
+ *      a Google identity with no users/{uid} is signed back out and shown
+ *      a DOM-built link to /pro/register, with NO Firestore write, NO
+ *      createCompany and NO ensureProvisioned; error codes map to copy.
+ *
  * The runtime half — the popup really completes with the header this file
  * computes — is tests/e2e/google-signin-popup.spec.js (@stranger shard).
  *
@@ -267,6 +277,9 @@ assert('at least one popup-auth call exists in docs/ JS', found.popupFiles.lengt
   'if Google sign-in was removed on purpose, delete this suite with it');
 assert('discovery attributes docs/pro/js/pages/register.js to /pro/register (the page this override was written for)',
   (found.popupPages.get('/pro/register') || []).includes('pro/js/pages/register.js'),
+  'got ' + JSON.stringify([...found.popupPages]));
+assert('discovery attributes docs/pro/js/pages/login.js to /pro/login (the "Continue with Google" sign-in button)',
+  (found.popupPages.get('/pro/login') || []).includes('pro/js/pages/login.js'),
   'got ' + JSON.stringify([...found.popupPages]));
 assert('every JS file with a popup-auth call is loaded by a page discovery can see',
   found.orphans.length === 0,
@@ -519,21 +532,301 @@ async function partC() {
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   D + E. login.js, executed for real in a vm
+   "Continue with Google" on /pro/login is SIGN-IN ONLY: a Google identity
+   whose users/{uid} exists goes to POST_LOGIN_DEST; one without is signed
+   back out and pointed at /pro/register — nothing is provisioned (no
+   users/{uid} write, no createCompany, no ensureProvisioned).
+   ══════════════════════════════════════════════════════════════════ */
+const LOGIN_REL = 'docs/pro/js/pages/login.js';
+const LOGIN_SRC = read(path.join(ROOT, LOGIN_REL));
+
+// A DOM element just rich enough for login.js: classList, attributes that
+// mirror .disabled, textContent that replaces children, appendChild, and an
+// innerHTML that is COUNTED (the no-account message must be built with DOM
+// APIs, never interpolated markup).
+function makeLoginEl(id, tag = 'div') {
+  return {
+    id, tagName: tag.toUpperCase(), value: '', type: '', checked: false, style: {}, href: '',
+    _disabled: false, _attrs: {}, _listeners: {}, children: [], _text: '', innerHTMLWrites: 0,
+    classList: {
+      _s: new Set(),
+      add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
+      toggle(c, on) { if (on === undefined ? !this._s.has(c) : on) this._s.add(c); else this._s.delete(c); },
+      contains(c) { return this._s.has(c); },
+    },
+    get disabled() { return this._disabled; },
+    set disabled(v) { this._disabled = !!v; },
+    get textContent() { return this._text + this.children.map((c) => c.textContent).join(''); },
+    set textContent(v) { this._text = String(v); this.children = []; },
+    get innerHTML() { return this.textContent; },
+    set innerHTML(v) { this.innerHTMLWrites++; this._text = String(v); this.children = []; },
+    appendChild(c) { this.children.push(c); return c; },
+    addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); },
+    setAttribute(k, v) { this._attrs[k] = String(v); if (k === 'disabled') this._disabled = true; },
+    removeAttribute(k) { delete this._attrs[k]; if (k === 'disabled') this._disabled = false; },
+    getAttribute(k) { return k in this._attrs ? this._attrs[k] : null; },
+    focus() {},
+  };
+}
+
+/**
+ * Evaluate login.js with stubbed SDKs.
+ * @param {{ emulator?: boolean, key?: string|undefined, warm?: 'pending'|'resolve'|'reject',
+ *           search?: string, popupError?: object, profileExists?: boolean, profileError?: object }} opt
+ */
+async function runLogin(opt = {}) {
+  const calls = [];
+  const timers = [];
+  const writes = [];     // any Firestore write or provisioning call — must stay empty
+  const replaced = [];   // window.location.replace targets
+  let settleWarm;
+  const APPCHECK = { __appCheck: true };
+  const AUTH = { currentUser: null, __auth: true };
+  const warmPromise = opt.warm === 'reject'
+    ? Promise.reject(Object.assign(new Error('recaptcha blocked'), { code: 'appCheck/recaptcha-error' }))
+    : new Promise((res) => { settleWarm = res; if (opt.warm === 'resolve') res({ token: 't' }); });
+
+  const els = {};
+  const ids = ['emailInput', 'passwordInput', 'loginBtn', 'loginError', 'loginErrorMsg', 'rememberMe', 'togglePw',
+    'mainView', 'resetView', 'loginForm', 'googleLoginBtn', 'showResetBtn', 'backToLogin', 'resetForm', 'resetEmail',
+    'resetBtn', 'resetError', 'resetErrorMsg', 'resetSuccess', 'codeInput', 'codeBtn', 'codeError', 'codeErrorMsg',
+    'demoBtn', 'demoError', 'demoErrorMsg', 'view-member', 'view-code', 'view-demo', 'tab-member', 'tab-code', 'tab-demo'];
+  for (const id of ids) els[id] = makeLoginEl(id);
+  // login.html ships these disabled until login.js has wired them.
+  for (const id of ['loginBtn', 'codeBtn', 'demoBtn', 'googleLoginBtn']) els[id].setAttribute('disabled', '');
+
+  const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+  const write = (name) => async (...a) => { writes.push({ name, path: a[0] && a[0].path }); };
+  const stubs = {
+    [SDK + 'firebase-app.js']: { initializeApp: () => { calls.push('initializeApp'); return { name: '[DEFAULT]' }; } },
+    [SDK + 'firebase-app-check.js']: {
+      initializeAppCheck: () => { calls.push('initializeAppCheck'); return APPCHECK; },
+      ReCaptchaEnterpriseProvider: class { constructor(k) { this.key = k; } },
+      getToken: (instance, forceRefresh) => { calls.push({ getToken: instance === APPCHECK, forceRefresh }); return warmPromise; },
+    },
+    [SDK + 'firebase-auth.js']: {
+      getAuth: () => { calls.push('getAuth'); return AUTH; },
+      signInWithEmailAndPassword: async () => { throw new Error('not in this harness'); },
+      signInWithCustomToken: async () => { throw new Error('not in this harness'); },
+      sendPasswordResetEmail: async () => {},
+      setPersistence: async (a, p) => { calls.push({ setPersistence: p }); },
+      browserLocalPersistence: 'LOCAL', browserSessionPersistence: 'SESSION',
+      GoogleAuthProvider: class { constructor() { this.providerId = 'google.com'; } },
+      signInWithPopup: async (a, provider) => {
+        calls.push({ signInWithPopup: provider && provider.providerId, auth: a === AUTH });
+        if (opt.popupError) throw opt.popupError;
+        AUTH.currentUser = { uid: 'g-uid-1', email: 'someone@gmail.com', displayName: 'Some One' };
+        return { user: AUTH.currentUser };
+      },
+      signOut: async (a) => { calls.push({ signOut: a === AUTH }); AUTH.currentUser = null; },
+      // Present so a mutation that imports them is RECORDED, not a crash.
+      createUserWithEmailAndPassword: write('createUserWithEmailAndPassword'),
+      updateProfile: write('updateProfile'),
+    },
+    [SDK + 'firebase-firestore.js']: {
+      getFirestore: () => ({}),
+      doc: (db, ...segs) => ({ path: segs.join('/') }),
+      getDoc: async (ref) => {
+        calls.push({ getDoc: ref.path });
+        if (opt.profileError) throw opt.profileError;
+        return { exists: () => !!opt.profileExists };
+      },
+      setDoc: write('setDoc'), addDoc: write('addDoc'), updateDoc: write('updateDoc'),
+      serverTimestamp: () => 'ts',
+    },
+    [SDK + 'firebase-functions.js']: {
+      getFunctions: () => ({}),
+      httpsCallable: (fns, name) => async (data) => {
+        if (name !== 'validateAccessCode') writes.push({ name: 'callable:' + name, data });
+        return { data: {} };
+      },
+    },
+    '../nbd-emulator-connect.js': {
+      connectEmulatorsIfLocal: async () => !!opt.emulator,
+      emulatorAppCheckIfLocal: async () => !!opt.emulator,
+    },
+    '../provisioning-retry.js': { ensureProvisioned: write('ensureProvisioned') },
+  };
+  const window = {
+    location: { search: opt.search || '', href: '', replace(u) { replaced.push(u); } },
+    ...(opt.key === undefined ? {} : { __NBD_APP_CHECK_KEY: opt.key }),
+  };
+  const ctx = vm.createContext({
+    __imports: (spec) => {
+      if (!stubs[spec]) throw new Error('harness: login.js imports an unstubbed module: ' + spec);
+      return strictModule(spec, stubs[spec]);
+    },
+    window,
+    navigator: {},
+    document: {
+      readyState: 'complete',
+      getElementById: (id) => els[id] || null,
+      querySelectorAll: (sel) => (sel === '.tab-btn' ? [els['tab-member'], els['tab-code'], els['tab-demo']] : []),
+      createElement: (tag) => makeLoginEl('', tag),
+      addEventListener() {},
+    },
+    sessionStorage: { _m: {}, getItem(k) { return k in this._m ? this._m[k] : null; }, setItem(k, v) { this._m[k] = String(v); } },
+    URLSearchParams,
+    setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
+    console: { warn() {}, log() {}, info() {}, error() {} },
+  });
+  await vm.runInContext(toScript(LOGIN_SRC), ctx, { filename: LOGIN_REL });
+  await flush();
+  return {
+    els, calls, timers, writes, replaced, AUTH,
+    settleWarm: () => settleWarm && settleWarm({ token: 't' }),
+    async click() {
+      const fns = els.googleLoginBtn._listeners.click || [];
+      for (const fn of fns) await fn({ preventDefault() {} });
+      await flush();
+    },
+  };
+}
+
+const callsOf = (h, key) => h.calls.filter((c) => c && typeof c === 'object' && key in c);
+
+async function partD() {
+  group('D. /pro/login: App Check token is warmed at load; the Google button waits for it');
+  const cold = await runLogin({ key: 'site-key', warm: 'pending' });
+  const tok = callsOf(cold, 'getToken');
+  assert('production path calls App Check getToken() at load, on the instance initializeAppCheck returned',
+    tok.length === 1 && tok[0].getToken === true && !tok[0].forceRefresh, 'calls: ' + JSON.stringify(cold.calls));
+  assert('…and App Check is initialised before getAuth',
+    cold.calls.indexOf('initializeAppCheck') > -1 && cold.calls.indexOf('initializeAppCheck') < cold.calls.indexOf('getAuth'),
+    'calls: ' + JSON.stringify(cold.calls));
+  const btn = cold.els.googleLoginBtn;
+  assert('#googleLoginBtn has exactly one click handler', (btn._listeners.click || []).length === 1);
+  assert('while the token is in flight the button is disabled and aria-busy',
+    btn.disabled === true && btn.getAttribute('aria-busy') === 'true');
+  const hold = cold.timers.find((t) => t.ms >= 1000 && t.ms <= 5000);
+  assert('a short (1–5 s) fallback timer is armed', !!hold, 'timers: ' + JSON.stringify(cold.timers.map((t) => t.ms)));
+  cold.settleWarm();
+  await flush();
+  assert('the token landing re-enables the button and clears aria-busy',
+    btn.disabled === false && btn.getAttribute('aria-busy') === null);
+
+  const stuck = await runLogin({ key: 'site-key', warm: 'pending' });
+  const stuckHold = stuck.timers.find((t) => t.ms >= 1000 && t.ms <= 5000);
+  if (stuckHold) stuckHold.fn();
+  await flush();
+  assert('a token that never arrives still releases the button when the timer fires',
+    stuck.els.googleLoginBtn.disabled === false);
+
+  const failing = await runLogin({ key: 'site-key', warm: 'reject' });
+  assert('a failed token fetch releases the button at once — no unhandled rejection',
+    failing.els.googleLoginBtn.disabled === false);
+
+  const emu = await runLogin({ emulator: true, key: 'site-key', warm: 'pending' });
+  assert('emulator path: no production getToken, and the HTML-disabled button is enabled once wired',
+    callsOf(emu, 'getToken').length === 0 && emu.els.googleLoginBtn.disabled === false && emu.timers.length === 0);
+
+  const nokey = await runLogin({ key: undefined, warm: 'pending' });
+  assert('no App Check key: App Check not initialised, button not held',
+    !nokey.calls.includes('initializeAppCheck') && nokey.els.googleLoginBtn.disabled === false);
+
+  assert('the email form is still wired (#loginBtn enabled after module load)', emu.els.loginBtn.disabled === false);
+}
+
+async function partE() {
+  group('E. /pro/login Google sign-in: existing member in, stranger out — nothing provisioned');
+
+  for (const [search, dest] of [['', '/pro/dashboard.html'], ['?redirect=pricing', '/pro/pricing.html'], ['?plan=growth', '/pro/pricing.html']]) {
+    const h = await runLogin({ emulator: true, profileExists: true, search });
+    await h.click();
+    const label = 'existing users/{uid}' + (search ? ' + ' + search : '');
+    const popup = callsOf(h, 'signInWithPopup')[0];
+    assert(label + ': signInWithPopup with a Google provider, then users/{uid} is read',
+      !!popup && popup.signInWithPopup === 'google.com' && popup.auth === true
+      && callsOf(h, 'getDoc').some((c) => c.getDoc === 'users/g-uid-1'), JSON.stringify(h.calls));
+    assert(label + ' → location.replace(' + JSON.stringify(dest) + ')',
+      h.replaced.length === 1 && h.replaced[0] === dest, 'replaced: ' + JSON.stringify(h.replaced));
+    assert(label + ': stays signed in (no signOut), remember-me persistence applied, no writes',
+      callsOf(h, 'signOut').length === 0 && callsOf(h, 'setPersistence').length === 1 && h.writes.length === 0,
+      JSON.stringify({ calls: h.calls, writes: h.writes }));
+    assert(label + ': no error shown', !h.els.loginError.classList.contains('show'));
+  }
+
+  {
+    const h = await runLogin({ emulator: true, profileExists: false });
+    await h.click();
+    const msg = h.els.loginErrorMsg;
+    const link = msg.children.find((c) => c.tagName === 'A');
+    assert('no users/{uid}: signed back out (signOut on the page auth instance)',
+      callsOf(h, 'signOut').length === 1 && callsOf(h, 'signOut')[0].signOut === true && h.AUTH.currentUser === null,
+      JSON.stringify(h.calls));
+    assert('no users/{uid}: NOTHING provisioned — no Firestore write, no createCompany, no ensureProvisioned',
+      h.writes.length === 0, 'writes: ' + JSON.stringify(h.writes));
+    assert('no users/{uid}: no redirect, no persistence change',
+      h.replaced.length === 0 && callsOf(h, 'setPersistence').length === 0,
+      JSON.stringify({ replaced: h.replaced, calls: h.calls }));
+    assert('no users/{uid}: the error shows "No NBD Pro account is linked to that Google account yet."',
+      h.els.loginError.classList.contains('show')
+      && msg.textContent.startsWith('No NBD Pro account is linked to that Google account yet.'),
+      'got ' + JSON.stringify(msg.textContent));
+    assert('…with a real <a href="/pro/register"> built by DOM APIs (no innerHTML)',
+      !!link && link.href === '/pro/register' && link.textContent.trim().length > 0 && msg.innerHTMLWrites === 0,
+      JSON.stringify({ link: link && { href: link.href, text: link.textContent }, innerHTMLWrites: msg.innerHTMLWrites }));
+    assert('…and the Google button is usable again', h.els.googleLoginBtn.disabled === false);
+  }
+
+  {
+    const h = await runLogin({ emulator: true, profileError: Object.assign(new Error('offline'), { code: 'unavailable' }) });
+    await h.click();
+    assert('profile read fails: fail closed — signed out, not redirected, nothing written',
+      callsOf(h, 'signOut').length === 1 && h.replaced.length === 0 && h.writes.length === 0,
+      JSON.stringify({ calls: h.calls, replaced: h.replaced, writes: h.writes }));
+    assert('…and says it could not check the account',
+      /couldn't check your nbd pro account/i.test(h.els.loginErrorMsg.textContent),
+      'got ' + JSON.stringify(h.els.loginErrorMsg.textContent));
+  }
+
+  const cases = [
+    ['auth/operation-not-allowed', "Google sign-in isn't available yet — please sign in with your email and password."],
+    ['auth/popup-closed-by-user', 'Sign-in window closed before finishing. Try again, or sign in with your email and password.'],
+    ['auth/popup-blocked', 'Your browser blocked the Google window — allow pop-ups for this site or sign in with your email and password.'],
+    ['auth/account-exists-with-different-credential', 'This email already has an account that uses a password. Sign in with your email and password instead.'],
+    ['auth/cancelled-popup-request', ''],
+    ['auth/internal-error', 'Google sign-in failed (auth/internal-error). Try again, or sign in with your email and password.'],
+    [undefined, 'Google sign-in failed. Try again, or sign in with your email and password.'],
+  ];
+  for (const [code, expected] of cases) {
+    const err = Object.assign(new Error('Firebase: Error (' + (code || 'unknown') + ').'), code ? { code } : {});
+    const h = await runLogin({ emulator: true, popupError: err, profileExists: true });
+    h.els.loginErrorMsg.textContent = 'stale text';
+    await h.click();
+    const label = code || '(no code)';
+    const shown = h.els.loginError.classList.contains('show');
+    if (expected === '') {
+      assert(label + ' → no error shown', !shown);
+    } else {
+      assert(label + ' → ' + JSON.stringify(expected), shown && h.els.loginErrorMsg.textContent === expected,
+        'got ' + JSON.stringify(h.els.loginErrorMsg.textContent));
+    }
+    assert(label + ': no profile read, no signOut, no redirect, no writes',
+      callsOf(h, 'getDoc').length === 0 && callsOf(h, 'signOut').length === 0
+      && h.replaced.length === 0 && h.writes.length === 0);
+  }
+}
+
 // A rejection that escapes register.js (e.g. a warm-up with no rejection
 // handler) is a page-console error in the browser; here it must be a named
 // failure, not an anonymous process crash.
 process.on('unhandledRejection', (e) => {
   failed++;
-  console.log('  ✗ a promise rejection escaped register.js unhandled: ' + ((e && e.message) || e));
+  console.log('  ✗ a promise rejection escaped register.js/login.js unhandled: ' + ((e && e.message) || e));
 });
 
 (async () => {
   try {
     await partB();
     await partC();
+    await partD();
+    await partE();
   } catch (e) {
     failed++;
-    console.log('  ✗ register.js harness crashed: ' + (e && e.stack || e));
+    console.log('  ✗ register.js/login.js harness crashed: ' + (e && e.stack || e));
   }
   console.log(`\n${passed} passed, ${failed} failed`);
   process.exit(failed ? 1 : 0);
