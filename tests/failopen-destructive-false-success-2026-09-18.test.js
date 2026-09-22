@@ -45,6 +45,21 @@
  *      tests/session-revocation.test.js drives the modal path; the no-modal
  *      path is here.)
  *
+ *   7. (2026-09-22, a #1663 residual) dashboard-bootstrap.module.js
+ *      _restoreLead swallowed the un-delete write's error and resolved
+ *      undefined, and crm-portal-bridge.js restoreDeletedLead toasted "Lead
+ *      restored" regardless. _restoreLead now resolves true/false and the
+ *      drawer proceeds only on === true (card un-dimmed, error toast, board
+ *      and badge untouched otherwise).
+ *
+ *   8. (2026-09-22, a #1663 residual) close-board.js — an updateDeal sync
+ *      whose setDoc(merge) was issued AFTER deleteDeal's deleteDoc recreated
+ *      the deleted deal_rooms doc (and re-armed the homeowner's accept link).
+ *      syncDealToFirestore now skips ids being / already deleted here
+ *      (replaying a held sync only if the delete fails), and writes a
+ *      server-confirmed deal with updateDoc, which cannot create a doc.
+ *      Driven against a fake server that applies writes in issue order.
+ *
  * Zero deps. Run: node tests/failopen-destructive-false-success-2026-09-18.test.js
  */
 'use strict';
@@ -399,7 +414,7 @@ function loadCloseBoard(opts) {
   // the scoping and the legacy-key migration).
   const DEAL_KEY = 'nbd_deal_rooms:u1';
   LS[DEAL_KEY] = JSON.stringify(opts.deals || []);
-  const calls = { toasts: [], imports: [], setDocs: [], deleteDocs: [], getDocs: 0, emails: [], sms: [], emu: [], callables: [] };
+  const calls = { toasts: [], imports: [], setDocs: [], updateDocs: [], deleteDocs: [], getDocs: 0, emails: [], sms: [], emu: [], callables: [] };
   const makeEl = () => ({
     _html: '', get innerHTML() { return this._html; }, set innerHTML(v) { this._html = String(v); },
     textContent: '', style: {}, dataset: {}, onclick: null,
@@ -413,6 +428,11 @@ function loadCloseBoard(opts) {
     setDoc: async (ref, data) => {
       calls.setDocs.push({ path: ref.path, data });
       if (opts.setDocThrows) throw Object.assign(new Error('sync failed'), { code: 'unavailable' });
+      if (opts.setDoc) return opts.setDoc(ref, data);
+    },
+    updateDoc: async (ref, data) => {
+      calls.updateDocs.push({ path: ref.path, data });
+      if (opts.updateDoc) return opts.updateDoc(ref, data);
     },
     deleteDoc: (ref) => {
       calls.deleteDocs.push(ref.path);
@@ -452,6 +472,7 @@ function loadCloseBoard(opts) {
     navigator: {},
     __testImport: async (spec) => {
       calls.imports.push(spec);
+      if (opts.importHook) await opts.importHook(spec);
       if (spec === FIRESTORE_URL) return firestore;
       if (spec === FUNCTIONS_URL) {
         if (opts.functionsImportThrows) throw new Error('Failed to fetch dynamically imported module');
@@ -833,6 +854,265 @@ console.log('\n6. session-revoke.js — Sign Out Everywhere without nbdModal');
     await c.run();
     ok('iOS-PWA nbdConfirm (when present) is asked before native confirm',
       asked === 1 && c.calls.callables.join() === 'revokeMySessions');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   7. _restoreLead / restoreDeletedLead — "Lead restored" only on a landed write
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n7. _restoreLead / restoreDeletedLead — no "Lead restored" for a lead still in the Deleted bin');
+{
+  const BOOT = read('docs/pro/js/dashboard-bootstrap.module.js');
+  const restoreSrc = lift(BOOT, 'window._restoreLead = async (id) =>');
+  ok('_restoreLead lifted (the un-delete updateDoc this harness stubs)',
+    !!restoreSrc && /updateDoc\(doc\(db,'leads',id\), \{ deleted: false, deletedAt: null \}\)/.test(restoreSrc));
+
+  function loadRestore(opts) {
+    opts = opts || {};
+    const calls = { updates: [] };
+    const win = {};
+    const ctx = vm.createContext({
+      window: win, db: { name: 'db' }, console: QUIET, String,
+      doc: (db, col, id) => ({ path: col + '/' + id }),
+      updateDoc: async (ref, data) => {
+        calls.updates.push({ path: ref.path, data });
+        if (opts.updateThrows) { const e = new Error('Missing or insufficient permissions.'); e.code = 'permission-denied'; throw e; }
+      },
+    });
+    vm.runInContext(restoreSrc + ';', ctx, { filename: 'restore-lead.lifted.js' });
+    return { calls, restore: win._restoreLead };
+  }
+  {
+    const t = loadRestore({ updateThrows: true });
+    const r = await t.restore('L1');
+    ok('un-delete DENIED: resolves false (was undefined after a swallowed error)', r === false && t.calls.updates.length === 1);
+  }
+  {
+    const t = loadRestore();
+    const r = await t.restore('L1');
+    ok('un-delete OK: resolves true, wrote deleted:false + deletedAt:null to leads/L1',
+      r === true && t.calls.updates.length === 1 && t.calls.updates[0].path === 'leads/L1'
+      && t.calls.updates[0].data.deleted === false && t.calls.updates[0].data.deletedAt === null);
+  }
+  {
+    const t = loadRestore({ updateThrows: true });
+    ok('local-only d- lead: true, no server write', (await t.restore('d-L3')) === true && t.calls.updates.length === 0);
+    ok('no id: false, no write (was a TypeError swallowed into undefined)', (await t.restore('')) === false
+      && (await t.restore(undefined)) === false && t.calls.updates.length === 0);
+  }
+
+  const BRIDGE = read('docs/pro/js/crm-portal-bridge.js');
+  const drawerSrc = lift(BRIDGE, 'async function restoreDeletedLead(id)');
+  ok('restoreDeletedLead lifted, and it is the one that toasts "Lead restored"',
+    !!drawerSrc && /showToast\('Lead restored'\)/.test(drawerSrc) && /window\._restoreLead\(id\)/.test(drawerSrc));
+  ok('the trash drawer\'s Restore button still calls this function',
+    /if \(typeof restoreDeletedLead === 'function'\) restoreDeletedLead\(btn\.dataset\.id\);/.test(BRIDGE));
+
+  function loadDrawer(restoreImpl, opts) {
+    opts = opts || {};
+    const calls = { toasts: [], loads: 0, badge: 0, drawer: 0 };
+    const els = { 'dc-L1': { style: { opacity: '', pointerEvents: '' } } };
+    const win = {
+      _restoreLead: restoreImpl,
+      _loadLeads: async () => { calls.loads++; if (opts.loadThrows) throw new Error('load failed'); },
+    };
+    const ctx = vm.createContext({
+      window: win, console: QUIET,
+      document: { getElementById: (id) => els[id] || null },
+      showToast: (m, k) => calls.toasts.push({ m: String(m), k }),
+      refreshTrashBadge: () => { calls.badge++; },
+      renderDeletedDrawer: async () => { calls.drawer++; },
+    });
+    vm.runInContext(drawerSrc + '\n;this.__restore = restoreDeletedLead;', ctx, { filename: 'crm-portal-bridge.restore.lifted.js' });
+    return { calls, els, run: ctx.__restore };
+  }
+  const restored = (d) => d.calls.toasts.some((x) => x.m === 'Lead restored');
+  const errd = (d) => d.calls.toasts.some((x) => x.k === 'error');
+  for (const [label, impl] of [
+    ['false (write denied)', async () => false],
+    ['undefined (the old swallow-and-resolve callee)', async () => undefined],
+    ['a throw', async () => { throw new Error('x'); }],
+  ]) {
+    const d = loadDrawer(impl);
+    await d.run('L1');
+    ok('restore resolves ' + label + ': NO "Lead restored"', !restored(d));
+    ok('...an error toast instead, and the dimmed trash card is restored for a retry',
+      errd(d) && d.els['dc-L1'].style.opacity === '' && d.els['dc-L1'].style.pointerEvents === '');
+    ok('...and the board, badge and drawer are not refreshed as if it came back',
+      d.calls.loads === 0 && d.calls.badge === 0 && d.calls.drawer === 0);
+  }
+  {
+    let seen = null;
+    const d = loadDrawer(async (id) => { seen = id; return true; });
+    await d.run('L1');
+    ok('restore true: "Lead restored", board reloaded, badge + drawer refreshed, for the clicked id',
+      restored(d) && !errd(d) && d.calls.loads === 1 && d.calls.badge === 1 && d.calls.drawer === 1 && seen === 'L1');
+  }
+  {
+    const d = loadDrawer(async () => true, { loadThrows: true });
+    await d.run('L1');
+    ok('restore landed but the board reload throws: still "Lead restored" (the write is what the toast reports)',
+      restored(d) && !errd(d) && d.calls.drawer === 1);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   8. close-board.js — a late updateDeal sync cannot resurrect a deleted deal
+   ═══════════════════════════════════════════════════════════════════ */
+console.log('\n8. close-board.js — a delete wins over an updateDeal sync that lands after it');
+{
+  // A server that applies writes in the order they are ISSUED, like the
+  // Firestore client's write pipeline: setDoc(merge) creates a missing doc,
+  // updateDoc rejects on one, deleteDoc removes.
+  function makeServer(seed) {
+    const byId = new Map((seed || []).map((d) => [d.id, JSON.parse(JSON.stringify(d))]));
+    const idOf = (ref) => ref.path.split('/')[1];
+    const copy = (d) => JSON.parse(JSON.stringify(d));
+    return {
+      byId,
+      setDoc: (ref, data) => { byId.set(idOf(ref), Object.assign({}, byId.get(idOf(ref)) || {}, copy(data))); return Promise.resolve(); },
+      updateDoc: (ref, data) => {
+        if (!byId.has(idOf(ref))) return Promise.reject(Object.assign(new Error('No document to update'), { code: 'not-found' }));
+        byId.set(idOf(ref), Object.assign({}, byId.get(idOf(ref)), copy(data)));
+        return Promise.resolve();
+      },
+      deleteDoc: (ref) => { byId.delete(idOf(ref)); return Promise.resolve(); },
+    };
+  }
+  // Parks the Firestore SDK import for the NEXT caller only: the window a
+  // fire-and-forget sync sat in before it issued its write.
+  function importGate() {
+    const g = { armed: false, release: null };
+    g.hook = (spec) => {
+      if (spec !== FIRESTORE_URL || !g.armed) return undefined;
+      g.armed = false;
+      return new Promise((r) => { g.release = r; });
+    };
+    return g;
+  }
+  const writesTo = (t, id) => t.calls.setDocs.concat(t.calls.updateDocs).filter((w) => w.path === 'deal_rooms/' + id).length;
+  const noHydrate = () => new Promise(() => {});
+
+  for (const [label, seedDeal] of [
+    ['server-confirmed deal (userId stamped)', fullDeal({ id: 's1', userId: 'u1', status: 'sent', acceptUrl: 'https://x/deal/tok' })],
+    // Pre-stamp legacy row: on the server, but unstamped locally, so its sync
+    // takes the setDoc(merge) path and only the tombstone protects it.
+    ['legacy deal (acceptUrl, no local userId stamp)', fullDeal({ id: 's1', status: 'sent', acceptUrl: 'https://x/deal/tok' })],
+  ]) {
+    const server = makeServer([Object.assign({}, seedDeal, { userId: 'u1' })]);
+    const gate = importGate();
+    const t = loadCloseBoard({
+      deals: [seedDeal], importHook: gate.hook,
+      setDoc: server.setDoc, updateDoc: server.updateDoc, deleteDoc: server.deleteDoc, getDocs: noHydrate,
+    });
+    await flush();
+    gate.armed = true;
+    t.CB.updateDeal('s1', { notes: 'late edit' });
+    await flush();
+    ok(label + ': harness — the edit\'s sync is parked on the SDK import, nothing issued yet',
+      typeof gate.release === 'function' && writesTo(t, 's1') === 0);
+    const r = await t.CB.deleteDeal('s1');
+    ok('...the delete lands first: resolves true, doc gone from the server', r === true && !server.byId.has('s1') && t.ids() === '');
+    gate.release();
+    await flush();
+    ok('...then the parked sync resumes: NO write is issued for the deleted deal',
+      writesTo(t, 's1') === 0, 'setDocs=' + t.calls.setDocs.length + ' updateDocs=' + t.calls.updateDocs.length);
+    ok('...and the server doc stays deleted (not resurrected)', !server.byId.has('s1'));
+  }
+  {
+    // An edit (or a send's status stamp) while the delete is in flight.
+    const server = makeServer([fullDeal({ id: 's1', userId: 'u1' })]);
+    const pending = [];
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 's1', userId: 'u1' })],
+      setDoc: server.setDoc, updateDoc: server.updateDoc, getDocs: noHydrate,
+      deleteDoc: (ref) => new Promise((r) => pending.push(() => { server.deleteDoc(ref); r(); })),
+    });
+    await flush();
+    const p = t.CB.deleteDeal('s1');
+    await flush();
+    t.CB.updateDeal('s1', { notes: 'edited mid-delete' });
+    await flush();
+    ok('edit while the delete is in flight: no write is issued behind the deleteDoc',
+      t.calls.deleteDocs.length === 1 && writesTo(t, 's1') === 0);
+    pending.forEach((go) => go());
+    ok('...the delete completes and the doc stays gone', (await p) === true && !server.byId.has('s1'));
+    await flush();
+    ok('...still no write afterwards', writesTo(t, 's1') === 0 && !server.byId.has('s1'));
+  }
+  {
+    // Same, but the delete FAILS: the deal stays, and so must the edit.
+    const server = makeServer([fullDeal({ id: 's1', userId: 'u1', notes: '' })]);
+    const pending = [];
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 's1', userId: 'u1' })],
+      setDoc: server.setDoc, updateDoc: server.updateDoc, getDocs: noHydrate,
+      deleteDoc: () => new Promise((res, rej) => pending.push(() => rej(Object.assign(new Error('offline'), { code: 'unavailable' })))),
+    });
+    await flush();
+    const p = t.CB.deleteDeal('s1');
+    await flush();
+    t.CB.updateDeal('s1', { notes: 'edited mid-delete' });
+    await flush();
+    ok('edit during a delete that will fail: held while the delete is in flight', writesTo(t, 's1') === 0);
+    pending.forEach((go) => go());
+    ok('...the delete fails: deal kept', (await p) === false && t.ids() === 's1');
+    await flush();
+    ok('...and the held edit is replayed once, reaching the server',
+      writesTo(t, 's1') === 1 && server.byId.get('s1').notes === 'edited mid-delete');
+  }
+  {
+    // Deleted on ANOTHER device; this device's stale stamped copy is edited
+    // before a hydrate prunes it. No tombstone here can know: updateDoc can.
+    const server = makeServer([]);
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 's1', userId: 'u1' })],
+      setDoc: server.setDoc, updateDoc: server.updateDoc, deleteDoc: server.deleteDoc, getDocs: noHydrate,
+    });
+    await flush();
+    t.CB.updateDeal('s1', { notes: 'stale edit' });
+    await flush();
+    ok('deleted elsewhere + stale edit here: the confirmed deal is written with updateDoc, never setDoc(merge)',
+      t.calls.updateDocs.length === 1 && t.calls.setDocs.length === 0);
+    ok('...which fails on the missing doc: NOT recreated', !server.byId.has('s1'));
+  }
+  {
+    // Controls: legitimate writes still land.
+    const server = makeServer([]);
+    const t = loadCloseBoard({
+      deals: [], setDoc: server.setDoc, updateDoc: server.updateDoc, deleteDoc: server.deleteDoc, getDocs: noHydrate,
+    });
+    await flush();
+    const deal = t.CB.createFromEstimate({ prices: { good: 9000 } }, { name: 'New Customer' });
+    await flush();
+    ok('control: a brand-new deal\'s first save CREATES the doc (setDoc merge) and stamps userId',
+      !!deal && server.byId.has(deal.id) && t.calls.setDocs.length === 1 && t.deal(deal.id).userId === 'u1');
+    t.CB.updateDeal(deal.id, { notes: 'second save' });
+    await flush();
+    ok('control: the next edit of that (now confirmed) deal goes through updateDoc and lands',
+      t.calls.updateDocs.length === 1 && server.byId.get(deal.id).notes === 'second save');
+    const r = await t.CB.deleteDeal(deal.id);
+    ok('control: delete then works and nothing recreates it', r === true && !server.byId.has(deal.id));
+  }
+  {
+    // Control: a draft whose first save failed is retried by the next edit
+    // with setDoc(merge) — creation is still what that write is for.
+    const server = makeServer([]);
+    let failFirst = true;
+    const t = loadCloseBoard({
+      deals: [fullDeal({ id: 'draft1' })], updateDoc: server.updateDoc, deleteDoc: server.deleteDoc, getDocs: noHydrate,
+      setDoc: (ref, data) => {
+        if (failFirst) { failFirst = false; return Promise.reject(Object.assign(new Error('offline'), { code: 'unavailable' })); }
+        return server.setDoc(ref, data);
+      },
+    });
+    await flush();
+    t.CB.updateDeal('draft1', { notes: 'one' });
+    await flush();
+    t.CB.updateDeal('draft1', { notes: 'two' });
+    await flush();
+    ok('control: an unconfirmed draft keeps using setDoc(merge) until a save lands, then exists on the server',
+      t.calls.updateDocs.length === 0 && t.calls.setDocs.length === 2 && server.byId.get('draft1').notes === 'two');
   }
 }
 

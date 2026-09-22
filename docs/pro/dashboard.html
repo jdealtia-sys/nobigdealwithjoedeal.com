@@ -48,7 +48,7 @@
 <link rel="preload" href="js/crm-pipeline.js?v=2" as="script">
 <link rel="modulepreload" href="js/stage-write.js?v=1">
 <link rel="preload" href="js/crm-snooze.js?v=1" as="script">
-<link rel="preload" href="js/crm-portal-bridge.js?v=3" as="script">
+<link rel="preload" href="js/crm-portal-bridge.js?v=4" as="script">
 <link rel="preload" href="js/crm.js?v=33" as="script">
 <link rel="preload" href="js/maps.js?v=10" as="script">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,7 +95,7 @@
      See docs/pro/js/state-store.js. -->
 <script src="js/state-store.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
-<script src="js/script-loader.js?v=2"></script>
+<script src="js/script-loader.js?v=3"></script>
 <!-- nbdModal — canonical .modal-bg/.modal open/close/confirm helper.
      Eager (like the other small utilities above) so converted subsystems
      can call window.nbdModal from their first render. Contract lives in
@@ -114,7 +114,7 @@
 
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=1"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=12"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=13"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -6470,7 +6470,7 @@
      No-ops until window.__NBD_VAPID_KEY is set (dashboard-fcm-config.js). -->
 <script defer src="js/push-registration.js?v=2"></script>
 <script defer src="js/push-actions.js?v=1"></script>
-<script defer src="js/crm-portal-bridge.js?v=3"></script>
+<script defer src="js/crm-portal-bridge.js?v=4"></script>
 <script defer src="js/crm.js?v=33"></script>
 <script defer src="js/crm-list-view.js?v=1"></script>
 <script defer src="js/tasks.js?v=4"></script>
