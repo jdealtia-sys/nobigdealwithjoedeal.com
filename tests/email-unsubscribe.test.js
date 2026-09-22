@@ -516,14 +516,75 @@ async function sendEmail(opts, body) {
     delete require.cache[path.join(FUNCTIONS, 'email-suppression.js')];
     world = null;
     const S = require(path.join(FUNCTIONS, 'email-suppression.js'));
+    // Both scans below grep for an identifier, so they must only ever see
+    // CODE. The original pass used a raw readFileSync for the gate check, and
+    // `// TODO: call gateCommercialEmail( db, ... ) here one day` satisfied it
+    // — a commercial sender that never gated anything shipped green. Found and
+    // mutation-verified by the 2026-09-22 close-out audit.
+    //
+    // Line-oriented on purpose. A character-level stripper that also removes
+    // string literals has to tell a regex literal from a division, and
+    // `/['"]/` in this corpus opened a phantom string that swallowed ten real
+    // send sites. This one only ever cuts comments, so the failure direction
+    // is bounded: over-stripping trips `stale` (a SEND_PATHS entry stops being
+    // found) and fails LOUDLY; it cannot produce a silent pass.
+    function stripCode(src) {
+      const lines = String(src).split('\n');
+      const out = [];
+      let inBlock = false;
+      for (let raw of lines) {
+        let line = raw;
+        if (inBlock) {
+          const end = line.indexOf('*/');
+          if (end === -1) { out.push(''); continue; }
+          line = line.slice(end + 2);
+          inBlock = false;
+        }
+        const t = line.trim();
+        if (t.startsWith('//')) { out.push(''); continue; }
+        if (t.startsWith('/*')) {
+          const open = line.indexOf('/*');
+          const end = line.indexOf('*/', open + 2);
+          if (end === -1) { inBlock = true; out.push(''); continue; }
+          line = line.slice(0, open) + line.slice(end + 2);
+        }
+        // Trailing `// comment`, skipping the `://` of a URL.
+        let idx = -1, from = 0;
+        while ((idx = line.indexOf('//', from)) !== -1) {
+          if (idx > 0 && line[idx - 1] === ':') { from = idx + 2; continue; }
+          break;
+        }
+        if (idx !== -1) line = line.slice(0, idx);
+        out.push(line);
+      }
+      return out.join('\n');
+    }
+    // The stripper IS the guard here, so prove it strips before trusting it.
+    ok('stripCode removes a whole-line commented gate call',
+      !/gateCommercialEmail\(/.test(stripCode('  // call gateCommercialEmail( db )\nfoo();')));
+    ok('stripCode removes a trailing commented gate call',
+      !/gateCommercialEmail\(/.test(stripCode('foo(); // later: gateCommercialEmail( db )')));
+    ok('stripCode removes a block-commented gate call',
+      !/gateCommercialEmail\(/.test(stripCode('/* TODO\n * gateCommercialEmail( db )\n */\nfoo();')));
+    ok('stripCode keeps a real gate call',
+      /gateCommercialEmail\(/.test(stripCode('const g = await S.gateCommercialEmail(db, {});')));
+    ok('stripCode keeps code that merely contains a URL',
+      /\.emails\.send\(/.test(stripCode('// see https://resend.com/docs\nawait resend.emails.send(m);')));
+
     const files = [];
+    const code = new Map();
     (function walk(dir) {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
         const p = path.join(dir, e.name);
         if (e.isDirectory()) walk(p);
-        else if (e.name.endsWith('.js') && /\.emails\.send\(/.test(fs.readFileSync(p, 'utf8').replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, ''))) {
-          files.push(path.relative(FUNCTIONS, p).replace(/\\/g, '/'));
+        else if (e.name.endsWith('.js')) {
+          const stripped = stripCode(fs.readFileSync(p, 'utf8'));
+          if (/\.emails\.send\(/.test(stripped)) {
+            const rel = path.relative(FUNCTIONS, p).replace(/\\/g, '/');
+            files.push(rel);
+            code.set(rel, stripped);
+          }
         }
       }
     })(FUNCTIONS);
@@ -532,9 +593,21 @@ async function sendEmail(opts, body) {
     ok('every file that calls resend.emails.send() is in SEND_PATHS (missing: ' + (missing.join(', ') || 'none') + ')', missing.length === 0);
     const stale = Object.keys(S.SEND_PATHS).filter((f) => !files.includes(f));
     ok('no stale SEND_PATHS entries (' + (stale.join(', ') || 'none') + ')', stale.length === 0);
-    const ungated = Object.keys(S.SEND_PATHS).filter((f) => ['commercial', 'mixed'].includes(S.SEND_PATHS[f]))
-      .filter((f) => !/gateCommercialEmail\(/.test(fs.readFileSync(path.join(FUNCTIONS, f), 'utf8')));
-    ok('every commercial/mixed sender calls gateCommercialEmail (' + (ungated.join(', ') || 'all do') + ')', ungated.length === 0);
+    const commercial = Object.keys(S.SEND_PATHS).filter((f) => ['commercial', 'mixed'].includes(S.SEND_PATHS[f]));
+    const ungated = commercial.filter((f) => !/gateCommercialEmail\(/.test(code.get(f) || ''));
+    ok('every commercial/mixed sender calls gateCommercialEmail in CODE, not a comment ('
+      + (ungated.join(', ') || 'all do') + ')', ungated.length === 0);
+    // Presence is not enough: the gate has to run BEFORE the send it guards.
+    // A gate bolted on after resend.emails.send() reads as "gated" to any
+    // grep and stops nothing.
+    const gateAfterSend = commercial.filter((f) => {
+      const src = code.get(f) || '';
+      const g = src.indexOf('gateCommercialEmail(');
+      const s = src.indexOf('.emails.send(');
+      return g === -1 || s === -1 || g > s;
+    });
+    ok('every commercial/mixed sender gates BEFORE its first send ('
+      + (gateAfterSend.join(', ') || 'all do') + ')', gateAfterSend.length === 0);
   }
 
   // ═══ H. browser client ═════════════════════════════════════════════════
