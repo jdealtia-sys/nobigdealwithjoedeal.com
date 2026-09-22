@@ -6360,4 +6360,28 @@ section('Mobile Details-tab parity round 2: Warranty Claim, Insurance Details, J
     /mJdNotesList[\s\S]{0,200}delete notesBody\.dataset\.loadedFor/.test(openMobileFn3));
 }
 
+
+// ── Sidebar collapse must actually resize the maps (2026-09-22) ──
+// window.mainMap / window.d2dMap are never set: mainMap/drawMap are
+// classic-script top-level lets and the D2D map lives in the tracker's
+// private state. Both sidebar-collapse handlers read them off window, so the
+// Leaflet invalidateSize they intended never ran (gray strip after collapse).
+section('Sidebar collapse resizes the maps');
+{
+  const collapseFiles = [
+    ['dashboard-ui.js', read(path.join(PRO_JS, 'dashboard-ui.js'))],
+    ['dashboard-ui-prefs-boot.js', read(path.join(PRO_JS, 'dashboard-ui-prefs-boot.js'))],
+  ];
+  const deadRead = /window\.(mainMap|d2dMap)\s*(\?\.|&&|\.invalidateSize)/;
+  for (const [name, src] of collapseFiles) {
+    assert(name + ' never reads the unset window.mainMap / window.d2dMap handles', !deadRead.test(src));
+    const i = src.indexOf("classList.toggle('active', collapsed)");
+    const win = i >= 0 ? src.slice(i, i + 1600) : '';
+    assert(name + ' collapse handler invalidates mainMap by its bare typeof-guarded name',
+      /typeof mainMap !== 'undefined' && mainMap[\s\S]{0,40}invalidateSize\(\)/.test(win));
+    assert(name + ' collapse handler fires a window resize so the D2D map (private state) resizes too',
+      /window\.dispatchEvent\(new Event\('resize'\)\)/.test(win));
+  }
+}
+
 };

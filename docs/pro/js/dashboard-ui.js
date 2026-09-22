@@ -1904,10 +1904,17 @@ const toggleSidebarCollapse = function () {
   const lblCb = document.getElementById('sidebarLabelsToggle');
   if (lblCb) lblCb.checked = !collapsed;
   // Leaflet maps need an invalidate-size after the rail width changes
-  // so they don't render with the old viewport dimensions.
+  // so they don't render with the old viewport dimensions. `window.mainMap`
+  // and `window.d2dMap` are never set (mainMap/drawMap are classic-script
+  // top-level lets; the D2D map lives in the tracker's private state), so the
+  // old reads were permanent no-ops. Bare typeof-guarded names — the idiom at
+  // the other invalidate site below — plus one window 'resize' event, which
+  // every Leaflet map (trackResize defaults on) answers with its own
+  // invalidateSize, covering the D2D map without reaching into its state.
   setTimeout(() => {
-    if (window.mainMap?.invalidateSize) window.mainMap.invalidateSize();
-    if (window.d2dMap?.invalidateSize)  window.d2dMap.invalidateSize();
+    if (typeof mainMap !== 'undefined' && mainMap?.invalidateSize) mainMap.invalidateSize();
+    if (typeof drawMap !== 'undefined' && drawMap?.invalidateSize) drawMap.invalidateSize();
+    window.dispatchEvent(new Event('resize'));
   }, 200);
 };
 
