@@ -166,6 +166,7 @@
     "kanban-next-action-chip.test.js",
     "stage-checklist.test.js",
     "render-pdf-brand-mark-square.test.js",
+    "resend-webhook.test.js",
     "paperwork-filing.test.js",
     "kanban-filter-unification.test.js",
     "warranty-claim.test.js",

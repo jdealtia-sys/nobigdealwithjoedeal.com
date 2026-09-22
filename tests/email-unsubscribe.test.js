@@ -252,6 +252,88 @@ async function sendEmail(opts, body) {
     const f = S.applyFooter(gB, '<html><body><p>Hi</p></body></html>', 'Hi');
     ok('applyFooter puts the link before </body> and appends to text',
       /Unsubscribe<\/a><\/p><\/body><\/html>$/.test(f.html) && f.html.indexOf(gB.url) > 0 && f.text.indexOf(gB.url) > 0);
+    // ── CAN-SPAM postal address (2026-09-22 follow-up) ──────────────────
+    // §7704(a)(5): a commercial email carries the sender's physical postal
+    // address. PER TENANT, from that tenant's own companyProfile — a platform
+    // default would print one contractor's address in another's mail.
+    function dbWithProfile(profile, opts) {
+      const o = opts || {};
+      const reads = [];
+      const db = {
+        reads,
+        doc: (p) => ({
+          get: async () => {
+            reads.push(p);
+            if (p.indexOf('companyProfile/') === 0) {
+              if (o.profileThrows) throw new Error('UNAVAILABLE');
+              return profile === null ? { exists: false } : { exists: true, data: () => profile };
+            }
+            return { exists: false };
+          },
+          set: async () => {},
+        }),
+      };
+      return db;
+    }
+    const ADDR = '1234 Main St Suite 5, Goshen, OH 45122';
+    const gAddr = await S.gateCommercialEmail(
+      dbWithProfile({ brand: { contact: { mailingAddress: ADDR } } }),
+      { companyId: 'co-b', email: HOMEOWNER, source: 't' });
+    ok('postal address: read from the tenant\'s OWN companyProfile', gAddr.postalAddress === ADDR);
+    ok('postal address: appears in the HTML footer after the unsubscribe link',
+      gAddr.footerHtml.indexOf('<br>' + ADDR) > gAddr.footerHtml.indexOf('Unsubscribe</a>'));
+    ok('postal address: appears in the text footer', gAddr.footerText.indexOf(ADDR) > 0);
+
+    const gNone = await S.gateCommercialEmail(dbWithProfile(null),
+      { companyId: 'co-b', email: HOMEOWNER, source: 't' });
+    ok('no address set → footer is exactly the pre-change shape (no stray <br>)',
+      gNone.postalAddress === '' && !/<br>/.test(gNone.footerHtml)
+      && /Unsubscribe<\/a><\/p>$/.test(gNone.footerHtml)
+      && gNone.footerText === '\n\n—\nDon\'t want these emails? Unsubscribe: ' + gNone.url + '\n');
+
+    // The NBD-leak shape: a tenant whose profile EXISTS but sets no mailing
+    // address must get NO address — never a platform/NBD default, which would
+    // print one contractor's postal address in another's marketing mail.
+    // (`gNone` above returns early on a missing doc and never reaches the
+    //  field read, so it does not cover this on its own.)
+    const gEmptyField = await S.gateCommercialEmail(
+      dbWithProfile({ brand: { contact: { phone: '(859) 420-7382' } } }),
+      { companyId: 'co-b', email: HOMEOWNER, source: 't' });
+    ok('a profile with NO mailingAddress yields no address — never a platform default',
+      gEmptyField.postalAddress === '' && !/<br>/.test(gEmptyField.footerHtml));
+    const gBlankField = await S.gateCommercialEmail(
+      dbWithProfile({ brand: { contact: { mailingAddress: '   ' } } }),
+      { companyId: 'co-b', email: HOMEOWNER, source: 't' });
+    ok('a blank mailingAddress yields no address — never a platform default',
+      gBlankField.postalAddress === '' && !/<br>/.test(gBlankField.footerHtml));
+
+    const gSoft = await S.gateCommercialEmail(dbWithProfile(null, { profileThrows: true }),
+      { companyId: 'co-b', email: HOMEOWNER, source: 't' });
+    ok('an unreadable companyProfile fails SOFT — the email still sends, just without an address',
+      gSoft.suppressed === false && !!gSoft.url && gSoft.postalAddress === '');
+
+    const gXss = await S.gateCommercialEmail(
+      dbWithProfile({ brand: { contact: { mailingAddress: '<script>alert(1)</script> PO Box 9' } } }),
+      { companyId: 'co-b', email: HOMEOWNER, source: 't' });
+    ok('postal address is HTML-escaped into the footer',
+      !/<script>/.test(gXss.footerHtml) && /&lt;script&gt;/.test(gXss.footerHtml));
+
+    ok('postal address normalizes newlines/tabs and truncates at POSTAL_MAX',
+      S.normalizePostalAddress('PO Box 9\n\tGoshen,  OH') === 'PO Box 9 Goshen, OH'
+      && S.normalizePostalAddress('x'.repeat(400)).length === S.POSTAL_MAX
+      && S.normalizePostalAddress(null) === '' && S.normalizePostalAddress(undefined) === '');
+
+    const dbPre = dbWithProfile({ brand: { contact: { mailingAddress: 'SHOULD NOT BE READ' } } });
+    const gPre = await S.gateCommercialEmail(dbPre, { companyId: 'co-b', email: HOMEOWNER, source: 't' },
+      { postalAddress: 'PO Box 77, Goshen, OH 45122' });
+    ok('a caller-supplied address is used and skips the companyProfile read',
+      gPre.postalAddress === 'PO Box 77, Goshen, OH 45122'
+      && !dbPre.reads.some((p) => p.indexOf('companyProfile/') === 0));
+
+    ok('tenantPostalAddress refuses a companyId that could escape the doc path',
+      (await S.tenantPostalAddress(dbWithProfile({ brand: { contact: { mailingAddress: ADDR } } }), 'a/b')) === ''
+      && (await S.tenantPostalAddress(dbWithProfile(null), '')) === '');
+
     let threw = null;
     try {
       await S.gateCommercialEmail({ doc: () => ({ get: async () => { throw new Error('UNAVAILABLE'); } }) }, { companyId: 'co-a', email: HOMEOWNER });
@@ -516,14 +598,75 @@ async function sendEmail(opts, body) {
     delete require.cache[path.join(FUNCTIONS, 'email-suppression.js')];
     world = null;
     const S = require(path.join(FUNCTIONS, 'email-suppression.js'));
+    // Both scans below grep for an identifier, so they must only ever see
+    // CODE. The original pass used a raw readFileSync for the gate check, and
+    // `// TODO: call gateCommercialEmail( db, ... ) here one day` satisfied it
+    // — a commercial sender that never gated anything shipped green. Found and
+    // mutation-verified by the 2026-09-22 close-out audit.
+    //
+    // Line-oriented on purpose. A character-level stripper that also removes
+    // string literals has to tell a regex literal from a division, and
+    // `/['"]/` in this corpus opened a phantom string that swallowed ten real
+    // send sites. This one only ever cuts comments, so the failure direction
+    // is bounded: over-stripping trips `stale` (a SEND_PATHS entry stops being
+    // found) and fails LOUDLY; it cannot produce a silent pass.
+    function stripCode(src) {
+      const lines = String(src).split('\n');
+      const out = [];
+      let inBlock = false;
+      for (let raw of lines) {
+        let line = raw;
+        if (inBlock) {
+          const end = line.indexOf('*/');
+          if (end === -1) { out.push(''); continue; }
+          line = line.slice(end + 2);
+          inBlock = false;
+        }
+        const t = line.trim();
+        if (t.startsWith('//')) { out.push(''); continue; }
+        if (t.startsWith('/*')) {
+          const open = line.indexOf('/*');
+          const end = line.indexOf('*/', open + 2);
+          if (end === -1) { inBlock = true; out.push(''); continue; }
+          line = line.slice(0, open) + line.slice(end + 2);
+        }
+        // Trailing `// comment`, skipping the `://` of a URL.
+        let idx = -1, from = 0;
+        while ((idx = line.indexOf('//', from)) !== -1) {
+          if (idx > 0 && line[idx - 1] === ':') { from = idx + 2; continue; }
+          break;
+        }
+        if (idx !== -1) line = line.slice(0, idx);
+        out.push(line);
+      }
+      return out.join('\n');
+    }
+    // The stripper IS the guard here, so prove it strips before trusting it.
+    ok('stripCode removes a whole-line commented gate call',
+      !/gateCommercialEmail\(/.test(stripCode('  // call gateCommercialEmail( db )\nfoo();')));
+    ok('stripCode removes a trailing commented gate call',
+      !/gateCommercialEmail\(/.test(stripCode('foo(); // later: gateCommercialEmail( db )')));
+    ok('stripCode removes a block-commented gate call',
+      !/gateCommercialEmail\(/.test(stripCode('/* TODO\n * gateCommercialEmail( db )\n */\nfoo();')));
+    ok('stripCode keeps a real gate call',
+      /gateCommercialEmail\(/.test(stripCode('const g = await S.gateCommercialEmail(db, {});')));
+    ok('stripCode keeps code that merely contains a URL',
+      /\.emails\.send\(/.test(stripCode('// see https://resend.com/docs\nawait resend.emails.send(m);')));
+
     const files = [];
+    const code = new Map();
     (function walk(dir) {
       for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
         if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
         const p = path.join(dir, e.name);
         if (e.isDirectory()) walk(p);
-        else if (e.name.endsWith('.js') && /\.emails\.send\(/.test(fs.readFileSync(p, 'utf8').replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, ''))) {
-          files.push(path.relative(FUNCTIONS, p).replace(/\\/g, '/'));
+        else if (e.name.endsWith('.js')) {
+          const stripped = stripCode(fs.readFileSync(p, 'utf8'));
+          if (/\.emails\.send\(/.test(stripped)) {
+            const rel = path.relative(FUNCTIONS, p).replace(/\\/g, '/');
+            files.push(rel);
+            code.set(rel, stripped);
+          }
         }
       }
     })(FUNCTIONS);
@@ -532,9 +675,21 @@ async function sendEmail(opts, body) {
     ok('every file that calls resend.emails.send() is in SEND_PATHS (missing: ' + (missing.join(', ') || 'none') + ')', missing.length === 0);
     const stale = Object.keys(S.SEND_PATHS).filter((f) => !files.includes(f));
     ok('no stale SEND_PATHS entries (' + (stale.join(', ') || 'none') + ')', stale.length === 0);
-    const ungated = Object.keys(S.SEND_PATHS).filter((f) => ['commercial', 'mixed'].includes(S.SEND_PATHS[f]))
-      .filter((f) => !/gateCommercialEmail\(/.test(fs.readFileSync(path.join(FUNCTIONS, f), 'utf8')));
-    ok('every commercial/mixed sender calls gateCommercialEmail (' + (ungated.join(', ') || 'all do') + ')', ungated.length === 0);
+    const commercial = Object.keys(S.SEND_PATHS).filter((f) => ['commercial', 'mixed'].includes(S.SEND_PATHS[f]));
+    const ungated = commercial.filter((f) => !/gateCommercialEmail\(/.test(code.get(f) || ''));
+    ok('every commercial/mixed sender calls gateCommercialEmail in CODE, not a comment ('
+      + (ungated.join(', ') || 'all do') + ')', ungated.length === 0);
+    // Presence is not enough: the gate has to run BEFORE the send it guards.
+    // A gate bolted on after resend.emails.send() reads as "gated" to any
+    // grep and stops nothing.
+    const gateAfterSend = commercial.filter((f) => {
+      const src = code.get(f) || '';
+      const g = src.indexOf('gateCommercialEmail(');
+      const s = src.indexOf('.emails.send(');
+      return g === -1 || s === -1 || g > s;
+    });
+    ok('every commercial/mixed sender gates BEFORE its first send ('
+      + (gateAfterSend.join(', ') || 'all do') + ')', gateAfterSend.length === 0);
   }
 
   // ═══ H. browser client ═════════════════════════════════════════════════
@@ -639,6 +794,29 @@ async function sendEmail(opts, body) {
     ];
     ok('transactional client callers declare their kind',
       pins.every(([f, re]) => re.test(fs.readFileSync(path.join(ROOT, f), 'utf8'))));
+  }
+
+  // ═══ I. the Mailing Address field is wired end to end ══════════════════
+  // The server half is useless without a way for a contractor to SET the
+  // address, and a dropped input here fails silently: email keeps sending,
+  // just without the postal address CAN-SPAM requires. Pin all four points.
+  console.log('I. Settings → Mailing Address wiring');
+  {
+    const dash = fs.readFileSync(path.join(ROOT, 'docs/pro/dashboard.html'), 'utf8');
+    const boot = fs.readFileSync(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'), 'utf8');
+    const prof = fs.readFileSync(path.join(ROOT, 'docs/pro/js/company-profile.js'), 'utf8');
+    ok('dashboard.html has the #cp_brand_mailingAddress input',
+      /id="cp_brand_mailingAddress"/.test(dash));
+    ok('the collector writes contact.mailingAddress from that input',
+      /cpv\('cp_brand_mailingAddress'\)/.test(boot) && /contact\.mailingAddress = cMailing/.test(boot));
+    ok('the hydrator seeds the input from the saved profile',
+      /setCp\('cp_brand_mailingAddress', rawContact\.mailingAddress/.test(boot));
+    ok('mailingAddress is in _IDENTITY_CONTACT so no tenant inherits another\'s',
+      /_IDENTITY_CONTACT\s*=\s*\[[^\]]*'mailingAddress'/.test(prof));
+    // It must NOT be mirrored into the letterhead/microsite address: those are
+    // a different disclosure decision (see the collector's comment).
+    ok('mailingAddress is not mirrored into businessAddress / contact.address',
+      !/businessAddress\s*=\s*cMailing/.test(boot) && !/contact\.address\s*=\s*cMailing/.test(boot));
   }
 
   console.log('\n──────────────────────────────────────────────────');

@@ -48,6 +48,15 @@
  *     never "probably fine". sendEmail answers 503 suppression_unverified,
  *     which the browser client refuses instead of handing off to mailto:.
  *
+ *   tenantPostalAddress(db, companyId) — the CAN-SPAM §7704(a)(5) postal
+ *     address for the footer, from companyProfile/{companyId}
+ *     brand.contact.mailingAddress. PER TENANT with NO platform default:
+ *     a fallback would print one contractor's address in another's mail.
+ *     '' when unset, and the footer then renders exactly as it did before
+ *     this existed. Unlike the suppression read beside it, this one fails
+ *     SOFT — see the note on the function for why the asymmetry is right.
+ *     Set in the CRM at Settings → Company Profile → Mailing Address.
+ *
  * Deliberately NOT a cache — an unsubscribe is a legal instruction and the
  * read is one doc get.
  */
@@ -215,13 +224,73 @@ function escHtml(s) {
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
-function footerHtml(url) {
-  return '<p style="font-size:12px;color:#6b7280;text-align:center;margin:18px 0 6px;line-height:1.5;">'
-    + 'Don\'t want these emails? <a href="' + escHtml(url) + '" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a></p>';
+/**
+ * The tenant's CAN-SPAM postal address, or '' when it has not set one.
+ *
+ * CAN-SPAM §7704(a)(5) requires a commercial email to carry the sender's
+ * valid physical postal address. Read from THAT TENANT's own companyProfile
+ * and never from a platform default: a hardcoded fallback would print one
+ * contractor's address in another's marketing mail, which is the NBD-leak
+ * class this codebase has already been bitten by.
+ *
+ * Fails SOFT, unlike the suppression read right next to it, and the
+ * asymmetry is deliberate: a missed suppression is someone emailed after
+ * they said stop (a legal violation and a broken promise), while a missing
+ * address is a disclosure gap on mail that is otherwise wanted. Failing
+ * closed here would mean an unreadable companyProfile silently stops all
+ * commercial email — a worse outcome than a footer without an address,
+ * which is exactly what shipped before this existed.
+ */
+const POSTAL_MAX = 200;
+
+function normalizePostalAddress(v) {
+  return String(v == null ? '' : v)
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, POSTAL_MAX);
 }
 
-function footerText(url) {
-  return '\n\n—\nDon\'t want these emails? Unsubscribe: ' + url + '\n';
+async function tenantPostalAddress(db, companyId) {
+  const c = String(companyId == null ? '' : companyId).trim();
+  if (!c || c.indexOf('/') !== -1) return '';
+  try {
+    const snap = await db.doc('companyProfile/' + c).get();
+    if (!snap || !snap.exists) return '';
+    const contact = ((snap.data() || {}).brand || {}).contact || {};
+    return normalizePostalAddress(contact.mailingAddress);
+  } catch (_) {
+    // Soft failure by design — see the note above.
+    return '';
+  }
+}
+
+function footerHtml(url, postalAddress) {
+  const addr = normalizePostalAddress(postalAddress);
+  return '<p style="font-size:12px;color:#6b7280;text-align:center;margin:18px 0 6px;line-height:1.5;">'
+    + 'Don\'t want these emails? <a href="' + escHtml(url) + '" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>'
+    + (addr ? '<br>' + escHtml(addr) : '')
+    + '</p>';
+}
+
+function footerText(url, postalAddress) {
+  const addr = normalizePostalAddress(postalAddress);
+  return '\n\n—\nDon\'t want these emails? Unsubscribe: ' + url + '\n'
+    + (addr ? addr + '\n' : '');
+}
+
+// Resend TAG carrying the per-send unsubscribe token, so Resend's own
+// bounce/complaint webhook can find the tenant a bounced address belongs to
+// (functions/resend-webhook.js). Resend's payload names the ADDRESS but never
+// our tenant, and suppression is per tenant, so the send has to carry the
+// answer. The token doc already holds companyId + email + leadId, and a
+// 43-char base64url token is exactly Resend's tag charset ([A-Za-z0-9_-]), so
+// nothing needs encoding. Only COMMERCIAL sends are tagged — which is also
+// the only mail suppression applies to.
+const UNSUB_TAG_NAME = 'nbd_unsub';
+
+function unsubscribeTags(token) {
+  return [{ name: UNSUB_TAG_NAME, value: String(token) }];
 }
 
 /** RFC 2369 + RFC 8058 headers for one-click unsubscribe. */
@@ -244,15 +313,26 @@ async function gateCommercialEmail(db, fields, opts) {
   const o = opts || {};
   const hit = await isSuppressed(db, f.companyId, f.email, { timeoutMs: o.timeoutMs });
   if (hit.suppressed) return { suppressed: true, id: hit.id };
-  const minted = await mintUnsubscribeToken(db, f, o.serverTimestamp);
+  // The token mint must succeed (no token, no working unsubscribe link, so no
+  // send). The postal-address read must not block it — see
+  // tenantPostalAddress. A caller that already has the address in hand passes
+  // it as opts.postalAddress and skips the read.
+  const [minted, postal] = await Promise.all([
+    mintUnsubscribeToken(db, f, o.serverTimestamp),
+    typeof o.postalAddress === 'string'
+      ? Promise.resolve(normalizePostalAddress(o.postalAddress))
+      : tenantPostalAddress(db, f.companyId),
+  ]);
   return {
     suppressed: false,
     id: hit.id,
     token: minted.token,
     url: minted.url,
+    postalAddress: postal,
+    tags: unsubscribeTags(minted.token),
     headers: listUnsubscribeHeaders(minted.url),
-    footerHtml: footerHtml(minted.url),
-    footerText: footerText(minted.url),
+    footerHtml: footerHtml(minted.url, postal),
+    footerText: footerText(minted.url, postal),
   };
 }
 
@@ -323,7 +403,12 @@ module.exports = {
   READ_TIMEOUT_MS,
   TOKEN_RE,
   SEND_PATHS,
+  POSTAL_MAX,
+  UNSUB_TAG_NAME,
+  unsubscribeTags,
   normalizeEmail,
+  normalizePostalAddress,
+  tenantPostalAddress,
   emailHash,
   suppressionId,
   resolveCategory,

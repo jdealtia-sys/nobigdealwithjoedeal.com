@@ -1880,6 +1880,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Resend webhook delivery ids, claimed with create() so two concurrent
+    // redeliveries of the same event cannot both record a suppression.
+    // Admin-SDK only, exactly like stripe_events.
+    match /resend_events/{eventId} {
+      allow read, write: if false;
+    }
+
     // Tenant microsite slug claim docs (Pillar 5). Admin-SDK only — written
     // transactionally by setSiteSlug as the uniqueness lock + reverse index;
     // clients never read or write them (getPublicSiteConfig reads server-side).

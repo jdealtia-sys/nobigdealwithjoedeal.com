@@ -5247,6 +5247,7 @@
     const cSiteRaw  = cpv('cp_brand_website') || cpv('cp_businessWebsite');
     const cWebsite  = cSiteRaw ? cSiteRaw.replace(/^https?:\/\//i, '').replace(/\/$/, '') : '';
     const cAddress  = cpv('cp_brand_address') || cpv('cp_businessAddress');
+    const cMailing  = cpv('cp_brand_mailingAddress');
     // Lockstep: keep the Letterhead top-levels equal to the resolved values. Only
     // write when a value is present so an unedited NBD field stays absent (it was
     // stripped above) and byte-identical; clearing a saved field is the accepted
@@ -5282,6 +5283,13 @@
     if (cEmail)   { contact.email = cEmail; contact.alertEmail = cEmail; }
     if (cWebsite) contact.website = cWebsite;
     if (cAddress) contact.address = cAddress;
+    // CAN-SPAM postal address for the marketing-email footer
+    // (functions/email-suppression.js tenantPostalAddress). Deliberately NOT
+    // mirrored into businessAddress / contact.address: those are the public
+    // microsite + document letterhead address, and a contractor may well want
+    // a PO box on marketing mail and nothing at all on the letterhead. Blank
+    // means "print no address", never a platform default.
+    if (cMailing) contact.mailingAddress = cMailing;
     if (Object.keys(contact).length) brand.contact = contact;
 
     // AUTO-SEED legalName — belt-and-suspenders against the skip→Letterhead-only
@@ -5356,6 +5364,7 @@
     setCp('cp_brand_email', rawContact.email || '');
     setCp('cp_brand_website', rawContact.website || '');
     setCp('cp_brand_address', rawContact.address || '');
+    setCp('cp_brand_mailingAddress', rawContact.mailingAddress || '');
     // Color <input>s always report a value: seed from the raw override's colors
     // when present, else the NBD default swatch (cosmetic — an untouched picker
     // is never written, see _cpColorsTouched).
