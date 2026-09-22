@@ -69,24 +69,24 @@
     // Academy / training — never loaded unless the user enters an
     // academy or training tab. Biggest single lazy win (~150KB).
     academy: [
-      'js/academy-insurance-tree-data.js?v=1',
+      'js/academy-insurance-tree-data.js?v=2',
       'js/academy-insurance-tree.js?v=2',
       'js/academy-retail-tree.js?v=1',
       'js/academy-courses.js?v=1',
-      'js/academy-admin.js?v=2',
-      'js/real-deal-academy-lab.js?v=1',
-      'js/real-deal-academy.js?v=2'
+      'js/academy-admin.js?v=3',
+      'js/real-deal-academy-lab.js?v=2',
+      'js/real-deal-academy.js?v=3'
     ],
     training: [
       // Step 4f (2026-05-17): sales-training.js split into engine +
       // ui modules + thin shim. Load order: engine → ui → shim.
-      'js/sales-training-engine.js?v=1',
-      'js/sales-training-ui.js?v=2',
+      'js/sales-training-engine.js?v=2',
+      'js/sales-training-ui.js?v=3',
       'js/sales-training.js?v=2'
     ],
     storm: [
-      'js/storm-center.js?v=2',
-      'js/storm-integration.js?v=1',
+      'js/storm-center.js?v=3',
+      'js/storm-integration.js?v=2',
       // SPC Day-1 outlook overlay (2026-09-05). Independent of the other two;
       // storm-center calls window.StormOutlook defensively if it is present.
       'js/storm-outlook.js?v=1'
@@ -102,23 +102,23 @@
     // window.ProfitTracker.computeJobPLWithExpenses at render — so it must ride
     // this bundle or the margin silently degrades to "set Job Value".
     expenses: [
-      'js/expense-config.js?v=1',
+      'js/expense-config.js?v=2',
       // v=2 to match customer.html, which keeps this file EAGER: its
       // renderCostPanel('profitPanel') runs during the customer render, so it
       // cannot be lazy there. Same cache key on both pages.
-      'js/profit-tracker.js?v=2',
-      'js/expenses.js?v=1'
+      'js/profit-tracker.js?v=3',
+      'js/expenses.js?v=2'
     ],
     // Money / P&L capstone — self-contained (reads doc fields directly, no
     // ExpenseConfig dependency), so it's a single-module bundle.
     money: [
-      'js/money-dashboard.js?v=1'
+      'js/money-dashboard.js?v=2'
     ],
     repos: [
-      'js/rep-os.js?v=1'
+      'js/rep-os.js?v=2'
     ],
     decision: [
-      'js/decision-engine.js?v=1'
+      'js/decision-engine.js?v=2'
     ],
     reports: [
       // ApexCharts must load BEFORE rep-report-generator.js, which calls
@@ -130,7 +130,7 @@
       // CDN fetch fails, load() resolves anyway and the generator's existing
       // `typeof ApexCharts === 'undefined'` guard degrades gracefully.
       '/assets/vendor/apexcharts/apexcharts.min.js',
-      'js/rep-report-generator.js?v=4'
+      'js/rep-report-generator.js?v=5'
     ],
     // Doc-generation cluster (PR 2b). Only needed when the rep generates a
     // document — from a lead-card doc chip (_generateDocWithPreflight) or
@@ -141,20 +141,20 @@
     // They were v=7 here, so a rep who opened both pages fetched the same two
     // files twice under two cache keys. One key per file, repo-wide.
     docgen: [
-      'js/nbd-logo-asset.js?v=2',
+      'js/nbd-logo-asset.js?v=3',
       'js/nbd-badge-assets.js?v=1',
-      'js/document-generator.js?v=10',
-      'js/document-generator-templates.js?v=8',
-      'js/doc-preflight.js?v=1',
+      'js/document-generator.js?v=11',
+      'js/document-generator-templates.js?v=9',
+      'js/doc-preflight.js?v=2',
       // Mobile job-detail Documents tab (dashboard-actions.js
       // _mountDocumentsHub) reads leads/{id}/documents through this same
       // store customer.html uses — one reader, not a second copy of the
       // fetch/normalize logic. Version matches customer.html's own tag.
-      'js/customer-documents.js?v=1',
+      'js/customer-documents.js?v=2',
       // Same tab's "scan/upload a signed document" rows (2026-09-17) —
       // uploadSignedDoc/handleSignedDocUpload are the exact functions
       // customer.html's Documents tab uses; no second upload path.
-      'js/customer-signed-doc-upload.js?v=1'
+      'js/customer-signed-doc-upload.js?v=2'
     ],
     // Estimate engine (PR 2c). The revenue-critical builder + its product/
     // catalog data. Only needed when the rep builds an estimate, opens the
@@ -188,36 +188,36 @@
     // 'job-templates': ['estimates'] below is the ONLY entry point, so there
     // is no page where job templates load without the cost book.
     estimates: [
-      'js/product-data.js?v=2',
+      'js/product-data.js?v=3',
       'js/roofivent-catalog.js?v=2',
-      'js/catalog-costs.js?v=2',
-      'js/product-library.js?v=4',
-      'js/estimate-labor-catalog.js?v=1',
-      'js/estimate-builder-v2.js?v=6',
-      'js/estimate-catalog-xactimate.js?v=2',
-      'js/estimate-logic-engine.js?v=5',
-      'js/estimates.js?v=7',
+      'js/catalog-costs.js?v=3',
+      'js/product-library.js?v=5',
+      'js/estimate-labor-catalog.js?v=2',
+      'js/estimate-builder-v2.js?v=7',
+      'js/estimate-catalog-xactimate.js?v=3',
+      'js/estimate-logic-engine.js?v=6',
+      'js/estimates.js?v=8',
       // Rock 2 PR 6: the New-Estimate front door (chooser) split out of
       // estimates.js. Loads after it — showNewEstimateChooser falls back to
       // estimates.js's showEstimateTypeSelector when V2 is missing.
       'js/estimate-entry.js?v=1',
       // Rock 2 PR 6: the estimates-list row actions (Firestore CRM ops, no
       // pricing math) split out of estimates.js.
-      'js/estimate-crm-ops.js?v=1',
-      'js/estimate-finalization.js?v=2',
-      'js/estimate-v2-ui.js?v=14',
-      'js/estimate-supplement.js?v=1',
-      'js/supplement-ui.js?v=1',
+      'js/estimate-crm-ops.js?v=2',
+      'js/estimate-finalization.js?v=3',
+      'js/estimate-v2-ui.js?v=15',
+      'js/estimate-supplement.js?v=2',
+      'js/supplement-ui.js?v=2',
       // Job templates ride the estimates bundle: data is inert, the engine
       // resolves through EstimateLogic + registers custom items into
       // EstimateBuilderV2.CATALOG (so it must load after both), and the UI
       // inserts into the V2 builder — end-of-bundle satisfies all three.
       // entity-resolver.js (the lead search/quick-create picker) must load
       // before job-templates-ui.js, which calls it from paintModal.
-      'js/job-templates-data.js?v=3',
+      'js/job-templates-data.js?v=4',
       'js/job-templates.js?v=4',
-      'js/entity-resolver.js?v=1',
-      'js/job-templates-ui.js?v=5'
+      'js/entity-resolver.js?v=2',
+      'js/job-templates-ui.js?v=6'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the
@@ -227,7 +227,7 @@
     // load-then-run stubs in dashboard-actions.js, so a click before the bundle
     // loads still works.
     photos: [
-      'js/photo-engine.js?v=6',
+      'js/photo-engine.js?v=7',
       // photo-queue-store.js + photo-queue-recovery.js were static-tagged
       // only on dashboard.html until 2026-09-14 — customer.html's own
       // uploadSinglePhoto never enqueued a photo into the durable IndexedDB
@@ -237,10 +237,10 @@
       // existing dedupe trap this file documents elsewhere: ScriptLoader
       // dedupes on resolved path, so an eager tag for either file would make
       // loadBundle('photos') a no-op for it and nothing would load lazily.
-      'js/photo-queue-store.js?v=1',
-      'js/photo-queue-recovery.js?v=1',
-      'js/inspection-report-engine.js?v=5',
-      'js/photo-report.js?v=3'
+      'js/photo-queue-store.js?v=2',
+      'js/photo-queue-recovery.js?v=2',
+      'js/inspection-report-engine.js?v=6',
+      'js/photo-report.js?v=4'
     ],
     // D2D tracker (PR 2e). The door-to-door knock tracker — only the D2D
     // view uses it. ~180 KB off boot. Load order locked: core publishes
@@ -249,9 +249,9 @@
     // other consumer (crm-pipeline.js) guards on window.D2D. The maps engine
     // stays eager — maps.js doubles as the theme/font appearance engine.
     d2d: [
-      'js/d2d-tracker-core-2026b.js?v=5',
-      'js/d2d-tracker-ui-2026b.js?v=2',
-      'js/d2d-tracker-2026b.js?v=2'
+      'js/d2d-tracker-core-2026b.js?v=6',
+      'js/d2d-tracker-ui-2026b.js?v=3',
+      'js/d2d-tracker-2026b.js?v=3'
     ],
     // PDF export libs (PR 2b2). jsPDF + html2pdf — ~1.1 MB combined (html2pdf
     // bundles html2canvas + its own jsPDF). The ONLY dashboard consumer is the
@@ -264,7 +264,7 @@
     ],
     // Warranty cert wizard — opened from the Docs view only.
     warranty: [
-      'js/warranty-cert.js?v=4'
+      'js/warranty-cert.js?v=5'
     ],
     // Theme engine cluster (2026-08-07). The 189-theme engine (162 KB) + its
     // four cosmetic companions were eager on every boot; they are a Settings/
@@ -275,11 +275,11 @@
     // loadBundle() calls window._nbdInitThemeStack (dashboard-ui.js owns the
     // init sequence; the hook is idempotent).
     theme: [
-      'js/theme-engine.js?v=2',
-      'js/theme-overlays.js?v=1',
+      'js/theme-engine.js?v=3',
+      'js/theme-overlays.js?v=2',
       'js/theme-sounds.js?v=1',
       'js/theme-achievements.js?v=1',
-      'js/theme-gx.js?v=1'
+      'js/theme-gx.js?v=2'
     ],
     // Leaflet vendor stack (~225 KB, 2026-08-07) — was eager on every boot for
     // a Maps view most sessions never open. Order is load-bearing: plugins

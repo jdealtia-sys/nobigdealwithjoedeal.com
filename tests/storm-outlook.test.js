@@ -208,7 +208,7 @@ console.log('\nWIRING');
   const loader = fs.readFileSync(path.join(ROOT, 'docs', 'pro', 'js', 'script-loader.js'), 'utf8');
   ok('the file is in the storm bundle', /js\/storm-outlook\.js/.test(loader));
   ok('storm-center is version-bumped so phones do not run the cached copy',
-     /js\/storm-center\.js\?v=2/.test(loader));
+     /js\/storm-center\.js\?v=3/.test(loader));
 
   const fb = JSON.parse(fs.readFileSync(path.join(ROOT, 'firebase.json'), 'utf8'));
   const rule = fb.hosting.headers.find((h) => h.source === '**');

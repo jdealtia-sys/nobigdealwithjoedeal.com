@@ -58,7 +58,7 @@ console.log('\n1. script-loader.js — queue files ride the lazy photos bundle, 
 
   const dash = read('docs/pro/dashboard.html');
   ok('dashboard.html KEEPS its static tags (no regression for the page that already worked)',
-    dash.includes('js/photo-queue-store.js?v=1') && dash.includes('js/photo-queue-recovery.js?v=1'));
+    dash.includes('js/photo-queue-store.js?v=2') && dash.includes('js/photo-queue-recovery.js?v=2'));
 
   const customer = read('docs/pro/customer.html');
   ok('customer.html does NOT get a static tag for either file — that would make loadBundle(\'photos\') a no-op for it (the documented dedupe trap)',
