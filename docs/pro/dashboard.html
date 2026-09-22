@@ -114,7 +114,7 @@
 
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=2"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=14"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=15"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -3769,6 +3769,10 @@
               <div class="sf"><label>Address (one line)</label>
                 <input type="text" id="cp_brand_address" placeholder="City, ST"></div>
             </div>
+            <div style="margin:14px 0 6px;font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--m);">Mailing address — required by law on marketing email</div>
+            <div class="sf"><label>Mailing Address (street or PO box, one line)</label>
+              <input type="text" id="cp_brand_mailingAddress" placeholder="PO Box 123, Goshen, OH 45122" maxlength="200">
+              <div style="margin-top:5px;font-size:11px;line-height:1.5;color:var(--m);">Printed under the unsubscribe link on marketing and follow-up email — CAN-SPAM requires a real postal address there. A PO box is fine, and is the usual choice if you&rsquo;d rather not publish a home address. Leave this blank and no address is shown. Separate from the address above: this one is never used on estimates, invoices or your customer portal.</div></div>
           </div>
         </div>
 
@@ -6567,7 +6571,7 @@
 <script defer src="js/ai.js?v=6"></script>
 <script defer src="js/review-engine.js?v=4"></script>
 <script defer src="js/referral-rewards-ui.js?v=2"></script>
-<script defer src="js/company-profile.js?v=2"></script>
+<script defer src="js/company-profile.js?v=3"></script>
 <!-- LAZY: doc-generation cluster (nbd-logo-asset, document-generator,
      document-generator-templates, doc-preflight) loaded via ScriptLoader's
      `docgen` bundle. Was eager here (~420 KB on every load); PR 2b moved it

@@ -213,6 +213,14 @@
         // letterhead address lives on companyProfile.businessAddress and feeds
         // the public microsite payload, not the document letterhead.
         address:    '',
+        // CAN-SPAM postal address printed under the unsubscribe link on
+        // COMMERCIAL email (functions/email-suppression.js tenantPostalAddress
+        // reads brand.contact.mailingAddress from each tenant's own profile).
+        // Empty on purpose and not a copy of `address`: the letterhead address
+        // and the address a contractor is willing to publish in marketing mail
+        // are separate decisions. Empty = print no address; there is no
+        // platform default, by design.
+        mailingAddress: '',
         alertEmail: 'jd@nobigdealwithjoedeal.com', // Phase C: public-lead alert recipient
         alertSms:   '+18594207382',                // Phase C: per-tenant alert SMS
         slackWebhook: ''                           // Phase C: optional per-tenant Slack lead alert (empty = none)
@@ -446,7 +454,10 @@
   // identity surface; the badge renderer treats '' / [] / undefined as "no
   // badges" so a tenant that has not set its own simply prints none.
   const _IDENTITY_TOP     = ['seal', 'docPrefix', 'tagline', 'smsSignOff', 'logoUrl', 'affiliates'];
-  const _IDENTITY_CONTACT = ['phone', 'email', 'website', 'address', 'alertEmail', 'alertSms'];
+  // 'mailingAddress' belongs here for the same reason as the rest: it is a
+  // postal address that identifies a specific business. Left to deep-merge, a
+  // stranger tenant would inherit NBD's the moment NBD sets one.
+  const _IDENTITY_CONTACT = ['phone', 'email', 'website', 'address', 'mailingAddress', 'alertEmail', 'alertSms'];
 
   function _resolveBrand() {
     const profile = window._companyProfile || NBD_COMPANY_PROFILE_DEFAULTS;
