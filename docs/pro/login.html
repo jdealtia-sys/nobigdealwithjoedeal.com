@@ -14,7 +14,7 @@
      after deploy it bypasses the SW cache (no entry yet), so a corrupt
      cached state doesn't keep this from running. No-op for normal
      users (no ?reset=1 → script returns early). -->
-<script src="js/login-reset.js?v=1"></script>
+<script src="js/login-reset.js?v=2"></script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0A0C0F">
@@ -22,7 +22,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <link rel="manifest" href="/pro/manifest.json">
 <!-- Sentry must register before any other script that might throw. -->
-<script src="js/sentry-config.js?v=1"></script>
+<script src="js/sentry-config.js?v=2"></script>
 <script src="js/sentry-init.js?v=2"></script>
 <script src="js/standalone-compat.js"></script>
 <title>NBD Pro — Member Login</title>
@@ -388,7 +388,7 @@ body{background:var(--navy-dark);color:var(--white);display:grid;grid-template-c
      to warm the token "Continue with Google" needs before window.open. -->
 <script src="js/dashboard-appcheck-config.js?v=1"></script>
 <script type="module" src="js/pages/login.js?v=3"></script>
-<script src="js/offline-manager.js?v=5"></script>
+<script src="js/offline-manager.js?v=6"></script>
 
 </body>
 </html>
