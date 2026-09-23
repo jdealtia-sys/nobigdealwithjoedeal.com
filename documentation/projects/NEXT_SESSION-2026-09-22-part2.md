@@ -1,6 +1,11 @@
 # Session handoff — 2026-09-22 (part 2)
 
-## Status: 3 PRs open and stacked, all green. Nothing merged — Jo was in the field on his phone.
+## Status: 6 PRs, ALL MERGED AND LIVE. Three lanes, then three more.
+
+> **Corrected at close-out.** Everything below §6 was written MID-SESSION, when
+> #1717-#1720 were still open and the session looked finished. It then ran three
+> more lanes. §7 is what actually happened after that point — read it before
+> trusting any "open" claim above it.
 
 Jo's ask: "kick off a new power session", then — mid-turn — *"We don't necessarily
 have to continue where we left off. Especially if the work is heavily reliant on me.
@@ -172,3 +177,86 @@ Reasoning is in the audit doc so it doesn't get "fixed" later.
   wrong. Each took one command to disprove.
 - **An over-strict guard that fails loudly beats a lenient one that passes silently** —
   pick the failure direction deliberately and say so in the comment.
+
+
+---
+
+## 7. What happened AFTER the brief above was written
+
+Jo: *"Word. Keep going."* → finished the audit → built the Resend webhook →
+*"You can do both the first and third thing"* (merge + arm the webhook) →
+*"Let’s switch lanes"* → three more lanes, all chosen for zero dependency on him.
+
+### Merged and live
+
+| PR | What |
+|---|---|
+| #1717 | the vacuous sender-registry guard |
+| #1718 | CAN-SPAM postal address, per tenant |
+| #1719 | Resend bounce/complaint sync (DARK) |
+| #1720 | the brief above |
+| #1721 | `nav-responsive-fix v3` extracted — 173 pages, ~151 KB of HTML |
+| #1722 | #12-guard rules coverage + the SMS-outbox close-out audit |
+
+#1717-#1720 landed as ONE merge commit (`00bfe2a4`) and #1721+#1722 as another,
+deliberately: `firebase-deploy` has `cancel-in-progress: false`, so merging them
+separately queues serialized ~9-minute deploys AND risks an older tree’s deploy
+running last and reverting the newer one’s hosting content. #1721 touches 172
+HTML files, so that hazard was live. **#1718/#1719 and #1721/#1722 show as
+CLOSED, not merged** — GitHub only relabels the PR the merge event names. Each
+carries a comment saying so; their commits are all on `main`.
+
+### The Resend webhook is LIVE and inert — prod-verified
+
+`POST /hooks/resend` unsigned → **503** `{"error":"Webhook not configured"}`. A
+FORGED signature → 503 too (the secret check runs before signature verification,
+so unconfigured it never even parses). Uncached `GET` → 405.
+`RESEND_WEBHOOK_SECRET` exists with 1 enabled version — the `__unset__` stub the
+deploy’s `defineSecret` discovery creates automatically.
+
+**Arming it is two Jo steps and nothing breaks if he never does them:** add the
+endpoint in the Resend dashboard (`email.bounced` + `email.complained`), then
+replace that stub secret. Claude deliberately did NOT move the signing secret —
+copying a live `whsec_…` into Secret Manager is credential handling.
+
+**A 404 on that endpoint is probably YOUR OWN cached request.** Curling it during
+the hosting-first window (before the functions half deploys) caches a 404 at the
+edge for 600s. POST is never cached, so the tell is **POST works, GET 404s**. Add
+`?cb=$RANDOM` before hunting for a shadowing rewrite — that cost a detour.
+
+### Lane: CSS dedup slice 4 (#1721)
+
+173 pages carried `nav-responsive-fix v3` byte-identically; 172 migrated to a
+linked sheet, **−3440/+376 lines**. Re-measured first, because this lane’s own
+history has an estimate that was wrong by 16×. Verified by **315 real
+computed-style comparisons, zero differences**. Full detail in WEEKLY_CADENCE
+item 10, slice 4.
+
+### Lane: rules coverage (#1722)
+
+The **#12 guard** (member stamps `companyId = own-uid` to hide a doc from their
+boss’s rollups) shipped on 12 collections in August with assertions on only one.
+All 12 + `/reps` now covered. **Two corrections worth not re-deriving:**
+`myCompanyId()` reading the claim BARE is *not* a live bug (Firestore absorbs an
+erroring `||` operand — probed directly, solo creates are allowed), and `/reps`
+needs an unseeded uid because the setup already seeds `reps/alice`.
+
+### Lane: SMS outbox audit (#1722) — CLEAN
+
+1,650 lines, never audited, three-round landing history. **No defects**, and its
+tests are non-vacuous (3 safety mutations each redden the suite). Written up at
+`documentation/audit/SMS-OUTBOX-2026-09-22.md` so nobody pays for it twice.
+
+### The thread across the whole day
+
+**Four separate checks passed vacuously** — a grep guard satisfied by a comment,
+a before/after harness comparing pages that had never changed, and two mutations
+that silently no-opped (one on a CRLF needle, one on shell escaping). Every one
+read as success. Before reporting "verified", make the check go red on purpose.
+
+### Still open for Jo (unchanged)
+
+The PO box • arming the Resend webhook • one human Google account-pick •
+GBP/Facebook posting (26 photos staged) • `careers.html` W2/1099 • the Meet-Joe
+video id • the fire-water-smoke FAQ • the Yelp claim • the storm-report-email
+classification call.
