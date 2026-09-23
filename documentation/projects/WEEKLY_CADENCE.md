@@ -125,6 +125,27 @@
 
 ## One-off queue — Jo (decisions & console; newest first, check off here when done)
 
+> **Staleness-audited 2026-09-23.** Every unchecked item was re-verified against the
+> repo, prod and GCP rather than taken at its word. **Six lines were wrong:** four
+> already done, one a duplicate, one carrying numbers two eras out of date. They are
+> struck below with what was checked. The rest were confirmed genuinely open.
+>
+> Verified DONE: the 7 retired functions (console-deleted 2026-09-04),
+> `serviceAccountTokenCreator` on the compute SA (**listed twice** — both struck),
+> the `www → apex` 301, and the placeholder-city backfill (0 of 53 remain).
+> Corrected: "first priced project" was really **7 of 53 unpriced**, now named.
+>
+> Confirmed still open and accurate: branch-protection "include administrators"
+> (`enforce_admins: false`), the 2 blog drafts (they live in `documentation/drafts/`,
+> not `docs/blog/` — a first grep in the wrong place nearly marked this done),
+> and TAMKO’s **exactly 8** placeholder-priced SKUs in `product-data.js`.
+>
+> **Not verifiable from here, deliberately:** the kie.ai flip. `KIE_API_KEY` exists
+> with an enabled version, but the deploy auto-creates an `__unset__` stub for every
+> `defineSecret`, and telling a real key from the stub means reading the secret’s
+> value. Left open — only Jo can say.
+
+
 - [ ] **Decide: booking and review links go by WHO you are, not by what the
       brand says (added 2026-09-18).** Today the CRM decides "this account is
       NBD" from brand text. Before a company's profile has loaded, that text
@@ -148,7 +169,12 @@
       already merged. Evidence:
       [globals-tranche3-plan.md](../../docs/dev/globals-tranche3-plan.md)
       part-5 update.
-- [ ] **Grant `roles/iam.serviceAccountTokenCreator` on the compute SA (~2 min,
+- [x] **~~Grant `roles/iam.serviceAccountTokenCreator` on the compute SA~~ ALREADY
+      GRANTED** (verified 2026-09-23 via `gcloud projects get-iam-policy`:
+      `717435841570-compute@developer.gserviceaccount.com` holds the role).
+      **This item was also DUPLICATED further down this file** — see the
+      "IAM fix" line, struck for the same reason. Original wording:
+      ~~Grant `roles/iam.serviceAccountTokenCreator` on the compute SA (~2 min,
       GCP Console → IAM)** — the same item as the older "IAM fix" below, now
       the highest-leverage console task there is: `signImageUrl` has no
       fallback without it, so the public-photo-token fix (every photo variant
@@ -211,7 +237,12 @@
       `legacyMangled: 0, blank: 0` → the 11:00Z fire self-greens.
       Details: [CRM-ADDRESS-INTEGRITY-2026-08-18](../audit/CRM-ADDRESS-INTEGRITY-2026-08-18.md)
       §2026-08-27.
-- [ ] **Delete the 7 retired functions in the Firebase console (~3 min)** —
+- [x] **~~Delete the 7 retired functions in the Firebase console~~ DONE 2026-09-04**
+      (verified 2026-09-23): the Cloud Run instances were console-deleted on Jo’s
+      instruction, fleet 179→171, re-confirmed zero-orphan in the 2026-09-14
+      FUNCTIONS_INDEX re-enumeration. Backlog item 4 has said so since 2026-09-17;
+      this line never got the memo. Original wording:
+      ~~Delete the 7 retired functions in the Firebase console (~3 min)~~ —
       code retired 2026-08-11 (Jo-approved, dead-surface lane): Console →
       Functions → delete `sendEstimateEmail`, `sendDripEmail`,
       `triggerProcessRecording`, `reprocessRecording`,
@@ -237,11 +268,20 @@
       pinned the matrix in smoke; the job compared for the first time on that
       PR. (Found on the way: the login page overflows at 375/768 — fix and
       re-bless together.)
-- [ ] **First priced project on /our-work** (~10 min) — all 12 seed cards are
+- [ ] **Price the last 7 /our-work projects** (~10 min) — *numbers corrected
+      2026-09-23: **46 of 53** live projects already carry a `priceLow`/`priceHigh`;
+      **7** do not — `hail-impact-chalk-marked`, `valley-flashing-detail`,
+      `aframe-standing-seam-metal`, `cincinnati-oh-plank-deck-bungalow-2024`,
+      `loveland-oh-single-day-replacement-2024`, `loveland-oh-siding-peak-reseal-2026`,
+      `loveland-oh-wind-repair-2023`. This is a short named list, not "all 12 seed
+      cards".* Original wording: ~~First priced project on /our-work (~10 min) — all 12 seed cards are
       unpriced; also confirm the agent's service labels on the 2 commercial
       apartment entries + the A-frame metal roof (labeled roof-replacement
       for now) — [PUBLISH-PROJECT](../runbooks/PUBLISH-PROJECT.md)
-- [ ] **Backfill real cities on the 12 seeds** ("Greater Cincinnati, OH" ×11 →
+- [x] **~~Backfill real cities on the 12 seeds~~ DONE** (verified 2026-09-23: **0**
+      projects still carry a "Greater Cincinnati" placeholder city, across all **53**
+      live projects — the "12 seeds" framing is itself two eras out of date).
+      Original wording: ~~Backfill real cities on the 12 seeds ("Greater Cincinnati, OH" ×11 →
       real towns where consent allows)
 - [ ] **Edit the 2 remaining blog drafts** — `JO:` markers (photos, storm
       anecdote, report screenshots) — [drafts README](../drafts/README.md);
@@ -267,13 +307,19 @@
       **sell** prices are missing.
 - [ ] **kie.ai visualizer flip** (config-only) —
       [VISUALIZER-KIE-PROVIDER](../runbooks/VISUALIZER-KIE-PROVIDER.md)
-- [ ] **www → apex 301** (~2 min) then **DMARC** `p=none` + rua, tighten after
+- [ ] **DMARC** `p=none` + rua, tighten after
+      *(**the `www → apex 301` half is DONE** — verified 2026-09-23:
+      `https://www.nobigdealwithjoedeal.com/` returns **301** to the apex.
+      DMARC is still absent: no `_dmarc` TXT record resolves.)*
+      ~~www → apex 301 (~2 min) then DMARC `p=none` + rua, tighten after
       2–4 weeks — [MANUAL-FOR-JO](../qa/seo-hardening-2026-07/MANUAL-FOR-JO.md) §2, §5
 - [ ] **Lead-engine switches** — funnel-recovery dry-run review → enable;
       Twilio A2P 10DLC (texts silently dropped until done); verify
       `RESEND_API_KEY`; decide `LEAD_ACK_SMS` / homeowner auto-text (TCPA);
       then `STORM_TEXT_ENABLED` — MANUAL-FOR-JO §8–9
-- [ ] **IAM fix**: `roles/iam.serviceAccountTokenCreator` on the compute SA
+- [x] **~~IAM fix~~ DUPLICATE of the `serviceAccountTokenCreator` item above, and
+      ALREADY GRANTED** (verified 2026-09-23). Original wording:
+      ~~IAM fix: `roles/iam.serviceAccountTokenCreator` on the compute SA
       (prod access-code signup fails without it) — MANUAL-FOR-JO §10
 - [ ] **Theme/maps lazy-bundle field check** on a real phone (saved theme
       applies, map view opens, d2d loads) — [handoff](NEXT_SESSION-2026-08-07.md)
