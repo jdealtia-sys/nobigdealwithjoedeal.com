@@ -369,7 +369,15 @@
    /supplements, /portal_messages, /connectAccounts + Storage
    audio/galleries/reports/shared_docs~~ **DONE 2026-09-02 (#1350: 87
    assertions; Storage suite gates the deploy)** — still open from that item:
-   #12-guard cases for the 12 newly guarded creates (2026-08-10 audit)
+   ~~#12-guard cases for the 12 newly guarded creates (2026-08-10 audit)~~
+   **DONE 2026-09-22, PR #1722** — 4 assertions per collection across all 12 plus
+   /reps, each with a CONTROL (same writer + shape, correct tenant) so a denial
+   cannot pass for a malformed payload. Mutation-verified: dropping the guard
+   from /leads, /invoices or /reps each reddens the suite. Two corrections
+   recorded in the PR: `myCompanyId()` reading the claim BARE is *not* a live
+   bug (Firestore absorbs an erroring `||` operand — probed directly, solo
+   creates are allowed), and /reps needs an unseeded uid because the
+   rules-disabled setup already seeds reps/alice.
 7b. ~~**Free-API wave 1**~~ **DONE 2026-09-05** — all five rows of the
    [research note](../audit/FREE-API-INTEGRATIONS-RESEARCH-2026-09-02.md)
    shipped as PRs #1385–#1392; see [NEXT_SESSION-2026-09-06](NEXT_SESSION-2026-09-06.md).
@@ -538,6 +546,25 @@
         wide-desktop nav padding is *already* out-cascaded on 171 pages
         today, by `nbd-mobile.css`'s unconditional padding rule. Whether it
         should apply is a design question, not a migration one.
+    **Slice 4, 2026-09-22, PR #1721 — `nav-responsive-fix v3` extracted.**
+    173 pages carried it byte-identically (892 B each, ~151 KB of HTML); 172
+    migrated to `/assets/css/nbd-nav-responsive.css`, linked IN PLACE
+    (sites/free-guide stays inline, excluded dir). Re-measured first — the
+    census asserted ONE distinct body and that the block was the sole content
+    of its own plain `<style>` on every page, before anything was written.
+    NOT folded into nbd-nav-base.css: 4 of the 173 pages do not link it and
+    its position varies. No generator injects this block, so nothing needed
+    guarding; `scripts/ensure-nav-responsive-css.js` asserts in CI and also
+    fails if the stylesheet DRIFTS from the body the pages used to carry (a
+    check the ensure-readability-css.js pattern lacks). Verified by 315 real
+    computed-style comparisons (9 changed pages x 5 breakpoints x 7 nav
+    selectors), zero differences; a control tree with the new link DELETED
+    produces 94 differences, so the harness demonstrably sees the regression.
+    **Watch-out recorded there:** the first harness was vacuous — 5 of its 8
+    sample pages had never changed. Build the sample from `git diff`.
+    4 pages (about, blog/index, careers, partners) carry a VARIANT marker and
+    were left alone.
+
     - **Next candidates** (the census's "LATER" list):
       - The **7-block contiguous run** (footer contrast … readability) is
         byte-identical on 157 pages, and one link would save ~958 KB. That

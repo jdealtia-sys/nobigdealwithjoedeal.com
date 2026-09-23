@@ -1,0 +1,42 @@
+/* nbd-nav-responsive.css — the `nav-responsive-fix v3` block, extracted.
+ *
+ * Was an inline <style> repeated byte-for-byte on 173 public pages (892 B
+ * each, ~151 KB of HTML). Extracted 2026-09-22; see scripts/
+ * ensure-nav-responsive-css.js, which asserts in CI that it never gets
+ * re-inlined.
+ *
+ * LINKED IN PLACE. The <link> replaces the <style> at exactly the position
+ * the block occupied — before nbd-readability.css and nbd-mobile.css on the
+ * pages that carry them. That is load-bearing, not tidiness: every rule here
+ * is `!important`, so against nbd-mobile.css's own `!important` nav padding
+ * the winner is decided by SOURCE ORDER. Slice 3b (#1674) moved a link to
+ * the end of <head> as a control and changed computed styles on 39 of 70
+ * page@width combos. Do not hoist this link, and do not fold this file into
+ * nbd-nav-base.css: 4 of the 173 pages (404, offline, the field-notes post,
+ * sites/free-guide) do not link nav-base at all, and its position varies.
+ *
+ * Content below is byte-identical to the block it replaced, deliberately —
+ * this was an extraction, not a rewrite. Known follow-up, NOT done here: the
+ * two `.nav-logo-text` rules are dead on 172 of the 173 pages (only one page
+ * still carries that markup), the same dead-selector class slice 2 stripped
+ * elsewhere. Stripping them is its own slice with its own verification.
+ */
+
+/* nav-responsive-fix v3 */
+@media(max-width:1024px){
+  nav .nav-links{display:none!important}
+  nav .hamburger,nav button.hamburger{display:flex!important}
+  nav{padding-left:20px!important;padding-right:20px!important}
+}
+/* Compact desktop nav in the 1025-1440 range so it fits on one line
+   without crashing into the logo card. Above 1440 the default applies. */
+@media(min-width:1025px) and (max-width:1440px){
+  nav{padding-left:24px!important;padding-right:24px!important}
+  nav .nav-links{gap:14px!important}
+  nav .nav-links > li > a{font-size:.7rem!important;letter-spacing:.05em!important;padding:4px 0!important}
+  nav .nav-cta{padding:8px 14px!important;font-size:.7rem!important}
+  nav .nav-logo img{height:50px!important}
+  nav .nav-logo-text .brand{font-size:.9rem!important}
+  nav .nav-logo-text .sub{font-size:.62rem!important}
+  nav .nav-logo{margin-right:12px!important}
+}
