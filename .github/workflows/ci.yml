@@ -260,6 +260,14 @@ jobs:
       # re-injected inline copy or a page carrying both the link and the marker.
       - name: Check nav-responsive-CSS extraction (assert mode)
         run: node scripts/ensure-nav-responsive-css.js
+      # nbd-social-v1 extraction (2026-09-23, dedup slice 5): 198 pages carried
+      # the footer social strip byte-identically (~178 KB of HTML); 192 migrated.
+      # Unlike slice 4 this block HAS a generator — add-social-footer-strip.js —
+      # which guarded on the marker and would have re-inlined the block into
+      # every migrated page once the marker became a link. It now skips the link
+      # too, and this assert is what fails if that ever regresses.
+      - name: Check social-CSS extraction (assert mode)
+        run: node scripts/ensure-social-css.js
       # Favicon contract (2026-09-13): two icons across every page, by
       # audience — the roof mark (/favicon.svg + /assets/images/apple-touch-icon.png)
       # for homeowner pages, NBD PRO (/pro/favicon.svg + /pro/img/nbd-icon-192.png)

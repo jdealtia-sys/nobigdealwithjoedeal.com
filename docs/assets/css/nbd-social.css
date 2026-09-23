@@ -1,0 +1,41 @@
+/* nbd-social.css — the `nbd-social-v1` footer social strip, extracted.
+ *
+ * Was an inline <style> repeated byte-for-byte on 198 public pages (907 B
+ * each, ~178 KB of HTML). Extracted 2026-09-23; see scripts/ensure-social-css.js,
+ * which asserts in CI that it never gets re-inlined.
+ *
+ * LINKED IN PLACE. `nbd-mobile.css` also styles this component
+ * (`footer .nbd-social a { padding: 0 }`), so these two sheets share a
+ * selector surface. That one wins on specificity (0,2,1 vs 0,1,1) whatever
+ * the order, but the ordering discipline stands anyway: slice 3b (#1674)
+ * moved a link to the end of <head> as a control and changed computed styles
+ * on 39 of 70 page@width combos. The link replaces the <style> exactly where
+ * it sat. Do not hoist it.
+ *
+ * 25 pages deliberately keep an inline copy and are NOT migrated:
+ *   - 23 blog pages carry the block inside `<style id="nbd-chrome-std">`,
+ *     behind ~4.3 KB of other chrome CSS. There is no <style> element to
+ *     swap there, only a fragment, so it is a different job.
+ *   - 2 pages (services/gaf-timberline, services/tamko-storm-series) add
+ *     `.footer-badges` rules to the same block.
+ * Both are left byte-identical to how they were; ensure-social-css.js only
+ * ever touches a plain `<style>` whose sole content is the canonical body.
+ *
+ * `scripts/add-social-footer-strip.js` injects this block into new pages. It
+ * skipped files carrying the MARKER, which stopped working the moment the
+ * marker became a link — it would have happily re-inlined all 198. It now
+ * skips the link too. That is the same stale-generator trap slices 3a/3b hit
+ * with fix-trust-icons.js and injectTypography.
+ */
+
+/* nbd-social-v1 */
+.nbd-social{display:inline-flex;gap:10px;align-items:center;margin-left:14px;vertical-align:middle}
+.nbd-social a{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.85);text-decoration:none!important;transition:transform .2s,background .2s,color .2s}
+.nbd-social a:hover{transform:translateY(-2px);color:#fff}
+.nbd-social a.s-fb:hover{background:#1877f2}
+.nbd-social a.s-ig:hover{background:linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)}
+.nbd-social a.s-gg:hover{background:#4285f4}
+.nbd-social a.s-yelp:hover{background:#d32323}
+.nbd-social svg{width:15px;height:15px;display:block}
+@media(max-width:640px){.nbd-social{margin-left:0;margin-top:8px;display:flex;gap:8px}}
+footer.foot .nbd-social a,.review-footer .nbd-social a{background:rgba(255,255,255,.1)}

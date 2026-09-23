@@ -55,8 +55,16 @@ function walk(dir, out = []) {
   return out;
 }
 
+// Pages that LINK the extracted stylesheet already have these rules; the
+// marker is gone from them by design, so a marker-only guard would re-inline
+// the block into all 192 of them the next time this script runs. Same stale-
+// generator trap that fix-trust-icons.js (#1671) and injectTypography (#1674)
+// hit after their blocks were extracted. See scripts/ensure-social-css.js,
+// whose CI assert fails on exactly that re-injection.
+const SOCIAL_CSS_LINK = '/assets/css/nbd-social.css';
+
 function injectCss(html) {
-  if (html.includes(SOCIAL_CSS_MARKER)) return { html, changed: false };
+  if (html.includes(SOCIAL_CSS_MARKER) || html.includes(SOCIAL_CSS_LINK)) return { html, changed: false };
   const idx = html.lastIndexOf('</head>');
   if (idx < 0) return { html, changed: false };
   return { html: html.slice(0, idx) + SOCIAL_CSS + '\n' + html.slice(idx), changed: true };
