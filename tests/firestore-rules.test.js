@@ -1307,6 +1307,87 @@ async function run() {
   await assertFails(updateDoc(doc(coAdmin, 'email_unsub_tokens/TOKEN_A'), { email: 'other@x.test' }));
   await assertFails(deleteDoc(doc(coAdmin, 'email_unsub_tokens/TOKEN_A')));
 
+  // ══ #12 GUARD, the 12 collections the 2026-08-10 audit extended it to ══
+  //
+  // The defect (SITE-AUDIT-LOOSE-ENDS-2026-08-10 item 12): a MEMBER holding a
+  // companyId claim could stamp `companyId = own-uid` on create. The doc then
+  // belongs to a "tenant" nobody else is in, so it vanishes from every
+  // company_admin/manager rollup and from the crons that filter by tenant —
+  // while still looking perfectly normal to the rep who wrote it. It is a
+  // hide-from-your-boss primitive, not a cross-tenant read.
+  //
+  // The guard shipped on all 12, but only /expenses (which already had it)
+  // ever got assertions — see the #12 block in the expenses section above.
+  // That is the gap this closes; it was carried in WEEKLY_CADENCE's agent
+  // backlog as "#12-guard cases for the 12 newly guarded creates".
+  //
+  // FOUR assertions per collection, and the two ✅ ones are why this is not
+  // theatre: a `assertFails` passes just as happily when the doc shape is
+  // wrong (missing a required field, a hasOnly violation) as when the guard
+  // fires. The "member stamps the CORRECT companyId succeeds" control proves
+  // the payload is otherwise valid, so the ❌ above it can only be the guard.
+  const guardDoc = {
+    // { userId, companyId } unless the rule wants something else.
+    leads:              (uid, cid) => ({ userId: uid, companyId: cid, name: 'Guard Lead' }),
+    estimates:          (uid, cid) => ({ userId: uid, companyId: cid, total: 1000 }),
+    recurringExpenses:  (uid, cid) => ({ userId: uid, companyId: cid, amountCents: 5000, costType: 'overhead' }),
+    // hasOnly: extra keys are refused, so keep to the allowlist.
+    suppliers:          (uid, cid) => ({ userId: uid, companyId: cid, displayName: 'Guard Supply' }),
+    photos:             (uid, cid) => ({ userId: uid, companyId: cid, url: 'p/guard.jpg' }),
+    pins:               (uid, cid) => ({ userId: uid, companyId: cid, lat: 39.1, lng: -84.5 }),
+    zones:              (uid, cid) => ({ userId: uid, companyId: cid, name: 'Guard Zone' }),
+    knocks:             (uid, cid) => ({ userId: uid, companyId: cid, outcome: 'not_home' }),
+    territories:        (uid, cid) => ({ userId: uid, companyId: cid, name: 'Guard Terr' }),
+    training_sessions:  (uid, cid) => ({ userId: uid, companyId: cid, score: 7 }),
+    // invoices key off createdBy, not userId.
+    invoices:           (uid, cid) => ({ createdBy: uid, companyId: cid, totalCents: 1000 }),
+    reports:            (uid, cid) => ({ userId: uid, companyId: cid, kind: 'summary' }),
+  };
+  const GUARDED = Object.keys(guardDoc);
+  if (GUARDED.length !== 12) throw new Error('#12 guard table should cover 12 collections, has ' + GUARDED.length);
+
+  for (const coll of GUARDED) {
+    const mk = guardDoc[coll];
+    // /reps is keyed by the rep's own uid (isOwner(repId)), so its doc id is
+    // not free-form like the others; it is covered separately below.
+    // ❌ THE DEFECT: member with claim co-a stamps companyId = her own uid.
+    await assertFails(setDoc(doc(alice, coll + '/g12-hide'), mk('alice', 'alice')));
+    // ✅ CONTROL: same writer, same shape, correct tenant — proves the payload
+    //    is valid and the ❌ above fired on the guard, not on a bad field.
+    await assertSucceeds(setDoc(doc(alice, coll + '/g12-ok'), mk('alice', 'co-a')));
+    // ✅ a TRUE solo (no companyId claim) may pin companyId to its own uid.
+    await assertSucceeds(setDoc(doc(solo, coll + '/g12-solo'), mk('solo1', 'solo1')));
+    // ❌ but a solo still cannot pin to a FOREIGN tenant.
+    await assertFails(setDoc(doc(solo, coll + '/g12-solo-forge'), mk('solo1', 'co-a')));
+  }
+
+  // /reps: same guard, but create is gated on the doc id BEING the writer's
+  // uid (isOwner(repId)), so every case has exactly one legal path and the
+  // ORDER matters — once the doc exists, setDoc is an UPDATE against a
+  // different rule. Denials first, the create last.
+  //
+  // `dave`, not `alice`: the rules-disabled setup at the top of this file
+  // seeds reps/alice and reps/bob, so a setDoc there is an update that also
+  // drops the seeded `role` and trips didNotChange — a denial for the wrong
+  // reason. dave carries a companyId claim (co-d) and no seeded rep doc.
+  // ❌ THE DEFECT on the reps path: claim-carrying member stamps own uid
+  await assertFails(setDoc(doc(dave, 'reps/dave'), { companyId: 'dave', name: 'Rep D' }));
+  // ❌ the pre-existing role-escalation guard still holds alongside it
+  await assertFails(setDoc(doc(dave, 'reps/dave'), { companyId: 'co-d', role: 'admin' }));
+  // ❌ a solo cannot pin to a foreign tenant (checked BEFORE the doc exists)
+  await assertFails(setDoc(doc(solo, 'reps/solo1'), { companyId: 'co-a', name: 'Solo' }));
+  // ✅ CONTROL: same writer and shape, correct tenant → the create lands
+  await assertSucceeds(setDoc(doc(dave, 'reps/dave'), { companyId: 'co-d', name: 'Rep D' }));
+  // ✅ a TRUE solo may pin companyId to its own uid
+  await assertSucceeds(setDoc(doc(solo, 'reps/solo1'), { companyId: 'solo1', name: 'Solo' }));
+
+  // The rollup this protects, stated as an assertion rather than a comment:
+  // a company_admin's tenant query sees the correctly-stamped doc…
+  await assertSucceeds(getDocs(query(collection(coAdmin, 'leads'), where('companyId', '==', 'co-a'))));
+  // …and a member cannot write a lead into ANOTHER tenant either (the same
+  // clause, failing in the other direction).
+  await assertFails(setDoc(doc(alice, 'leads/g12-foreign'), guardDoc.leads('alice', 'co-b')));
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }
