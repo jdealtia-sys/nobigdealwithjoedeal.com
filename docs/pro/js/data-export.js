@@ -165,6 +165,15 @@
     { key: 'insCarrier',     label: 'Carrier',
       value: r => r.insCarrier || r.insuranceCarrier || '' },
     { key: 'claimStatus',    label: 'Claim Status' },
+    // Date of loss + the lead's pin, so a storm backtest can match a
+    // job to the day and place the hail hit without a database read.
+    // lat/lng are numbers (negative longitude included), so they pass
+    // the plain-number exemption and still sort and plot as numbers.
+    { key: 'dateOfLoss',     label: 'Date of Loss' },
+    { key: 'lat',            label: 'Latitude',
+      value: r => (r.lat != null ? r.lat : '') },
+    { key: 'lng',            label: 'Longitude',
+      value: r => (r.lng != null ? r.lng : '') },
     { key: 'createdAt',      label: 'Created' },
     { key: 'updatedAt',      label: 'Updated' },
     { key: 'stageStartedAt', label: 'Current Stage Since' },

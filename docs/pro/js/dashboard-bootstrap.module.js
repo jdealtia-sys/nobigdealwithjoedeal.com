@@ -5746,6 +5746,9 @@
       jobValue:   l.jobValue  || '',
       carrier:    l.carrier   || '',
       claimNumber: l.claimNumber || '',
+      dateOfLoss: l.dateOfLoss || '',
+      lat:        l.lat != null ? l.lat : '',
+      lng:        l.lng != null ? l.lng : '',
       notes:      l.notes || '',
       createdAt:  l.createdAt?.toDate?.()?.toISOString() || '',
       updatedAt:  l.updatedAt?.toDate?.()?.toISOString() || ''

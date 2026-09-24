@@ -351,7 +351,61 @@ console.log('\nOPEN IN GOOGLE SHEETS — the clipboard/TSV path (2026-09-05)');
       new RegExp('window\\.' + fn + '\\s*=').test(src));
   }
   ok('the script tag was version-bumped so phones do not run the cached copy',
-    /js\/data-export\.js\?v=2/.test(dash));
+    /js\/data-export\.js\?v=3/.test(dash));
+}
+
+console.log('\nSTORM BACKTEST COLUMNS — date of loss + pin (2026-09-24)');
+{
+  // A hail-alert backtest has to match each job to the day the storm hit and
+  // to where the house sits. Both lived on the lead (lead.dateOfLoss from the
+  // claim form, lead.lat/lng from geocoding) but neither export carried them,
+  // so the only way to get them out was a database read.
+  const PINNED = {
+    id: 'S1', customerId: 'NBD-3003', firstName: 'Pat', lastName: 'Lee',
+    address: '100 Main St, Loveland, OH', stage: 'won', damageType: 'hail',
+    dateOfLoss: '2026-08-07', lat: 39.2689, lng: -84.2638,
+  };
+  const UNPINNED = { id: 'S2', firstName: 'Sam', lastName: 'Roe', stage: 'new' };
+  const EQUATOR = { id: 'S3', firstName: 'Zed', lat: 0, lng: 0 };
+
+  win._leads = [PINNED, UNPINNED, EQUATOR];
+  win.exportLeadsCsv();
+  const srows = parseCsv(lastCsv);
+  const c = (label) => srows[0].indexOf(label);
+
+  ok('Date of Loss, Latitude, Longitude columns exist',
+    c('Date of Loss') >= 0 && c('Latitude') >= 0 && c('Longitude') >= 0);
+  ok('no column drift on any row', srows.slice(1).every(r => r.length === srows[0].length));
+  ok('date of loss exported as stored', srows[1][c('Date of Loss')] === '2026-08-07');
+  ok('latitude exported', srows[1][c('Latitude')] === '39.2689');
+  ok('negative longitude stays a bare number (no formula marker)',
+    srows[1][c('Longitude')] === '-84.2638' && lastCsv.indexOf(",'-84.2638") === -1);
+  ok('a lead with no pin exports empty cells, not "undefined"',
+    srows[2][c('Latitude')] === '' && srows[2][c('Longitude')] === ''
+      && srows[2][c('Date of Loss')] === '');
+  ok('a 0 coordinate is kept, not blanked as falsy',
+    srows[3][c('Latitude')] === '0' && srows[3][c('Longitude')] === '0');
+
+  lastClip = null; opened = null;
+  win.openLeadsInSheets();
+  const shead = lastClip.split('\r\n')[0].split('\t');
+  const sdata = lastClip.split('\r\n')[1].split('\t');
+  ok('the Sheets copy carries the same three columns',
+    sdata[shead.indexOf('Date of Loss')] === '2026-08-07'
+      && sdata[shead.indexOf('Longitude')] === '-84.2638');
+
+  // The Settings → Data Retention export builds its own rows; it has to carry
+  // the same fields or a rep using that button gets a file the backtest can't use.
+  const boot = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/dashboard-bootstrap.module.js'), 'utf8');
+  const fnBody = (boot.match(/const _exportAllData = function \(\) \{[\s\S]*?\n  \};/) || [''])[0];
+  ok('Settings export carries dateOfLoss', /dateOfLoss:\s*l\.dateOfLoss/.test(fnBody));
+  ok('Settings export carries lat and lng, keeping a 0',
+    /lat:\s*l\.lat != null \? l\.lat : ''/.test(fnBody)
+      && /lng:\s*l\.lng != null \? l\.lng : ''/.test(fnBody));
+  const dashHtml = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/dashboard.html'), 'utf8');
+  const bootV = dashHtml.match(/js\/dashboard-bootstrap\.module\.js\?v=(\d+)/);
+  ok('dashboard-bootstrap script tag was version-bumped past 15 (phones drop the cached copy)',
+    !!bootV && Number(bootV[1]) >= 16);
 }
 
 console.log('\nEVERY CSV ESCAPER IN THE CRM — one policy, no drift');
