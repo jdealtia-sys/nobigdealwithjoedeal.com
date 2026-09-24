@@ -144,6 +144,7 @@
     "customer-keyboard-actions.test.js",
     "customer-a11y-structure.test.js",
     "nav-contract.test.js",
+    "needs-attention-hygiene.test.js",
     "photo-report-output-contract.test.js",
     "photo-report-builder.test.js",
     "photo-report-sharing.test.js",

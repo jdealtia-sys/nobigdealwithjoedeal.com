@@ -35,10 +35,33 @@
 
   const STAGE_AGE_DAYS    = 7;     // matches Wave 17 'stale' threshold
   const ESTIMATE_STALE_DAYS = 3;   // matches Wave 13 stale-estimate
+  // final_payment is NOT terminal: the work is done but the money isn't in.
+  // It used to sit here, so an unpaid finished job never surfaced anywhere
+  // (2026-09-24 lead-hygiene pass). It gets its own rule below instead.
   const TERMINAL_STAGES = new Set([
     'closed', 'lost', 'Lost', 'Complete',
-    'final_payment', 'deductible_collected',
+    'deductible_collected',
   ]);
+  const UNPAID_FINAL_DAYS = 7;
+  // Thumbtack hands out masked proxy numbers in the 669 area code. They can
+  // expire, so a lead that only has one needs a real phone/email captured.
+  const PROXY_AREA_CODE = '669';
+  const STORM_DAMAGE_RE = /storm|hail|wind/i;
+
+  function isProxyPhone(lead) {
+    if (!/thumbtack/i.test(String(lead.source || ''))) return false;
+    const digits = String(lead.phone || '').replace(/\D/g, '').slice(-10);
+    return digits.length === 10 && digits.slice(0, 3) === PROXY_AREA_CODE;
+  }
+
+  // A storm job with no date of loss can't be matched against hail/wind data
+  // and stalls every insurance document. 'new' is exempt: nobody has talked
+  // to the customer yet, so there's nothing to fill in.
+  function missingDateOfLoss(lead, sk) {
+    if (sk === 'new') return false;
+    if (!STORM_DAMAGE_RE.test(String(lead.damageType || ''))) return false;
+    return !String(lead.dateOfLoss || '').trim();
+  }
 
   // The registry owns active-state now (lead-filter-registry.js). Reading it
   // through a function rather than caching a boolean is deliberate: the stale
@@ -106,8 +129,14 @@
       }
     }
 
-    // 1) Stale stage
-    if (daysInStage(lead) >= STAGE_AGE_DAYS) return 'stale-stage';
+    // 0) Finished job, unpaid. Checked before the generic stale rule so the
+    // reason names the real problem (money), not just "old".
+    if (sk === 'final_payment') {
+      if (daysInStage(lead) >= UNPAID_FINAL_DAYS) return 'unpaid-final';
+    } else if (daysInStage(lead) >= STAGE_AGE_DAYS) {
+      // 1) Stale stage
+      return 'stale-stage';
+    }
 
     // 2) Overdue task
     const tasks = (taskCache && taskCache[lead.id]) || [];
@@ -129,6 +158,10 @@
       const sent = toMillis(e.sentAt) || toMillis(e.createdAt);
       if (sent && sent < cutoff) return 'stale-estimate';
     }
+
+    // 4) Data-quality gaps a rep can fix in one edit (2026-09-24).
+    if (isProxyPhone(lead)) return 'proxy-phone';
+    if (missingDateOfLoss(lead, sk)) return 'missing-date-of-loss';
     return null;
   }
 
