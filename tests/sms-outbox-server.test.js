@@ -763,6 +763,29 @@ const logRow = (over) => Object.assign({
     const { res } = await act([logRow({ uid: 'rep-2', date: Q + MIN })], { overrideActivity: true });
     ok('…"Send anyway" (overrideActivity) sends it', res.statusCode === 200, JSON.stringify(res.body));
   }
+  // ── "Send anyway" consent must be exactly true ────────────────────────
+  // sms-outbox-guard.js validateQueuedFields: overrideActivity is the ONE
+  // flag that skips recent_outbound / recent_inbound / lead_changed, so it
+  // has to mean "the rep tapped Send anyway" and nothing else. A truthy
+  // non-boolean — a form post where every field is a string, an older client
+  // that sent "true", a 1 — is not consent, exactly as pinned for
+  // overrideStale.
+  {
+    const { res, w } = await act([logRow({ uid: 'rep-2', date: Q + MIN })], { overrideActivity: 'yes' });
+    ok('overrideActivity must be exactly true ("yes" is not consent)',
+      held(res, 'recent_outbound') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    const { res, w } = await act([logRow({ uid: null, status: 'received', date: Q + MIN })], { overrideActivity: 1 });
+    ok('a homeowner reply is still held when "Send anyway" arrives as 1 instead of true',
+      held(res, 'recent_inbound') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    const { res, w } = await scenario({ docs: { 'leads/lead-1': Object.assign({}, LEAD, { stage: 'closed' }) } },
+      queuedBody({ leadId: 'lead-1', leadStageAtQueue: 'inspection', overrideActivity: 'true' }));
+    ok('a lead that changed stage is still held when "Send anyway" arrives as the string "true"',
+      held(res, 'lead_changed') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+  }
   {
     const { res } = await act([logRow({ uid: null, status: 'received', to: '+18595550134', date: Q + MIN })]);
     ok('the homeowner texted since → 409 recent_inbound', held(res, 'recent_inbound'), JSON.stringify(res.body));
@@ -795,6 +818,30 @@ const logRow = (over) => Object.assign({
     const { res } = await act([logRow({ uid: UID, date: Q + MIN, queued: true, queuedAt: Q + 30 * 1000, clientMsgId: 'cccccccccccccccccccc' })]);
     ok('the same rep\'s LATER-queued text that went first does compete', held(res, 'recent_outbound'));
   }
+  // ── the own-earlier-queued skip needs the row to have BEEN a queued send ──
+  // (evaluateActivityRows, the `r.queued === true` conjunct.) That skip is the
+  // one way a competing outbound row is made invisible, so a row only earns it
+  // by having come from this rep's outbox. A live text the same rep sent after
+  // queueing this one competes even when its row happens to carry a queuedAt —
+  // drop the conjunct and a stray number on a non-queued row buys it the skip,
+  // and the homeowner gets a second text. (The mutation this kills is dropping
+  // that FIRST conjunct only; the other two — r.uid === ctx.uid and the
+  // clientMsgId compare — are already covered by the cases above.)
+  {
+    const { res, w } = await act([logRow({ uid: UID, date: Q + MIN, queuedAt: Q - MIN, clientMsgId: 'ffffffffffffffffffff' })]);
+    ok('the same rep\'s LIVE text that happens to carry a queuedAt still competes (only a queued send is a predecessor)',
+      held(res, 'recent_outbound') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    const { res } = await act([logRow({ uid: UID, date: Q + MIN, queued: false, queuedAt: Q - MIN, clientMsgId: 'gggggggggggggggggggg' })]);
+    ok('…a row marked queued:false competes too (it never came from the outbox)',
+      held(res, 'recent_outbound'), JSON.stringify(res.body));
+  }
+  {
+    const { res } = await act([logRow({ uid: UID, date: Q + MIN, queued: 'true', queuedAt: Q - MIN, clientMsgId: 'hhhhhhhhhhhhhhhhhhhh' })]);
+    ok('…queued must be exactly true ("true" the string is not a queued send)',
+      held(res, 'recent_outbound'), JSON.stringify(res.body));
+  }
   {
     const { res } = await act([logRow({ uid: 'rep-2', date: Q + MIN, status: 'failed' })]);
     ok('a FAILED send is not competition', res.statusCode === 200);
@@ -819,6 +866,100 @@ const logRow = (over) => Object.assign({
     const { res } = await act(rows);
     ok('a full page (25) of non-competing rows is treated as competition (unknown is not clean)',
       held(res, 'recent_outbound'), JSON.stringify(res.body));
+  }
+  // ── the date shape production actually writes ──────────────────────────
+  // logSMSToFirestore stamps date: FieldValue.serverTimestamp(), so every real
+  // sms_log row hands the activity rule a Firestore Timestamp OBJECT, not a
+  // number — the stub above resolves the sentinel to a number before storing,
+  // so nothing else here ever sees that shape. Placing a row in time IS the
+  // activity rule: a row it cannot place counts as competition, so if the
+  // Timestamp shape stopped being read, every queued text to a number with any
+  // history would be held — no matter how long ago that history happened.
+  //
+  // Driven at the rule directly, not through scenario(): the stub's range
+  // filter is `typeof d[f] === 'number' && d[f] > ms(v)`, so a Timestamp- or
+  // Date-dated row is dropped by the QUERY and never reaches the rule. An
+  // end-to-end version of this test would be vacuous until that stub grows
+  // cross-type compare — deliberately left for its own change.
+  {
+    const Guard = require(GUARD);
+    const stamp = (ms) => ({ toMillis: () => ms, seconds: Math.floor(ms / 1000) });   // a Firestore Timestamp
+    const AFTER = Q + MIN;                 // sent after the rep queued theirs
+    const BEFORE = Q - 3 * MIN;            // well before it, outside the 60s skew window
+    const place = (row) => Guard.evaluateActivityRows([row], {
+      uid: UID, queuedAt: Q, effectiveQueuedAt: Q, clientMsgId: CLIENT_ID, truncated: false,
+    });
+    // control — proves the fixture reaches the rule, so the nulls below are
+    // real placements and not rows that silently went missing.
+    ok('a teammate\'s text the server timestamped after this one was queued competes',
+      place(logRow({ uid: 'rep-2', date: stamp(AFTER) })) === 'recent_outbound');
+    ok('a teammate\'s text from BEFORE it was queued does not hold it (a server timestamp is read as a time, not as "undatable")',
+      place(logRow({ uid: 'rep-2', date: stamp(BEFORE) })) === null,
+      String(place(logRow({ uid: 'rep-2', date: stamp(BEFORE) }))));
+    ok('a homeowner reply from before it was queued does not hold it either',
+      place(logRow({ uid: null, status: 'received', date: stamp(BEFORE) })) === null,
+      String(place(logRow({ uid: null, status: 'received', date: stamp(BEFORE) }))));
+    ok('a row dated with a Date object is placed the same way (older → sends, newer → holds)',
+      place(logRow({ uid: 'rep-2', date: new Date(BEFORE) })) === null
+      && place(logRow({ uid: 'rep-2', date: new Date(AFTER) })) === 'recent_outbound',
+      String(place(logRow({ uid: 'rep-2', date: new Date(BEFORE) }))));
+    ok('both shapes read as the instant they name',
+      Guard.toMillis(stamp(AFTER)) === AFTER && Guard.toMillis(new Date(BEFORE)) === BEFORE);
+    // control — pins the fail-closed intent; does not flip under the mutations.
+    ok('a row whose timestamp cannot be read at all still competes (unplaceable is not clean)',
+      place(logRow({ uid: 'rep-2', date: { toMillis: () => NaN } })) === 'recent_outbound');
+  }
+  // ── a competing text whose timestamp cannot be read ────────────────────
+  // sms_log.date is normally a Firestore Timestamp, but a row can carry a
+  // shape the guard cannot read: a Timestamp that lost its prototype through
+  // a restore / export-import round trip ({_seconds,_nanoseconds}), or an ISO
+  // string from an older writer. Such a row cannot be placed before the queue
+  // time, so it must COUNT as competition — reading it as the epoch instead
+  // would place every unreadable row before every queue time and send the
+  // queued text into a conversation nobody could check.
+  {
+    // Production really does return these rows: Firestore sorts a string or a
+    // map AFTER a Timestamp, so `date > since` matches them. The in-memory
+    // stub's `>` filter only matches numbers, so this row's date reads as a
+    // number for the two reads that filter makes and as the unreadable shape
+    // for the guard's read after it.
+    //
+    // KEEP THIS A ONE-ROW FIXTURE: a second row makes rows.sort() read .date
+    // again and shifts the count. And `sawUnreadable` is load-bearing — it is
+    // what stops a stub refactor to a SINGLE date read (e.g. `const dv = d[f]`)
+    // turning this into a green test that never reaches the branch at all.
+    const row = logRow({ uid: 'rep-2', date: Q + MIN });
+    let reads = 0;
+    let sawUnreadable = false;
+    Object.defineProperty(row, 'date', {
+      configurable: true,
+      get() {
+        if (++reads <= 2) return Q + MIN;
+        sawUnreadable = true;
+        return { _seconds: Math.floor((Q + MIN) / 1000), _nanoseconds: 0 };
+      },
+    });
+    const { res, w } = await act([row]);
+    ok('a teammate\'s text whose timestamp cannot be read still holds the queued text',
+      held(res, 'recent_outbound') && w.twilioCalls.length === 0 && sawUnreadable,
+      res.statusCode + ' ' + JSON.stringify(res.body) + ' (date reads=' + reads + ', unreadable served=' + sawUnreadable + ')');
+  }
+  {
+    const Guard = require(GUARD);
+    const ctx = { uid: UID, queuedAt: Q, effectiveQueuedAt: Q, clientMsgId: CLIENT_ID, truncated: false };
+    const verdict = (date) => Guard.evaluateActivityRows([logRow({ uid: 'rep-2', date })], ctx);
+    const unreadable = [
+      ['a Timestamp that lost its prototype', { _seconds: Math.floor((Q + MIN) / 1000), _nanoseconds: 0 }],
+      ['an ISO string from an older writer', new Date(Q + MIN).toISOString()],
+      ['a date field that is an empty object', {}],
+    ];
+    ok('every competing text whose timestamp cannot be read holds the queued text, whatever the unreadable shape is',
+      unreadable.every(([, d]) => verdict(d) === 'recent_outbound'),
+      unreadable.map(([l, d]) => l + ' → ' + verdict(d)).join('; '));
+    ok('an unreadable timestamp means "unknown", never the epoch (the epoch is before every queue time, so the text would go)',
+      unreadable.every(([, d]) => Guard.toMillis(d) === null), JSON.stringify(unreadable.map(([, d]) => Guard.toMillis(d))));
+    ok('(control) the same text with a readable timestamp from before the rep queued theirs is not competition',
+      verdict(Q - 2 * MIN) === null, String(verdict(Q - 2 * MIN)));
   }
 
   console.log('QUEUED — end to end: a real inbound webhook holds the queued reply');
@@ -888,6 +1029,46 @@ const logRow = (over) => Object.assign({
   {
     const { res } = await withLead(Object.assign({}, LEAD, { stage: 'closed' }), { leadStageAtQueue: undefined });
     ok('no leadStageAtQueue → stage not compared, only existence', res.statusCode === 200);
+  }
+
+  // ═══ evaluateLead: a caller with no company claim ══════════════════════
+  // A rep with no company carries no companyId claim, so the handler passes
+  // `null` as the caller's company — and a company-less rep's leads carry no
+  // company either. Nothing about that pair is "the same tenant": without the
+  // `!!ctx.companyId` half of the guard, null === null would make EVERY
+  // company-less lead on the platform readable by ANY claim-less caller, and
+  // the hold reason would then report a stranger's lead stage back to them.
+  console.log('QUEUED — a rep with no company claim shares a tenant with nobody');
+  // `companyId: null` on the lead is LOAD-BEARING. Leave the key out and it is
+  // `undefined`, `undefined === null` is false, and the whole block passes
+  // green even with the `!!ctx.companyId` guard removed — i.e. it stops
+  // testing anything. Same for `claims: { companyId: undefined }`.
+  const soloLead = (lead, over) => scenario(
+    {
+      claims: { companyId: undefined },
+      docs: { 'leads/lead-1': Object.assign({ userId: 'other-solo-rep', companyId: null, stage: 'inspection' }, lead || {}) },
+    },
+    queuedBody(Object.assign({ leadId: 'lead-1' }, over || {})));
+  {
+    const { res, w } = await soloLead();
+    ok('a rep with no company cannot text another company-less rep\'s lead → lead_gone',
+      held(res, 'lead_gone') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+    ok('…and the activity scan never runs for it (no answer about a stranger\'s conversation)',
+      !w.events.includes('activity-read'), w.events.join(' > '));
+  }
+  {
+    const { res } = await soloLead({ stage: 'closed' }, { leadStageAtQueue: 'inspection' });
+    ok('…a stranger\'s lead that also moved stage still reads exactly like a deleted one (lead_gone, never lead_changed)',
+      held(res, 'lead_gone'), JSON.stringify(res.body));
+  }
+  {
+    const { res, w } = await soloLead(null, { overrideActivity: true, overrideStale: true });
+    ok('…and "Send anyway" does not open it', held(res, 'lead_gone') && w.twilioCalls.length === 0, JSON.stringify(res.body));
+  }
+  {
+    const { res, w } = await soloLead({ userId: UID });
+    ok('the same rep\'s OWN company-less lead still sends (the rule is tenancy, not "no company, no texting")',
+      res.statusCode === 200 && w.twilioCalls.length === 1, res.statusCode + ' ' + JSON.stringify(res.body));
   }
 
   // ═══ overrides never touch opt-out ═════════════════════════════════════
@@ -1138,6 +1319,27 @@ const logRow = (over) => Object.assign({
     ok('…and for a lead that also changed stage → recent_inbound (the reply is the reason shown, not "lead changed")',
       held(d.res, 'recent_inbound'), JSON.stringify(d.res.body));
   }
+  {
+    // leadPhoneKey's DERIVED key — a lead that carries only the phone the rep
+    // typed, with no phoneDigits stamped (older leads predate the stamp, and
+    // not every write path sets it). Every unrouted case above uses a stamped
+    // lead, so this is the only cover for the derived half: if the reply
+    // lookup cannot recognise a typed number as this lead's number, the
+    // homeowner's reply is invisible and the queued text goes out on top of it.
+    const unroutedReply = logRow({ uid: null, companyId: undefined, status: 'received', date: QT + MIN });
+    const typedOnly = (phone) => Object.assign({}, LEAD, { phone });
+    const a = await tenantAct([unroutedReply], { leadId: 'lead-1' }, { docs: { 'leads/lead-1': typedOnly(PHONE_TYPED) } });
+    ok('the homeowner replied and the lead carries only the number the rep typed (no phoneDigits) → still held recent_inbound',
+      held(a.res, 'recent_inbound') && a.w.twilioCalls.length === 0, a.res.statusCode + ' ' + JSON.stringify(a.res.body));
+    ok('…the reply was looked for because that typed number is the one this lead belongs to',
+      a.w.events.includes('activity-read:uid=null'), a.w.events.join(' > '));
+    const b = await tenantAct([unroutedReply], { leadId: 'lead-1' }, { docs: { 'leads/lead-1': typedOnly('+1 859 555 0134') } });
+    ok('…however the rep wrote that number down (+1, spaces, dashes) it is the same homeowner → held recent_inbound',
+      held(b.res, 'recent_inbound') && b.w.twilioCalls.length === 0, b.res.statusCode + ' ' + JSON.stringify(b.res.body));
+    const c = await tenantAct([unroutedReply], { leadId: 'lead-1' }, { docs: { 'leads/lead-1': typedOnly('(513) 555-0000') } });
+    ok('…an unstamped lead of theirs with a DIFFERENT number still cannot see that reply → sends',
+      c.res.statusCode === 200 && !c.w.events.includes('activity-read:uid=null'), c.w.events.join(' > '));
+  }
 
   // ═══ round 2: the device clock ═════════════════════════════════════════
   console.log('R2 — the device clock is not trusted for time (queuedAgeMs)');
@@ -1185,6 +1387,33 @@ const logRow = (over) => Object.assign({
       && Guard.effectiveQueuedAt(NOON - 20 * MIN, undefined, NOON) === NOON - 20 * MIN);
     ok('a bare queuedAt may run ahead by no more than the activity lookback (FUTURE_SKEW_MS ≤ ACTIVITY_SKEW_MS)',
       Guard.FUTURE_SKEW_MS <= Guard.ACTIVITY_SKEW_MS);
+  }
+  // ── the device clock stepped BACKWARDS (a negative queuedAgeMs) ────────
+  // queuedAgeMs is clamped to >= 0 in two places (readQueuedAge, and again
+  // inside effectiveQueuedAt) because a negative age turns `now - age` into a
+  // moment in the FUTURE: the "anything since?" window would then start after
+  // every row that exists and the text would quietly clear itself to send.
+  // Either clamp alone hides the other, so all three cases are covered here —
+  // the end-to-end one only reddens when BOTH are gone, the two unit ones
+  // catch each clamp singly.
+  {
+    // NTP pulled the phone back 10 minutes between writing the text and
+    // flushing it, and it was 4 minutes fast when the rep wrote it. A
+    // teammate texted this homeowner 30 seconds ago.
+    const { res, w } = await scenario({ docs: { 'sms_log/back0': logRow({ uid: 'rep-2', date: NOON - 30 * 1000 }) } },
+      queuedBody({ queuedAt: NOON + 4 * MIN, queuedAgeMs: -10 * MIN }));
+    ok('a phone whose clock jumped BACKWARDS is still held for the teammate who texted 30 seconds ago',
+      held(res, 'recent_outbound') && w.twilioCalls.length === 0, res.statusCode + ' ' + JSON.stringify(res.body));
+  }
+  {
+    const Guard = require(GUARD);
+    ok('a backwards clock jump cannot date a text into the future (its lookback never starts after now)',
+      Guard.effectiveQueuedAt(NOON + 4 * MIN, -10 * MIN, NOON) === NOON
+      && Guard.effectiveQueuedAt(NOON - 20 * MIN, -10 * MIN, NOON) === NOON - 20 * MIN,
+      String(Guard.effectiveQueuedAt(NOON + 4 * MIN, -10 * MIN, NOON) - NOON) + 'ms after now');
+    const v = Guard.validateQueuedFields({ clientMsgId: CLIENT_ID, queuedAt: NOON + 4 * MIN, queuedAgeMs: -10 * MIN }, NOON);
+    ok('a backwards clock jump reads as "queued just now", never as a negative age (and is not a 400)',
+      v.ok === true && v.queuedAgeMs === 0 && v.effectiveQueuedAt === NOON, JSON.stringify(v));
   }
 
   // ═══ round 2: every outbound path stamps the tenant ════════════════════

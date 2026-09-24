@@ -1,0 +1,48 @@
+/* nbd-nav-logo-mobile.css — the `shrink the logo on phones` block, extracted.
+ *
+ * Was an inline <style> repeated byte-for-byte on 223 public pages, ~29 KB of
+ * HTML for one declaration. Extracted 2026-09-24; see
+ * scripts/ensure-nav-logo-mobile-css.js, which asserts in CI that it never
+ * gets re-inlined.
+ *
+ * A DELIBERATELY SEPARATE FILE, not folded into nbd-nav-responsive.css.
+ * That sheet is the tempting home — it already contains the identical
+ * declaration `nav .nav-logo img{height:50px!important}`. It is the wrong
+ * home twice over:
+ *   - 51 of the 223 pages carrying this block do NOT link
+ *     nbd-nav-responsive.css at all (about.html, blog/index.html and 49
+ *     others). Folding would silently delete the phone-logo rule on them.
+ *   - the rule there sits under `@media(min-width:1025px) and
+ *     (max-width:1440px)`, a DISJOINT breakpoint from this block's
+ *     `max-width:768px`. Same text, different meaning — a lookalike, not a
+ *     duplicate.
+ *
+ * LINKED IN PLACE. The block's own property is cascade-safe wherever it sits:
+ * no stylesheet under docs/assets/css/ sets `nav .nav-logo img` height in any
+ * media context overlapping max-width:768px, and every competing logo-height
+ * rule on these pages is strictly weaker. In-place is still how it is done —
+ * the block's position varies across 22 distinct link-order signatures, and
+ * the surrounding nav-padding cascade is genuinely order-sensitive (three
+ * sheets set `nav{padding}` at equal specificity with !important, resolving
+ * the opposite way on 20 pages vs the 171-page majority). Nothing here
+ * touches that race, and moving this link could.
+ *
+ * NO GENERATOR RE-INJECTS THIS. scripts/strip-dead-nav-logo-text.js is the
+ * block's AUTHOR, not an injector: it emits this block as the `to:` side of a
+ * transform whose `from:` trigger is the old `nav-wordmark guard` block, which
+ * is now extinct repo-wide. Its trigger is absent whether the target is inline
+ * or a link, so it cannot re-inject. Zero drift: its embedded copy is
+ * byte-identical to what the pages carry. (Residual, narrow: that script is
+ * one-shot and not CI-wired, so if the old wordmark-guard block were ever
+ * reintroduced from a stale branch it would write a fresh INLINE copy onto
+ * that page. The CI assert below is what catches that.)
+ *
+ * Not in scope: docs/sites/free-guide/index.html carries a similar
+ * `height:50px` rule that is a genuinely DIFFERENT rule, and `sites` is
+ * excluded anyway.
+ */
+
+/* shrink the logo on phones (consistency audit 2026-07-15) */
+@media(max-width:768px){
+  nav .nav-logo img{height:50px!important}
+}

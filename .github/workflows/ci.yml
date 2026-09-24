@@ -276,6 +276,14 @@ jobs:
       # in place; this assert fails if it is ever re-inlined or the sheet drifts.
       - name: Check footer-contrast-CSS extraction (assert mode)
         run: node scripts/ensure-footer-contrast-css.js
+      # shrink-logo extraction (2026-09-24, dedup slice 7): 223 pages carried one
+      # 69-byte declaration as its own inline <style> (~29 KB). Cleanest population
+      # of the series — one byte-exact body, one copy per page, never in a partial
+      # region. Deliberately its OWN sheet, not folded into nbd-nav-responsive.css:
+      # 51 of the 223 pages never link that sheet, and its identical-looking rule
+      # sits under a disjoint breakpoint (1025-1440 vs max-width:768).
+      - name: Check nav-logo-mobile-CSS extraction (assert mode)
+        run: node scripts/ensure-nav-logo-mobile-css.js
       # Favicon contract (2026-09-13): two icons across every page, by
       # audience — the roof mark (/favicon.svg + /assets/images/apple-touch-icon.png)
       # for homeowner pages, NBD PRO (/pro/favicon.svg + /pro/img/nbd-icon-192.png)
