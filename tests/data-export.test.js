@@ -369,7 +369,8 @@ console.log('\nOPEN IN GOOGLE SHEETS — the clipboard/TSV path (2026-09-05)');
   ok('openInSheets awaits nothing (an await before window.open breaks iOS)',
     (() => {
       const m = src.match(/function openInSheets\(kind\) \{[\s\S]*?\r?\n  \}\r?\n/);
-      return !!m && !/\bawait\b/.test(m[0]) && m[0].indexOf('_execCopy(tsv)') < m[0].indexOf('window.open(');
+      const copyAt = m ? m[0].indexOf('_execCopy(tsv)') : -1;
+      return !!m && !/\bawait\b/.test(m[0]) && copyAt >= 0 && copyAt < m[0].indexOf('window.open(');
     })());
   ok('_execCopy returns execCommand\'s real result, not a hard-coded true',
     /const ok = document\.execCommand\('copy'\) === true;[\s\S]{0,80}return ok;/.test(src));
