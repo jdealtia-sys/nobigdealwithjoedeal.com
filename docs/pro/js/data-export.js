@@ -284,9 +284,11 @@
       document.body.appendChild(ta);
       if (typeof ta.select === 'function') ta.select();
       if (typeof ta.setSelectionRange === 'function') ta.setSelectionRange(0, text.length);
-      document.execCommand('copy');
+      // execCommand reports failure by returning false, not by throwing, so
+      // the caller needs that value to know whether to try the async path.
+      const ok = document.execCommand('copy') === true;
       document.body.removeChild(ta);
-      return true;
+      return ok;
     } catch (e) {
       console.warn('[DataExport] clipboard copy failed', e);
       return false;
@@ -325,14 +327,26 @@
 
     const tsv = toTsv(rows, headers);
 
-    // window.open FIRST, and synchronously. Safari — iOS especially — only
-    // honours a popup opened in the same task as the click that caused it, so
-    // anything awaited before this line turns the new sheet into a blocked
-    // pop-up. copyText is fire-and-forget for the same reason.
+    // Copy SYNCHRONOUSLY first, then open — both in the click's own task.
+    //
+    // It used to be open-then-copy, with the async Clipboard API. On desktop
+    // that silently failed: the new sheet takes focus, writeText rejects with
+    // "Document is not focused", and the execCommand fallback then ran in a
+    // promise callback with no focus and no user activation, so it failed too.
+    // The rep pasted whatever was already on their clipboard (2026-09-24).
+    //
+    // The iOS rule the old order protected is still kept: Safari only honours
+    // a popup opened in the same task as the click, so nothing may be AWAITED
+    // before window.open. A synchronous execCommand copy awaits nothing — it
+    // runs and returns within this task, while the page still has focus.
+    const copied = _execCopy(tsv);
+
     let opened = null;
     try { opened = window.open(SHEETS_NEW_URL, '_blank', 'noopener'); } catch (e) { opened = null; }
 
-    copyText(tsv);
+    // Only if the synchronous copy failed: best-effort async attempt. It can
+    // still work where execCommand is unsupported and no tab stole focus.
+    if (!copied) copyText(tsv);
 
     const n = rows.length;
     const plural = n === 1 ? '' : 's';

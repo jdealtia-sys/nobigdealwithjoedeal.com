@@ -40,9 +40,11 @@ function ok(label, cond) {
 // ── Minimal DOM + Blob/URL so downloadCsv runs and we can read the file ──
 function makeEl() {
   return {
-    href: '', download: '', style: {}, dataset: {},
+    href: '', download: '', style: {}, dataset: {}, value: '',
     click() {}, appendChild() {}, removeChild() {},
     addEventListener() {}, removeEventListener() {},
+    // The Sheets path copies through a hidden textarea (execCommand).
+    setAttribute() {}, select() {}, setSelectionRange() {},
   };
 }
 
@@ -56,9 +58,13 @@ const win = { location: { href: '', pathname: '/pro/dashboard' } };
 win.window = win;
 
 // ── Sheets path: record what got opened and what got copied, and in which
-// order. The order is the whole point — Safari only honours a popup opened in
-// the same task as the click, so a clipboard await before window.open turns
-// the new sheet into a blocked pop-up on every iPhone.
+// order. Two rules pull against each other. Safari only honours a popup opened
+// in the same task as the click, so nothing may be AWAITED before
+// window.open. And on desktop the new tab takes focus, so any copy that runs
+// AFTER window.open fails. The fix: a synchronous execCommand copy first
+// (awaits nothing), then open. execMode lets the test drive that copy's
+// success, failure, or absence.
+let execMode = 'ok';   // 'ok' | 'fail' | 'missing'
 let lastClip = null;
 let opened = null;
 const callOrder = [];
@@ -83,8 +89,18 @@ const localStorage = {
 const sandbox = {
   window: win,
   document: {
-    createElement: () => { lastName = null; return anchor; },
-    body: { appendChild(a) { lastName = a.download; }, removeChild() {} },
+    createElement: () => { lastName = null; anchor.download = ''; anchor.value = ''; return anchor; },
+    // A textarea appended for the copy has no download name; only a real
+    // download anchor sets one.
+    body: { appendChild(a) { lastName = a.download || null; }, removeChild() {} },
+    get execCommand() {
+      if (execMode === 'missing') return undefined;
+      return (cmd) => {
+        callOrder.push('exec');
+        if (execMode === 'ok' && cmd === 'copy') { lastClip = anchor.value; return true; }
+        return false;
+      };
+    },
     addEventListener() {}, removeEventListener() {},
     getElementById: () => null,
   },
@@ -258,8 +274,12 @@ console.log('\nOPEN IN GOOGLE SHEETS — the clipboard/TSV path (2026-09-05)');
 
   const tsv = lastClip;
   ok('the Sheets path copied something', typeof tsv === 'string' && tsv.length > 0);
-  ok('window.open ran BEFORE the clipboard write (iOS pop-up rule)',
-    callOrder[0] === 'open' && callOrder[1] === 'copy');
+  ok('the synchronous copy ran BEFORE window.open (desktop: the new tab steals focus)',
+    callOrder[0] === 'exec' && callOrder[1] === 'open');
+  ok('...and when it succeeds, no async clipboard write follows',
+    callOrder.indexOf('copy') === -1);
+  ok('window.open ran inside the same call, not after an await (iOS pop-up rule)',
+    opened !== null);
   ok('it opened sheets.new in a new tab with noopener',
     opened && opened.url === 'https://sheets.new' && opened.target === '_blank'
       && String(opened.feat || '').indexOf('noopener') >= 0);
@@ -327,6 +347,34 @@ console.log('\nOPEN IN GOOGLE SHEETS — the clipboard/TSV path (2026-09-05)');
     /const headers = estimateHeaders\(leadIndex\(\)\);/.test(src)
       && /headers = estimateHeaders\(leadIndex\(\)\);/.test(src));
 
+  console.log('\n  …copy fallbacks (2026-09-24 desktop fix)');
+  {
+    const ONE = [{ id: 'F1', customerId: 'NBD-4004', firstName: 'Fay', stage: 'new' }];
+    // execCommand present but refuses: open still happens, then the async
+    // Clipboard API gets its best-effort try.
+    win._leads = ONE; execMode = 'fail';
+    lastClip = null; opened = null; callOrder.length = 0;
+    win.openLeadsInSheets();
+    ok('execCommand refused → sheet still opens, then async write is tried',
+      callOrder.join(',') === 'exec,open,copy' && typeof lastClip === 'string'
+        && lastClip.indexOf('NBD-4004') >= 0);
+    // No execCommand at all (future browsers): same fallback, no crash.
+    execMode = 'missing';
+    lastClip = null; opened = null; callOrder.length = 0;
+    win.openLeadsInSheets();
+    ok('execCommand missing → sheet opens and async write is tried, no crash',
+      callOrder.join(',') === 'open,copy' && opened !== null);
+    execMode = 'ok';
+  }
+  ok('openInSheets awaits nothing (an await before window.open breaks iOS)',
+    (() => {
+      const m = src.match(/function openInSheets\(kind\) \{[\s\S]*?\r?\n  \}\r?\n/);
+      const copyAt = m ? m[0].indexOf('_execCopy(tsv)') : -1;
+      return !!m && !/\bawait\b/.test(m[0]) && copyAt >= 0 && copyAt < m[0].indexOf('window.open(');
+    })());
+  ok('_execCopy returns execCommand\'s real result, not a hard-coded true',
+    /const ok = document\.execCommand\('copy'\) === true;[\s\S]{0,80}return ok;/.test(src));
+
   console.log('\n  …empty and filtered states never open a sheet');
   win._leads = []; opened = null; lastClip = null;
   win.openLeadsInSheets();
@@ -351,7 +399,7 @@ console.log('\nOPEN IN GOOGLE SHEETS — the clipboard/TSV path (2026-09-05)');
       new RegExp('window\\.' + fn + '\\s*=').test(src));
   }
   ok('the script tag was version-bumped so phones do not run the cached copy',
-    /js\/data-export\.js\?v=3/.test(dash));
+    /js\/data-export\.js\?v=4/.test(dash));
 }
 
 console.log('\nSTORM BACKTEST COLUMNS — date of loss + pin (2026-09-24)');
