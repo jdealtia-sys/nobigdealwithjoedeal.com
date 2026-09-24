@@ -462,9 +462,16 @@ console.log('  _renderSeatBuy — hidden on an unloaded plan');
   const b = t.reg.teamSeatBuy;
   ok('unloaded (even if it still reads card-billed growth): Extra-seats stepper hidden',
     !!b && b.style.display === 'none' && b.innerHTML === '');
+  // Seat add-on is dark by default (2026-09-24): a loaded, card-billed growth
+  // owner must NOT be offered a stepper the server can only refuse.
+  const d = loadTeam({ billing: { plan: PLAN.loadedGrowth } });
+  d.win._renderSeatBuy(d.reg.teamMembersList);
+  ok('seat add-on dark (flag unset): stepper hidden even for loaded card-billed growth',
+    !!d.reg.teamSeatBuy && d.reg.teamSeatBuy.style.display === 'none' && d.reg.teamSeatBuy.innerHTML === '');
   const c = loadTeam({ billing: { plan: PLAN.loadedGrowth } });
+  c.win.NBD_SEAT_ADDON_ENABLED = true;
   c.win._renderSeatBuy(c.reg.teamMembersList);
-  ok('CONTROL loaded card-billed growth: stepper shown with the real included count (5)',
+  ok('CONTROL flag on + loaded card-billed growth: stepper shown with the real included count (5)',
     !!c.reg.teamSeatBuy && /Extra seats/.test(c.reg.teamSeatBuy.innerHTML) && /included 5\./.test(c.reg.teamSeatBuy.innerHTML));
 }
 
