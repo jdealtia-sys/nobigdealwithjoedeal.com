@@ -41,6 +41,13 @@ const COORDS = {
   'lexington-ky': [38.05, -84.50], 'georgetown-ky': [38.21, -84.56],
   'nicholasville-ky': [37.88, -84.57], 'winchester-ky': [37.99, -84.18],
   'richmond-ky': [37.75, -84.29], 'versailles-ky': [38.05, -84.73],
+  // 2026-09-24: 12 towns with finished /our-work jobs but no area page.
+  'montgomery-oh': [39.23, -84.35], 'sycamore-township-oh': [39.21, -84.37],
+  'madeira-oh': [39.19, -84.36], 'norwood-oh': [39.16, -84.46],
+  'sharonville-oh': [39.27, -84.41], 'newtown-oh': [39.12, -84.36],
+  'franklin-oh': [39.56, -84.30], 'miamisburg-oh': [39.64, -84.29],
+  'bethel-oh': [38.96, -84.08], 'new-richmond-oh': [38.95, -84.28],
+  'newport-ky': [39.09, -84.50], 'union-ky': [38.95, -84.68],
 };
 
 const FAMILIES = [
