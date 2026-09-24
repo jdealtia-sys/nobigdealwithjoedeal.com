@@ -146,5 +146,22 @@ console.log('\nESX EXPORT — the fake "Xactimate Export (ESX)" button is gone; 
   ok('the underlying function is left in place (frozen, not deleted — no JS file churn)', maps.includes('function exportXactimateESX()'));
 }
 
+console.log('\nPRICING META — the search/share description matches the Team+Growth-only trial (2026-09-24)');
+{
+  // functions/stripe.js grants trial_period_days:14 to team and growth only,
+  // and the FAQ + Terms say so. The <meta> description and og:description
+  // listed Starter with them "each with a 14-day free trial" — the one line
+  // Google and link previews show, promising Starter a trial checkout never gives.
+  const pr = read('docs/pro/pricing.html');
+  const metas = (pr.match(/<meta (?:name="description"|property="og:description") content="[^"]*"/g) || []);
+  ok('both pricing descriptions are present', metas.length === 2);
+  ok('neither description says every plan gets the trial',
+    metas.every(m => !/each with a 14-day/i.test(m)));
+  ok('both descriptions scope the trial to Team and Growth',
+    metas.every(m => /14-day free trial on Team and Growth/.test(m)));
+  ok('the checkout code still limits the trial to team + growth (the fact the copy tracks)',
+    /normalizedPlan === 'growth' \|\| normalizedPlan === 'team'\) \? \{\s*subscription_data: \{ trial_period_days: 14 \}/.test(read('functions/stripe.js')));
+}
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 if (failed) { console.log('FAILED:\n  - ' + fails.join('\n  - ')); process.exit(1); }
