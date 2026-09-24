@@ -1,40 +1,29 @@
 /**
- * ensure-social-css.js — keeps the `footer contrast fix (injected)` footer social strip a
- * LINKED stylesheet instead of an inline <style> repeated on every page.
+ * ensure-nav-logo-mobile-css.js — keeps the `shrink the logo on phones` block
+ * a LINKED stylesheet instead of an inline <style> repeated on every page.
  * ═══════════════════════════════════════════════════════════════
  *
- * WHY (2026-09-23, inline-CSS dedup slice 5)
+ * WHY (2026-09-24, inline-CSS dedup slice 7)
  *
- * The block was byte-identical inline CSS on 198 public pages, 907 B each —
- * ~178 KB of HTML to say one thing. 192 migrated (see the exclusions below).
+ * 223 public pages carried one 69-byte declaration as its own inline <style>
+ * — ~29 KB of HTML. The cleanest population of any slice: ONE byte-exact
+ * body, exactly one copy per page, always the sole content of a bare
+ * <style>, never inside an nbd:partial region, uniform CRLF.
  *
  * MODES
- *   (default) assert. Exits 1 if a page still carries the inline canonical
- *     copy, carries BOTH the link and the marker, or carries more than one
- *     copy. This is the CI gate.
+ *   (default) assert — the CI gate. Exits 1 on a re-inlined copy, a page
+ *     carrying BOTH link and marker, more than one copy, or a stylesheet that
+ *     has drifted from CANONICAL_BODY.
  *   --write   migrates each byte-exact inline copy to the link IN PLACE.
  *
- * "IN PLACE" IS LOAD-BEARING — do not hoist the link.
- * `nbd-mobile.css` also styles this component (`footer .nbd-footer-contrast a`), so
- * the two sheets share a selector surface. That one happens to win on
- * specificity whatever the order, but the discipline stands: slice 3b (#1674)
- * moved a link to the end of <head> as a control and changed computed styles
- * on 39 of 70 page@width combos. The regex below matches the <style>…</style>
- * span ONLY, so the link lands exactly where the block was.
+ * DO NOT fold this into nbd-nav-responsive.css. It holds the identical
+ * declaration text, but 51 of these 223 pages never link that sheet, and its
+ * copy sits under a DISJOINT breakpoint (1025-1440 vs max-width:768). Same
+ * text, different meaning.
  *
- * THIS BLOCK *DOES* HAVE A GENERATOR, unlike slice 4's.
- * `scripts/add-social-footer-strip.js` injects it into new pages, and it
- * guarded on the MARKER — which stops working the moment the marker becomes a
- * link, so it would have re-inlined the block into all 192 migrated pages on
- * its next run. It now skips the link too. Same trap fix-trust-icons.js
- * (#1671) and injectTypography (#1674) hit after their blocks were extracted.
- *
- * WHAT IS DELIBERATELY NOT MIGRATED (all byte-identical to how they were):
- *   - 23 blog pages carry the block inside `<style id="nbd-chrome-std">`,
- *     behind ~4.3 KB of other chrome CSS — a fragment, not a swappable
- *     element.
- *   - 2 pages append `.footer-badges` rules to the same block.
- *   - 5 pages listed in EXCLUDED_PAGES carry the CSS TWICE; see that comment.
+ * No generator re-injects this block — scripts/strip-dead-nav-logo-text.js is
+ * its author, and triggers on a block that is now extinct. This assert is the
+ * backstop if that ever changes.
  */
 'use strict';
 
@@ -42,15 +31,26 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..', 'docs');
-const CSS_FILE = path.join(ROOT, 'assets', 'css', 'nbd-footer-contrast.css');
+const CSS_FILE = path.join(ROOT, 'assets', 'css', 'nbd-nav-logo-mobile.css');
 
-const MARKER = '/* footer contrast fix (injected) */';
-const LINK_HREF = '/assets/css/nbd-footer-contrast.css';
+const MARKER = '/* shrink the logo on phones (consistency audit 2026-07-15) */';
+const LINK_HREF = '/assets/css/nbd-nav-logo-mobile.css';
 const LINK_TAG = `<link rel="stylesheet" href="${LINK_HREF}">`;
 // Same exclusions as ensure-readability-css.js. 'sites' matters here: one
 // page carrying the block (sites/free-guide/index.html) lives under it and
 // keeps its inline copy deliberately, as index.html did for readability.
 const EXCLUDED_TOP = new Set(['admin', 'pro', 'sites', 'assets', 'deploy', 'tools']);
+
+// A page that carries NEITHER the marker NOR the link is skipped by the loop
+// below — which is correct for the 75 pages that never had this block, but it
+// also means DELETING the link from a migrated page is invisible to the
+// marker/link checks. The only existing test that touches this CSS
+// (tests/nav-logo-size-2026-09-14.test.js) is a NEGATIVE pin: it asserts the
+// OLD sizes are absent and never that the 50px rule exists, so deleting the
+// block outright leaves that suite green too.
+// So: a floor. Raise it deliberately when pages are added; a DROP means the
+// link was removed somewhere and should fail loudly rather than pass silently.
+const LINK_FLOOR = 223;
 
 
 // Five blog pages carry the social CSS TWICE: once standalone (which this
@@ -61,21 +61,13 @@ const EXCLUDED_TOP = new Set(['admin', 'pro', 'sites', 'assets', 'deploy', 'tool
 // its own job; mixing a strip into an extraction is the mistake slice 1 owned
 // up to. Skipped here, byte-identical to how they were.
 const EXCLUDED_PAGES = new Set([]); // none: all 195 pages are byte-identical
-// Must stay byte-identical to docs/assets/css/nbd-footer-contrast.css's body
+// Must stay byte-identical to docs/assets/css/nbd-nav-logo-mobile.css's body
 // (minus that file's own header comment). Deliberately NOT derived from the
 // CSS file at runtime, so a drifted stylesheet cannot silently redefine what
 // counts as canonical — same reasoning as ensure-readability-css.js.
-const CANONICAL_BODY = `footer .label{color:rgba(255,255,255,.72)!important;font-weight:700}
-footer .footer-col ul li a{color:rgba(255,255,255,.82)!important}
-footer .footer-col ul li a:hover{color:var(--orange,#bd5728)!important}
-footer .footer-contact-item .val,footer .footer-contact-item .val a{color:rgba(255,255,255,.9)!important}
-footer p{color:rgba(255,255,255,.7)!important}
-footer .footer-desc{color:rgba(255,255,255,.72)!important}
-footer .footer-bottom p{color:rgba(255,255,255,.55)!important}
-footer .footer-bottom a{color:rgba(255,255,255,.65)!important}
-footer .footer-bottom a:hover{color:var(--orange,#bd5728)!important}
-footer .pro-door{color:rgba(255,255,255,.65)!important}
-footer .pro-door:hover{color:var(--orange,#bd5728)!important}`;
+const CANONICAL_BODY = `@media(max-width:768px){
+  nav .nav-logo img{height:50px!important}
+}`;
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -118,9 +110,10 @@ function migrate(src) {
 function main() {
   const WRITE = process.argv.includes('--write');
   let migrated = 0;
+  let linked = 0;
   const offenders = [];
   if (!fs.existsSync(CSS_FILE)) {
-    console.error('ensure-footer-contrast-css: missing ' + path.relative(process.cwd(), CSS_FILE));
+    console.error('ensure-nav-logo-mobile-css: missing ' + path.relative(process.cwd(), CSS_FILE));
     process.exit(1);
   }
   // The stylesheet must still say exactly what the 173 inline copies said.
@@ -132,7 +125,7 @@ function main() {
     const at = raw.indexOf(MARKER);
     const body = at === -1 ? null : raw.slice(at + MARKER.length + 1).replace(/\n$/, '');
     if (body !== CANONICAL_BODY) {
-      console.error('ensure-footer-contrast-css: ' + path.relative(process.cwd(), CSS_FILE)
+      console.error('ensure-nav-logo-mobile-css: ' + path.relative(process.cwd(), CSS_FILE)
         + ' has DRIFTED from CANONICAL_BODY.');
       console.error('  The stylesheet and the block it replaced must stay byte-identical.');
       console.error('  Change both deliberately, or not at all.');
@@ -146,16 +139,24 @@ function main() {
     if (EXCLUDED_PAGES.has(rel)) continue;
     const r = migrate(orig);
     if (r.problem) { offenders.push(rel + ' [' + r.problem + ' — fix by hand]'); continue; }
-    if (!r.copies) continue; // already linked
+    if (!r.copies) { if (r.hasLink) linked++; continue; } // already linked
     if (!WRITE) { offenders.push(rel + ' [inline canonical copy — run --write]'); continue; }
     fs.writeFileSync(file, r.next);
     migrated++;
   }
 
+  if (!WRITE && linked < LINK_FLOOR) {
+    console.error('ensure-nav-logo-mobile-css: only ' + linked + ' page(s) link '
+      + LINK_HREF + ', floor is ' + LINK_FLOOR + '.');
+    console.error('  A link was removed without the block coming back. If pages were');
+    console.error('  legitimately deleted, lower LINK_FLOOR in this file deliberately.');
+    process.exit(1);
+  }
+
   if (offenders.length) {
-    console.error('ensure-footer-contrast-css: ' + offenders.length + ' page(s) off-contract:');
+    console.error('ensure-nav-logo-mobile-css: ' + offenders.length + ' page(s) off-contract:');
     for (const o of offenders.slice(0, 20)) console.error('  - ' + o);
-    if (!WRITE) console.error('Run: node scripts/ensure-footer-contrast-css.js --write');
+    if (!WRITE) console.error('Run: node scripts/ensure-nav-logo-mobile-css.js --write');
     process.exit(1);
   }
   console.log(JSON.stringify(WRITE ? { migrated } : { clean: true }, null, 2));
