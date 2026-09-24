@@ -268,6 +268,14 @@ jobs:
       # too, and this assert is what fails if that ever regresses.
       - name: Check social-CSS extraction (assert mode)
         run: node scripts/ensure-social-css.js
+      # footer-contrast extraction (2026-09-24, dedup slice 6): 195 pages carried
+      # it byte-identically (~146 KB of HTML). Ordering is load-bearing here —
+      # nbd-readability.css sets the SAME properties on the SAME selectors with
+      # !important on both sides, so source order alone picks the footer colour,
+      # and the block's position differs per page. The link replaces the <style>
+      # in place; this assert fails if it is ever re-inlined or the sheet drifts.
+      - name: Check footer-contrast-CSS extraction (assert mode)
+        run: node scripts/ensure-footer-contrast-css.js
       # Favicon contract (2026-09-13): two icons across every page, by
       # audience — the roof mark (/favicon.svg + /assets/images/apple-touch-icon.png)
       # for homeowner pages, NBD PRO (/pro/favicon.svg + /pro/img/nbd-icon-192.png)
