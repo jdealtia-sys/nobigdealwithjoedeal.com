@@ -430,7 +430,7 @@ const detailPage = (p) => {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>${esc(p.title)} — ${esc(p.city)} | No Big Deal Home Solutions</title>
+<title>${esc(p.title)} — ${esc(p.city)} | NBD</title>
 <meta name="description" content="${esc(descMeta)}">
 <link rel="canonical" href="${DETAIL_ORIGIN}/our-work/${esc(p.slug)}">
 <meta property="og:type" content="website">
