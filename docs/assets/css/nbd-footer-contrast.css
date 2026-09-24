@@ -1,0 +1,48 @@
+/* nbd-footer-contrast.css — the `footer contrast fix (injected)` block, extracted.
+ *
+ * Was an inline <style> repeated byte-for-byte on 195 public pages (768 B
+ * each, ~146 KB of HTML). Extracted 2026-09-24; see
+ * scripts/ensure-footer-contrast-css.js, which asserts in CI that it never
+ * gets re-inlined.
+ *
+ * LINKED IN PLACE, and here that is not a formality.
+ * `nbd-readability.css` styles the SAME selectors with the SAME properties and
+ * `!important` on both sides — e.g. both set `footer .footer-bottom a { color }`,
+ * readability to `.7` and this block to `.65`. Equal specificity, equal
+ * weight: SOURCE ORDER alone decides which colour the footer renders. And the
+ * order is not uniform — this block sits after every stylesheet on some pages
+ * and before `nbd-mobile.css` on others (about.html has it at line 415, with
+ * mobile at 473). 178 of the 195 pages carry both.
+ *
+ * So the <link> replaces the <style> exactly where it sat, per page, and the
+ * existing per-page outcome is preserved byte for byte. Hoisting this link to
+ * a tidy position in <head> would silently restyle footers across the site —
+ * slice 3b (#1674) did exactly that as a control and moved computed styles on
+ * 39 of 70 page@width combos. Whether readability or this block SHOULD win is
+ * a design question nobody has answered; this migration deliberately does not
+ * answer it.
+ *
+ * `scripts/fix-footer-contrast.js` injects this block into new pages. It
+ * guarded on the marker, which stops working the moment the marker becomes a
+ * link, so it would have re-inlined the block into every migrated page. It now
+ * skips the link too — the same trap fix-trust-icons.js (#1671),
+ * injectTypography (#1674) and add-social-footer-strip.js (#1725) all hit.
+ *
+ * Content below is byte-identical to the block it replaced. Note the generator
+ * had DRIFTED from it: its copy said `var(--orange,#e8720c)` while all 195
+ * pages carry `var(--orange,#bd5728)`, the real brand orange. The generator
+ * was corrected to match, so a new page now gets what everyone else has.
+ */
+
+/* footer contrast fix (injected) */
+footer .label{color:rgba(255,255,255,.72)!important;font-weight:700}
+footer .footer-col ul li a{color:rgba(255,255,255,.82)!important}
+footer .footer-col ul li a:hover{color:var(--orange,#bd5728)!important}
+footer .footer-contact-item .val,footer .footer-contact-item .val a{color:rgba(255,255,255,.9)!important}
+footer p{color:rgba(255,255,255,.7)!important}
+footer .footer-desc{color:rgba(255,255,255,.72)!important}
+footer .footer-bottom p{color:rgba(255,255,255,.55)!important}
+footer .footer-bottom a{color:rgba(255,255,255,.65)!important}
+footer .footer-bottom a:hover{color:var(--orange,#bd5728)!important}
+footer .pro-door{color:rgba(255,255,255,.65)!important}
+footer .pro-door:hover{color:var(--orange,#bd5728)!important}

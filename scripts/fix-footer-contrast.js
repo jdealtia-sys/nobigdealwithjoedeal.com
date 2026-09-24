@@ -17,15 +17,15 @@ const FOOTER_CSS = `
 /* footer contrast fix (injected) */
 footer .label{color:rgba(255,255,255,.72)!important;font-weight:700}
 footer .footer-col ul li a{color:rgba(255,255,255,.82)!important}
-footer .footer-col ul li a:hover{color:var(--orange,#e8720c)!important}
+footer .footer-col ul li a:hover{color:var(--orange,#bd5728)!important}
 footer .footer-contact-item .val,footer .footer-contact-item .val a{color:rgba(255,255,255,.9)!important}
 footer p{color:rgba(255,255,255,.7)!important}
 footer .footer-desc{color:rgba(255,255,255,.72)!important}
 footer .footer-bottom p{color:rgba(255,255,255,.55)!important}
 footer .footer-bottom a{color:rgba(255,255,255,.65)!important}
-footer .footer-bottom a:hover{color:var(--orange,#e8720c)!important}
+footer .footer-bottom a:hover{color:var(--orange,#bd5728)!important}
 footer .pro-door{color:rgba(255,255,255,.65)!important}
-footer .pro-door:hover{color:var(--orange,#e8720c)!important}
+footer .pro-door:hover{color:var(--orange,#bd5728)!important}
 `;
 
 function walk(dir, out = []) {
@@ -43,7 +43,13 @@ let touched = 0;
 for (const file of walk(ROOT)) {
   const orig = fs.readFileSync(file, 'utf8');
   let next = orig;
-  if (!/footer contrast fix \(injected\)/.test(next) && /<\/head>/.test(next) && /<footer/.test(next)) {
+  // Pages that LINK the extracted stylesheet already have these rules, and the
+  // marker is gone from them by design — a marker-only guard would re-inline the
+  // block into all 195 of them on the next run. Same trap fix-trust-icons.js
+  // (#1671), injectTypography (#1674) and add-social-footer-strip.js (#1725) hit.
+  // scripts/ensure-footer-contrast-css.js is the CI assert for exactly that.
+  if (!/footer contrast fix \(injected\)/.test(next) && /<\/head>/.test(next) && /<footer/.test(next)
+      && !next.includes('/assets/css/nbd-footer-contrast.css')) {
     next = next.replace(/<\/head>/, '<style>' + FOOTER_CSS + '</style>\n</head>');
   }
   // Strip lingering emojis from footer-col service/utility links
