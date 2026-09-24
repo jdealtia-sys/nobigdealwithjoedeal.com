@@ -67,6 +67,11 @@ for (const p of live) {
   ok(`${p.slug}: canonical link points at /our-work/${p.slug}`,
     html.includes(`<link rel="canonical" href="https://nobigdealwithjoedeal.com/our-work/${p.slug}">`));
   ok(`${p.slug}: title present`, html.includes(`<h1 class="pd-title">`) && html.includes(esc(p.title)));
+  // "| NBD", not "| No Big Deal Home Solutions": the site-wide suffix chosen
+  // for the ~60-char search-title budget (scripts/normalize-location-templates.js).
+  // The long form made 52 of 53 detail titles overflow (2026-09-24).
+  ok(`${p.slug}: <title> uses the short "| NBD" brand suffix`,
+    html.includes(`<title>${esc(p.title)} — ${esc(p.city)} | NBD</title>`));
   ok(`${p.slug}: Service + BreadcrumbList JSON-LD present`,
     /"@type":"Service"/.test(html) && /"@type":"BreadcrumbList"/.test(html));
   ok(`${p.slug}: nav-standard region is FILLED, not an empty marker pair (apply-partials ran)`,
