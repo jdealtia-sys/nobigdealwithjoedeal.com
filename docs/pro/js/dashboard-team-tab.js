@@ -307,9 +307,17 @@
         // is excluded below. Gating is unaffected — owners bypass in
         // canUse/enforceGate/softGate regardless of the mirrored plan.
         var cardBilled = !!pl && pl.source === 'checkout';
+        // The seat add-on is DARK (Jo's standing decision): setCompanySeatCount
+        // refuses with failed-precondition until STRIPE_PRICE_SEAT exists. The
+        // stepper used to render anyway, so every card-billed owner was offered
+        // a control that could only fail with an error toast (GROK-CRM-AUDIT
+        // row 14). It stays hidden until activation: create the seat price in
+        // Stripe, add the STRIPE_PRICE_SEAT secret, deploy functions, THEN set
+        // window.NBD_SEAT_ADDON_ENABLED = true (NEXT_SESSION-2026-09-14.md).
+        var seatAddonLive = window.NBD_SEAT_ADDON_ENABLED === true;
         // !pl.loaded: an unloaded plan has no trustworthy caps (and _seatCap()
         // is null then, so the "included N" copy below would print 0).
-        if (!entitled || !cardBilled || !pl || !pl.loaded || pl.plan === 'free' || reps === Infinity || reps == null) {
+        if (!seatAddonLive || !entitled || !cardBilled || !pl || !pl.loaded || pl.plan === 'free' || reps === Infinity || reps == null) {
           host.innerHTML = ''; host.style.display = 'none'; return;
         }
         host.style.display = '';
