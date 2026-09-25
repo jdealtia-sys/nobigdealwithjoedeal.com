@@ -641,6 +641,9 @@ test.describe('phone estbuilder: Job Templates upgrades, installed app at 412px 
     await signIn(page);
     expect(await forceStandalone(page), 'found the standalone rules to force').toBeGreaterThan(200);
     await safeWaitForFunction(page, () => !!(window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function'), { timeout: 20_000 });
+    // company-profile.js replaces window._companyProfile when its one-shot
+    // read lands; set the in-page price only after that, or it is wiped.
+    await safeWaitForFunction(page, () => window._companyProfileLoaded === true, { timeout: 20_000 });
     await safeEvaluate(page, async () => {
       await window.ScriptLoader.loadBundle('estimates');
       // In-page tenant price for the 3x4 step-up, so the homeowner page has
