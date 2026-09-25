@@ -892,11 +892,16 @@ test.describe('phone pipeline @audit', () => {
     const density = () => safeEvaluate(page, () => { try { return localStorage.getItem('nbd-kanban-density') || 'comfortable'; } catch (_) { return 'comfortable'; } });
     const start = await density();
     const ORDER = ['compact', 'comfortable', 'spacious'];
+    const NAMES = { compact: 'Compact', comfortable: 'Comfortable', spacious: 'Spacious' };
+    const label = () => safeEvaluate(page, () => document.querySelector('#kanbanDensityToggleBtn .crm-hdr-btn-label').textContent.trim());
     try {
       await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', true);
+      expect(await label(), 'opening Tools names the current size').toBe('Card density: ' + NAMES[start]);
       let cur = start;
       for (let i = 0; i < 3; i++) {
-        await quietToasts(page); // each step toasts its new size
+        // No waiting for toasts between steps: a rep taps again straight
+        // away. Each step used to toast its size onto the button itself
+        // (412x860), so the next tap closed Tools instead of stepping.
         const d = await safeEvaluate(page, () => {
           const b = document.getElementById('kanbanDensityToggleBtn');
           b.scrollIntoView({ block: 'nearest' });
@@ -911,6 +916,7 @@ test.describe('phone pipeline @audit', () => {
         await page.waitForTimeout(400); // past the delegate's 220ms toggle close, had it applied
         expect(await safeEvaluate(page, () => document.getElementById('crmToolsMenu').classList.contains('open')),
           `Tools stays open after stepping density to ${want}`).toBe(true);
+        expect(await label(), 'the item names the size it stepped to').toBe('Card density: ' + NAMES[want]);
       }
       expect(cur, 'three taps come back round to where the rep started').toBe(start);
       // The exemption is density's alone: Find duplicates still closes Tools.

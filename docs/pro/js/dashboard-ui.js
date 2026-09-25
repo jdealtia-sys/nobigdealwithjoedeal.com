@@ -1715,13 +1715,35 @@ function setKanbanDensity(d) {
     b.style.color = active ? 'var(--accent-fg,#fff)' : 'var(--m)';
     b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
   });
+  _syncDensityToggleLabel(d);
+}
+
+// The Tools menu's Card density item names the current size in its own
+// label and tooltip. It used to announce each step in a toast. Since Tools
+// stays open while a rep steps through the sizes (2026-09-25 phone nav
+// polish), that toast landed on the button itself at 412x860 (toast y
+// 670-720, button 651-700), so the next tap hit the toast, which counts as
+// a tap outside the menu, and closed Tools instead of stepping. The label is
+// where the rep is already looking.
+const _DENSITY_NAMES = { compact: 'Compact', comfortable: 'Comfortable', spacious: 'Spacious' };
+function _syncDensityToggleLabel(d) {
+  const btn = document.getElementById('kanbanDensityToggleBtn');
+  if (!btn) return;
+  if (!_DENSITY_NAMES[d]) {
+    try { d = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable'; } catch (_) { d = 'comfortable'; }
+    if (!_DENSITY_NAMES[d]) d = 'comfortable';
+  }
+  const next = { compact: 'comfortable', comfortable: 'spacious', spacious: 'compact' }[d];
+  btn.title = 'Card density: ' + _DENSITY_NAMES[d] + ' — tap for ' + _DENSITY_NAMES[next];
+  const lbl = btn.querySelector('.crm-hdr-btn-label');
+  if (lbl) lbl.textContent = 'Card density: ' + _DENSITY_NAMES[d];
 }
 
 // Sweep R3 (C): one-tap cycle invoked by the kanban-header
 // density toggle. Reads the current value from localStorage so the
 // cycle starts from wherever the user left off, even if the
 // data-density attribute got cleared (Comfortable = no attribute).
-// Updates the button tooltip + label so the rep sees current state.
+// setKanbanDensity updates the button's label + tooltip to the new size.
 const cycleKanbanDensity = function() {
   const order = ['compact', 'comfortable', 'spacious'];
   let cur = 'comfortable';
@@ -1729,21 +1751,6 @@ const cycleKanbanDensity = function() {
   if (!order.includes(cur)) cur = 'comfortable';
   const next = order[(order.indexOf(cur) + 1) % order.length];
   setKanbanDensity(next);
-  // Toast so the rep gets feedback without staring at the button.
-  if (typeof showToast === 'function') {
-    const labelMap = { compact: '📏 Compact', comfortable: '📐 Comfortable', spacious: '📊 Spacious' };
-    showToast(labelMap[next] + ' card density', 'info');
-  }
-  // Update the toolbar button's title attr so hover hint stays current.
-  const btn = document.getElementById('kanbanDensityToggleBtn');
-  if (btn) {
-    const titleMap = {
-      compact: 'Card density: Compact — click for Comfortable',
-      comfortable: 'Card density: Comfortable — click for Spacious',
-      spacious: 'Card density: Spacious — click for Compact'
-    };
-    btn.title = titleMap[next];
-  }
 }
 
 function setKanbanBoldHierarchy(on) {
@@ -2186,6 +2193,9 @@ function _toggleCrmMenu(id, ev) {
     if (typeof window.syncMobileToolsMenuActive === 'function') {
       window.syncMobileToolsMenuActive();
     }
+    // The CRM template hydrates after the boot-time density sync, so name
+    // the current size here, before the rep sees the item.
+    if (id === 'crmToolsMenu') _syncDensityToggleLabel();
     _crmMenuArm(menu);
   }
   if (ev) ev.stopPropagation();
