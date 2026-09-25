@@ -1363,6 +1363,10 @@ async function profileRetryWalk(page, { act, openEstimatesTab, widths }) {
       }, { message: 'the edited cost on the server', timeout: 10_000 }).toBe(180);
     });
   } finally {
+    // Back online first: a step that failed mid-offline would otherwise leave
+    // the restore write queued forever, and the seeded jurisdiction on the
+    // server for the next run (it did, in a break-test, 2026-09-25).
+    await page.context().setOffline(false).catch(() => {});
     await restorePricing(page, original).catch(() => {});
   }
 }
