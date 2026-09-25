@@ -1923,13 +1923,13 @@
     var schema = state.schema;
     var sectionsHTML = schema.sections.map(function (sec) {
       var collapsed = (sec.collapsed && !state.showAll) ? ' collapsed' : '';
-      var fieldsHTML = sec.fields.map(function (f) {
-        return renderField(f, state.values[f.key]);
+      // The deposit note sits right under the last deposit field (2026-09-25).
+      var lastDep = -1;
+      if (state.deposit) sec.fields.forEach(function (f, i) { if (isDepositField(f)) lastDep = i; });
+      var fieldsHTML = sec.fields.map(function (f, i) {
+        return renderField(f, state.values[f.key]) +
+          (i === lastDep ? '<div class="dpf-deposit-note" data-dpf-deposit-note>' + depositNoteHTML() + '</div>' : '');
       }).join('');
-      // The deposit note sits with the deposit fields (2026-09-25).
-      if (state.deposit && sec.fields.some(isDepositField)) {
-        fieldsHTML += '<div class="dpf-deposit-note" data-dpf-deposit-note>' + depositNoteHTML() + '</div>';
-      }
       return '<div class="dpf-section' + collapsed + '" data-section="' + esc(sec.id) + '">' +
         '<div class="dpf-section-head" data-section-toggle="' + esc(sec.id) + '">' +
           '<h3 class="dpf-section-title">' + esc(sec.title) + '</h3>' +
