@@ -374,19 +374,25 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
     // refresh. fab-stack-coordinator.js used to measure it mid-slide (still
     // below the screen), publish an 8px corner claim, and leave the launcher
     // parked ON the bar's TASK button until its 1.5s safety re-check.
-    await page.setViewportSize({ width: 360, height: 860 });
-    await page.setViewportSize({ width: 412, height: 860 });
-    await settleBar(page);
-    const afterRerender = await safeEvaluate(page, () => {
-      const dial = document.getElementById('nbd-fab-dial').getBoundingClientRect();
-      const bar = document.getElementById('nbd-quick-action-bar').getBoundingClientRect();
-      const task = document.querySelector('#nbd-quick-action-bar .qab-task');
-      const tr = task.getBoundingClientRect();
-      const hit = document.elementFromPoint(tr.left + tr.width / 2, tr.top + tr.height / 2);
-      return { dialBottom: dial.bottom, barTop: bar.top, taskOk: !!hit && task.contains(hit) };
-    });
-    expect(afterRerender.dialBottom, 'launcher stays above the bar right after it re-renders').toBeLessThanOrEqual(afterRerender.barTop);
-    expect(afterRerender.taskOk, 'TASK is tappable right after the bar re-renders').toBe(true);
+    // Whether that re-check lands before the probe is chance (~20% per
+    // re-render), so run three re-renders: the old code slips all three
+    // well under 1% of the time.
+    const misses = [];
+    for (let i = 0; i < 3; i++) {
+      await page.setViewportSize({ width: 360, height: 860 });
+      await page.setViewportSize({ width: 412, height: 860 });
+      await settleBar(page);
+      const r = await safeEvaluate(page, () => {
+        const dial = document.getElementById('nbd-fab-dial').getBoundingClientRect();
+        const bar = document.getElementById('nbd-quick-action-bar').getBoundingClientRect();
+        const task = document.querySelector('#nbd-quick-action-bar .qab-task');
+        const tr = task.getBoundingClientRect();
+        const hit = document.elementFromPoint(tr.left + tr.width / 2, tr.top + tr.height / 2);
+        return { dialBottom: dial.bottom, barTop: bar.top, taskOk: !!hit && task.contains(hit) };
+      });
+      if (r.dialBottom > r.barTop || !r.taskOk) misses.push(`re-render ${i + 1}: launcher bottom ${Math.round(r.dialBottom)} vs bar top ${Math.round(r.barTop)}, TASK tappable ${r.taskOk}`);
+    }
+    expect(misses, 'launcher stays above the bar and TASK stays tappable right after the bar re-renders').toEqual([]);
   });
 
   test('Edit Photo sheet covers the page chrome; Delete is the sheet', async () => {
