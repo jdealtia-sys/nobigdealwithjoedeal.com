@@ -410,6 +410,14 @@
        absent, so a PDF saved from a phone keeps the letter-size layout too. */
     @media screen and (max-width:600px) {
       html.nbd-est-doc body { padding:16px 10px; }
+      /* The brand block and the title/total block sit side by side; with the
+         display faces missing (fallback font) that row alone ran 15-19px past
+         a 360px screen. Let it wrap and scale the headline type down. */
+      html.nbd-est-doc .hdr { flex-wrap:wrap; gap:10px 16px; }
+      html.nbd-est-doc .brand { font-size:18px; }
+      html.nbd-est-doc .brand-logo-img { width:110px; }
+      html.nbd-est-doc .doc-title { font-size:20px; }
+      html.nbd-est-doc .doc-total-val { font-size:28px; }
       html.nbd-est-doc th, html.nbd-est-doc td { padding:6px 3px; }
       html.nbd-est-doc th { font-size:8px; letter-spacing:.02em; width:auto !important; }
       html.nbd-est-doc td { font-size:11px; }

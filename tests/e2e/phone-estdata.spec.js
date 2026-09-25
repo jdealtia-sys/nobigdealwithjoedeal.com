@@ -214,8 +214,11 @@ test.describe.serial('phone estimate data @audit', () => {
 
   test('estimate#0 sibling: a cold load straight to #/est resolves customer chips once leads arrive', async () => {
     await page.goto('/pro/dashboard#/est');
-    await safeWaitForFunction(page, () => window._leadsLoaded && Array.isArray(window._estimates)
-      && !!document.querySelector('#estListWrap .nbd-est-card'), { timeout: 45_000 });
+    // Wait for THIS lead to be in memory (not just _leadsLoaded, which a
+    // cached or partial load can satisfy early): from then on the repaint has
+    // no excuse, so the 10s below measures the repaint, not a slow emulator.
+    await waitForArg(page, (leadId) => Array.isArray(window._leads) && window._leads.some((l) => l.id === leadId)
+      && !!document.querySelector('#estListWrap .nbd-est-card'), S.leadId, 60_000, 'the seeded lead + the list after a cold #/est load');
     const chip = page.locator(`#estListWrap .nbd-est-card[data-id="${S.loggedId}"] .est-lead-chip`);
     await expect(chip, 'no "Unassigned" on an estimate linked to a loaded lead').toContainText('Estdata', { timeout: 10_000 });
   });

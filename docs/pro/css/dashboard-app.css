@@ -3982,11 +3982,22 @@ input:focus, select:focus, textarea:focus {
    310px (412) panel. It scrolls (display:block + overflow-x:auto above) but
    nothing says so, and at rest the TOTAL column — the money — was cut to
    "$2,500.(" at 412 and entirely out of view at 360. Tighter cells fit all
-   five columns; tablet and desktop are untouched. */
+   five columns; tablet and desktop are untouched. Tighter cells alone left
+   0px to spare at 360 with Barlow loaded and ran 17px over on CI's Linux
+   font stack, so the text columns (code, description, qty) may also break
+   anywhere while RATE and TOTAL never wrap: the money decides the width,
+   and it fits down to 320. */
 @media (max-width: 480px) {
   #estReviewBody .li-table th,
   #estReviewBody .li-table td { padding: 7px 4px; }
+  #estReviewBody .li-table th { letter-spacing: .02em; }
   #estReviewBody .li-table td { font-size: 11px; }
+  /* last-child, not nth-child(5): the ESTIMATE TOTAL row is colspan=4 + 1.
+     Headers too: with the condensed face missing (a fallback font), the
+     DESCRIPTION header alone was wider than the text it labels. */
+  #estReviewBody .li-table :is(th, td):not(:last-child):not(:nth-child(4)) { overflow-wrap: anywhere; }
+  #estReviewBody .li-table :is(th, td):last-child,
+  #estReviewBody .li-table :is(th, td):nth-child(4) { white-space: nowrap; }
   #estReviewBody .li-table .total-row.grand td { font-size: 14px; }
 }
 

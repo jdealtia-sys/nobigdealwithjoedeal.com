@@ -1295,6 +1295,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       + '.invoice-detail .inv-lines th,.invoice-detail .inv-lines td{padding:6px 4px !important;}'
       + '.invoice-detail .inv-lines th{font-size:10px !important;}'
       + '.invoice-detail .inv-lines td{font-size:13px;}'
+      // Money never wraps; description + quantity (cells and headers) may
+      // break anywhere, so a wider fallback font can't push TOTAL off-screen.
+      + '.invoice-detail .inv-lines :is(th,td):nth-child(-n+2){overflow-wrap:anywhere;}'
+      + '.invoice-detail .inv-lines td:nth-child(n+3){white-space:nowrap;}'
       + '}';
     document.head.appendChild(st);
   }
