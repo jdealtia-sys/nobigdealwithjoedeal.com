@@ -10,6 +10,8 @@
 // file lands.
 
 function uploadSignedDoc(mode) {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   if (mode === 'camera') {
     document.getElementById('signedDocFileInput').click();
   } else {

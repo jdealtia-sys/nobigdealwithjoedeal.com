@@ -79,6 +79,8 @@ async function run() {
   const noClaim= env.authenticatedContext('nc',     {}).firestore();                                            // authed, NO companyId/role
   const solo   = env.authenticatedContext('solo1',  {}).firestore();                                            // solo operator (keys companyProfile by uid)
   const anon   = env.unauthenticatedContext().firestore();
+  // 2026-09-25 (decision B): a same-tenant VIEWER who owns a lead of its own.
+  const vicA   = env.authenticatedContext('vica',   { role: 'viewer',        companyId: 'co-a' }).firestore();
 
   const { setDoc, doc, getDoc, updateDoc, deleteDoc } = require('firebase/firestore');
 
@@ -104,6 +106,12 @@ async function run() {
     await setDoc(doc(db, 'leads/leadA/documents/docDel'), { userId: 'alice', name: 'Old Draft.html', status: 'draft' });
     await setDoc(doc(db, 'leads/leadA/warrantyClaims/claimA'),   { status: 'open', reason: 'workmanship' });
     await setDoc(doc(db, 'leads/leadA/warrantyClaims/claimDel'), { status: 'resolved', reason: 'material' });
+    // 2026-09-25: rows only a company_admin deletes (decision A), and a lead
+    // owned by a same-tenant viewer (decision B).
+    await setDoc(doc(db, 'leads/leadA/documents/docCA'),        { userId: 'alice', name: 'Void Draft.html', status: 'draft' });
+    await setDoc(doc(db, 'leads/leadA/warrantyClaims/claimCA'), { status: 'denied', reason: 'goodwill' });
+    await setDoc(doc(db, 'leads/leadVA'),               { userId: 'vica', companyId: 'co-a', name: 'Viewer-owned Lead' });
+    await setDoc(doc(db, 'leads/leadVA/documents/docV'), { name: 'Viewer Contract.html', status: 'signed' });
     await setDoc(doc(db, 'leads/leadA/ai_drafts/draftA'),{ userId: 'alice', companyId: 'co-a', status: 'pending', draftText: 'Joe handles pricing personally — want a free inspection?', customerPhone: '+15555550100' });
     await setDoc(doc(db, 'leads/leadA/signatures/Homeowner'),{ userId: 'alice', role: 'Homeowner', png: 'data:image/png;base64,iVBORw0KGgo=' });
     await setDoc(doc(db, 'measurements/measA'),        { ownerId: 'alice', companyId: 'co-a', leadId: 'leadA', status: 'ready' });
@@ -148,9 +156,9 @@ async function run() {
   // old `allow write` read request.resource, null on a delete, so it denied
   // every client delete). The owner control proves the fix; the rest prove a
   // role claim alone still never crosses the companyId wall on delete.
-  for (const [label, sub, keep, drop] of [
-    ['lead documents', 'documents', 'docA', 'docDel'],
-    ['warrantyClaims', 'warrantyClaims', 'claimA', 'claimDel'],
+  for (const [label, sub, keep, drop, caDrop] of [
+    ['lead documents', 'documents', 'docA', 'docDel', 'docCA'],
+    ['warrantyClaims', 'warrantyClaims', 'claimA', 'claimDel', 'claimCA'],
   ]) {
     await check(label + ': B deletes A row',                        'deny',  deleteDoc(doc(bob,    'leads/leadA/' + sub + '/' + keep)));
     await check(label + ': cross-tenant MANAGER cannot delete',     'deny',  deleteDoc(doc(bobMgr, 'leads/leadA/' + sub + '/' + keep)));
@@ -158,6 +166,11 @@ async function run() {
     await check(label + ': same-tenant sales_rep peer cannot delete','deny', deleteDoc(doc(dave,   'leads/leadA/' + sub + '/' + keep)));
     await check(label + ': signed-out cannot delete',               'deny',  deleteDoc(doc(anon,   'leads/leadA/' + sub + '/' + keep)));
     await check(label + ': owner CAN delete (2026-09-25 fix)',      'allow', deleteDoc(doc(alice,  'leads/leadA/' + sub + '/' + drop)));
+    // Jo's decision A (2026-09-25): hard delete is the set that can delete the
+    // lead, owner + same-tenant company_admin. A same-tenant manager lost it.
+    await check(label + ': same-tenant MANAGER cannot hard-delete', 'deny',  deleteDoc(doc(eveMgr,  'leads/leadA/' + sub + '/' + keep)));
+    await check(label + ': same-tenant company_admin CAN delete',   'allow', deleteDoc(doc(aliceCA, 'leads/leadA/' + sub + '/' + caDrop)));
+    await check(label + ': same-tenant viewer cannot delete',       'deny',  deleteDoc(doc(vicA,    'leads/leadA/' + sub + '/' + keep)));
   }
   await check('measurements: B reads A measurement',  'deny',  getDoc(doc(bob, 'measurements/measA')));
   // 90-day same-roof reuse (findReusableMeasurement/requestMeasurement) needs
@@ -388,6 +401,26 @@ async function run() {
   await check('training_sessions: cross-tenant co_admin denied',      'deny',  getDoc(doc(bobCA,   'training_sessions/tsA')));
   await check('recordings: same-tenant co_admin reads team recording','allow', getDoc(doc(aliceCA, 'leads/leadA/recordings/recA')));
   await check('recordings: cross-tenant co_admin denied',             'deny',  getDoc(doc(bobCA,   'leads/leadA/recordings/recA')));
+
+  // ═══════════════════════════════════════════════════════════
+  // I. VIEWER IS READ-ONLY, ON ITS OWN LEAD TOO (2026-09-25, Jo's decision B)
+  //
+  // The owner branch of every lead subcollection ignored role, so a viewer
+  // who owned a lead could write rows under it while the lead doc refused
+  // them. The full matrix is firestore-rules.test.js 34; these pin the
+  // tenant wall around it: the viewer's own tenant staff can still work the
+  // viewer's lead, another tenant still cannot, and the viewer still reads.
+  // ═══════════════════════════════════════════════════════════
+  await check('viewer: creates a lead',                       'deny',  setDoc(doc(vicA,   'leads/l-vica'),               { userId: 'vica', companyId: 'co-a', name: 'x' }));
+  await check('viewer-owner: adds a task on own lead',        'deny',  setDoc(doc(vicA,   'leads/leadVA/tasks/t1'),      { title: 'x' }));
+  await check('viewer-owner: edits a contract row',           'deny',  updateDoc(doc(vicA,'leads/leadVA/documents/docV'),{ name: 'x' }));
+  await check('viewer-owner: deletes a contract row',         'deny',  deleteDoc(doc(vicA,'leads/leadVA/documents/docV')));
+  await check('viewer: reads a teammate lead (unchanged)',    'allow', getDoc(doc(vicA,   'leads/leadA')));
+  await check('viewer-owner: reads own contract row',         'allow', getDoc(doc(vicA,   'leads/leadVA/documents/docV')));
+  await check('same-tenant manager: task on viewer lead',     'allow', setDoc(doc(eveMgr, 'leads/leadVA/tasks/t2'),      { title: 'follow up' }));
+  await check('cross-tenant manager: task on viewer lead',    'deny',  setDoc(doc(bobMgr, 'leads/leadVA/tasks/t3'),      { title: 'x' }));
+  await check('cross-tenant co_admin: deletes viewer row',    'deny',  deleteDoc(doc(bobCA,'leads/leadVA/documents/docV')));
+  await check('same-tenant co_admin: deletes viewer row',     'allow', deleteDoc(doc(aliceCA,'leads/leadVA/documents/docV')));
 
   // ── Summary ────────────────────────────────────────────────
   const pass = results.filter(r => r.outcome === 'PASS').length;

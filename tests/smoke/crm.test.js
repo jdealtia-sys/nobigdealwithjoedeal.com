@@ -694,8 +694,9 @@ section('Team visibility: lead-activity notes readable across the lead (rules + 
   // author — so a lead owner sees a manager's stage-change note on their lead.
   assert('top-level /notes read is scoped to the parent lead (owner or same-company)',
     /allow read:[\s\S]{0,260}leads\/\$\(resource\.data\.leadId\)[\s\S]{0,140}parentLeadInMyCompany\(resource\.data\.leadId\)/.test(notesBlock));
-  assert('/notes update+delete stay author-only',
-    /allow update, delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(notesBlock));
+  // 2026-09-25 (Jo's decision B): the author must also not be a viewer.
+  assert('/notes update+delete stay author-only (and never a viewer)',
+    /allow update, delete:\s*if \(isOwner\(resource\.data\.userId\) && notViewer\(\)\) \|\| isAdmin\(\);/.test(notesBlock));
 
   // Client: timeline + report note reads query by leadId ONLY (no author
   // filter), so teammates' notes appear; the rule authorizes it.

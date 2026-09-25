@@ -393,7 +393,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               (the Draw crosshair's stylesheet stays inert with its beta
 //               switch off, #1766). MEASURED via --check after rebasing onto
 //               322ccbc7 (#1773); whoever merges last re-measures.
-const FLOORS = { node: 190, smoke: 68, disk: 279 };
+//   2026-09-25  190/68/279 -> 191/68/280, tests/role-gate.test.js (the
+//               viewer role is read-only client-side, #1776). MEASURED via
+//               --check after rebasing onto 4ede37e7 (#1766); whoever
+//               merges last re-measures.
+const FLOORS = { node: 191, smoke: 68, disk: 280 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

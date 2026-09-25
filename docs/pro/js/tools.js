@@ -508,6 +508,8 @@ async function _qaReverseGeocode(lat, lng) {
 }
 
 async function saveQuickLead() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const addr = document.getElementById('qaAddr').value.trim();
   const phone = document.getElementById('qaPhone').value.trim();
   const damage = document.getElementById('qaDamage').value;

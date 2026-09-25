@@ -2478,6 +2478,8 @@ async function searchDraw() {
 // leads/{leadId}/drawings/{drawingId}. Includes version history.
 // ═══════════════════════════════════════════════════════════
 async function saveDrawingToCustomer() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const addr = (document.getElementById('drawSearch')?.value || '').trim();
   if (!addr) {
     showToast('Enter an address first so we can match to a customer', 'error');

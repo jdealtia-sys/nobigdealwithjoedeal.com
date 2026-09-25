@@ -1113,8 +1113,11 @@ section('D2: Storage rules — content-type + size guards');
     /application\/pdf/.test(src) && /openxmlformats-officedocument/.test(src));
   assert('isHtmlOnly applied to portals path',
     /match \/portals\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,300}isHtmlOnly\(\)/.test(src));
-  assert('delete rule requires owner or admin on photos',
-    /match \/photos\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,400}allow delete: if isOwner\(uid\) \|\| isAdmin\(\)/.test(src));
+  // 2026-09-25 (Jo's decision B): owner writes go through ownerWrites(), the
+  // owner check plus "not a viewer"; pin both halves.
+  assert('delete rule requires owner (not a viewer) or admin on photos',
+    /match \/photos\/\{uid\}\/\{allPaths=\*\*\}[\s\S]{0,400}allow delete: if ownerWrites\(uid\) \|\| isAdmin\(\)/.test(src)
+    && /function ownerWrites\(uid\) \{\s*return isOwner\(uid\) && request\.auth\.token\.get\('role', ''\) != 'viewer';/.test(src));
 }
 
 section('D3: leads/*/activity subcollection rules');

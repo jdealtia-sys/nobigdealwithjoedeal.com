@@ -2150,3 +2150,158 @@ test.describe(`CRM mobile layout geometry @${VW}px @shard1`, () => {
   });
 });
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// VIEWER IS READ-ONLY (2026-09-25, Jo's decision B, final):
+//   "The 'viewer' role is READ-ONLY everywhere: a viewer can read what their
+//    company role allows but cannot create, update or delete any tenant data
+//    — including rows under leads they own."
+// The rules side is proven by the rules suites (firestore-rules.test.js 34,
+// the cross-tenant suite I, storage-rules.test.js 29). This pins the CLIENT
+// side, docs/pro/js/role-gate.js, in a real browser on a real viewer
+// session: the write controls are not offered, a blocked control explains
+// itself instead of toggling anything, and a write the rules refuse surfaces
+// "Your role is view-only" instead of failing silently.
+//
+// The viewer is seeded through the admin SDK in a TAGGED throwaway company
+// (emulator mode only; prod runs must never mint accounts) and everything
+// the seed made is deleted in afterAll, by tag as well as by id.
+//
+// Every write this block attempts is one BOTH main's and this branch's rules
+// refuse (a viewer-owner updating their own lead doc, Audit #3 F-1), so it
+// behaves the same on a shared local rig whose rules are main's.
+// ─────────────────────────────────────────────────────────────────────
+test.describe.serial("Viewer role is read-only (Jo's decision B) @shard2", () => {
+  const EMU = /localhost|127\.0\.0\.1/.test(process.env.PLAYWRIGHT_BASE_URL || '')
+    && !!process.env.FIRESTORE_EMULATOR_HOST && !!process.env.FIREBASE_AUTH_EMULATOR_HOST;
+  const TAG = 'e2e-viewer-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6);
+  const CO = 'co-' + TAG;
+  const EMAIL = TAG + '@nbd.test';
+  const PASSWORD = 'nbd-e2e-viewer-pw-1';
+  const LEAD_V = 'lead-' + TAG + '-own';     // owned by the viewer
+  const LEAD_T = 'lead-' + TAG + '-team';    // a teammate's, same tenant
+  const made = [];
+  let uid = null;
+  let adm = null;
+  const VIEW_ONLY_RE = /Your role is view-only/;
+
+  function admin() {
+    if (adm) return adm;
+    const { initializeApp, getApps } = require('firebase-admin/app');
+    const { getAuth } = require('firebase-admin/auth');
+    const { getFirestore } = require('firebase-admin/firestore');
+    if (!getApps().length) initializeApp({ projectId: 'nobigdeal-pro' });
+    adm = { auth: getAuth(), db: getFirestore() };
+    return adm;
+  }
+
+  test.beforeAll(async () => {
+    if (!EMU) return;
+    const { auth, db } = admin();
+    const u = await auth.createUser({ email: EMAIL, password: PASSWORD, emailVerified: true, displayName: 'E2E Viewer' });
+    uid = u.uid;
+    await auth.setCustomUserClaims(uid, { role: 'viewer', companyId: CO });
+    const put = async (p, d) => {
+      made.push(p);
+      await db.doc(p).set(Object.assign({ e2eTestData: true, e2eRun: TAG }, d));
+    };
+    await put('users/' + uid, { firstName: 'E2E', lastName: 'Viewer', email: EMAIL, onboarded: true });
+    await put('subscriptions/' + CO, { plan: 'growth', status: 'active' });
+    await put('companies/' + CO, { name: 'E2E Viewer Roofing', ownerId: 'owner-' + TAG, plan: 'growth', status: 'active' });
+    await put('companyProfile/' + CO, { brand: { legalName: 'E2E Viewer Roofing' } });
+    await put('leads/' + LEAD_V, { userId: uid, companyId: CO, firstName: 'Owned', lastName: 'ByViewer',
+      stage: 'new', jobType: 'insurance', customerId: 'EVR-0001', address: '1 Viewer St' });
+    await put('leads/' + LEAD_T, { userId: 'rep-' + TAG, companyId: CO, firstName: 'Team', lastName: 'Mate',
+      stage: 'new', jobType: 'insurance', customerId: 'EVR-0002', address: '2 Viewer St' });
+    await put('leads/' + LEAD_V + '/tasks/t1', { title: 'Call the adjuster', done: false, userId: uid });
+  });
+
+  test.afterAll(async () => {
+    if (!EMU) return;
+    const { auth, db } = admin();
+    for (const p of made.slice().reverse()) await db.doc(p).delete().catch(() => {});
+    // Anything else stamped with this run's tag, and what the app itself
+    // writes for a signed-in user (settings, rep profile, notifications).
+    for (const coll of ['leads', 'estimates', 'photos', 'notifications']) {
+      const snap = await db.collection(coll).where('e2eRun', '==', TAG).get().catch(() => null);
+      if (snap) for (const d of snap.docs) await d.ref.delete().catch(() => {});
+    }
+    if (uid) {
+      for (const p of ['userSettings/' + uid, 'reps/' + uid]) await db.doc(p).delete().catch(() => {});
+      const n = await db.collection('notifications').where('userId', '==', uid).get().catch(() => null);
+      if (n) for (const d of n.docs) await d.ref.delete().catch(() => {});
+      for (const sub of ['settings', 'preferences', 'fcmTokens']) {
+        const s = await db.collection('users/' + uid + '/' + sub).get().catch(() => null);
+        if (s) for (const d of s.docs) await d.ref.delete().catch(() => {});
+      }
+      await auth.deleteUser(uid).catch(() => {});
+    }
+  });
+
+  test.beforeEach(async ({}, testInfo) => {
+    if (!EMU) testInfo.skip(true, 'viewer journey seeds through the admin SDK: emulator mode only');
+  });
+
+  test('dashboard: no Add Lead, and a write the rules refuse says "view-only"', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await loginAs(page, { email: EMAIL, password: PASSWORD });
+    await safeWaitForFunction(page, () => !!(window._userClaims && window._userClaims.role === 'viewer'), { timeout: 30_000 });
+    await openCrmView(page);
+    await page.waitForSelector('#kanbanBoard .kanban-col', { timeout: 20_000 });
+
+    expect(await safeEvaluate(page, () => document.documentElement.classList.contains('nbd-role-viewer')),
+      '<html> carries the viewer class once claims resolve').toBe(true);
+    await expect(page.locator('#crmAddLeadBtn'), 'Add Lead is not offered to a viewer').toBeHidden();
+    // Both of the viewer's tenant's leads are still READABLE on the board.
+    await expect(page.locator('#kanbanBoard').getByText('ByViewer').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#kanbanBoard').getByText('Mate').first()).toBeVisible();
+
+    // Layer 3, for real: the write reaches the rules, is refused, the caller
+    // still sees the rejection, and the user is told why.
+    const code = await safeEvaluate(page, async (leadId) => {
+      try {
+        await window.updateDoc(window.doc(window.db, 'leads', leadId), { stage: 'contacted' });
+        return 'resolved';
+      } catch (e) { return (e && e.code) || String(e); }
+    }, LEAD_V);
+    expect(code, 'viewer-owner lead update is refused by the rules').toBe('permission-denied');
+    await expect(page.getByText(VIEW_ONLY_RE).first(), 'the refusal is explained').toBeVisible({ timeout: 5_000 });
+    expect(pageErrors, 'role-gate.js and the page load without a thrown error').toEqual([]);
+  });
+
+  test('customer page: write controls hidden; a task click explains and changes nothing', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await loginAs(page, { email: EMAIL, password: PASSWORD });
+    await page.goto('/pro/customer.html?id=' + encodeURIComponent(LEAD_V));
+    await page.waitForFunction(() => {
+      const el = document.getElementById('customerName');
+      return !!el && /ByViewer/.test(el.textContent || '');
+    }, null, { timeout: 45_000 });
+
+    await expect(page.locator('#nbdReadOnlyBanner')).toContainText('Read-only');
+    for (const sel of [
+      '[data-action="openEditCustomerModal"]', '[data-action="openTaskModal"]', '[data-action="openUploadModal"]',
+      '[data-action="openDocCreateModal"]', '[data-action="openEstimateModal"]', '[data-action="openNotesModal"]',
+      '#quickNoteWrap',
+    ]) {
+      const loc = page.locator(sel);
+      const n = await loc.count();
+      for (let i = 0; i < n; i++) await expect(loc.nth(i), sel + ' is not offered to a viewer').toBeHidden();
+    }
+    // Read-only actions stay.
+    await expect(page.locator('[data-action="exportCustomerPDF"]').first()).toBeVisible();
+
+    // The task row stays visible (it is information) but clicking it must
+    // not toggle the task: the capture guard explains instead.
+    const row = page.locator('.nbd-tl-task').first();
+    await expect(row).toBeVisible({ timeout: 15_000 });
+    await row.click();
+    await expect(page.getByText(VIEW_ONLY_RE).first()).toBeVisible({ timeout: 5_000 });
+    await page.waitForTimeout(1_500);
+    const t = await admin().db.doc('leads/' + LEAD_V + '/tasks/t1').get();
+    expect(t.exists && t.data().done, 'the task is still open').toBe(false);
+    expect(pageErrors, 'role-gate.js and the page load without a thrown error').toEqual([]);
+  });
+});

@@ -149,6 +149,8 @@ function _nbdNotify(msg, kind) {
 }
 
 window.uploadDocuments = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   if (window._docUploadQueue.length === 0) return;
   if (!window._customerId) {
     _nbdNotify('Customer ID not found', 'error');
@@ -278,6 +280,8 @@ window.closeNotesModal = function() {
 };
 
 window.saveNote = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const noteText = document.getElementById('noteText').value.trim();
 
   if (!noteText) {
@@ -320,6 +324,8 @@ window.saveNote = async function() {
 // source. On failure, remove the optimistic card + restore the
 // textarea content + toast.
 window.quickAddNote = async function () {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const input  = document.getElementById('quickNoteInput');
   const send   = document.getElementById('quickNoteSend');
   const status = document.getElementById('quickNoteStatus');
@@ -491,6 +497,8 @@ function getTimeAgo(date) {
 // ============================================
 
 window.openEstimateModal = function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   document.getElementById('estimateAmount').value = '';
   document.getElementById('estimateNotes').value = '';
   // onClose clears the working estimate id on any dismiss (mirrors the
@@ -505,6 +513,8 @@ window.closeEstimateModal = function() {
 };
 
 window.saveEstimate = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const type = document.getElementById('estimateType').value;
   const amount = parseFloat(document.getElementById('estimateAmount').value);
   const notes = document.getElementById('estimateNotes').value.trim();

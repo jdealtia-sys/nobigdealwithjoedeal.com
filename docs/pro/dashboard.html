@@ -44,7 +44,7 @@
 <link rel="icon" href="/pro/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
-<link rel="preload" href="js/crm-leads.js?v=2" as="script">
+<link rel="preload" href="js/crm-leads.js?v=3" as="script">
 <link rel="preload" href="js/crm-pipeline.js?v=5" as="script">
 <link rel="modulepreload" href="js/stage-write.js">
 <link rel="preload" href="js/crm-snooze.js?v=2" as="script">
@@ -94,6 +94,12 @@
      and feature modules so subscribers can register on first paint.
      See docs/pro/js/state-store.js. -->
 <script src="js/state-store.js?v=1"></script>
+<!-- 2026-09-25: the viewer role is read-only (Jo's decision B). role-gate.js
+     hides write controls for a viewer and makes a refused write say so. Must
+     stay BEFORE dashboard-bootstrap.module.js (deferred scripts and modules
+     run in document order): it installs the accessors the bootstrap then
+     assigns window._userClaims / window.addDoc through. -->
+<script defer src="js/role-gate.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
 <script src="js/script-loader.js?v=10"></script>
 <!-- nbdModal — canonical .modal-bg/.modal open/close/confirm helper.
@@ -5714,7 +5720,7 @@
 <script defer src="js/estimate-preview.js?v=2"></script>
 <script defer src="js/dashboard-widgets.js?v=6"></script>
 <script defer src="js/dashboard-ui.js?v=9"></script>
-<script defer src="js/dashboard-actions.js?v=12"></script>
+<script defer src="js/dashboard-actions.js?v=13"></script>
 <script defer src="js/dashboard-main.js?v=6"></script>
 
 <!-- DOC VIEWER MODAL -->
@@ -6554,7 +6560,7 @@
 <script defer src="js/roof-report.js?v=2"></script>
 <script defer src="js/property-intel.js?v=6"></script>
 <!-- LAZY: warranty-cert (docs view wizard) loaded via ScriptLoader -->
-<script defer src="js/tools.js?v=7"></script>
+<script defer src="js/tools.js?v=8"></script>
 <!-- ALL scripts use defer for consistent load ordering.
      Defer scripts execute in document order after DOM ready.
      The loading spinner covers the gap. billing-gate and
@@ -6574,7 +6580,7 @@
      All four split files run BEFORE the shim so the long sweep
      of window.* exports in the shim can reach functions defined
      in the split files via classic-script sibling-scope globals. -->
-<script defer src="js/crm-leads.js?v=2"></script>
+<script defer src="js/crm-leads.js?v=3"></script>
 <script defer src="js/crm-pipeline.js?v=5"></script>
 <script defer src="js/crm-snooze.js?v=2"></script>
 <!-- FCM Web Push token registration — registers the messaging SW, mints a
@@ -6586,7 +6592,7 @@
 <script defer src="js/crm-portal-bridge.js?v=4"></script>
 <script defer src="js/crm.js?v=34"></script>
 <script defer src="js/crm-list-view.js?v=7"></script>
-<script defer src="js/tasks.js?v=5"></script>
+<script defer src="js/tasks.js?v=6"></script>
 <script defer src="js/notif-bell.js?v=3"></script>
 <script defer src="js/buying-intent-strike.js?v=2"></script>
 <script defer src="js/lead-dedup.js?v=2"></script>
@@ -6630,7 +6636,7 @@
 <script defer src="js/sms-outbox.js?v=1"></script>
 <script defer src="js/stage-checklist.js?v=1"></script>
 <script defer src="js/paperwork-write.js?v=1"></script>
-<script defer src="js/warranty-claim.js?v=2"></script>
+<script defer src="js/warranty-claim.js?v=3"></script>
 <!-- Insurance Details panel reuse (mobile Details tab) — ClaimPanel.render
      is container-agnostic; not loaded on this page before. -->
 <script defer src="js/claim-core.js?v=2"></script>

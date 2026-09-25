@@ -53,6 +53,11 @@
      customer page paints from cache in <50ms instead of waiting
      on a Firestore round-trip. See docs/pro/js/idb-cache.js. -->
 <script defer src="js/idb-cache.js?v=1"></script>
+<!-- 2026-09-25: the viewer role is read-only (Jo's decision B). role-gate.js
+     hides write controls for a viewer and makes a refused write say so. Must
+     stay BEFORE customer-bootstrap.module.js: it installs the accessors the
+     bootstrap then assigns window._userClaims / window.addDoc through. -->
+<script defer src="js/role-gate.js?v=1"></script>
 <script defer src="js/standalone-compat.js"></script>
 <!-- The ONE vocabulary for /photos.damageType (window.NBD_PHOTO_DAMAGE).
      Four surfaces wrote this field in four spellings until 2026-09-08, so
@@ -2539,7 +2544,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      before the modal-consuming scripts below. -->
 <script defer src="js/nbd-modal.js?v=1"></script>
 <script defer src="js/estimate-preview.js?v=2"></script>
-<script defer src="js/customer-photo-report-generator.js?v=3"></script>
+<script defer src="js/customer-photo-report-generator.js?v=4"></script>
 <!-- Retail line-item derivation for the portal estimate export — pre-sweep V2
      docs persist the internal COST basis in rows[].rate/total; this maps them
      to customer prices (exportCustomerEstimate fails closed without it). -->
@@ -2551,15 +2556,15 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/deposit-rule.js?v=1"></script>
 <script defer src="js/booking-events.js?v=2"></script>
 <script defer src="js/customer-quick-actions.js?v=1"></script>
-<script type="module" src="js/customer-bootstrap.module.js?v=5"></script>
+<script type="module" src="js/customer-bootstrap.module.js?v=6"></script>
 
 
-<script defer src="js/customer-tasks-ui.js?v=6"></script>
+<script defer src="js/customer-tasks-ui.js?v=7"></script>
 <script defer src="js/nbd-comms.js?v=3"></script>
 <script defer src="js/sms-outbox.js?v=1"></script>
 <script defer src="js/stage-checklist.js?v=1"></script>
 <script defer src="js/paperwork-write.js?v=1"></script>
-<script defer src="js/warranty-claim.js?v=2"></script>
+<script defer src="js/warranty-claim.js?v=3"></script>
 <script defer src="js/nbd-input-guards.js?v=1"></script>
 <script defer src="js/email_system.js?v=2"></script>
 <script defer src="js/customer-gallery-share.js?v=2"></script>
@@ -2568,8 +2573,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      Reads leads/{leadId}/documents and publishes window.loadDocuments, which
      the bootstrap calls from loadCustomerData once the lead resolves. Must
      load before the upload modules that call NBDCustomerDocs.refresh(). -->
-<script defer src="js/customer-documents.js?v=3"></script>
-<script defer src="js/customer-signed-doc-upload.js?v=2"></script>
+<script defer src="js/customer-documents.js?v=4"></script>
+<script defer src="js/customer-signed-doc-upload.js?v=3"></script>
 <script defer src="js/customer-portal.js?v=4"></script>
 <script defer src="js/clipboard-fix.js?v=2"></script>
 <!-- PR 2b3: html2pdf is LAZY — NBDDocViewer.handlePdf loads the `pdfexport`
@@ -2608,7 +2613,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/claim-core.js?v=3"></script>
 <script defer src="js/insurance-claim.js?v=5"></script>
 <script defer src="js/offline-manager.js?v=6"></script>
-<script defer src="js/customer-dnd-upload.js?v=2"></script>
+<script defer src="js/customer-dnd-upload.js?v=3"></script>
 <script defer src="js/customer-quick-action-bar.js?v=3"></script>
 <!-- Wave 35/36: lead-snooze must load before the banner since the
      banner reads window.LeadSnooze on init. -->
@@ -2792,7 +2797,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   </div>
 </div>
 
-<script defer src="js/customer-edit-modal.js?v=2"></script>
+<script defer src="js/customer-edit-modal.js?v=3"></script>
 
 <!-- ═══════════════════════════════════════════════════════════════
      Voice Intelligence mount (C4)

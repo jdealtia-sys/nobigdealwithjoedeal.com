@@ -253,6 +253,8 @@
     ev.preventDefault();
     dragDepth = 0;
     hideOverlay();
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return;
     const dt = ev.dataTransfer;
     const files = dt && dt.files ? Array.from(dt.files) : [];
     if (files.length === 0) return;

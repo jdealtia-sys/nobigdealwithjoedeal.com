@@ -150,11 +150,11 @@
       // _mountDocumentsHub) reads leads/{id}/documents through this same
       // store customer.html uses — one reader, not a second copy of the
       // fetch/normalize logic. Version matches customer.html's own tag.
-      'js/customer-documents.js?v=2',
+      'js/customer-documents.js?v=4',
       // Same tab's "scan/upload a signed document" rows (2026-09-17) —
       // uploadSignedDoc/handleSignedDocUpload are the exact functions
       // customer.html's Documents tab uses; no second upload path.
-      'js/customer-signed-doc-upload.js?v=2'
+      'js/customer-signed-doc-upload.js?v=3'
     ],
     // Estimate engine (PR 2c). The revenue-critical builder + its product/
     // catalog data. Only needed when the rep builds an estimate, opens the
@@ -196,7 +196,7 @@
       'js/estimate-builder-v2.js?v=7',
       'js/estimate-catalog-xactimate.js?v=3',
       'js/estimate-logic-engine.js?v=6',
-      'js/estimates.js?v=8',
+      'js/estimates.js?v=9',
       // Rock 2 PR 6: the New-Estimate front door (chooser) split out of
       // estimates.js. Loads after it — showNewEstimateChooser falls back to
       // estimates.js's showEstimateTypeSelector when V2 is missing.
@@ -229,7 +229,7 @@
       'css/upgrade-price-settings.css?v=1',
       'js/upgrade-library.js?v=1',
       'js/upgrade-pricing.js?v=2',
-      'js/upgrade-price-settings.js?v=1'
+      'js/upgrade-price-settings.js?v=2'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the
@@ -349,7 +349,7 @@
     // the JS builds it. This file's own ?v re-bumped 9 -> 10.
     drawtool: [
       'js/draw-geom.js?v=2',
-      'js/maps-routing.js?v=6',
+      'js/maps-routing.js?v=7',
       'css/draw-reticle.css?v=1',
       'js/draw-reticle.js?v=1'
     ],

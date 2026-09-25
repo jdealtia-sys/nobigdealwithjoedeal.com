@@ -5,6 +5,12 @@
 owner included. A scripted audit of every rule in `firestore.rules` found no
 third case. Fixed on branch `fix/rules-subcollection-delete` (PR #1771).
 
+> **Superseded in part 2026-09-25 (later the same day).** Who may delete
+> these rows changed after this note: managers no longer hard-delete them and
+> a viewer-owner writes nothing (Jo's rulings, see Open product calls below
+> and [ROLE-TIGHTENING-2026-09-25](ROLE-TIGHTENING-2026-09-25.md)). The
+> "who can delete" lines further down describe #1771 as merged.
+
 > **Corrected 2026-09-25 (review fixup, same PR).** The first draft said that
 > once a lead is hard-deleted, no client can reach the rows left under it, and
 > that viewers are refused. Both were wrong as stated. Rows under a deleted
@@ -190,6 +196,15 @@ confirmed the rig kept origin/main's rules.
   now sweeps the claims when the callable deletes the lead.
 
 ## Open product calls (for Jo)
+
+> **Decided 2026-09-25 (both).** Jo ruled on both calls below the same day:
+> hard delete of these rows is the lead's owner or a company_admin of its
+> tenant (managers keep create/update and the soft delete), and the viewer
+> role is read-only everywhere, a viewer-owner included. Both are enforced
+> by `fix/rules-viewer-readonly`, and the two §28d lines this note says to
+> flip were flipped there. Decisions quoted, before/after table and
+> break-tests: [ROLE-TIGHTENING-2026-09-25](ROLE-TIGHTENING-2026-09-25.md).
+> The text below is the question as it stood before the ruling.
 
 These are not defects. The PR matched delete to the existing writer set, as its
 brief required, and each point below already held for create and update

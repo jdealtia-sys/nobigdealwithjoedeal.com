@@ -487,7 +487,10 @@ async function loadCustomerData(id) {
     // would burn a tenant ID in the counter transaction and then fail
     // the updateDoc, leaving permanent NBD-XXXX gaps.
     const _cidClaims = window._userClaims || {};
-    const _cidCanWrite = lead.userId && window._user && (
+    // 2026-09-25 (Jo's decision B): a viewer who OWNS the lead passed the
+    // owner check below and burned a number: the counter write succeeded and
+    // the lead stamp was refused. Now both are refused, so skip the mint.
+    const _cidCanWrite = lead.userId && window._user && (_cidClaims.role || '') !== 'viewer' && (
       lead.userId === window._user.uid
       || (['company_admin', 'manager'].includes(_cidClaims.role || '')
           && !!_cidClaims.companyId && lead.companyId === _cidClaims.companyId)
@@ -2175,6 +2178,8 @@ document.addEventListener('keydown', (e) => {
 //     state + the visible button/label in place, the way every other save
 //     on this page already works.
 window.progressStage = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const lead = window._currentLead || window._leadDoc || {};
   const current = window._currentStage || lead.stage || 'new';
   const next = _nextStageFor({ ...lead, stage: current });
@@ -2488,6 +2493,8 @@ window.isSupportedImageFile = isSupportedImageFile;
 // Call initialization when modal is opened
 const originalOpenUploadModal = window.openUploadModal;
 window.openUploadModal = function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   originalOpenUploadModal();
   initPhotoUploadHandlers();
 };
@@ -2767,6 +2774,8 @@ function _uploadFailureReason(error) {
 }
 
 window.uploadPhotos = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   // One batch at a time: a second loop over the same queue would send every
   // photo twice. (The button is disabled while busy; this guards any other
   // caller.)

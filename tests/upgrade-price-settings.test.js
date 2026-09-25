@@ -584,7 +584,9 @@ test('the gate matches firestore.rules cpCanWrite, not a guess', () => {
   const m = /function cpCanWrite\(\) \{\s*return ([\s\S]*?);\s*\}/.exec(rules);
   truthy(m, 'cpCanWrite not found in firestore.rules');
   const body = m[1].replace(/\s+/g, ' ').trim();
-  eq(body, 'isAdmin() || companyId == request.auth.uid || (isCompanyAdmin() && companyId == myCompanyId())', 'rule body (update canEdit if this changes)');
+  // 2026-09-25: the solo branch gained notViewer() (Jo's decision B); canEdit
+  // mirrors it with an explicit viewer refusal (the 'viewer' case above).
+  eq(body, 'isAdmin() || (companyId == request.auth.uid && notViewer()) || (isCompanyAdmin() && companyId == myCompanyId())', 'rule body (update canEdit if this changes)');
 });
 
 console.log('\n' + passed + ' passed, ' + failed + ' failed');

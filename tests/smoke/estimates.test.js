@@ -399,8 +399,9 @@ section('Team visibility: estimates readable by company_admin/manager (rules + c
   assert('estimates rule grants isCompanyReader a company-scoped read',
     /allow read:[\s\S]{0,240}isCompanyReader\(\)[\s\S]{0,160}resource\.data\.companyId == myCompanyId\(\)/.test(estBlock));
   // Delete stays owner-only (not widened with read).
-  assert('estimates delete stays owner-only',
-    /allow delete:\s*if isOwner\(resource\.data\.userId\) \|\| isAdmin\(\);/.test(estBlock));
+  // 2026-09-25 (Jo's decision B): and the owner must not be a viewer.
+  assert('estimates delete stays owner-only (and never a viewer)',
+    /allow delete:\s*if \(isOwner\(resource\.data\.userId\) && notViewer\(\)\) \|\| isAdmin\(\);/.test(estBlock));
   // Create pins companyId to the caller's tenant (no cross-tenant injection).
   assert('estimates create pins companyId to the caller tenant',
     /allow create:[\s\S]{0,240}request\.resource\.data\.companyId == request\.auth\.token\.get\(\s*['"]companyId['"]/.test(estBlock));

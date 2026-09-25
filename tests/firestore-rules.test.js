@@ -759,8 +759,15 @@ async function run() {
   // ❌ a rep cannot scan another tenant's spend
   await assertFails(getDocs(query(collection(bob, 'expenses'),
     where('companyId', '==', 'co-a'), orderBy('date', 'desc'), limit(50))));
-  // viewer can create (matches /leads) but is read-only thereafter
-  await assertSucceeds(setDoc(doc(viewer, 'expenses/exp-vic'), expDoc('vic', 'co-v', null, 'Lowes')));
+  // ❌ a viewer cannot create one either (2026-09-25, Jo's decision B: viewer
+  // is read-only everywhere). This line used to pin the create as ALLOWED,
+  // "matches /leads", and /leads create now refuses a viewer too (34 below).
+  await assertFails(setDoc(doc(viewer, 'expenses/exp-vic'), expDoc('vic', 'co-v', null, 'Lowes')));
+  // The update/delete denials below need a real row to refuse, or they would
+  // pass on "no such doc" instead of on the role. Seed it with rules off.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'expenses/exp-vic'), expDoc('vic', 'co-v', null, 'Lowes'));
+  });
   // ❌ a viewer cannot mutate or delete (read-only role)
   await assertFails(updateDoc(doc(viewer, 'expenses/exp-vic'), { amountCents: 999 }));
   await assertFails(deleteDoc(doc(viewer, 'expenses/exp-vic')));
@@ -1065,8 +1072,17 @@ async function run() {
   // Delete is now its own line with exactly the create/update writer check:
   // the lead owner, or company_admin/manager in the parent lead's tenant.
   // The denials pin that it was not widened past that.
+  //
+  // 2026-09-25, Jo's decisions on the #1771 review (final): (A) hard delete is
+  // the set that can delete the LEAD, i.e. the owner or a company_admin of the
+  // lead's tenant, so a manager is now refused the delete (create/update and
+  // the deleted:true soft delete stay); (B) a viewer writes nothing, so the
+  // viewer-owner lines at the end of this block flipped from allowed to denied.
   const repA2    = env.authenticatedContext('ray', { role: 'sales_rep', companyId: 'co-a' }).firestore();
   const coAdminB = env.authenticatedContext('cob', { role: 'company_admin', companyId: 'co-b' }).firestore();
+  // Staff of co-v, the tenant of the viewer-owned lead leadV (2026-09-25).
+  const mgrV     = env.authenticatedContext('vmgr', { role: 'manager', companyId: 'co-v' }).firestore();
+  const coAdminV = env.authenticatedContext('vca',  { role: 'company_admin', companyId: 'co-v' }).firestore();
   // A homeowner has no rules-level identity: the portal reaches lead data only
   // through token-checked Cloud Functions (admin SDK). The most a homeowner's
   // browser can hold is an anonymous Auth session. This one even carries
@@ -1104,31 +1120,46 @@ async function run() {
     await assertFails(deleteDoc(doc(bob,       p('del-owner'))));   // other tenant, rep
     await assertFails(deleteDoc(doc(anon,      p('del-owner'))));   // signed out
     await assertFails(deleteDoc(doc(homeowner, p('del-owner'))));   // homeowner / portal session
-    // ✅ the owner, and same-tenant company_admin + manager (the set that can
-    //    already create and update these rows).
+    // ✅ the owner and a same-tenant company_admin: the set that can delete
+    //    the lead itself (decision A).
     await assertSucceeds(deleteDoc(doc(alice,   p('del-owner'))));
-    await assertSucceeds(deleteDoc(doc(mgrA,    p('del-mgr'))));
     await assertSucceeds(deleteDoc(doc(coAdmin, p('del-ca'))));
-    // …and the rows are really gone.
-    for (const id of ['del-owner', 'del-mgr', 'del-ca']) {
+    // ❌ a same-tenant MANAGER no longer hard-deletes (decision A)…
+    await assertFails(deleteDoc(doc(mgrA, p('del-mgr'))));
+    // …✅ but still creates, updates, and soft-deletes (deleted:true is an
+    //    update), exactly as before.
+    await assertSucceeds(setDoc(doc(mgrA, p('mgr-created')),
+      sub === 'documents' ? { name: 'mgr.html', status: 'draft' } : { status: 'open', reason: 'workmanship' }));
+    await assertSucceeds(updateDoc(doc(mgrA, p('del-mgr')), { note: 'manager edit' }));
+    await assertSucceeds(updateDoc(doc(mgrA, p('del-mgr')), { deleted: true }));
+    // …and the rows are really gone, except the one the manager could not
+    // delete, which is still there, soft-deleted.
+    for (const id of ['del-owner', 'del-ca']) {
       assert.strictEqual((await getDoc(doc(alice, p(id)))).exists(), false, sub + '/' + id + ' should be deleted');
     }
+    const mgrRow = await getDoc(doc(alice, p('del-mgr')));
+    assert.strictEqual(mgrRow.exists(), true, sub + '/del-mgr must survive the manager delete');
+    assert.strictEqual(mgrRow.data().deleted, true, sub + '/del-mgr should carry the soft delete');
     // Legacy lead (no companyId): the owner deletes, a same-company manager
     // cannot, since the tenant clause needs a companyId on the parent.
     await assertFails(deleteDoc(doc(mgrA, 'leads/leadA/' + sub + '/del-legacy')));
     await assertSucceeds(deleteDoc(doc(alice, 'leads/leadA/' + sub + '/del-legacy')));
-    // A VIEWER who owns the lead passes the owner branch, so delete admits
-    // them exactly as create/update always have (2026-09-25 fixup, review of
-    // #1771). Pinned on purpose, and it is not the lead doc's own rule, which
-    // bars a viewer-owner from update/delete (23, Audit #3 F-1). "Viewers are
-    // refused" above holds only for viewers who do not own the lead. Making a
-    // viewer-owner read-only here is one change across every lead
-    // subcollection's create/update AND delete (tasks, notes, drawings,
-    // documents, claims): narrowing delete alone closes nothing, because a
-    // viewer-owner who can `set` a row can already blank it. Flip both lines
-    // together when that lands.
-    await assertSucceeds(updateDoc(doc(viewer, 'leads/leadV/' + sub + '/del-vowner'), { note: 'x' }));
-    await assertSucceeds(deleteDoc(doc(viewer, 'leads/leadV/' + sub + '/del-vowner')));
+    // A VIEWER who owns the lead. #1771's fixup pinned these two lines as
+    // ALLOWED (the owner branch ignored role) and said to flip both together
+    // once a viewer-owner became read-only across every lead subcollection.
+    // Decision B (2026-09-25) is that change: both are now DENIED, like the
+    // lead doc itself (23, Audit #3 F-1). The 34 block below covers the other
+    // subcollections.
+    const vrow = 'leads/leadV/' + sub + '/del-vowner';
+    await assertFails(updateDoc(doc(viewer, vrow), { note: 'x' }));
+    await assertFails(deleteDoc(doc(viewer, vrow)));
+    // Controls on the same viewer-owned lead, so the two denials above can only
+    // be the role: the lead's tenant manager can still update the row (and not
+    // hard-delete it, decision A); its company_admin can delete it.
+    await assertSucceeds(updateDoc(doc(mgrV, vrow), { note: 'staff edit' }));
+    await assertFails(deleteDoc(doc(mgrV, vrow)));
+    await assertSucceeds(deleteDoc(doc(coAdminV, vrow)));
+    assert.strictEqual((await getDoc(doc(coAdminV, vrow))).exists(), false, vrow + ' should be deleted');
     // Parent lead already hard-deleted: while it is absent the owner check
     // (which reads the lead) fails for every caller, the old owner included.
     // That does not make the row private: any signed-in user may create a
@@ -1486,6 +1517,210 @@ async function run() {
   // …and a member cannot write a lead into ANOTHER tenant either (the same
   // clause, failing in the other direction).
   await assertFails(setDoc(doc(alice, 'leads/g12-foreign'), guardDoc.leads('alice', 'co-b')));
+
+  // 34. VIEWER IS READ-ONLY EVERYWHERE (2026-09-25, Jo's decision B, final):
+  //   "The 'viewer' role is READ-ONLY everywhere: a viewer can read what their
+  //    company role allows but cannot create, update or delete any tenant data
+  //    — including rows under leads they own."
+  // Found by #1771's review: a viewer who OWNED a lead could write every row
+  // under it while the lead doc itself refused them, and could create leads,
+  // estimates, photos, invoices, ... outright. firestore.rules now ANDs
+  // notViewer() into every tenant-data write. The table of paths is in
+  // documentation/audit/ROLE-TIGHTENING-2026-09-25.md.
+  //
+  // Every ❌ for the viewer is paired with a ✅ for a sales_rep doing the same
+  // write with the same payload on their OWN data in the same tenant, so a
+  // viewer denial can only be the role (not a bad payload, not a missing doc).
+  // The viewer OWNS every row it is refused on.
+  //
+  // COLLECT-ALL, unlike the rest of this file: each check records instead of
+  // throwing, and the block fails once at the end listing every label that
+  // went the wrong way. That is what lets a break-test (strip notViewer() from
+  // one rule) show exactly which assertions a given rule carries.
+  const s34Fail = [];
+  let s34Pass = 0;
+  async function x34(label, want, promise) {
+    try {
+      if (want === 'deny') await assertFails(promise); else await assertSucceeds(promise);
+      s34Pass++;
+    } catch (e) {
+      s34Fail.push(label + ' (wanted ' + want + ')');
+    }
+  }
+  const CO = 'co-x';
+  // Viewer and rep carry an email claim for /emails (sentBy == token.email).
+  const vx   = env.authenticatedContext('vx',  { role: 'viewer',        companyId: CO, email: 'vx@x.test' }).firestore();
+  const rx   = env.authenticatedContext('rx',  { role: 'sales_rep',     companyId: CO, email: 'rx@x.test' }).firestore();
+  const mx   = env.authenticatedContext('mx',  { role: 'manager',       companyId: CO }).firestore();
+  const cax  = env.authenticatedContext('cax', { role: 'company_admin', companyId: CO }).firestore();
+  const sx   = env.authenticatedContext('sx34', {}).firestore();                 // true solo: no role, no companyId
+  const dx   = env.authenticatedContext('dx34', { companyId: 'co-dx' }).firestore(); // no role, has a companyId
+  const ctxOf = { vx, rx };
+  const LEAD = { vx: 'leadVX', rx: 'leadRX' };
+
+  // Owner-scoped TOP-LEVEL collections: payload for a create by `uid`, and a
+  // payload for an update that is otherwise legal for the owner.
+  const top = {
+    estimates:         { mk: (u) => ({ userId: u, companyId: CO, total: 100 }),                  upd: { note: 'x' } },
+    supplements:       { mk: (u) => ({ userId: u, parentEstimateId: 'e1', version: 1 }),          upd: { note: 'x' } },
+    expenses:          { mk: (u) => expDoc(u, CO, null, 'Lowes'),                                 upd: { amountCents: 500 } },
+    recurringExpenses: { mk: (u) => ({ userId: u, companyId: CO, amountCents: 5000, costType: 'overhead' }), upd: { amountCents: 6000 } },
+    suppliers:         { mk: (u) => ({ userId: u, companyId: CO, displayName: 'Supply' }),        upd: { displayName: 'Supply 2' } },
+    photos:            { mk: (u) => ({ userId: u, companyId: CO, url: 'p/x.jpg' }),               upd: { caption: 'x' } },
+    pins:              { mk: (u) => ({ userId: u, companyId: CO, lat: 39.1, lng: -84.5 }),        upd: { note: 'x' } },
+    zones:             { mk: (u) => ({ userId: u, companyId: CO, name: 'Zone' }),                 upd: { name: 'Zone 2' } },
+    drawings:          { mk: (u) => ({ userId: u, leadId: '_unlinked_' + u, version: 1 }),        upd: { version: 2 } },
+    tasks:             { mk: (u) => ({ userId: u, title: 'Call back' }),                          upd: { done: true } },
+    communications:    { mk: (u) => ({ userId: u, leadId: LEAD[u], type: 'call' }),               upd: { note: 'x' } },
+    documents:         { mk: (u) => ({ userId: u, name: 'doc.pdf' }),                             upd: { name: 'doc2.pdf' } },
+    knocks:            { mk: (u) => ({ userId: u, companyId: CO, outcome: 'not_home' }),          upd: { outcome: 'interested' } },
+    territories:       { mk: (u) => ({ userId: u, companyId: CO, name: 'Terr' }),                 upd: { name: 'Terr 2' } },
+    products:          { mk: (u) => ({ userId: u, name: 'Shingle' }),                             upd: { name: 'Shingle 2' } },
+    templates:         { mk: (u) => ({ userId: u, name: 'Tpl' }),                                 upd: { name: 'Tpl 2' } },
+    invoices:          { mk: (u) => ({ createdBy: u, companyId: CO, totalCents: 1000 }),          upd: { status: 'paid' } },
+    drip_queue:        { mk: (u) => ({ userId: u, leadId: LEAD[u], step: 1 }),                    upd: { step: 2 } },
+    lead_documents:    { mk: (u) => ({ userId: u, leadId: LEAD[u], name: 'x.pdf' }),              upd: { name: 'y.pdf' } },
+    referrals:         { mk: (u) => ({ userId: u, code: 'R1' }),                                  upd: { code: 'R2' }, noDelete: true }, // delete is admin-only for everyone
+    review_requests:   { mk: (u) => ({ userId: u, leadId: LEAD[u] }),                             upd: { status: 'sent' }, noDelete: true }, // same
+    reports:           { mk: (u) => ({ userId: u, companyId: CO, kind: 'summary' }),              upd: null },   // update is admin-only for everyone
+    deal_rooms:        { mk: (u) => ({ userId: u, leadId: LEAD[u] }),                             upd: { tier: 'better' } },
+    ml_training_data:  { mk: (u) => ({ userId: u, polygon: [] }),                                 upd: null, noDelete: true }, // update/delete admin-only
+  };
+  // Lead SUBCOLLECTIONS, written under a lead each actor OWNS.
+  const sub = {
+    tasks:          { mk: () => ({ title: 't' }),                                  upd: { done: true } },
+    notes:          { mk: () => ({ text: 'n' }),                                   upd: { text: 'n2' } },
+    drawings:       { mk: () => ({ shapes: [] }),                                  upd: { shapes: [1] } },
+    documents:      { mk: () => ({ name: 'c.html', status: 'draft' }),             upd: { status: 'sent' } },
+    warrantyClaims: { mk: () => ({ status: 'open', reason: 'workmanship' }),       upd: { status: 'scheduled' } },
+    signatures:     { mk: () => ({ png: 'data:image/png;base64,iVBORw0KGgo=' }),   upd: { png: 'data:image/png;base64,AAAA' } },
+  };
+
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const u of ['vx', 'rx']) {
+      await setDoc(doc(db, 'leads/' + LEAD[u]), { userId: u, companyId: CO, name: u + ' lead' });
+      for (const [c, d] of Object.entries(top)) await setDoc(doc(db, c + '/s34-' + u), d.mk(u));
+      for (const [s, d] of Object.entries(sub)) await setDoc(doc(db, 'leads/' + LEAD[u] + '/' + s + '/s34'), d.mk());
+      await setDoc(doc(db, 'leads/' + LEAD[u] + '/ai_drafts/s34'), { userId: u, leadId: LEAD[u], status: 'pending', draftText: 'hi' });
+      await setDoc(doc(db, 'notes/s34-' + u), { userId: u, leadId: LEAD[u], text: 'note' });
+      await setDoc(doc(db, 'counters/s34-' + u), { next: 5 });
+      await setDoc(doc(db, 'notifications/s34-' + u), { userId: u, read: false });
+    }
+    // Staff fixtures on the rep's lead, for the other-roles-unchanged block.
+    await setDoc(doc(db, 'leads/leadRX/documents/s34-ca'), { name: 'ca.html', status: 'signed' });
+    await setDoc(doc(db, 'leads/leadRX/documents/s34-mgr'), { name: 'mgr.html', status: 'signed' });
+    // A companies doc that names the viewer as ownerId (e.g. one squatted
+    // before this change), for the update/delete denials.
+    await setDoc(doc(db, 'companies/s34-vxco'), { ownerId: 'vx', plan: 'free', name: 'V Co' });
+  });
+
+  // ── Lead doc: create (new), and update/delete of the lead the viewer owns.
+  await x34('leads create: viewer',     'deny',  setDoc(doc(vx, 'leads/s34-new-vx'), { userId: 'vx', companyId: CO, name: 'n' }));
+  await x34('leads create: rep',        'allow', setDoc(doc(rx, 'leads/s34-new-rx'), { userId: 'rx', companyId: CO, name: 'n' }));
+  await x34('leads update: viewer-owner', 'deny', updateDoc(doc(vx, 'leads/leadVX'), { stage: 'contacted' }));
+  await x34('leads update: rep-owner',  'allow', updateDoc(doc(rx, 'leads/leadRX'), { stage: 'contacted' }));
+
+  // ── Every lead subcollection, on the lead the actor owns.
+  for (const u of ['vx', 'rx']) {
+    const want = u === 'vx' ? 'deny' : 'allow';
+    const who = u === 'vx' ? 'viewer-owner' : 'rep-owner';
+    const db = ctxOf[u];
+    const L = 'leads/' + LEAD[u] + '/';
+    for (const [s, d] of Object.entries(sub)) {
+      await x34(s + ' create: ' + who, want, setDoc(doc(db, L + s + '/s34-new'), d.mk()));
+      await x34(s + ' update: ' + who, want, updateDoc(doc(db, L + s + '/s34'), d.upd));
+      await x34(s + ' delete: ' + who, want, deleteDoc(doc(db, L + s + '/s34')));
+    }
+    await x34('activity create: ' + who, want, setDoc(doc(db, L + 'activity/s34-new'),
+      { userId: u, source: 'rep', type: 'note', text: 'x' }));
+    await x34('ai_drafts update: ' + who, want, updateDoc(doc(db, L + 'ai_drafts/s34'),
+      { status: 'dismissed', dismissedAt: 1 }));
+  }
+
+  // ── Every owner-scoped top-level collection, on the actor's own row.
+  for (const u of ['vx', 'rx']) {
+    const want = u === 'vx' ? 'deny' : 'allow';
+    const who = u === 'vx' ? 'viewer' : 'rep';
+    const db = ctxOf[u];
+    for (const [c, d] of Object.entries(top)) {
+      await x34(c + ' create: ' + who, want, setDoc(doc(db, c + '/s34-new-' + u), d.mk(u)));
+      if (d.upd) await x34(c + ' update: ' + who + '-owner', want, updateDoc(doc(db, c + '/s34-' + u), d.upd));
+      if (!d.noDelete) await x34(c + ' delete: ' + who + '-owner', want, deleteDoc(doc(db, c + '/s34-' + u)));
+    }
+    // Flat /notes: create checks the PARENT lead; update/delete the author.
+    await x34('notes(flat) create: ' + who, want, setDoc(doc(db, 'notes/s34-new-' + u), { userId: u, leadId: LEAD[u], text: 'x' }));
+    await x34('notes(flat) update: ' + who + '-author', want, updateDoc(doc(db, 'notes/s34-' + u), { text: 'y' }));
+    await x34('notes(flat) delete: ' + who + '-author', want, deleteDoc(doc(db, 'notes/s34-' + u)));
+    // /emails: the sent log, keyed to the token email.
+    await x34('emails create: ' + who, want, setDoc(doc(db, 'emails/s34-' + u), { sentBy: u + '@x.test', sentByUid: u, to: 'h@x.test' }));
+    // /counters: the customer-id mint (create at 1, then +1).
+    await x34('counters create: ' + who, want, setDoc(doc(db, 'counters/s34-new-' + u), { next: 1 }));
+    await x34('counters update: ' + who, want, updateDoc(doc(db, 'counters/s34-' + u), { next: 6 }));
+  }
+
+  // ── uid-keyed tenant docs a viewer could previously write under its OWN uid
+  //    (companyProfile/catalogCosts "solo" branch, companies squat). The
+  //    control is a true solo, whose uid-keyed doc is its real tenant doc.
+  await x34('companyProfile/{own uid} create: viewer', 'deny',  setDoc(doc(vx, 'companyProfile/vx'), { companyName: 'V' }));
+  await x34('companyProfile/{own uid} create: solo',   'allow', setDoc(doc(sx, 'companyProfile/sx34'), { companyName: 'S' }));
+  await x34('catalogCosts/{own uid} write: viewer',    'deny',  setDoc(doc(vx, 'catalogCosts/vx'), { costs: {} }));
+  await x34('catalogCosts/{own uid} write: solo',      'allow', setDoc(doc(sx, 'catalogCosts/sx34'), { costs: {} }));
+  await x34('companies/{own uid} create: viewer',      'deny',  setDoc(doc(vx, 'companies/vx'), { ownerId: 'vx', plan: 'free' }));
+  await x34('companies/{own uid} create: solo',        'allow', setDoc(doc(sx, 'companies/sx34'), { ownerId: 'sx34', plan: 'free' }));
+  await x34('companies (viewer is ownerId) update: viewer', 'deny',  updateDoc(doc(vx, 'companies/s34-vxco'), { name: 'x' }));
+  await x34('companies (viewer is ownerId) delete: viewer', 'deny',  deleteDoc(doc(vx, 'companies/s34-vxco')));
+  await x34('companies (solo is ownerId) update: solo',     'allow', updateDoc(doc(sx, 'companies/sx34'), { name: 'S2' }));
+  await x34('companies (solo is ownerId) delete: solo',     'allow', deleteDoc(doc(sx, 'companies/sx34')));
+
+  // ── The exception: a viewer's OWN user-scoped docs stay writable. These
+  //    are what the app writes to boot and remember settings; nobody else
+  //    reads them.
+  await x34('users/{uid} create: viewer (self)',          'allow', setDoc(doc(vx, 'users/vx'), { firstName: 'Vee' }));
+  await x34('users/{uid} update: viewer (self)',          'allow', updateDoc(doc(vx, 'users/vx'), { firstName: 'Vee2' }));
+  for (const s of ['settings/prefs', 'preferences/ui', 'fcmTokens/tok1', 'jobTemplates/tpl1', 'templates/tpl1', 'captures/cap1']) {
+    await x34('users/{uid}/' + s + ': viewer (self)',     'allow', setDoc(doc(vx, 'users/vx/' + s), { v: 1 }));
+  }
+  await x34('userSettings/{uid}: viewer (self)',          'allow', setDoc(doc(vx, 'userSettings/vx'), { theme: 'dark' }));
+  await x34('notifications create: viewer (self)',        'allow', setDoc(doc(vx, 'notifications/s34-new-vx'), { userId: 'vx', read: false }));
+  await x34('notifications update: viewer (mark read)',   'allow', updateDoc(doc(vx, 'notifications/s34-vx'), { read: true }));
+  await x34('notifications delete: viewer (dismiss)',     'allow', deleteDoc(doc(vx, 'notifications/s34-vx')));
+  await x34('reps/{uid} create: viewer (own profile)',    'allow', setDoc(doc(vx, 'reps/vx'), { companyId: CO, name: 'Vee' }));
+  await x34('academy_progress/{uid}: viewer (self)',      'allow', setDoc(doc(vx, 'academy_progress/vx'), { lessons: 1 }));
+  await x34('daily_entries/{uid}: viewer (self)',         'allow', setDoc(doc(vx, 'daily_entries/vx/entries/d1'), { mood: 3 }));
+  await x34('dailyTracker: viewer (self)',                'allow', setDoc(doc(vx, 'dailyTracker/s34-vx'), { userId: 'vx', count: 1 }));
+  await x34('training_sessions: viewer (self)',           'allow', setDoc(doc(vx, 'training_sessions/s34-vx'), { userId: 'vx', companyId: CO, score: 7 }));
+  await x34('estimate_drafts/{uid}: viewer (self)',       'allow', setDoc(doc(vx, 'estimate_drafts/vx'), { rows: [] }));
+  // …but not a privileged field on its own profile (unchanged guard).
+  await x34('users/{uid} role self-promote: viewer',      'deny',  updateDoc(doc(vx, 'users/vx'), { role: 'manager' }));
+
+  // ── Every other role keeps today's rights: one representative write each.
+  await x34('company_admin updates a team lead',          'allow', updateDoc(doc(cax, 'leads/leadRX'), { stage: 'inspected' }));
+  await x34('company_admin hard-deletes a lead document', 'allow', deleteDoc(doc(cax, 'leads/leadRX/documents/s34-ca')));
+  await x34('company_admin writes the tenant profile',    'allow', setDoc(doc(cax, 'companyProfile/' + CO), { companyName: 'X' }));
+  await x34('manager updates a team lead',                'allow', updateDoc(doc(mx, 'leads/leadRX'), { stage: 'estimate' }));
+  await x34('manager adds a task on a team lead',         'allow', setDoc(doc(mx, 'leads/leadRX/tasks/s34-mx'), { title: 'm' }));
+  await x34('manager soft-deletes a lead document',       'allow', updateDoc(doc(mx, 'leads/leadRX/documents/s34-mgr'), { deleted: true }));
+  await x34('manager hard-deletes a lead document',       'deny',  deleteDoc(doc(mx, 'leads/leadRX/documents/s34-mgr')));  // decision A
+  await x34('manager creates own estimate',               'allow', setDoc(doc(mx, 'estimates/s34-mx'), { userId: 'mx', companyId: CO, total: 1 }));
+  await x34('solo (no claims) creates a lead',            'allow', setDoc(doc(sx, 'leads/s34-sx'), { userId: 'sx34', companyId: 'sx34', name: 's' }));
+  await x34('solo (no claims) creates an estimate',       'allow', setDoc(doc(sx, 'estimates/s34-sx'), { userId: 'sx34', total: 1 }));
+  await x34('no-role member creates a lead',              'allow', setDoc(doc(dx, 'leads/s34-dx'), { userId: 'dx34', companyId: 'co-dx', name: 'd' }));
+  await x34('no-role member uploads a photo doc',         'allow', setDoc(doc(dx, 'photos/s34-dx'), { userId: 'dx34', companyId: 'co-dx', url: 'p/d.jpg' }));
+  await x34('platform admin edits any estimate',          'allow', updateDoc(doc(admin, 'estimates/s34-vx'), { note: 'admin' }));
+
+  // The viewer can still READ what its company role allows (nothing here
+  // narrowed a read): its own lead, a teammate's lead, rows under both.
+  await x34('viewer reads own lead',                      'allow', getDoc(doc(vx, 'leads/leadVX')));
+  await x34('viewer reads a teammate lead',               'allow', getDoc(doc(vx, 'leads/leadRX')));
+  await x34('viewer reads a teammate lead task',          'allow', getDoc(doc(vx, 'leads/leadRX/tasks/s34-mx')));
+  await x34('viewer reads its own estimate',              'allow', getDoc(doc(vx, 'estimates/s34-vx')));
+
+  console.log('  34: ' + s34Pass + ' viewer/role checks passed, ' + s34Fail.length + ' failed');
+  if (s34Fail.length) {
+    throw new Error('34 viewer read-only matrix: ' + s34Fail.length + ' check(s) went the wrong way:\n    '
+      + s34Fail.join('\n    '));
+  }
 
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();

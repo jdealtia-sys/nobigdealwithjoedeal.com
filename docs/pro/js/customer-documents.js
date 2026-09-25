@@ -357,6 +357,8 @@
   // it, which is the honest behaviour for a document that may already be in
   // a homeowner's inbox.
   window.deleteCustomerDoc = async function (docId, label) {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return;
     if (!docId || !window._customerId) return;
     var name = label || 'this document';
     var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };

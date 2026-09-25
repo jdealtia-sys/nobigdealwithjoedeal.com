@@ -269,6 +269,11 @@
     if (!uid) return false;
     var c = claims || {};
     if (c.role === 'admin' || c.role === 'company_admin') return true;
+    // 2026-09-25: cpCanWrite's solo branch now also requires notViewer()
+    // (Jo's decision B, viewer is read-only). A viewer always carries a
+    // tenant companyId, so this was already false in practice; stated so the
+    // mirror stays exact.
+    if (c.role === 'viewer') return false;
     return String(c.companyId || uid) === String(uid);
   }
 
