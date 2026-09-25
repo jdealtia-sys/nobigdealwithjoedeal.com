@@ -359,6 +359,16 @@ ok('invoice linked to a lead ALREADY on collections is flagged inCollections', i
 ok('invoice linked to a lead NOT on collections is not flagged', invA.inCollections === false);
 ok('invoice with no leadId falls back to its own customerName, leadId stays null',
   invB.customerName === 'No Lead Linked' && invB.leadId === null && invB.inCollections === false);
+// estimate#9 (2026-09-25): real leads carry firstName/lastName, never `name`,
+// and invoices made from estimates were saved with a blank customerName — so
+// the queue's lead fallback has to read the name the lead actually stores.
+const cqName = MD.computePnL({
+  year: 2026, now: NOW, expenses: [], suppliers: [],
+  leads: [{ id: 'LR', _stageKey: 'contract_signed', firstName: 'Mark', lastName: 'Deluca' }],
+  invoices: [{ id: 'invBlank', status: 'sent', total: 100, balanceDue: 100, dueDate: daysAgo(3), leadId: 'LR', customerName: '' }],
+});
+eq('blank-name invoice queues under its lead\'s firstName + lastName, not "Customer"',
+  cqName.collectionsQueue[0].customerName, 'Mark Deluca');
 
 console.log('  aging bucket boundaries (0/1/30/31/60/61 days past due):');
 const bd = MD.computePnL({

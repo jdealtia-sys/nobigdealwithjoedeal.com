@@ -28,6 +28,42 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   // UTILITIES
   // ═══════════════════════════════════════════════════════════════════════
 
+  // ── Customer name for "Bill To" (phone audit 2026-09-25, estimate#9) ────
+  // createInvoiceFromEstimate read `est.customerName || lead.name`, and
+  // NEITHER field is ever written: no estimate writer stamps customerName
+  // (the V2 and Classic builders both save the homeowner as `owner`), and the
+  // lead writer (crm-leads.js saveLead) saves firstName/lastName, never
+  // `name` — 0 of 29 leads on the rig carry it. So every invoice made from an
+  // estimate stored customerName '' and printed "BILL TO: Customer" above the
+  // homeowner's own email and phone. The linked lead is the customer record,
+  // so its current name wins; the estimate's `owner` covers an estimate with
+  // no lead. Classic saves a blank owner as '—', which is not a name.
+  function _cleanName(v) {
+    const s = String(v == null ? '' : v).trim();
+    return /^[\s—–-]*$/.test(s) ? '' : s;
+  }
+  function leadDisplayName(lead) {
+    if (!lead) return '';
+    return _cleanName(lead.name) || _cleanName(lead.customerName)
+      || _cleanName([lead.firstName, lead.lastName].filter(Boolean).join(' '));
+  }
+  function resolveCustomerName(est, lead) {
+    est = est || {};
+    return _cleanName(est.customerName) || leadDisplayName(lead) || _cleanName(est.owner);
+  }
+  // Render-time fallback for invoices ALREADY saved with a blank name (every
+  // one made before the fix above): resolve the linked lead from the page's
+  // lead cache so their Bill To and list row show the homeowner, not a
+  // placeholder. Pure read — the stored doc is not rewritten.
+  function invoiceCustomerName(inv) {
+    if (!inv) return '';
+    const stored = _cleanName(inv.customerName);
+    if (stored) return stored;
+    const leads = (typeof window !== 'undefined' && Array.isArray(window._leads)) ? window._leads : [];
+    const lead = inv.leadId ? leads.find(l => l && l.id === inv.leadId) : null;
+    return leadDisplayName(lead);
+  }
+
   /**
    * Get Firebase ID token for Cloud Function calls
    */
@@ -523,7 +559,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           if (leadSnap.exists()) lead = leadSnap.data();
         } catch (_) { /* lead read is best-effort */ }
       }
-      const customerName  = est.customerName  || (lead && lead.name)  || '';
+      const customerName  = resolveCustomerName(est, lead);
       const customerEmail = est.customerEmail || (lead && lead.email) || '';
       const customerPhone = est.customerPhone || (lead && lead.phone) || '';
 
@@ -1242,9 +1278,37 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
   /**
    * Render full invoice detail view
    */
+  // Phone fit for the invoice detail (phone audit 2026-09-25, seen while
+  // verifying estimate#9): at 360px the line-item table (4 columns, 8px cell
+  // padding, inside 24px modal + 20px card padding) was 393px wide, so the
+  // TOTAL column — the money — sat past the screen edge; at 412 it ran past
+  // the card. Every style below is inline, so the narrow-screen rules need
+  // !important; the media query leaves tablet/desktop exactly as they were.
+  // Injected once, like estimate-preview.js — style-src allows it.
+  function _ensureInvoiceDetailStyles() {
+    if (typeof document === 'undefined' || document.getElementById('nbd-inv-detail-css')) return;
+    const st = document.createElement('style');
+    st.id = 'nbd-inv-detail-css';
+    st.textContent = '@media (max-width:480px){'
+      + '#nbd-invoice-detail-modal{padding:12px !important;}'
+      + '.invoice-detail{padding:14px 12px !important;}'
+      + '.invoice-detail .inv-lines th,.invoice-detail .inv-lines td{padding:6px 4px !important;}'
+      + '.invoice-detail .inv-lines th{font-size:10px !important;}'
+      + '.invoice-detail .inv-lines td{font-size:13px;}'
+      // Only DESCRIPTION (cell and header) may break anywhere, so a wider
+      // fallback font can't push TOTAL off-screen. Quantity and money cells
+      // never wrap, and the other headers wrap at a space only (UNIT/PRICE):
+      // breaking them anywhere split the QUANTITY header into QUANTI/TY.
+      + '.invoice-detail .inv-lines :is(th,td):first-child{overflow-wrap:anywhere;}'
+      + '.invoice-detail .inv-lines td:nth-child(n+2){white-space:nowrap;}'
+      + '}';
+    document.head.appendChild(st);
+  }
+
   async function renderInvoiceDetail(containerId, invoiceId) {
     const container = document.getElementById(containerId);
     if (!container) return;
+    _ensureInvoiceDetailStyles();
 
     const db = getDb();
 
@@ -1288,7 +1352,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
             <div>
               <div style="font-size:10px;color:var(--m);text-transform:uppercase;font-weight:700;margin-bottom:4px;">Bill To</div>
-              <div style="font-size:14px;font-weight:700;">${_esc(inv.customerName || 'Customer')}</div>
+              <div style="font-size:14px;font-weight:700;">${_esc(invoiceCustomerName(inv) || 'Customer')}</div>
               <div style="font-size:12px;color:var(--m);">${_esc(inv.customerEmail || '')}</div>
               ${inv.customerPhone ? `<div style="font-size:12px;color:var(--m);">${_esc(inv.customerPhone)}</div>` : ''}
             </div>
@@ -1302,7 +1366,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
             </div>
           </div>
 
-          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+          <table class="inv-lines" style="width:100%;border-collapse:collapse;margin-bottom:20px;">
             <thead>
               <tr style="border-bottom:2px solid var(--br);">
                 <th style="text-align:left;padding:8px;font-weight:700;font-size:11px;">DESCRIPTION</th>
@@ -1437,7 +1501,7 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         html += `
           <tr style="border-bottom:1px solid var(--br);">
             <td style="padding:10px;font-weight:700;font-size:12px;">${escHtml(inv.id.slice(0, 8))}</td>
-            <td style="padding:10px;font-size:12px;">${escHtml(inv.customerName || '—')}</td>
+            <td style="padding:10px;font-size:12px;">${escHtml(invoiceCustomerName(inv) || '—')}</td>
             <td style="text-align:right;padding:10px;font-size:12px;font-weight:700;">${formatCurrency(inv.total)}</td>
             <td style="text-align:right;padding:10px;font-size:12px;">${dueDate.toLocaleDateString()}</td>
             <td style="padding:10px;">
@@ -1874,6 +1938,9 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
     selectBillableSupplements,
     applySupplementsToTotals,
     buildRowItems,
+    // Bill-To name resolution (estimate#9, 2026-09-25) — pure, unit-testable.
+    resolveCustomerName,
+    invoiceCustomerName,
     // buildInvoiceHtml takes a plain invoice object and formatCurrency is a
     // local pure function — no DOM/Firestore dependency either, exported the
     // same way for the deposit/balance display regression test.

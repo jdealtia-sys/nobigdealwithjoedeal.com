@@ -3977,6 +3977,35 @@ input:focus, select:focus, textarea:focus {
   border-top: 2px solid var(--br);
   padding-top: 12px;
 }
+/* Phone audit 2026-09-25 (estimate#11): on a phone the Classic Step 4 review
+   table (5 columns at 12px cell padding) was 334px wide in a 258px (360) /
+   310px (412) panel. It scrolls (display:block + overflow-x:auto above) but
+   nothing says so, and at rest the TOTAL column — the money — was cut to
+   "$2,500.(" at 412 and entirely out of view at 360. Tighter cells fit all
+   five columns; tablet and desktop are untouched. Tighter cells alone left
+   0px to spare at 360 with Barlow loaded and ran 17px over on CI's Linux
+   font stack, so DESCRIPTION may also break anywhere while RATE and TOTAL
+   never wrap: the money decides the width.
+   Only DESCRIPTION: letting CODE and QTY break anywhere too (the first cut
+   of this fix) split them mid-token — "32.1" over "4 SQ" read as a different
+   quantity, and codes came out PER/MIT, DUM/P. Those two columns wrap only at
+   a space or hyphen ("32.14" over "SQ"). Measured: fits at 320, 360 and 412
+   with Barlow, and at 360 and 412 with Arial forced; only a fallback font at
+   320 runs over, and then the table scrolls in its own box, not the page.
+   The phone-estdata spec checks the fit and that every token stays whole. */
+@media (max-width: 480px) {
+  #estReviewBody .li-table th,
+  #estReviewBody .li-table td { padding: 7px 4px; }
+  #estReviewBody .li-table th { letter-spacing: .02em; }
+  #estReviewBody .li-table td { font-size: 11px; }
+  /* Headers too: with the condensed face missing (a fallback font), the
+     DESCRIPTION header alone was wider than the text it labels. */
+  #estReviewBody .li-table :is(th, td):nth-child(2) { overflow-wrap: anywhere; }
+  /* last-child, not nth-child(5): the ESTIMATE TOTAL row is colspan=4 + 1. */
+  #estReviewBody .li-table :is(th, td):last-child,
+  #estReviewBody .li-table :is(th, td):nth-child(4) { white-space: nowrap; }
+  #estReviewBody .li-table .total-row.grand td { font-size: 14px; }
+}
 
 /* ── NOTIFICATION BADGE PULSE ── */
 .nav-badge {

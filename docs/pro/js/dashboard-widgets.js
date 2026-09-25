@@ -42,6 +42,45 @@ function _estVal(e) {
   return isFinite(n) ? n : 0;
 }
 
+// A "logged" estimate is the amount-only record customer.html's Log Estimate
+// modal writes (customer-photo-report-generator.js saveEstimate): type, amount,
+// grandTotal (= amount), title, notes. It has no builder stamp and none of the
+// inputs either builder prices from — no rows, no measurements. That shape is
+// what separates it from a genuine pre-2026-04 Classic doc (also unstamped,
+// but it carries raw/sq/rows the Classic engine can rebuild from).
+function _isLoggedEstimate(e) {
+  if (!e || e.builder || e.estimateVersion === 'v2') return false;
+  if (Array.isArray(e.rows) && e.rows.length) return false;
+  if (Number(e.raw) > 0 || Number(e.sq) > 0) return false;
+  return Number(e.amount) > 0;
+}
+
+// Dashboard "Latest Estimates" panel (#recentEsts, lives in view-dash).
+function _renderRecentEstimates(ests, esc) {
+  const rc = document.getElementById('recentEsts');
+  if (!rc) return;
+  if (!ests || !ests.length) {
+    // Deleting the last estimate must clear the old cards, not leave them up.
+    rc.innerHTML = '<div class="empty">No estimates yet.</div>';
+    return;
+  }
+  // Each card opens that specific estimate.
+  rc.innerHTML=ests.slice(0,4).map(e=>`
+    <div class="est-card nbd-recent-est" data-id="${esc(e.id)}" style="margin-bottom:8px;cursor:pointer;">
+      <div style="font-size:18px;">📋</div>
+      <div><div class="est-addr" style="font-size:12px;">${esc(e.addr||e.name||e.title||'No address')}</div>
+      <div class="est-meta">${esc(e.tierName||e.type||'')}</div></div>
+      <div class="est-total" style="font-size:16px;">$${_estVal(e).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
+    </div>`).join('');
+  rc.querySelectorAll('.nbd-recent-est').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.id;
+      goTo('est');
+      setTimeout(() => viewEstimate(id), 200);
+    });
+  });
+}
+
 let _NBD_DW_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 function renderEstimatesList(ests) {
   // Null-guard the analytics stat tiles AND the list wrapper. After the
@@ -73,6 +112,13 @@ function renderEstimatesList(ests) {
   // tile to the inflated estimates-sum until the next full leads render.
 
   const esc = window.nbdEsc || (s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])));
+  // Phone audit 2026-09-25 (estimate#0 sibling): the dashboard's "Latest
+  // Estimates" panel (#recentEsts, view-dash) used to render at the BOTTOM of
+  // this function — below the estListWrap early-return. #estListWrap only
+  // exists once view-est has been hydrated, so until the rep had opened the
+  // Estimates view at least once the panel read "No estimates yet." while the
+  // Estimates tile beside it counted them. It renders here, above the bail.
+  _renderRecentEstimates(ests, esc);
   const wrap=document.getElementById('estListWrap');
   if (!wrap) return; // Page has no estimates list — analytics-only call.
   if(!ests||!ests.length){
@@ -98,6 +144,11 @@ function renderEstimatesList(ests) {
   };
   const displayName = (e) => {
     if (e.name && e.name.trim()) return e.name.trim();
+    // Log Estimate docs carry only `title` ("Good Estimate") — no name/addr/
+    // owner — so they listed as "Untitled estimate" (2026-09-25). The canonical
+    // estimateName (customer-estimate-rows.js) reads title too; name stays
+    // first here because Rename writes `name`.
+    if (typeof e.title === 'string' && e.title.trim()) return e.title.trim();
     if (e.addr && e.addr.trim()) return e.addr.trim();
     if (e.owner && e.owner.trim()) return e.owner.trim() + ' estimate';
     return 'Untitled estimate';
@@ -111,9 +162,15 @@ function renderEstimatesList(ests) {
           + (lead.firstName || lead.lastName ? '' : esc(lead.address || 'Customer'))
         + '</span>'
       : '<span class="est-lead-chip unassigned" data-act="assign">➕ Unassigned</span>';
-    const builderTag = e.builder === 'v2'
+    // The chip names the editor ✎ Edit actually opens (viewEstimate's routing),
+    // 2026-09-25: a Job Templates doc (builder 'template', estimateVersion
+    // 'v2') opens in V2 but was chipped CLASSIC, and a Log Estimate record —
+    // which opens the amount editor, not a builder — was chipped CLASSIC too.
+    const builderTag = (e.builder === 'v2' || e.estimateVersion === 'v2')
       ? '<span class="est-src-chip v2">V2</span>'
-      : '<span class="est-src-chip classic">CLASSIC</span>';
+      : _isLoggedEstimate(e)
+        ? '<span class="est-src-chip classic logged">LOGGED</span>'
+        : '<span class="est-src-chip classic">CLASSIC</span>';
     // Signature status — emitted by BoldSign webhook. Distinct colors
     // so reps can eyeball the pipeline without clicking into each.
     let sigTag = '';
@@ -198,29 +255,183 @@ function renderEstimatesList(ests) {
     });
   });
 
-  // Recent on dashboard — each card opens that specific estimate.
-  // recentEsts only mounts on the dashboard root tile; #/estimates has
-  // estListWrap above but not this sibling, so guard separately.
-  const rc=document.getElementById('recentEsts');
-  if (rc) {
-    rc.innerHTML=ests.slice(0,4).map(e=>`
-      <div class="est-card nbd-recent-est" data-id="${esc(e.id)}" style="margin-bottom:8px;cursor:pointer;">
-        <div style="font-size:18px;">📋</div>
-        <div><div class="est-addr" style="font-size:12px;">${esc(e.addr||'No address')}</div>
-        <div class="est-meta">${esc(e.tierName||'')}</div></div>
-        <div class="est-total" style="font-size:16px;">$${_estVal(e).toLocaleString('en-US',{maximumFractionDigits:0})}</div>
-      </div>`).join('');
-    rc.querySelectorAll('.nbd-recent-est').forEach(el => {
-      el.addEventListener('click', () => {
-        const id = el.dataset.id;
-        goTo('est');
-        setTimeout(() => viewEstimate(id), 200);
-      });
-    });
-  }
-
   // Update weekly stats
   if (typeof calculateWeeklyStats === 'function') calculateWeeklyStats();
+}
+
+// Phone audit 2026-09-25 (estimate#0 sibling): the list's customer chips are
+// resolved against window._leads at render time. When the list renders before
+// the leads load (a cold load straight to #/est, where the view hydrates at
+// boot), every linked estimate showed "➕ Unassigned" — whose tap is the
+// Assign picker — and nothing re-rendered once the leads arrived. Repaint on
+// the leads refresh, but only while the Estimates view is on screen; any
+// later entry repaints via goTo('est').
+window.addEventListener('nbd:data-refreshed', (ev) => {
+  if (!ev || !ev.detail || ev.detail.source !== 'leads') return;
+  const view = document.getElementById('view-est');
+  if (!view || !view.classList.contains('active')) return;
+  if (!document.getElementById('estListWrap') || !Array.isArray(window._estimates)) return;
+  try { renderEstimatesList(window._estimates); } catch (e) { console.warn('est list leads-repaint failed:', e && e.message); }
+});
+
+// Edit sheet for a logged (amount-only) estimate — see _isLoggedEstimate.
+// Phone audit 2026-09-25 (estimate#11, a money bug): ✎ Edit on one of these
+// fell through viewEstimate into the Classic builder, which had no inputs to
+// price from and recomputed the $2,500 job minimum. The legacy-drift toast
+// warned ("recomputed from $12,451 to $2,500") but Save went ahead and wrote
+// grandTotal 2500 over the rep's logged $12,450.75, and the card then showed
+// $2,500. Classic has no amount field, so there was no way to keep the price
+// from that screen. The record is edited as what it is: an amount, a package,
+// notes. The amount is parsed to whole cents and stored back in the same
+// dollars shape the Log Estimate writer uses (amount + grandTotal mirrored).
+function _openLoggedEstimateEditor(est) {
+  const prev = document.getElementById('logged-est-editor');
+  if (prev) prev.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'logged-est-editor';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'logged-est-title');
+  // Phones: pin the sheet near the top so Save/Cancel stay above the on-screen
+  // keyboard (the amount field takes focus) and clear of the toast stack that
+  // grows up from the bottom nav. Wider screens center it.
+  const narrow = !!(window.matchMedia && window.matchMedia('(max-width: 600px)').matches);
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay);'
+    + 'background:rgba(0,0,0,.72);display:flex;align-items:' + (narrow ? 'flex-start' : 'center') + ';'
+    + 'justify-content:center;padding:' + (narrow ? '24px 16px 16px' : '16px') + ';';
+
+  const sheet = document.createElement('div');
+  sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);'
+    + 'border-radius:12px;padding:20px;max-width:440px;width:100%;'
+    + 'max-height:calc(100% - 8px);overflow-y:auto;box-sizing:border-box;'
+    + 'box-shadow:0 20px 60px rgba(0,0,0,.5);';
+
+  const title = document.createElement('div');
+  title.id = 'logged-est-title';
+  title.style.cssText = "font-family:'Barlow Condensed',sans-serif;font-size:18px;"
+    + 'font-weight:800;color:var(--t, #fff);text-transform:uppercase;letter-spacing:.04em;';
+  title.textContent = 'Edit Logged Estimate';
+  const sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:var(--m, #888);margin:6px 0 14px;line-height:1.45;';
+  sub.textContent = 'Logged from the customer page as a flat amount — there are no line items'
+    + ' for a builder to rebuild, so it edits here. To itemize it, start a New Estimate.';
+  sheet.appendChild(title);
+  sheet.appendChild(sub);
+
+  const field = (labelText, control) => {
+    const wrapEl = document.createElement('label');
+    wrapEl.style.cssText = 'display:block;margin-bottom:12px;';
+    const lbl = document.createElement('span');
+    lbl.style.cssText = 'display:block;font-size:10px;font-weight:700;letter-spacing:.1em;'
+      + 'text-transform:uppercase;color:var(--m, #888);margin-bottom:5px;';
+    lbl.textContent = labelText;
+    control.style.cssText = 'display:block;width:100%;box-sizing:border-box;background:var(--s2);'
+      + 'border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-size:16px;'
+      + 'color:var(--t);font-family:inherit;min-height:44px;';
+    wrapEl.appendChild(lbl);
+    wrapEl.appendChild(control);
+    sheet.appendChild(wrapEl);
+    return control;
+  };
+
+  const amountIn = document.createElement('input');
+  amountIn.type = 'text';
+  amountIn.id = 'logged-est-amount';
+  amountIn.setAttribute('inputmode', 'decimal');
+  amountIn.setAttribute('autocomplete', 'off');
+  const curCents = Math.round((Number(est.amount) || 0) * 100);
+  amountIn.value = (curCents / 100).toFixed(2);
+  field('Amount ($)', amountIn);
+
+  const typeSel = document.createElement('select');
+  typeSel.id = 'logged-est-type';
+  ['Good', 'Better', 'Best'].forEach((t) => {
+    const o = document.createElement('option');
+    o.value = t; o.textContent = t;
+    typeSel.appendChild(o);
+  });
+  if (est.type && !['Good', 'Better', 'Best'].includes(est.type)) {
+    const o = document.createElement('option');
+    o.value = est.type; o.textContent = est.type;
+    typeSel.appendChild(o);
+  }
+  typeSel.value = est.type || 'Good';
+  field('Package', typeSel);
+
+  const notesIn = document.createElement('textarea');
+  notesIn.id = 'logged-est-notes';
+  notesIn.rows = 3;
+  notesIn.value = est.notes || '';
+  field('Notes', notesIn);
+  notesIn.style.minHeight = '80px';
+  notesIn.style.resize = 'vertical';
+
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:8px;margin-top:4px;';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn btn-ghost';
+  cancelBtn.id = 'logged-est-cancel';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.style.cssText = 'flex:1;min-height:44px;';
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className = 'btn btn-orange';
+  saveBtn.id = 'logged-est-save';
+  saveBtn.textContent = 'Save';
+  saveBtn.style.cssText = 'flex:1;min-height:44px;';
+  row.appendChild(cancelBtn);
+  row.appendChild(saveBtn);
+  sheet.appendChild(row);
+  overlay.appendChild(sheet);
+
+  const onKey = (ev) => { if (ev.key === 'Escape') close(); };
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    overlay.remove();
+  }
+  document.addEventListener('keydown', onKey);
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+
+  saveBtn.addEventListener('click', async () => {
+    const raw = String(amountIn.value || '').replace(/[$,\s]/g, '');
+    const cents = /^\d+(\.\d{0,2})?$/.test(raw) ? Math.round(parseFloat(raw) * 100) : NaN;
+    if (!(cents > 0)) {
+      showToast('Enter a valid estimate amount', 'warning');
+      amountIn.focus();
+      return;
+    }
+    if (typeof window.updateDoc !== 'function' || typeof window.doc !== 'function' || !window.db) {
+      showToast('Estimate not saved — reload the page and try again', 'error');
+      return;
+    }
+    const dollars = cents / 100;
+    const type = typeSel.value || est.type || 'Good';
+    const patch = { amount: dollars, grandTotal: dollars, type: type, notes: notesIn.value.trim() };
+    // Keep the auto label in step with the package; a title the rep renamed stays.
+    const autoTitle = (t) => (t ? t + ' Estimate' : 'Estimate');
+    if (!est.title || est.title === autoTitle(est.type)) patch.title = autoTitle(type);
+    patch.updatedAt = (typeof window.serverTimestamp === 'function') ? window.serverTimestamp() : new Date();
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving…';
+    try {
+      await window.updateDoc(window.doc(window.db, 'estimates', est.id), patch);
+      close();
+      showToast('✓ Estimate updated', 'success');
+      if (typeof window.loadEstimates === 'function') {
+        try { await window.loadEstimates(); } catch (e) { /* the live listener repaints too */ }
+      }
+    } catch (e) {
+      console.error('logged estimate save failed:', e);
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Save';
+      showToast('Estimate not saved: ' + ((e && e.message) || 'unknown error'), 'error');
+    }
+  });
+
+  document.body.appendChild(overlay);
 }
 
 function viewEstimate(id) {
@@ -241,6 +452,18 @@ function viewEstimate(id) {
       return;
     }
     showToast('Estimate builder still loading — try again in a moment', 'error');
+    return;
+  }
+
+  // A logged (amount-only) estimate must NEVER fall through to Classic either:
+  // Classic has nothing to price it from, recomputes the job minimum, and its
+  // Save overwrites the logged amount (estimate#11, 2026-09-25). Every Edit
+  // entry point lands here — list ✎ Edit, the preview sheet, the dashboard's
+  // Latest Estimates, the customer page's preview (?edit=&est= deep link),
+  // the embedded estimate hub and the mobile job-detail Activity row — so the
+  // guard lives here, not at each caller.
+  if (_isLoggedEstimate(est)) {
+    _openLoggedEstimateEditor(est);
     return;
   }
 
@@ -429,6 +652,9 @@ function viewEstimate(id) {
   });
 }
 window.viewEstimate = viewEstimate;
+// The embedded estimate hub (customer-estimate-hub.js) asks this before
+// deciding whether ✎ Edit has to leave the customer overlay.
+window._isLoggedEstimate = _isLoggedEstimate;
 
 // ══════════════════════════════════════════════
 // PHOTO LEADS LIST + PHOTO MODAL

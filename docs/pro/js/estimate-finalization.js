@@ -319,6 +319,8 @@
   // Shared CSS for all outputs. `acc` is the brand accent color; for NBD
   // it is '#BD5728', so buildBaseCss('#BD5728') returns the EXACT string
   // this file shipped with (byte-identical). A tenant passes its accent.
+  // (2026-09-25: plus the phone-preview @media block below, identical for
+  // every tenant — it carries no accent.)
   function buildBaseCss(acc) {
     acc = acc || NBD_ACCENT;
     return `
@@ -394,6 +396,39 @@
                  margin-top:40px; page-break-inside:avoid; }
     .sig-line { border-top:1px solid #111; padding-top:6px; font-size:10px;
                 color:#555; }
+    /* Phone preview (phone audit 2026-09-25, estimate#7). These documents open
+       in the in-app viewer's iframe, which on a phone is the phone's width —
+       and nothing here was written for that: 36px body padding, fixed header
+       widths (Code 100px, Line Total 90px, ...) and 6-7 columns. At 412px the
+       Insurance Scope was 476px wide and the Internal view 522px, so LINE
+       TOTAL / TOTAL and every category subtotal sat past the right edge, and
+       panning to them hid the CODE column. Scoped three ways so the documents
+       themselves are unchanged everywhere else: screen only (print and the
+       server PDF render as before), <=600px only (desktop viewer as before),
+       and html.nbd-est-doc only — the viewer's Download PDF copies just the
+       BODY into the dashboard page for html2pdf, where this root class is
+       absent, so a PDF saved from a phone keeps the letter-size layout too. */
+    @media screen and (max-width:600px) {
+      html.nbd-est-doc body { padding:16px 10px; }
+      /* The brand block and the title/total block sit side by side; with the
+         display faces missing (fallback font) that row alone ran 15-19px past
+         a 360px screen. Let it wrap and scale the headline type down. */
+      html.nbd-est-doc .hdr { flex-wrap:wrap; gap:10px 16px; }
+      html.nbd-est-doc .brand { font-size:18px; }
+      html.nbd-est-doc .brand-logo-img { width:110px; }
+      html.nbd-est-doc .doc-title { font-size:20px; }
+      html.nbd-est-doc .doc-total-val { font-size:28px; }
+      html.nbd-est-doc th, html.nbd-est-doc td { padding:6px 3px; }
+      html.nbd-est-doc th { font-size:8px; letter-spacing:.02em; width:auto !important; }
+      html.nbd-est-doc td { font-size:11px; }
+      /* Money cells never wrap, so the text cells must be able to: a five-
+         figure line total on a 97-SQ job would otherwise push the 7-column
+         Internal table past a 360px screen by a few px. Breaks mid-word only
+         when the numbers leave no other way to fit. */
+      html.nbd-est-doc td:not(.num) { overflow-wrap:anywhere; }
+      html.nbd-est-doc td.code { font-size:10px; }
+      html.nbd-est-doc .grand-row td { font-size:13px; padding:10px 4px; }
+    }
     @page { margin:1.5cm; size:letter; }
     @media print { body { padding:20px; } }
   `;
@@ -697,7 +732,7 @@
     `;
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html class="nbd-est-doc"><head><meta charset="UTF-8">
 <title>Insurance Scope — ${escapeHtml(customer.name || _b.seal)} — ${fmtDate(est.date)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${buildBaseCss(_acc)}</style>
@@ -931,7 +966,7 @@ ${footer}
     `;
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html class="nbd-est-doc"><head><meta charset="UTF-8">
 <title>Estimate — ${escapeHtml(customer.name || _b.seal)} — ${fmtDate(est.date)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${buildBaseCss(_acc)}</style>
@@ -1012,7 +1047,7 @@ ${footer}
     }
 
     const html = `<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
+<html class="nbd-est-doc"><head><meta charset="UTF-8">
 <title>Internal Estimate View — ${escapeHtml(customer.name || _b.seal)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
 <style>${buildBaseCss(_acc)}
@@ -1027,6 +1062,11 @@ ${footer}
 .cost-card { background:#f8f4ef; padding:12px; border-radius:4px; text-align:center; }
 .cost-card .lbl { font-size:9px; color:#666; text-transform:uppercase; letter-spacing:.1em; }
 .cost-card .val { font-size:18px; font-weight:700; color:#111; margin-top:4px; }
+/* Phone preview (2026-09-25, estimate#7): four cost cards across overflowed a
+   360px viewer; two per row fit. Same html.nbd-est-doc scoping as the base. */
+@media screen and (max-width:600px) {
+  html.nbd-est-doc .cost-grid { grid-template-columns:repeat(2,1fr); }
+}
 </style>
 </head><body>
 <div class="internal-banner">🔒 INTERNAL VIEW — NOT FOR CUSTOMER — ${_b.isNbd ? "Joe's Eyes Only" : 'Internal Use Only'}</div>

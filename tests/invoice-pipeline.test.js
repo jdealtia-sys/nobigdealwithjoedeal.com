@@ -418,6 +418,39 @@ test('no-deposit invoice: deposit/balance block does not render at all', () => {
   eq(extractRow(html, 'Balance Due'), null, 'no balance-due row either — nothing to reconcile');
 });
 
+// ── Bill-To name (phone audit 2026-09-25, estimate#9) ─────────────────────
+// Real shapes: no estimate writer stamps customerName (V2 and Classic save the
+// homeowner as `owner`), and saveLead writes firstName/lastName, never `name`.
+// The old read `est.customerName || lead.name` was therefore always '' and
+// every invoice from an estimate billed "Customer".
+const v2Est = { builder: 'v2', owner: 'Mark Deluca', leadId: 'L1' };
+const realLead = { id: 'L1', firstName: 'Mark', lastName: 'Deluca', email: 'm@example.com' };
+test('resolveCustomerName: a V2 estimate + a firstName/lastName lead bills the homeowner', () => {
+  eq(IP.resolveCustomerName(v2Est, realLead), 'Mark Deluca', 'lead full name');
+});
+test('resolveCustomerName: the linked lead\'s current name beats the estimate\'s owner snapshot', () => {
+  eq(IP.resolveCustomerName({ owner: 'Mark Delucca' }, realLead), 'Mark Deluca', 'lead wins');
+});
+test('resolveCustomerName: no lead → the estimate\'s owner', () => {
+  eq(IP.resolveCustomerName(v2Est, null), 'Mark Deluca', 'owner fallback');
+});
+test('resolveCustomerName: an explicit customerName still wins; Classic\'s "—" owner is not a name', () => {
+  eq(IP.resolveCustomerName({ customerName: 'Jane Roe', owner: 'X' }, realLead), 'Jane Roe', 'explicit');
+  eq(IP.resolveCustomerName({ owner: '—' }, null), '', 'dash placeholder → blank (renders "Customer")');
+});
+test('invoiceCustomerName: an invoice already saved with a blank name resolves its lead at render', () => {
+  const had = Object.prototype.hasOwnProperty.call(global, 'window');
+  const prev = global.window;
+  global.window = { _leads: [realLead] };
+  try {
+    eq(IP.invoiceCustomerName({ customerName: '', leadId: 'L1' }), 'Mark Deluca', 'blank stored name');
+    eq(IP.invoiceCustomerName({ customerName: 'Stored Name', leadId: 'L1' }), 'Stored Name', 'stored name kept');
+    eq(IP.invoiceCustomerName({ customerName: '', leadId: 'nope' }), '', 'unknown lead → blank');
+  } finally {
+    if (had) global.window = prev; else delete global.window;
+  }
+});
+
 console.log('──────────────────────────────────────────────────');
 console.log(passed + ' passed, ' + failed + ' failed');
 process.exit(failed > 0 ? 1 : 0);

@@ -448,6 +448,24 @@ function goTo(name, params = {}) {
     // (Rock 4 Phase 4 templated the last raw view). Re-emit post-hydration
     // so the band renders on first open instead of waiting for the next
     // natural data event. Idempotent; the renderer null-guards #estStats.
+    //
+    // Phone audit 2026-09-25 (estimate#0): the LIST itself had the same
+    // problem and nobody re-ran it. loadEstimates() and the live snapshot both
+    // call renderEstimatesList during boot, while #estListWrap is still inside
+    // the un-hydrated <template> — so it returns at its `if (!wrap)` bail, and
+    // the first real open showed the template's static "No estimates yet"
+    // under a KPI band counting them. Not rig-specific: it hits any session
+    // whose estimates land before the rep first opens the view, i.e. every
+    // normal one; only a cold load straight to #/est (hydrated at boot) or a
+    // later snapshot (a save, a signature webhook) ever painted it. Repaint
+    // from the in-memory set on every entry, as the dash branch above does.
+    // Array-gated: before the first load resolves there is nothing true to
+    // paint, and loadEstimates renders into the now-present wrapper itself.
+    try {
+      if (typeof window.renderEstimatesList === 'function' && Array.isArray(window._estimates)) {
+        window.renderEstimatesList(window._estimates);
+      }
+    } catch (e) { console.warn('est list refresh failed:', e); }
     try { window.dispatchEvent(new CustomEvent('nbd:data-refreshed', { detail: { source: 'est-enter' } })); } catch (e) {}
   }
   if(name==='map') {
