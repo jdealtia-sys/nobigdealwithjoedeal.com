@@ -163,6 +163,45 @@ async function clearToasts(page) {
   await settleBar(page);
 }
 
+// The in-flight upload indicator, raised the way a rep raises it
+// (2026-09-25, #1767 review): queue a photo, put it in flight — the state
+// uploadPhotos() gives each item before its Storage put — and tap Cancel.
+// _uploadModalOnClose keeps the running batch, and updateGlobalUploadStatus()
+// shows the widget AND publishes --nbd-upload-lift in the same task. These
+// tests used to add .active by hand, which skipped that call and left the
+// lift to the widget's ResizeObserver a frame later; the toast was measured
+// before it rose (flaky in CI at 412px, red locally at 1280px, and 16 of 24
+// rig rounds overlapped). Returns the lift and the widget height it read.
+async function raiseUploadIndicator(page, { touch }) {
+  const press = (loc) => (touch ? loc.tap() : loc.click());
+  const open = page.locator('[data-action="openUploadModal"]:visible').first();
+  await open.scrollIntoViewIfNeeded();
+  await press(open);
+  await page.waitForSelector('#uploadModal.open #uploadZone');
+  await page.locator('#fileInput').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: PNG_1PX });
+  await expect(page.locator('#uploadCount')).toHaveText('1', { timeout: 15_000 });
+  await safeEvaluate(page, () => { const it = window._uploadQueue[0]; it.uploading = true; it.progress = 40; });
+  await press(page.locator('#uploadModal button.btn[data-action="closeUploadModal"]'));
+  await expect(page.locator('#uploadModal.open')).toHaveCount(0);
+  await expect(page.locator('#nbdUploadWidget.active')).toBeVisible();
+  return safeEvaluate(page, () => ({
+    lift: getComputedStyle(document.documentElement).getPropertyValue('--nbd-upload-lift').trim(),
+    height: document.getElementById('nbdUploadWidget').offsetHeight,
+  }));
+}
+
+// ...and taken down the way a finished batch takes it down: the item leaves
+// the in-flight set and updateGlobalUploadStatus() hides the widget and drops
+// the lift. removeFromQueue() is the page global that runs that refresh (a
+// no-op splice on an empty queue), so this is also the cleanup after a
+// failure — it first closes a modal a failed step left open.
+async function finishUpload(page) {
+  await safeEvaluate(page, () => {
+    if (document.querySelector('#uploadModal.open')) window.closeUploadModal();
+    window.removeFromQueue(0);
+  });
+}
+
 // RGBA of one screen pixel. A 1x1 clip screenshot is a PNG whose IDAT
 // inflates to [filter byte, R, G, B(, A)] — no image library needed.
 async function pixelAt(page, x, y) {
@@ -371,11 +410,11 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
 
   test('in-flight upload indicator rides above the bar, and toasts stack above it', async () => {
     await clearToasts(page);
-    // updateGlobalUploadStatus() shows the widget by adding .active while a
-    // batch uploads with the modal closed; drive that state directly rather
-    // than pushing real files through Storage.
-    await safeEvaluate(page, () => document.getElementById('nbdUploadWidget').classList.add('active'));
+    // A batch left uploading behind a closed modal — the real show path, not
+    // a hand-added .active (see raiseUploadIndicator).
     try {
+      const up = await raiseUploadIndicator(page, { touch: true });
+      expect(up.lift, 'the indicator publishes its lift as it shows').toBe(`${up.height + 8}px`);
       expect(covered(await hitReport(page, '#nbdUploadWidgetReopen')), '"View details" on the upload indicator').toEqual([]);
       // Follow-up (review:chrome): the widget and #toastContainer shared one
       // bottom offset in one corner, so a toast raised mid-upload sat on
@@ -408,7 +447,7 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
       });
       expect(v, 'the voice toast and the upload indicator overlap').toBe(false);
     } finally {
-      await safeEvaluate(page, () => document.getElementById('nbdUploadWidget').classList.remove('active'));
+      await finishUpload(page);
     }
   });
 
@@ -691,14 +730,14 @@ test.describe.serial('customer page chrome on desktop @audit', () => {
   test('a toast raised mid-upload stacks above the upload indicator, and drops back after', async () => {
     // Desktop had the same overlap (widget bottom:16px, toasts bottom:20px,
     // both right-aligned): "View details" sat under every toast.
-    await safeEvaluate(page, () => {
-      document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove());
-      document.getElementById('nbdUploadWidget').classList.add('active');
-    });
+    await safeEvaluate(page, () => document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove()));
     const measure = () => safeEvaluate(page, () => {
       const w = document.getElementById('nbdUploadWidget');
       const wr = w.getBoundingClientRect();
       const t = [...document.querySelectorAll('#toastContainer > div')].filter((d) => /Job costs saved/.test(d.textContent)).pop();
+      // A toast that has timed out reads as "not dropped back" (null), not a
+      // TypeError that hides which assertion failed.
+      if (!t) return { active: w.classList.contains('active'), overlap: null, reopenOk: null, toastBottom: null };
       const tr = t.getBoundingClientRect();
       const re = document.getElementById('nbdUploadWidgetReopen').getBoundingClientRect();
       const h = document.elementFromPoint(re.left + re.width / 2, re.top + re.height / 2);
@@ -710,16 +749,20 @@ test.describe.serial('customer page chrome on desktop @audit', () => {
       };
     });
     try {
+      // The real show path (see raiseUploadIndicator), then the toast.
+      const lifted = await raiseUploadIndicator(page, { touch: false });
+      expect(lifted.lift, 'the indicator publishes its lift as it shows').toBe(`${lifted.height + 8}px`);
       await safeEvaluate(page, () => window.showToast('Job costs saved', 'success'));
       await expect(page.locator('#toastContainer > div', { hasText: 'Job costs saved' }).last()).toBeVisible();
       const up = await measure();
       expect(up.overlap, 'toast vs upload indicator').toBe(false);
       expect(up.reopenOk, '"View details" is not under the toast').toBe(true);
       // Upload finished: the widget hides and the stack settles back down.
-      await safeEvaluate(page, () => document.getElementById('nbdUploadWidget').classList.remove('active'));
+      await finishUpload(page);
+      await expect(page.locator('#nbdUploadWidget.active')).toHaveCount(0);
       await expect.poll(async () => (await measure()).toastBottom, { message: 'toast drops back once the indicator hides' }).toBeGreaterThan(up.toastBottom + 40);
     } finally {
-      await safeEvaluate(page, () => document.getElementById('nbdUploadWidget').classList.remove('active'));
+      await finishUpload(page);
     }
   });
 });
