@@ -163,3 +163,49 @@
   #addLeadFab,
   #nbd-fab-dial { transition: none; }
 }
+
+/* ─── Phone usability pass (2026-09-24) ─────────────────────────
+   Found by walking every dashboard view at 412px (Jo's Android)
+   with sample data. Nothing overflowed; these are the things that
+   made the phone hard to use. */
+@media (max-width: 768px) {
+  /* 1. Three "+" controls on the pipeline, and the header one was a
+     full-width orange bar reading only "+". The header button keeps
+     its "Add Lead" label at phone width and sizes to its content; the
+     floating #addLeadFab is dropped because the header button and the
+     bottom-nav create sheet already cover it. */
+  .crm-header #crmAddLeadBtn {
+    flex: 0 0 auto !important;
+    min-height: 40px !important;
+    padding: 8px 14px !important;
+  }
+  .crm-hdr-actions #crmAddLeadBtn .crm-hdr-btn-label { display: inline !important; }
+  body.show-add-lead-fab #addLeadFab { display: none !important; }
+
+  /* 2. The card's add-task pill rendered a faint "+" at 38% ink and
+     .72 opacity, so it read as a blank button. */
+  .kc-task-badge.empty {
+    opacity: 1 !important;
+    color: var(--ink-soft, var(--m)) !important;
+    border: 1px dashed color-mix(in srgb, var(--ink, #fff) 30%, transparent) !important;
+  }
+
+  /* 4c. Door-to-door: the Quick Knock FAB duplicated the Knock button
+     and sat on top of the Knock/Heat/Hail row (same corner as the
+     speed-dial). The Knock button stays. */
+  .d2d-fab { display: none !important; }
+}
+
+/* 6. Thumb-size targets. Compact density sets card controls to 24px
+   with !important, which beat section 1 above, so this floor has to
+   be !important too. Touch screens only: desktop density is left
+   exactly as the user chose it. */
+@media (max-width: 768px) and (pointer: coarse) {
+  .kc-arrow,
+  .kc-btn,
+  .kc-task-badge,
+  .crm-hdr-btn {
+    min-height: 40px !important;
+    min-width: 40px !important;
+  }
+}

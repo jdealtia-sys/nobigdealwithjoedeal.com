@@ -37,8 +37,20 @@
   let _sortDir = 1;                   // 1 asc, -1 desc
   let _lastList = [];                 // cache for header-click re-sorts
 
+  // No saved choice → List on a phone, Board elsewhere. The board shows
+  // one-and-a-half columns at 412px and has to be scrolled sideways, so it
+  // was the wrong default for a rep on a job site (2026-09-24 phone pass).
+  // An explicit Board/List click is saved and always wins.
+  function _isPhone() {
+    try { return !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches); } catch (_) { return false; }
+  }
   function isActive() {
-    try { return localStorage.getItem(LS_KEY) === 'list'; } catch (_) { return false; }
+    try {
+      const v = localStorage.getItem(LS_KEY);
+      if (v === 'list') return true;
+      if (v === 'board') return false;
+      return _isPhone();
+    } catch (_) { return false; }
   }
 
   function _applyMode() {

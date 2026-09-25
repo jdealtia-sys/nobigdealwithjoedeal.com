@@ -3165,7 +3165,15 @@
         // err.code: 1 = PERMISSION_DENIED, 2 = POSITION_UNAVAILABLE, 3 = TIMEOUT
         let msg;
         if (err && err.code === 1) {
-          msg = 'Location permission denied. Enable it in Settings → Safari → Location to track knocks on the map.';
+          // Platform-specific path: this used to name Safari on every
+          // device, which is wrong on Android (2026-09-24 phone pass).
+          const ua = navigator.userAgent || '';
+          const where = /iP(ad|hone|od)/.test(ua)
+            ? 'Settings → Safari → Location'
+            : /Android/.test(ua)
+              ? 'your browser\'s site settings (tap the lock icon by the address bar → Permissions → Location)'
+              : 'your browser\'s site settings for this page';
+          msg = 'Location permission denied. Enable it in ' + where + ' to track knocks on the map.';
         } else if (err && err.code === 2) {
           msg = 'Can\'t determine your location right now. Try moving to an area with a clearer sky view.';
         } else if (err && err.code === 3) {
