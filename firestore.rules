@@ -495,10 +495,17 @@ service cloud.firestore {
         // denied EVERY client delete here, owner included (emulator: "Null
         // value error" at the helper). Delete keeps exactly the writer check
         // create/update use: lead owner, or company_admin/manager in the parent
-        // lead's tenant. No wider: not viewer, not sales_rep, not platform
-        // admin, the same set as tasks/notes/drawings. The parent lead has to
-        // still exist for the check to pass. A hard-deleted lead's rows are
-        // swept by onLeadDeleted (admin SDK, functions/lead-artifact-cleanup.js).
+        // lead's tenant. No wider: a viewer or sales_rep on someone else's
+        // lead is refused, and so is the platform admin, the same set as
+        // tasks/notes/drawings. A caller who OWNS the lead passes the owner
+        // branch whatever their role, a viewer-owner included, exactly as on
+        // create/update here and on tasks/notes/drawings. The lead doc itself
+        // bars a viewer-owner from update/delete (Audit #3 F-1); matching that
+        // means one pass over every subcollection's owner branch, not delete
+        // alone (a viewer-owner who can `set` a row can already blank it).
+        // The parent lead has to still exist for the check to pass. A
+        // hard-deleted lead's rows are swept by onLeadDeleted (admin SDK,
+        // functions/lead-artifact-cleanup.js); see the privacy note there.
         allow create, update: if isAuth()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)))

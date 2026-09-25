@@ -1088,6 +1088,8 @@ async function run() {
       await setDoc(doc(db, 'leads/leadA/' + sub + '/del-legacy'), row);
       // A row whose parent lead is already gone (the orphan class).
       await setDoc(doc(db, 'leads/leadGone/' + sub + '/orphan'), row);
+      // leadV is owned by vic, whose role is VIEWER (see 23).
+      await setDoc(doc(db, 'leads/leadV/' + sub + '/del-vowner'), row);
     }
   });
   for (const sub of ['documents', 'warrantyClaims']) {
@@ -1115,9 +1117,24 @@ async function run() {
     // cannot, since the tenant clause needs a companyId on the parent.
     await assertFails(deleteDoc(doc(mgrA, 'leads/leadA/' + sub + '/del-legacy')));
     await assertSucceeds(deleteDoc(doc(alice, 'leads/leadA/' + sub + '/del-legacy')));
-    // Parent lead already hard-deleted: no client can reach the row, because
-    // the check reads the lead. functions/lead-artifact-cleanup.js
-    // (onLeadDeleted) sweeps these rows with the admin SDK instead.
+    // A VIEWER who owns the lead passes the owner branch, so delete admits
+    // them exactly as create/update always have (2026-09-25 fixup, review of
+    // #1771). Pinned on purpose, and it is not the lead doc's own rule, which
+    // bars a viewer-owner from update/delete (23, Audit #3 F-1). "Viewers are
+    // refused" above holds only for viewers who do not own the lead. Making a
+    // viewer-owner read-only here is one change across every lead
+    // subcollection's create/update AND delete (tasks, notes, drawings,
+    // documents, claims): narrowing delete alone closes nothing, because a
+    // viewer-owner who can `set` a row can already blank it. Flip both lines
+    // together when that lands.
+    await assertSucceeds(updateDoc(doc(viewer, 'leads/leadV/' + sub + '/del-vowner'), { note: 'x' }));
+    await assertSucceeds(deleteDoc(doc(viewer, 'leads/leadV/' + sub + '/del-vowner')));
+    // Parent lead already hard-deleted: while it is absent the owner check
+    // (which reads the lead) fails for every caller, the old owner included.
+    // That does not make the row private: any signed-in user may create a
+    // lead at a free id with themselves as owner, and would then pass this
+    // check. That is why functions/lead-artifact-cleanup.js (onLeadDeleted)
+    // sweeps these rows with the admin SDK when the lead is hard-deleted.
     await assertFails(deleteDoc(doc(alice, 'leads/leadGone/' + sub + '/orphan')));
   }
   // (The create/update shape gate the split kept is pinned by 28a2/28b above:

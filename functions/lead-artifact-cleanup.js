@@ -79,12 +79,22 @@
  * Until 2026-09-25 no client could delete either kind of row at all: their
  * `allow write` rules ran a shape validator that reads request.resource, and
  * that is null on a delete, so every client delete was denied. The rule now
- * lets the owner or same-company staff delete them, but only while the parent
- * lead exists, because the check reads the lead. Once the lead is gone this
- * trigger is the only thing that can remove them. Other lead subcollections
- * (tasks, notes, activity, drawings, signatures, ...) are still not swept here.
- * Account erasure (integrations/compliance.js) recursiveDeletes every lead the
- * user still has, which covers all of them, but not a lead hard-deleted before.
+ * lets the owner or same-company staff delete them while the parent lead
+ * exists, because the check reads the lead.
+ *
+ * A row left under a hard-deleted lead is NOT sealed off by that, though.
+ * Every lead subcollection rule decides "owner" by reading leads/{leadId}, and
+ * the lead create rule only ties userId/companyId to the CALLER; it cannot
+ * know the id was used before. A signed-in user who re-creates a deleted
+ * lead's id therefore owns whatever rows are still under it, and can read,
+ * change or delete them (found in review of PR #1771; reproduced on the
+ * emulator against the rules before and after that PR). This sweep is what
+ * closes that for documents and warrantyClaims, once it has run. The other
+ * lead subcollections (tasks, notes, activity, drawings, signatures, ...) are
+ * still not swept here and stay reachable that way. Follow-up: delete the
+ * lead's whole subtree here, not two named subcollections. Account erasure
+ * (integrations/compliance.js) recursiveDeletes every lead the user still has,
+ * which covers all of them, but not a lead hard-deleted before.
  *
  * NOT covered here, deliberately:
  *   - D2D knock photos (`photos/{uid}/d2d/{knockId}/...`). They belong to the
