@@ -323,19 +323,42 @@ function seamStubInit() {
       __model: function () { return clone(m); },
       __seed: function (next) { m = Object.assign(fresh(), clone(next)); m.armed = !!m.mode; undoStack.length = 0; redoStack.length = 0; changed(); },
     };
+    stubApi = api; stubMap = map;
     map.nbdDraw = api;
     render();
-    document.dispatchEvent(new CustomEvent('nbd:drawmap-ready', { detail: { map: map } }));
+    announce(map);
   }
+  function announce(map) {
+    document.dispatchEvent(new CustomEvent('nbd:drawmap-ready', { detail: { map: map, api: stubApi, __stub: true } }));
+  }
+
+  // 2026-09-25: L3 (#1768) is on main, so the REAL seam now arrives too — set
+  // as map.nbdDraw at the end of initDrawMap and announced with the same
+  // event. The stub takes over from it: this listener is registered before
+  // any page script, so it hears the engine's announcement first, stops it
+  // reaching the crosshair screen, swaps map.nbdDraw for the stub and
+  // announces the stub instead. The real engine is then never switched into
+  // crosshair mode (setCrosshair reaches the stub), exactly as before L3.
+  var stubApi = null, stubMap = null;
+  document.addEventListener('nbd:drawmap-ready', function (e) {
+    if (e.detail && e.detail.__stub) return;
+    e.stopImmediatePropagation();
+    var map = e.detail && e.detail.map;
+    if (!map || !window.L) return;
+    if (stubMap !== map) { attach(map); return; }
+    map.nbdDraw = stubApi;
+    announce(map);
+  }, true);
 
   // maps-routing.js declares `drawMap` (a bare global `let`); before it runs
   // the identifier is the #drawMap ELEMENT (named access), so wait for a map.
+  // (Without the engine's announcement — main before L3 — this attaches.)
   var tries = 0;
   var poll = setInterval(function () {
     var map = null;
     try { map = (typeof drawMap !== 'undefined' && drawMap && typeof drawMap.getSize === 'function') ? drawMap : null; } catch (e) { map = null; }
-    if (map && window.L && !map.nbdDraw) { clearInterval(poll); attach(map); return; }
-    if (++tries > 20 * 60 * 5) clearInterval(poll); // 5 minutes
+    if (map && window.L && stubMap !== map) { clearInterval(poll); attach(map); return; }
+    if (stubMap || ++tries > 20 * 60 * 5) clearInterval(poll); // attached by the listener, or 5 minutes
   }, 50);
 }
 

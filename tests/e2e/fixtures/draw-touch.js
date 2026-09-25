@@ -320,8 +320,21 @@ async function touchSession(page) {
   };
 }
 
+// The phone crosshair screen (draw lane L4, docs/pro/js/draw-reticle.js)
+// switches the engine into crosshair mode on every coarse pointer, where a
+// tap only aims. The ENGINE specs (baseline, money, seam) measure the engine
+// through taps and through the seam directly, so they keep the screen off:
+// its script is answered with an empty body before the Draw view loads it.
+// (2026-09-25, draw lane L4 — the first run with L3 and L4 both on main.)
+// The screen itself is phone-draw-crosshair.spec.js's job.
+async function withoutCrosshairScreen(page) {
+  await page.route('**/pro/js/draw-reticle.js*', (route) => route.fulfill({
+    status: 200, contentType: 'text/javascript', body: '/* e2e: crosshair screen off for this engine spec */',
+  }));
+}
+
 module.exports = {
-  PHONE_UA, phoneContextOptions, WING, TILE_PNG, solidPng, stubTiles,
+  PHONE_UA, phoneContextOptions, WING, TILE_PNG, solidPng, stubTiles, withoutCrosshairScreen,
   acceptDialogs, openDraw, closeDrawer, setView, ll2client, client2ll, mapBox, hitAt,
   arm, quietToasts, resetDrawing, drawState, sampleTimers, touchSession,
 };

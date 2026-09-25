@@ -835,6 +835,156 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
   });
 }
 
+// 2026-09-25: L3 (#1768) is on main, so the screen also runs here on the
+// REAL engine seam — no stub. The stub blocks above pin the screen's own
+// behaviour call by call; this block pins that the two fit: crosshair mode
+// on, a map tap only aims, an outline traced by Add / Confirm closes at the
+// wing's area with its edges typed by the chips, the engine's own close toast
+// stays off the crosshair, and Shadow Pitch runs start to finish.
+test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shard2', () => {
+  /** @type {import('@playwright/test').BrowserContext} */ let context;
+  /** @type {import('@playwright/test').Page} */ let page;
+  let touch = null;
+  const pageErrors = [];
+  const api = (fn, ...args) => page.evaluate(([f, a]) => drawMap.nbdDraw[f](...a), [fn, args]);
+  const box = (sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e || e.hidden) return null; const r = e.getBoundingClientRect(); return r.width ? { x: r.left, y: r.top, r: r.right, b: r.bottom, cx: r.left + r.width / 2, cy: r.top + r.height / 2 } : null; }, sel);
+  const text = (sel) => page.evaluate((s) => document.querySelector(s).textContent.trim(), sel);
+  const overlap = (a, b) => !!a && !!b && a.x < b.r && b.x < a.r && a.y < b.b && b.y < a.b;
+  async function tapSel(sel) {
+    await page.evaluate((s) => { const e = document.querySelector(s); e.dataset.e2eClicked = '0'; e.addEventListener('click', () => { e.dataset.e2eClicked = '1'; }, { once: true, capture: true }); }, sel);
+    await page.locator(sel).tap();
+    await expect.poll(() => page.evaluate((s) => document.querySelector(s).dataset.e2eClicked, sel), { message: `a tap on ${sel} clicks it`, timeout: 3_000 }).toBe('1');
+    await nextFrames(page);
+  }
+  async function place(ll) {
+    await T.setView(page, ll, WING.zoom);
+    await tapSel('[data-dr-act="add"]');
+    await tapSel('[data-dr-act="confirm"]'); // tap() waits out the double-tap guard
+  }
+  async function aimOff(ll, dx, dy) {
+    const p = await T.ll2client(page, ll);
+    await page.evaluate(([x, y]) => { const r = drawMap.getContainer().getBoundingClientRect(); drawMap.setView(drawMap.containerPointToLatLng([x - r.left, y - r.top]), drawMap.getZoom(), { animate: false }); }, [p.x + dx, p.y + dy]);
+    await page.waitForTimeout(300);
+    await nextFrames(page);
+  }
+
+  test.beforeAll(async ({ browser }, testInfo) => {
+    if (!creds) return;
+    testInfo.setTimeout(90_000);
+    context = await browser.newContext(T.phoneContextOptions(412, 860));
+    await returningUser(context);
+    page = await context.newPage();
+    T.acceptDialogs(page);
+    await T.stubTiles(page);
+    await stubNetwork(page);
+    await loginAs(page, creds);
+    await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user, { timeout: 30_000 });
+    await T.openDraw(page);
+    await page.waitForSelector('#view-draw.dr-on .dr-root .dr-bar', { timeout: 10_000 });
+    page.on('pageerror', (e) => pageErrors.push(String((e && e.message) || e)));
+    touch = await T.touchSession(page);
+    await T.resetDrawing(page);
+    await T.quietToasts(page);
+    await T.setView(page, WING.view, WING.zoom);
+  });
+  test.afterAll(async () => {
+    if (touch) await touch.detach();
+    if (context) await context.close();
+  });
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  test('the screen turns crosshair mode on, and a tap on the map only aims', async () => {
+    expect(typeof (await page.evaluate(() => drawMap.nbdDraw.__calls)), 'the real seam, not the test stub').toBe('undefined');
+    await tapSel('.dr-mode[data-dr-mode="perim"]');
+    const s = await api('state');
+    expect(s.crosshair, 'crosshair mode').toBe(true);
+    expect(s.armed && s.mode === 'perim', 'Outline armed the engine').toBe(true);
+    const mb = await T.mapBox(page);
+    await touch.tap({ x: mb.x + mb.w * 0.3, y: mb.y + mb.h * 0.25 });
+    await page.waitForTimeout(600);
+    expect((await api('state')).counts.vertices, 'points after a map tap').toBe(0);
+  });
+
+  test('an outline traced by Add / Confirm closes at the wing\'s area, edges typed by the chips, with the close toast off the crosshair', async () => {
+    await T.quietToasts(page);
+    // Corner A the long way: Add off the corner, drag the point onto it, Confirm.
+    await aimOff(WING.A, 40, 30);
+    await tapSel('[data-dr-act="add"]');
+    await expect.poll(async () => (await box('[data-dr-act="confirm"]')) && (await page.evaluate(() => document.querySelector('[data-dr-act="confirm"]').disabled)), { message: 'Confirm enabled once the double-tap guard runs out' }).toBe(false);
+    const h = await box('.dr-handle');
+    const onA = await T.ll2client(page, WING.A);
+    await touch.cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: h.cx, y: h.cy, id: 0, radiusX: 8, radiusY: 8, force: 1 }] });
+    for (let i = 1; i <= 16; i++) {
+      await touch.cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: h.cx + (onA.x - h.cx) * i / 16, y: h.cy + (onA.y - h.cy) * i / 16, id: 0, radiusX: 8, radiusY: 8, force: 1 }] });
+      await page.waitForTimeout(16);
+    }
+    await touch.cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await nextFrames(page);
+    const dropped = await page.evaluate(() => { const e = document.querySelector('.dr-handle'); return { lat: +e.dataset.lat, lng: +e.dataset.lng }; });
+    await page.evaluate(() => { window.__e2eResets = 0; drawMap.on('viewprereset', () => { window.__e2eResets++; }); });
+    await tapSel('[data-dr-act="confirm"]');
+    let s = await api('state');
+    expect(s.openCount, 'corner A committed').toBe(1);
+    expect(await page.evaluate(() => window.__e2eResets), 'no tile-wiping view reset').toBe(0);
+    expect(await page.evaluate(([a, b]) => drawMap.latLngToContainerPoint(a).distanceTo(drawMap.latLngToContainerPoint(b)), [s.first, dropped]), 'A is where the point was dropped (px)').toBeLessThanOrEqual(0.75);
+    await tapSel('.dr-edge[data-dr-edge="rake"]');
+    await place(WING.B);
+    await place(WING.C);
+    await tapSel('.dr-edge[data-dr-edge="eave"]');
+    await place(WING.D);
+    expect((await api('state')).openCount, 'four corners').toBe(4);
+    await aimOff(WING.A, 6, -5);
+    expect(await text('[data-dr-act="add"]'), 'the snap ring on A makes Add a Close').toBe('Close');
+    await tapSel('[data-dr-act="add"]');
+    await tapSel('[data-dr-act="confirm"]');
+    s = await api('state');
+    expect(s.counts.facets, 'one closed facet').toBe(1);
+    const base = (await api('totals')).combined.base;
+    expect(Math.abs(base - WING.expected.appAreaSf) / WING.expected.appAreaSf, `the wing by crosshair: ${base.toFixed(1)} sf`).toBeLessThanOrEqual(0.005);
+    const types = ((await T.drawState(page)).saved.lines || []).map((l) => l.type).sort();
+    expect(types, 'two rake, two eave edges').toEqual([4, 4, 5, 5]);
+    expect(await text('.dr-read-main'), 'the bar reads this structure').toMatch(new RegExp(' · ' + fmtSf(base) + ' sf · ' + fmtSq(base) + ' sq$'));
+    // The engine's own "Facet 1 closed" toast: at the top, off the crosshair.
+    await expect(page.locator('#toastContainer .toast').first(), 'the engine toasts the close').toBeVisible();
+    const t = await box('#toastContainer .toast');
+    const c = await box('.dr-cross');
+    expect(overlap(t, c), `toast ${JSON.stringify(t)} vs the crosshair`).toBe(false);
+    expect((await T.hitAt(page, { x: c.cx, y: c.cy })).ok, 'a finger at the crosshair reaches the map').toBe(true);
+  });
+
+  test('Shadow Pitch from ☰ Tools runs through Add: four points, then the engine is done with it', async () => {
+    await T.quietToasts(page);
+    const tools = '[data-action="mapSidebar"][data-target="map-sidebar-draw"]';
+    await page.locator(tools).tap();
+    await expect(page.locator('#map-sidebar-draw')).toHaveClass(/\bopen\b/);
+    const sp = page.locator('#map-sidebar-draw [data-fn="startShadowPitch"]');
+    await sp.scrollIntoViewIfNeeded();
+    await sp.tap();
+    if (await page.locator('#map-sidebar-draw.open').count()) await page.locator(tools).tap();
+    await expect(page.locator('#map-sidebar-draw')).not.toHaveClass(/\bopen\b/);
+    await nextFrames(page);
+    expect((await api('state')).shadow, 'the engine is in Shadow Pitch').toBe('shadow');
+    expect(await text('[data-dr-act="add"]')).toBe('Place shadow point');
+    await aimOff(WING.B, 6, -5);
+    expect(await box('.dr-snap:not(.dr-pickring)'), 'no snap ring for a shadow point').toBeNull();
+    await tapSel('[data-dr-act="add"]');
+    await tapSel('[data-dr-act="confirm"]');
+    await place(WING.C);
+    expect((await api('state')).shadow, 'two shadow points, then the roof edge').toBe('edge');
+    expect(await text('[data-dr-act="add"]')).toBe('Place roof-edge point');
+    await place(WING.D);
+    await place({ lat: (WING.A.lat + WING.C.lat) / 2, lng: (WING.A.lng + WING.C.lng) / 2 });
+    expect((await api('state')).shadow, 'four points: Shadow Pitch is done').toBeNull();
+    expect((await api('state')).counts.facets, 'the outline was not touched').toBe(1);
+  });
+
+  test('no page errors on the real engine', async () => {
+    expect(pageErrors, 'uncaught page errors').toEqual([]);
+  });
+});
+
 test.describe.serial('desktop draw (1280, mouse) has no crosshair screen @shard2', () => {
   /** @type {import('@playwright/test').BrowserContext} */ let context;
   /** @type {import('@playwright/test').Page} */ let page;
