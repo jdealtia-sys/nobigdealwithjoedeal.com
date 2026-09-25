@@ -2349,29 +2349,66 @@ function showError(title, message) {
 
 window._uploadQueue = [];
 
-// Background-safe close cleanup — runs on EVERY dismiss path (Cancel/×
-// button, Esc, backdrop) via nbdModal's onClose. If any item is mid-upload,
-// keep the queue + uploads running and just refresh the global widget (the
-// queue clears itself in uploadPhotos()'s post-loop reload); otherwise clear
-// the queue + preview + file input so the next open starts fresh.
-function _uploadModalOnClose() {
-  var hasInflight = (window._uploadQueue || []).some(function(it){
-    return it && it.uploading && (it.progress == null || it.progress < 100);
-  });
-  if (hasInflight) {
-    updateGlobalUploadStatus();
-    return;
-  }
+// True from an Upload tap until that batch's last photo has settled
+// (2026-09-25). Until then "is anything uploading?" was inferred from each
+// item's progress — and an item reads 100% as soon as its BYTES land, while
+// its download URL and photo doc are still being written. In that window
+// the indicator hid, and closing the modal cleared the queue under the
+// running loop. One flag, set and cleared by uploadPhotos() alone, answers
+// the question for the modal, its close hook and the indicator.
+let _uploadBatchRunning = false;
+
+// A queue item is in flight from the moment the loop takes it until it
+// settles, successfully (done) or not (failed).
+function _isUploadInflight(it) {
+  return !!it && !!it.uploading && !it.done && !it.failed;
+}
+function _uploadInProgress() {
+  return _uploadBatchRunning || (window._uploadQueue || []).some(_isUploadInflight);
+}
+
+// Empty the queue, the preview and the file input's selection, so the next
+// open starts fresh. Never while a batch runs — see openUploadModal.
+function _resetUploadQueue() {
   window._uploadQueue = [];
   const preview = document.getElementById('uploadPreview');
   if (preview) preview.innerHTML = '';
   const fileInput = document.getElementById('fileInput');
   if (fileInput) fileInput.value = '';
   updateUploadPreview();
+}
+
+// Background-safe close cleanup — runs on EVERY dismiss path (Cancel/×
+// button, Esc, backdrop) via nbdModal's onClose. If a batch is running,
+// keep the queue + uploads going and just refresh the global widget
+// (uploadPhotos() clears the queue itself when the batch ends); otherwise
+// clear the queue + preview + file input so the next open starts fresh.
+function _uploadModalOnClose() {
+  var hasInflight = _uploadInProgress();
+  if (hasInflight) {
+    updateGlobalUploadStatus();
+    return;
+  }
+  _resetUploadQueue();
   updateGlobalUploadStatus();
 }
 
 window.openUploadModal = function() {
+  // "View details" on the in-flight upload indicator is THIS function
+  // (data-action="openUploadModal"), and so is every Upload button on the
+  // page (2026-09-25). The fresh-start reset below used to run
+  // unconditionally, so opening the modal mid-upload set
+  // window._uploadQueue = [] under the running uploadPhotos() loop: it
+  // stopped after the photo already in flight, the rest of the batch was
+  // never sent, the toast still said "✓ Uploaded 3 photos" and the modal
+  // the rep had just opened snapped shut. While a batch runs, open onto the
+  // live queue instead — every tile, its progress, the busy Upload button.
+  if (_uploadInProgress()) {
+    renderUploadPreviewStructure();
+    window.nbdModal.open('uploadModal', { onClose: _uploadModalOnClose });
+    updateGlobalUploadStatus(); // hides "View details" behind the open modal
+    return;
+  }
   // Belt-and-suspenders reset — Joe reported the prior batch's photos
   // still showing when reopening the modal. Likely cause: iOS Safari
   // BFCache or PWA state preservation can leave the queue + preview
@@ -2380,12 +2417,7 @@ window.openUploadModal = function() {
   //   1) the JS queue array
   //   2) the preview container's innerHTML
   //   3) the file input's selection (so the same files can be picked again)
-  window._uploadQueue = [];
-  const preview = document.getElementById('uploadPreview');
-  if (preview) preview.innerHTML = '';
-  const fileInput = document.getElementById('fileInput');
-  if (fileInput) fileInput.value = '';
-  updateUploadPreview();
+  _resetUploadQueue();
   window.nbdModal.open('uploadModal', { onClose: _uploadModalOnClose });
 };
 
@@ -2399,6 +2431,12 @@ window.closeUploadModal = function() {
 function initPhotoUploadHandlers() {
   const uploadZone = document.getElementById('uploadZone');
   if (!uploadZone) return;
+  // Bind once (2026-09-25). This runs on every open of the modal — and
+  // "View details" on the upload indicator is an open — so each open added
+  // another drop listener, and one dragged photo was queued, previewed and
+  // uploaded once per open since the page loaded.
+  if (uploadZone.dataset.dropBound === '1') return;
+  uploadZone.dataset.dropBound = '1';
 
   uploadZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -2587,19 +2625,23 @@ function updateGlobalUploadStatus() {
   var widget = document.getElementById('nbdUploadWidget');
   if (!widget) return;
   var queue = window._uploadQueue || [];
-  var inflight = queue.filter(function(it){ return it && it.uploading && (it.progress == null || it.progress < 100); });
-  // Hide widget when nothing is in-flight.
-  if (inflight.length === 0) {
+  // Hide widget when nothing is uploading.
+  if (!_uploadInProgress()) {
     widget.classList.remove('active');
     syncUploadLift();
     return;
   }
-  var done = queue.filter(function(it){ return it && it.uploading && it.progress >= 100; }).length;
-  var total = queue.filter(function(it){ return it && it.uploading; }).length;
-  // Aggregate progress = average of all uploading-or-done items.
-  var sum = 0;
+  // Count the WHOLE batch (2026-09-25). Only started items used to count,
+  // so a 3-photo batch read "1 / 1" on its first photo, as though the
+  // photos still waiting did not exist. Settled items count as 100% so the
+  // bar is how far through the batch the loop is.
+  var total = _uploadBatchRunning ? queue.length : queue.filter(function(it){ return it && it.uploading; }).length;
+  var settled = 0, failedN = 0, sum = 0;
   for (var i = 0; i < queue.length; i++) {
-    if (queue[i] && queue[i].uploading) sum += Math.min(100, queue[i].progress || 0);
+    var it = queue[i];
+    if (!it) continue;
+    if (it.done || it.failed) { settled++; sum += 100; if (it.failed) failedN++; }
+    else if (it.uploading) sum += Math.min(100, it.progress || 0);
   }
   var pct = total ? Math.round(sum / total) : 0;
   var label = document.getElementById('nbdUploadWidgetLabel');
@@ -2607,7 +2649,8 @@ function updateGlobalUploadStatus() {
   var fill = document.getElementById('nbdUploadWidgetBarFill');
   var reopen = document.getElementById('nbdUploadWidgetReopen');
   if (label) label.textContent = 'Uploading photos…';
-  if (count) count.textContent = (done + 1 > total ? total : done + 1) + ' / ' + total + ' • ' + pct + '%';
+  if (count) count.textContent = Math.min(settled + 1, total) + ' / ' + total + ' • ' + pct + '%'
+    + (failedN ? ' • ' + failedN + ' failed' : '');
   if (fill) fill.style.width = pct + '%';
   // Only show the "View details" button when the modal is closed.
   // (uploadModal is nbdModal-managed now — open state is the .open class.)
@@ -2649,7 +2692,41 @@ window.removeFromQueue = function(index) {
   updateUploadPreview();
 };
 
+// Toggle the Upload button between its idle and busy labels (2026-09-25).
+// This replaced `uploadBtn.textContent = 'Uploading...'` — the bug the
+// document uploader had (see _setDocUploadBusy): textContent REPLACES an
+// element's children, so the first upload deleted <span id="uploadCount">
+// from the button for the life of the page. renderUploadPreviewStructure()
+// returns early without that span, so from then on no batch previewed, and
+// the reopened modal could not redraw a running one. The two labels are
+// sibling spans in customer.html toggled with [hidden]; nothing inside the
+// button is ever destroyed.
+function _setPhotoUploadBusy(busy) {
+  const btn = document.getElementById('uploadBtn');
+  if (btn) btn.disabled = !!busy;
+  const idle = document.getElementById('uploadBtnIdle');
+  const work = document.getElementById('uploadBtnBusy');
+  if (idle) idle.hidden = !!busy;
+  if (work) work.hidden = !busy;
+}
+
+// The failure toast's reason, in words a rep can act on. A Storage error's
+// raw message carries the full object path — uid and all, one unbreakable
+// token — which ran off the side of the toast and read as noise.
+function _uploadFailureReason(error) {
+  const code = String((error && error.code) || '');
+  if (code === 'storage/unauthorized' || code === 'storage/unauthenticated') return 'permission denied';
+  if (code === 'storage/quota-exceeded') return 'storage is full';
+  if (code === 'storage/retry-limit-exceeded' || (typeof navigator !== 'undefined' && navigator.onLine === false)) return 'no connection';
+  const msg = String((error && error.message) || '').replace(/^Firebase Storage:\s*/, '');
+  return msg ? (msg.length > 90 ? msg.slice(0, 87) + '…' : msg) : 'unknown error';
+}
+
 window.uploadPhotos = async function() {
+  // One batch at a time: a second loop over the same queue would send every
+  // photo twice. (The button is disabled while busy; this guards any other
+  // caller.)
+  if (_uploadBatchRunning) return;
   if (window._uploadQueue.length === 0) return;
   if (!window._customerId) {
     if (window.showToast) window.showToast('Customer ID not found', 'error');
@@ -2657,62 +2734,82 @@ window.uploadPhotos = async function() {
     return;
   }
 
-  const uploadBtn = document.getElementById('uploadBtn');
-  if (uploadBtn) {
-    uploadBtn.disabled = true;
-    uploadBtn.textContent = 'Uploading...';
-  }
-  var queueSnapshot = window._uploadQueue.length;
+  // The batch is the queue ARRAY itself, walked by index with its length
+  // re-read on every pass, so a photo the rep adds from the reopened modal
+  // mid-batch joins it. Nothing may REPLACE window._uploadQueue while this
+  // runs — that is exactly what "View details" did (see openUploadModal).
+  const batch = window._uploadQueue;
+  _uploadBatchRunning = true;
+  _setPhotoUploadBusy(true);
+  let uploaded = 0, failed = 0, firstError = null;
 
   try {
-    for (let i = 0; i < window._uploadQueue.length; i++) {
-      const item = window._uploadQueue[i];
+    for (let i = 0; i < batch.length; i++) {
+      const item = batch[i];
+      if (!item || item.uploading) continue;
       item.uploading = true;
       // Render the structure once so the DOM has the bar/% nodes;
       // per-tick updates from uploadSinglePhoto are surgical.
       renderUploadPreviewStructure();
       updateGlobalUploadStatus();
 
-      await uploadSinglePhoto(item, i);
-      // Mark complete so the global widget stops counting it.
-      item.progress = 100;
+      // One photo's failure is that photo's alone (2026-09-25). The whole
+      // loop used to sit in one try, so the first error abandoned every
+      // photo after it — never even sent — behind "Some uploads failed".
+      try {
+        await uploadSinglePhoto(item, i);
+        item.progress = 100;
+        item.done = true;
+        uploaded++;
+      } catch (error) {
+        console.error('Upload error:', error);
+        item.failed = true;
+        failed++;
+        if (!firstError) firstError = error;
+      }
       updateUploadPreviewItem(i);
       updateGlobalUploadStatus();
     }
+  } finally {
+    _uploadBatchRunning = false;
+    _setPhotoUploadBusy(false);
+  }
 
-    // All uploads finished. Toast + close + reload (no blocking alert).
+  // Report what actually happened (2026-09-25). The count came from a
+  // snapshot of the queue taken BEFORE the loop, so a batch cut short still
+  // toasted "✓ Uploaded 3 photos" over one saved photo.
+  const attempted = uploaded + failed;
+  if (failed > 0) {
+    const head = uploaded
+      ? 'Uploaded ' + uploaded + ' of ' + attempted + ' photos — ' + failed + ' failed'
+      : (attempted === 1 ? 'The photo failed to upload' : 'All ' + attempted + ' photos failed to upload');
+    if (window.showToast) window.showToast(head + ' (' + _uploadFailureReason(firstError) + ')', 'error');
+    // As before, the modal stays open and the failed photos leave the queue.
+    _resetUploadQueue();
+  } else {
     if (window.showToast) {
-      window.showToast('✓ Uploaded ' + queueSnapshot + ' photo' + (queueSnapshot === 1 ? '' : 's'), 'success');
+      window.showToast('✓ Uploaded ' + uploaded + ' photo' + (uploaded === 1 ? '' : 's'), 'success');
     }
-    // Force a full close — the queue is done, so the background-safe
-    // guard in closeUploadModal sees no in-flight items and clears.
+    // The batch is done: clear it, then close the modal if the rep has it
+    // open — the flag is down, so _uploadModalOnClose clears rather than keeps.
+    _resetUploadQueue();
     closeUploadModal();
+  }
+
+  if (uploaded > 0) {
     // One shared fetch feeds both grids instead of two sequential,
     // independent getDocs() calls for the same just-uploaded lead's photos.
     try { await loadAllCustomerPhotos(window._customerId); } catch(e) {}
-
-    // Reload timeline to show photo upload events
-    const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
-    if (leadSnap3.exists()) {
-      if (window.loadTimeline) await window.loadTimeline(window._customerId, leadSnap3.data());
-    }
-
-  } catch (error) {
-    console.error('Upload error:', error);
-    if (window.showToast) {
-      window.showToast('Some uploads failed: ' + (error?.message || 'unknown error'), 'error');
-    }
-    // Mark failed items so the preview can render their state, then
-    // clear the queue so stuck files disappear.
-    window._uploadQueue.forEach(item => { item.failed = true; });
-    renderUploadPreviewStructure();
-    window._uploadQueue = [];
-    renderUploadPreviewStructure();
-    updateGlobalUploadStatus();
-  } finally {
-    if (uploadBtn) {
-      uploadBtn.disabled = false;
-      uploadBtn.textContent = '📤 Upload Photos';
+    // Reload timeline to show photo upload events. Its own try: a failed
+    // refresh used to land in the upload catch and report saved photos as
+    // failed uploads.
+    try {
+      const leadSnap3 = await window.getDoc(window.doc(window.db, 'leads', window._customerId));
+      if (leadSnap3.exists() && window.loadTimeline) {
+        await window.loadTimeline(window._customerId, leadSnap3.data());
+      }
+    } catch (e) {
+      console.warn('[uploadPhotos] timeline refresh failed:', e && e.message);
     }
   }
 };

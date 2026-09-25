@@ -263,11 +263,15 @@
    #toastContainer got: --nbd-toast-bottom (customer.html's phone lane, which
    clears the bar and the ⋯ launcher), else 20px above any bottom strip, plus
    --nbd-upload-lift so it also stacks above an in-flight upload widget.
-   z-index moves onto the token ladder's toast tier (--z-toast). */
+   z-index moves onto the token ladder's toast tier (--z-toast).
+   right reads the same lane (2026-09-25): customer.html's --nbd-toast-right
+   starts it beside the desktop FAB column instead of inside it, where a toast
+   lifted above the upload widget sat on the Quick Capture FAB. Unset (the
+   dashboard) it stays 20px. */
 .nbd-voice-toast {
   position: fixed;
   bottom: calc(var(--nbd-toast-bottom, calc(20px + var(--nbd-bottom-chrome, 0px))) + var(--nbd-upload-lift, 0px));
-  right: 20px;
+  right: var(--nbd-toast-right, 20px);
   background: var(--card, #111722);
   border-left: 3px solid var(--orange, #BD5728);
   color: var(--text, #e8eaf0);

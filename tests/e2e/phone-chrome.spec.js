@@ -274,6 +274,191 @@ async function chromeTopmostWhileOpen(page) {
   });
 }
 
+// ── "View details" mid-upload keeps the batch (2026-09-25) ────────────────
+// The in-flight indicator's "View details" is data-action="openUploadModal",
+// and openUploadModal() opened with a fresh-start reset: window._uploadQueue
+// = []. uploadPhotos() walks that array by index, so the loop ended after
+// the photo already in flight and the rest of the batch was never sent. It
+// then toasted "✓ Uploaded 3 photos" from a count taken before the loop and
+// closed the modal the rep had just opened. On the rig at 412 and 1280: 3
+// queued, 1 in flight, one tap — queue 3 → 0, widget gone, empty modal.
+//
+// So these run a REAL batch: the page's own Storage SDK against the
+// emulator's Storage (:9199 — the authed CI job boots it too) and real photo
+// docs in Firestore. The only interference is at the network. The request
+// that starts the FIRST photo's upload (a 1x1 PNG goes up as one multipart
+// POST; a big file would open a resumable session with X-Goog-Upload-Command
+// "start") is held until the test lets it go, so exactly one photo is in
+// flight while the rep looks. `fail` answers the chosen photos' start with a
+// 403, which Storage never retries, to prove a failure is counted and the
+// batch carries on past it.
+function holdStorageUploads(page, { fail = [] } = {}) {
+  let starts = 0;
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  const match = (url) => /\/v0\/b\/[^/]+\/o$/.test(url.pathname);
+  const handler = async (route) => {
+    const req = route.request();
+    const h = req.headers();
+    const begins = req.method() === 'POST'
+      && (/multipart/i.test(h['x-goog-upload-protocol'] || '') || /start/i.test(h['x-goog-upload-command'] || ''));
+    if (begins) {
+      starts += 1;
+      if (starts === 1) await gate;
+      else if (fail.includes(starts)) {
+        // CORS headers, or the browser reports a network error instead —
+        // which Storage DOES retry, for up to ten minutes.
+        return route.fulfill({
+          status: 403, contentType: 'application/json',
+          headers: { 'access-control-allow-origin': '*', 'access-control-expose-headers': '*' },
+          body: JSON.stringify({ error: { code: 403, message: 'Permission denied. (e2e: failed on purpose)' } }),
+        });
+      }
+    }
+    return route.continue();
+  };
+  return page.route(match, handler).then(() => ({
+    starts: () => starts,
+    release: () => release(),
+    stop: () => page.unroute(match, handler).catch(() => {}),
+  }));
+}
+
+// Photo docs Firestore holds for the lead — what actually uploaded, read the
+// way the page scopes its own photo queries (leadId + the rep's uid).
+async function photoDocCount(page, leadId) {
+  return safeEvaluate(page, async (id) => {
+    const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const db = window.db || window._db;
+    const uid = (window._auth || window.auth).currentUser.uid;
+    const snap = await fs.getDocs(fs.query(fs.collection(db, 'photos'),
+      fs.where('leadId', '==', id), fs.where('userId', '==', uid)));
+    return snap.size;
+  }, leadId);
+}
+
+// A button is tappable end to end, not just at its centre: probe its middle
+// and 12px in from each end. On desktop the dictation mic sat on the right
+// end of "View details" while the centre still hit-tested clean.
+async function edgeHits(page, selector) {
+  return safeEvaluate(page, (sel) => {
+    const el = document.querySelector(sel);
+    if (!el || !el.getClientRects().length) return [`${sel} is not rendered`];
+    const r = el.getBoundingClientRect();
+    const y = r.top + r.height / 2;
+    return [['left end', r.left + 12], ['centre', r.left + r.width / 2], ['right end', r.right - 12]]
+      .map(([where, x]) => ({ where, hit: document.elementFromPoint(x, y) }))
+      .filter(({ hit }) => !hit || !(hit === el || el.contains(hit)))
+      .map(({ where, hit }) => `${where} is under ${hit ? (hit.closest('[id]') ? '#' + hit.closest('[id]').id + ' ' : '') + hit.tagName.toLowerCase() : 'nothing'}`);
+  }, selector);
+}
+
+// Queue three photos, tap Upload, hold photo 1 in flight, put the modal away
+// and tap "View details" — the rep's path. `beforeReopen` runs with the
+// indicator showing (the desktop test raises a toast there). Returns what the
+// reopened modal showed and how the batch ended.
+async function viewDetailsMidBatch(page, { touch, leadId, fail = [], beforeReopen }) {
+  const press = (loc) => (touch ? loc.tap() : loc.click());
+  const before = await photoDocCount(page, leadId);
+  const net = await holdStorageUploads(page, { fail });
+  const out = {};
+  try {
+    const open = page.locator('[data-action="openUploadModal"]:visible').first();
+    await open.scrollIntoViewIfNeeded();
+    await press(open);
+    await page.waitForSelector('#uploadModal.open #uploadZone');
+    await page.locator('#fileInput').setInputFiles(['a', 'b', 'c'].map((n) => ({ name: `batch-${n}.png`, mimeType: 'image/png', buffer: PNG_1PX })));
+    await expect(page.locator('#uploadCount'), 'three photos staged').toHaveText('3', { timeout: 15_000 });
+    await press(page.locator('#uploadBtn'));
+    await expect.poll(() => net.starts(), { message: 'photo 1 reaches Storage', timeout: 20_000 }).toBe(1);
+    out.startedWith = await safeEvaluate(page, () => (window._uploadQueue || []).map((it) => !!(it && it.uploading)));
+    // The rep puts the modal away and carries on; the indicator takes over.
+    await press(page.locator('#uploadModal button.btn[data-action="closeUploadModal"]'));
+    await expect(page.locator('#uploadModal.open')).toHaveCount(0);
+    await expect(page.locator('#nbdUploadWidget.active')).toBeVisible();
+    out.widgetCount = (await page.locator('#nbdUploadWidgetCount').textContent()).trim();
+    if (beforeReopen) await beforeReopen(out);
+    out.reopenEdges = await edgeHits(page, '#nbdUploadWidgetReopen');
+    await press(page.locator('#nbdUploadWidgetReopen'));
+    await expect(page.locator('#uploadModal.open')).toHaveCount(1);
+    out.reopened = await safeEvaluate(page, () => {
+      const q = window._uploadQueue || [];
+      const tiles = [...document.querySelectorAll('#uploadPreview .preview-item')];
+      const bar = tiles[0] && tiles[0].querySelector('.preview-progress');
+      const c = document.getElementById('uploadCount');
+      return {
+        queued: q.length,
+        inFlight: q.filter((it) => it && it.uploading).length,
+        tiles: tiles.length,
+        progressShown: !!bar && getComputedStyle(bar).display !== 'none',
+        count: c ? c.textContent.trim() : null,
+      };
+    });
+    // Let photo 1 through: the rest of the batch must follow on its own.
+    net.release();
+    const toast = page.locator('#toastContainer > div', { hasText: /Uploaded|failed/i }).last();
+    await expect(toast, 'the batch reports how it ended').toBeVisible({ timeout: 30_000 });
+    out.toast = (await toast.locator('span').first().textContent()).trim();
+    // Its words stay inside it (a raw Storage error is one long path token).
+    out.toastFits = await toast.evaluate((t) => t.querySelector('span').getBoundingClientRect().right <= t.getBoundingClientRect().right + 0.5);
+    out.saved = (await photoDocCount(page, leadId)) - before;
+    out.starts = net.starts();
+    await expect(page.locator('#nbdUploadWidget.active'), 'the indicator hides once the batch ends').toHaveCount(0);
+    out.after = await safeEvaluate(page, () => ({
+      queued: (window._uploadQueue || []).length,
+      modalOpen: !!document.querySelector('#uploadModal.open'),
+    }));
+    return out;
+  } finally {
+    net.release();
+    await net.stop();
+    // A failed step can leave the batch running or the modal open: let it
+    // settle, then leave the page as the next test expects it.
+    await safeWaitForFunction(page, () => !document.querySelector('#nbdUploadWidget.active'), { timeout: 30_000 }).catch(() => {});
+    await safeEvaluate(page, () => { if (document.querySelector('#uploadModal.open')) window.closeUploadModal(); });
+  }
+}
+
+// uploadSinglePhoto fires PhotoAIClassifier.classify for every saved photo,
+// through a Functions instance nothing points at the emulator — i.e.
+// production (ci-e2e-calls-production-functions). Answered here instead, in
+// the callable wire format.
+function answerPhotoVision(route) {
+  const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+  return route.request().method() === 'OPTIONS'
+    ? route.fulfill({ status: 204, headers: cors })
+    : route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ result: null }) });
+}
+
+// The toast's own count, as a number ("✓ Uploaded 3 photos" → 3,
+// "Uploaded 2 of 3 photos …" → 2).
+function toastUploaded(text) {
+  const m = /Uploaded (\d+)/.exec(text || '');
+  return m ? Number(m[1]) : null;
+}
+
+// The installed app's @media (display-mode: standalone) cascade, copied to
+// the top level (same technique as phone-views.spec.js / phone-dashnav):
+// Jo runs the iPhone home-screen app, and a browser tab never matches it.
+async function forceStandalone(page) {
+  return safeEvaluate(page, () => {
+    let css = '';
+    for (const sh of document.styleSheets) {
+      let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+      for (const r of rules) {
+        if (r.media && /display-mode:\s*standalone/.test(r.conditionText || r.media.mediaText)) {
+          for (const inner of r.cssRules) css += inner.cssText + '\n';
+        }
+      }
+    }
+    const s = document.createElement('style');
+    s.id = 'e2e-force-standalone';
+    s.textContent = css;
+    document.head.appendChild(s);
+    return css.length;
+  });
+}
+
 test.describe.serial('customer page chrome on a phone @audit', () => {
   let creds = null;
   let ctx;
@@ -785,6 +970,39 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
     }
     await page.setViewportSize({ width: 412, height: 860 });
   });
+
+  // See viewDetailsMidBatch. Two real batches in one page, which also proves
+  // the second batch still previews: the Upload button's busy label used to
+  // be set with textContent, which deleted #uploadCount for the page's life.
+  test('"View details" mid-upload keeps the batch; all three upload and the toast counts them', async () => {
+    test.setTimeout(150_000);
+    await page.route('**/analyzePhotoVision', answerPhotoVision);
+    expect(await forceStandalone(page), 'found the installed-app rules to force').toBeGreaterThan(0);
+    try {
+      for (const width of [412, 360]) {
+        await page.setViewportSize({ width, height: 860 });
+        await clearToasts(page);
+        const r = await viewDetailsMidBatch(page, { touch: true, leadId });
+        expect(r.startedWith, `one photo in flight, two waiting at ${width}px`).toEqual([true, false, false]);
+        expect(r.widgetCount, `the indicator counts the whole batch at ${width}px`).toMatch(/^1 \/ 3\b/);
+        expect(r.reopenEdges, `"View details" end to end at ${width}px`).toEqual([]);
+        expect(r.reopened.queued, `View details kept the batch queued at ${width}px`).toBe(3);
+        expect(r.reopened.tiles, `the reopened modal shows the whole batch at ${width}px`).toBe(3);
+        expect(r.reopened.inFlight, `still exactly one in flight at ${width}px`).toBe(1);
+        expect(r.reopened.progressShown, `the photo in flight shows its progress at ${width}px`).toBe(true);
+        expect(r.reopened.count, `the Upload button still carries its count at ${width}px`).toBe('3');
+        expect(r.starts, `all three photos reached Storage at ${width}px`).toBe(3);
+        expect(r.saved, `all three photos saved at ${width}px`).toBe(3);
+        expect(r.toast, `the toast at ${width}px`).toMatch(/^✓ Uploaded 3 photos$/);
+        expect(toastUploaded(r.toast), `the toast counts what saved at ${width}px`).toBe(r.saved);
+        expect(r.after, `the finished batch clears and closes at ${width}px`).toEqual({ queued: 0, modalOpen: false });
+      }
+    } finally {
+      await safeEvaluate(page, () => { const s = document.getElementById('e2e-force-standalone'); if (s) s.remove(); });
+      await page.unroute('**/analyzePhotoVision');
+      await page.setViewportSize({ width: 412, height: 860 });
+    }
+  });
 });
 
 // Desktop keeps its layout: no bar, no launcher, the classic FAB stack, and
@@ -877,6 +1095,91 @@ test.describe.serial('customer page chrome on desktop @audit', () => {
       await expect.poll(async () => (await measure()).toastBottom, { message: 'toast drops back once the indicator hides' }).toBeGreaterThan(up.toastBottom + 40);
     } finally {
       await finishUpload(page);
+    }
+  });
+
+  // See viewDetailsMidBatch. On desktop the indicator and the toasts also
+  // shared the FAB column: the mic (right 20px, 54px wide) covered the right
+  // end of "View details", and a toast lifted above the indicator landed on
+  // the Quick Capture FAB. Both now step sideways out of the column
+  // (--nbd-toast-right), the dashboard's call for its toasts.
+  test('"View details" mid-upload keeps the batch, clear of the FAB column; a failure is counted, not hidden', async () => {
+    test.setTimeout(150_000);
+    await page.route('**/analyzePhotoVision', answerPhotoVision);
+    try {
+      await safeEvaluate(page, () => document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove()));
+      const r = await viewDetailsMidBatch(page, {
+        touch: false,
+        leadId,
+        beforeReopen: async (out) => {
+          await safeEvaluate(page, () => window.showToast('Customer info updated', 'success'));
+          await expect(page.locator('#toastContainer > div', { hasText: 'Customer info updated' }).last()).toBeVisible();
+          out.withToast = await safeEvaluate(page, () => {
+            const meets = (a, b) => !(a.bottom <= b.top || a.top >= b.bottom || a.right <= b.left || a.left >= b.right);
+            const lanes = [['the upload indicator', document.getElementById('nbdUploadWidget')]]
+              .concat([...document.querySelectorAll('#toastContainer > div')].map((t) => ['a toast', t]));
+            const fab = (id) => {
+              const el = document.getElementById(id);
+              const b = el.getBoundingClientRect();
+              const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+              return {
+                tappable: !!hit && (hit === el || el.contains(hit)),
+                under: lanes.filter(([, l]) => meets(l.getBoundingClientRect(), b)).map(([n]) => n),
+              };
+            };
+            return { qc: fab('nbd-qc-fab'), mic: fab('nbd-whisper-fab') };
+          });
+          out.edgesWithToast = await edgeHits(page, '#nbdUploadWidgetReopen');
+        },
+      });
+      expect(r.startedWith, 'one photo in flight, two waiting').toEqual([true, false, false]);
+      expect(r.widgetCount, 'the indicator counts the whole batch').toMatch(/^1 \/ 3\b/);
+      expect(r.reopenEdges, '"View details" end to end (the mic sat on its right end)').toEqual([]);
+      expect(r.edgesWithToast, '"View details" end to end while a toast shows').toEqual([]);
+      expect(r.withToast.qc, 'Quick Capture FAB while a toast shows mid-upload').toEqual({ tappable: true, under: [] });
+      expect(r.withToast.mic, 'dictation mic while a toast shows mid-upload').toEqual({ tappable: true, under: [] });
+      expect(r.reopened.queued, 'View details kept the batch queued').toBe(3);
+      expect(r.reopened.tiles, 'the reopened modal shows the whole batch').toBe(3);
+      expect(r.reopened.inFlight, 'still exactly one in flight').toBe(1);
+      expect(r.reopened.progressShown, 'the photo in flight shows its progress').toBe(true);
+      expect(r.starts, 'all three photos reached Storage').toBe(3);
+      expect(r.saved, 'all three photos saved').toBe(3);
+      expect(r.toast).toMatch(/^✓ Uploaded 3 photos$/);
+      expect(toastUploaded(r.toast), 'the toast counts what saved').toBe(r.saved);
+      expect(r.after, 'the finished batch clears and closes').toEqual({ queued: 0, modalOpen: false });
+
+      // Photo 2 is refused. The old loop aborted the whole batch on the first
+      // error — photo 3 was never sent — and reported only "Some uploads
+      // failed". The batch now carries on and the toast says what happened.
+      await safeEvaluate(page, () => document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove()));
+      const f = await viewDetailsMidBatch(page, { touch: false, leadId, fail: [2] });
+      expect(f.reopened.queued, 'View details kept the batch queued (failure run)').toBe(3);
+      expect(f.starts, 'photo 3 was still sent after photo 2 failed').toBe(3);
+      expect(f.saved, 'photos 1 and 3 saved').toBe(2);
+      expect(toastUploaded(f.toast), 'the toast counts what saved, not what was queued').toBe(f.saved);
+      expect(f.toast, 'the toast owns up to the failure, in words').toBe('Uploaded 2 of 3 photos — 1 failed (permission denied)');
+      expect(f.toastFits, 'the failure toast keeps its text inside it').toBe(true);
+      expect(f.after.queued, 'the finished batch clears').toBe(0);
+
+      // Every open of the modal — and View details is one — used to bind
+      // another drop listener to #uploadZone, so one dragged photo queued
+      // once per open (five here) and uploaded that many copies.
+      await safeEvaluate(page, () => document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove()));
+      await page.locator('[data-action="openUploadModal"]:visible').first().click();
+      await page.waitForSelector('#uploadModal.open #uploadZone');
+      await safeEvaluate(page, (b64) => {
+        const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+        const dt = new DataTransfer();
+        dt.items.add(new File([bytes], 'dropped.png', { type: 'image/png' }));
+        document.getElementById('uploadZone').dispatchEvent(new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }));
+      }, PNG_1PX.toString('base64'));
+      await expect(page.locator('#uploadCount')).not.toHaveText('0', { timeout: 10_000 });
+      await page.waitForTimeout(500); // every duplicate's FileReader has landed
+      expect(await safeEvaluate(page, () => window._uploadQueue.length), 'one dropped photo queues once').toBe(1);
+      await page.locator('#uploadModal button.btn[data-action="closeUploadModal"]').click();
+      await expect(page.locator('#uploadModal.open')).toHaveCount(0);
+    } finally {
+      await page.unroute('**/analyzePhotoVision');
     }
   });
 });
