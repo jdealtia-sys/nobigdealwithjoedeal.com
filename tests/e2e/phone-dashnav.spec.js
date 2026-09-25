@@ -303,7 +303,9 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
       await openCreateSheet(page);
       await expectTappable(page, row, 'D2D Knock row, second time');
       await page.locator(row).tap();
-      await expect(page.locator('#d2d-quick-knock-overlay .d2d-modal-title')).toContainText('Knock', { timeout: 15_000 });
+      // .first(): with the bug there are two titles, and the count below is
+      // the assertion that should say so.
+      await expect(page.locator('#d2d-quick-knock-overlay .d2d-modal-title').first()).toContainText('Knock', { timeout: 15_000 });
       // Both taps' 100ms pollers have fired well within this.
       await page.waitForTimeout(1_500);
       expect(await page.locator('#d2d-quick-knock-overlay').count(), 'one knock form, not one per tap').toBe(1);
