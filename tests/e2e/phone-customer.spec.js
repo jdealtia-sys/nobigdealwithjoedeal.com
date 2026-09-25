@@ -114,6 +114,18 @@ async function openCustomer(page, id) {
     && !!document.querySelector('#insuranceClaimWorkflow .claim-stages'), { timeout: 25_000 });
   const skip = page.getByText('Skip tour', { exact: true });
   if (await skip.isVisible().catch(() => false)) await skip.click().catch(() => {});
+  // Late panels (the header's suggested-action card, lead score, cover)
+  // keep pushing the page down for a while after hydration; a control
+  // scrolled to mid-screen before that ends up under the bottom bar.
+  await safeEvaluate(page, async () => {
+    let last = -1, stable = 0;
+    for (let i = 0; i < 25 && stable < 3; i++) {
+      await new Promise((r) => setTimeout(r, 400));
+      const h = document.documentElement.scrollHeight;
+      stable = h === last ? stable + 1 : 0;
+      last = h;
+    }
+  });
 }
 
 // Where a control really is, and what a finger at its centre would touch.
@@ -151,9 +163,15 @@ async function probe(page, selector, width) {
 // control that is off-screen or under something fails every poll, and the
 // failure names what is on top.
 // With `edges`, a finger landing 3px inside the top or bottom edge must
-// land on it too — that is what a bigger tap target actually buys.
-async function expectHit(page, selector, width, what, edges) {
+// land on it too — that is what a bigger tap target actually buys. With
+// `center`, each poll first scrolls the page (vertically — all a thumb can
+// do) to put the control mid-screen, so a late layout shift cannot leave
+// it under the bottom bar; never used where the page position IS the test
+// (the pinned bulk bar).
+async function expectHit(page, selector, width, what, opts) {
+  const { edges, center } = opts || {};
   await expect.poll(async () => {
+    if (center) await toMid(page, selector);
     const p = await probe(page, selector, width);
     if (!p.found) return 'missing';
     if (!p.hitsCentre) return p.topmost;
@@ -201,7 +219,7 @@ async function shareeyeJourney(page, ctx, width, tokenCalls) {
   const eyeSel = '#gallerySharePanel [data-action="CustomerPortal.preview"]';
   const eye = await probe(page, eyeSel, width);
   expect(eye.right, '👁 preview must end on the screen, not past its edge').toBeLessThanOrEqual(width);
-  await expectHit(page, eyeSel, width, '👁 preview');
+  await expectHit(page, eyeSel, width, '👁 preview', { center: true });
   expect(eye.height, '👁 is a thumb-size target').toBeGreaterThanOrEqual(36);
   const close = await probe(page, '[data-action="_closeGallerySharePanel"]', width);
   expect(close.width, 'Close sizes to its label instead of stretching across the header').toBeLessThan(120);
@@ -255,7 +273,7 @@ async function docRowChecks(page, width) {
   const w = await pageWidth(page);
   expect(w.inner, 'an uploaded file row must not widen the page').toBe(width);
   for (const sel of ['#docList [data-doc-homeowner-share]', '#docList .doc-item:has([data-doc-homeowner-share]) [data-action="deleteCustomerDoc"]']) {
-    await expectHit(page, sel, width, sel);
+    await expectHit(page, sel, width, sel, { center: true });
   }
 }
 
@@ -433,7 +451,7 @@ test.describe.serial('customer page at 412px, Jo\'s Android @shard2', () => {
     expect(build.top, 'below the title, not squeezing it').toBeGreaterThanOrEqual(est.bottom);
     await toMid(page, '.est-head-actions > [data-action="_openInDashboardEstimate"]');
     for (const sel of ['.est-head-actions > [data-action="_openInDashboardEstimate"]', '.est-head-actions > [data-action="openEstimateModal"]', '.est-head-actions > [data-action="_openInDashboardJobTemplates"]']) {
-      await expectHit(page, sel, W, sel);
+      await expectHit(page, sel, W, sel, { center: true });
       expect((await probe(page, sel, W)).lines, sel + ' label on one line (Build Estimate wrapped to two)').toBe(1);
     }
 
@@ -460,7 +478,7 @@ test.describe.serial('customer page at 412px, Jo\'s Android @shard2', () => {
       const p = await probe(page, sel, W);
       expect(p.found, sel + ' exists').toBe(true);
       expect(p.height, sel + ' is at least ' + min + 'px tall (was 13-29px)').toBeGreaterThanOrEqual(min);
-      await expectHit(page, sel, W, sel, true);
+      await expectHit(page, sel, W, sel, { edges: true, center: true });
     }
   });
 });
@@ -520,7 +538,7 @@ test.describe.serial('customer page at 360px, small Androids @shard2', () => {
       const p = await probe(page, sel, W);
       expect(p.lines, sel + ' label on one line (it wrapped to two)').toBe(1);
       expect(p.height, sel + ' at a thumb size').toBeGreaterThanOrEqual(40);
-      await expectHit(page, sel, W, sel);
+      await expectHit(page, sel, W, sel, { center: true });
     }
     const w = await pageWidth(page);
     expect(w.scroll, 'nothing on the record scrolls the page sideways at 360').toBeLessThanOrEqual(W);
