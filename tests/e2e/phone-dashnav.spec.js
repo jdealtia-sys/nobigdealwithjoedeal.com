@@ -311,6 +311,20 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
         .map((e) => e.dataset.target).filter((t) => !skip.has(t) && !drawer.has(t));
     });
     expect(missing, 'sidebar views with no More-drawer entry').toEqual([]);
+
+    // …and the Customize Tab Bar picker offers them as bottom-nav tabs.
+    await dismissToasts(page);
+    await page.locator('#mni-more').tap();
+    const cust = '#mobile-more-menu .mm-item-customize';
+    await page.locator(cust).scrollIntoViewIfNeeded();
+    await page.locator(cust).tap();
+    for (const id of ['reports', 'talk-tank', 'refrewards']) {
+      const tile = `#navCustomizeModal .ncm-pool-item[data-tab-id="${id}"]`;
+      await page.locator(tile).scrollIntoViewIfNeeded();
+      await expectTappable(page, tile, `tab-bar picker > ${id}`);
+    }
+    await page.locator('#navCustomizeModal .ncm-close').tap();
+    await expect(page.locator('#navCustomizeModal')).not.toHaveClass(/\bopen\b/);
   });
 
   test('report: Photo Library "New Report" opens the builder once a property is picked', async () => {
@@ -368,6 +382,19 @@ test.describe.serial('desktop dashboard nav @shard2', () => {
     await expect(page.locator('#nbd-whats-new-panel')).toBeVisible();
     expect(await activeView(page)).toBe('view-dash');
     await page.locator('#nbd-wn-close').click();
+  });
+
+  test('a #/dash deep link greets the signed-in user too', async () => {
+    // Booting straight into the Dashboard clones its template around auth
+    // time, the other side of the race from the Home-tab path above.
+    // A hash-only goto is a same-document navigation; reload for a real boot,
+    // and prove it happened (the marker must not survive).
+    await safeEvaluate(page, () => { window.__dashnavBeforeReload = true; });
+    await page.goto('/pro/dashboard.html#/dash');
+    await page.reload();
+    await safeWaitForFunction(page, () => !window.__dashnavBeforeReload && !!window._user && !!document.querySelector('#view-dash.active .page-title'), { timeout: 30_000 });
+    const first = await safeEvaluate(page, () => String(window._user.displayName || window._user.email.split('@')[0]).trim().split(/\s+/)[0]);
+    await expect(page.locator('#view-dash .page-title').first()).toHaveText(new RegExp(`Welcome Back, ${first}$`, 'i'), { timeout: 15_000 });
   });
 
   test('Schedule leads with Today', async () => {
