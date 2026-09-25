@@ -43,96 +43,24 @@
   var docName = document.getElementById('spDocName');
 
   // ── Phone reading layout (2026-09-25, phone audit homeowner#2) ───
-  // The document arrives exactly as the rep generated it: a US-letter page
-  // laid out in inches — 0.5in page padding, 0.18in section padding plus a
-  // 4px rule, 10px body and 9px clause text — under a 66px blank band that
-  // only exists to clear the legacy popup's fixed action bar (a stored
-  // document never carries that bar). On a 412px phone that measured as a
-  // 277px column (225px at 360) of 9px Georgia, the 3-day cancellation
-  // notice included. Pinch-zoom works, but at 2x every line needs a pan.
-  //
-  // WHY HERE and not in document-generator.js's shared CSS: the generated
-  // HTML is the legal record. It is stored, printed by Chromium, and turned
-  // into a PDF by the doc viewer's html2pdf path — which renders the
-  // document's own <style> blocks inside the PARENT page, so a max-width rule
-  // living in the document would match the rep's phone and reflow the
-  // downloaded PDF. The phone layout therefore never enters the document:
-  // it is added to the copy this page shows, and taken back out of what the
-  // widget returns before submitSignature sees it (stripPhoneLayout below).
-  // The signed record is the document the rep sent plus the signature —
-  // the same bytes a desktop signer produces. @media screen also keeps it
-  // out of any print of the live page.
-  var PHONE_STYLE_ID = 'nbd-sign-phone';
-  var PHONE_CSS = [
-    '@media screen and (max-width:600px){',
-    'html,body{background:#fff;}',
-    '.document-container{margin:0!important;padding:16px 16px 0!important;max-width:none;min-height:0;box-shadow:none;}',
-    '.document-header{margin:-16px -16px 20px!important;padding:20px 16px 16px!important;}',
-    '.header-top{flex-wrap:wrap;gap:10px;}',
-    '.header-info{font-size:13px!important;text-align:left!important;}',
-    '.header-company-name{font-size:20px!important;}',
-    '.header-tagline{font-size:14px!important;}',
-    '.header-contact-row{font-size:13px!important;}',
-    '.document-title{font-size:24px!important;letter-spacing:1px!important;}',
-    '.document-subtitle{font-size:14px!important;}',
-    '.document-content{font-size:16px!important;line-height:1.6!important;}',
-    // The templates hard-code their small print as inline styles (the
-    // contract's clause blocks are style="…font-size: 9px;"), which only an
-    // !important rule can outrank. Matched by value so a deliberately LARGER
-    // inline size is left alone.
-    '.document-container [style*="font-size: 8px"],.document-container [style*="font-size:8px"],',
-    '.document-container [style*="font-size: 9px"],.document-container [style*="font-size:9px"],',
-    '.document-container [style*="font-size: 10px"],.document-container [style*="font-size:10px"],',
-    '.document-container [style*="font-size: 10.5px"],.document-container [style*="font-size:10.5px"],',
-    '.document-container [style*="font-size: 11px"],.document-container [style*="font-size:11px"]{font-size:inherit!important;}',
-    // Line-item tables: 13px keeps a five-column scope table (with money
-    // like $15,520.00, which must never break mid-figure) inside a 360px
-    // column. The DESCRIPTION column absorbs the squeeze: a long word in it
-    // ("counterflashing") otherwise sets the column's minimum width, and at
-    // 360 that pushed the Total column 13px past the table's edge, clipped
-    // mid-figure. overflow-wrap:anywhere lowers that minimum, so the table
-    // fits and only the description cells wrap harder (hyphens:auto makes
-    // that "counter-flashing" where the phone has a dictionary; documents are
-    // lang="en"). Only body cells: the "Description" header stays whole, and
-    // the 3px side padding is what leaves room for it at 360 (4px was 2px
-    // short). It is NOT applied to the other columns: that would let the layout
-    // squeeze a figure until it broke. display:block + overflow-x stays as
-    // the net for a table that still cannot fit, so it scrolls inside its
-    // section instead of past the page edge.
-    '.document-container table,.document-container table[style]{font-size:13px!important;display:block;max-width:100%;overflow-x:auto;}',
-    '.document-container th,.document-container td{padding:5px 3px!important;}',
-    '.document-container td:first-child{overflow-wrap:anywhere;hyphens:auto;}',
-    '.section{padding:12px 12px 12px 14px;margin-bottom:18px;border-left-width:3px;}',
-    '.section-title{font-size:15px!important;letter-spacing:.06em!important;}',
-    '.summary-text,.scope-list,.warranty-details{font-size:16px!important;}',
-    '.warranty-badge{font-size:15px!important;padding:10px 14px!important;}',
-    '.signature-block,.sig-label,.nbd-sig-label,.nbd-sig-print-name,.nbd-sig-date{font-size:14px!important;}',
-    '.photo-grid.three-col{grid-template-columns:repeat(2,1fr);}',
-    '.affiliate-name{font-size:13px!important;}',
-    '.affiliate-num,.affiliate-badge-num{font-size:12px!important;}',
-    '.document-footer{margin:24px -16px 0!important;padding:18px 16px!important;font-size:13px!important;}',
-    '.document-footer .footer-brand{font-size:13px!important;}',
-    '.footer-credit{font-size:12px!important;}',
-    '}',
-  ].join('');
-  var PHONE_STYLE = '<style id="' + PHONE_STYLE_ID + '">' + PHONE_CSS + '</style>';
-
-  // Last thing in <head>, so it wins the cascade against the document's own
-  // rules. A document with no </head> is shown exactly as served: prepending
-  // a <style> before its doctype would drop it into quirks mode.
+  // The document arrives as a US-letter page at print size (9-10px clause
+  // text in a 277px column on a 412px phone). The layout that makes it
+  // readable lives in doc-phone-layout.js, shared with the portal's
+  // "Your Documents" viewer and the rep's doc viewer (in-person signing),
+  // which carried the same print-size document until they shared it. It is
+  // added to the copy this page SHOWS and taken back out of what the
+  // widget returns before submitSignature sees it, so the signed record is
+  // byte-identical to a desktop signer's — see that file for why the
+  // layout can never live in the document itself.
+  // Read at call time: if that script failed to load, the document is
+  // shown and submitted exactly as served (nothing added, nothing to strip).
   function withPhoneLayout(html) {
-    if (typeof html !== 'string') return html;
-    var at = html.search(/<\/head>/i);
-    if (at < 0) return html;
-    return html.slice(0, at) + PHONE_STYLE + html.slice(at);
+    var L = window.NBDDocPhoneLayout;
+    return L ? L.withPhoneLayout(html) : html;
   }
-
-  // The widget serialises documentElement.outerHTML, which writes our
-  // <style> back out verbatim; remove exactly that element so the submitted
-  // record carries no trace of the phone layout.
   function stripPhoneLayout(html) {
-    if (typeof html !== 'string') return html;
-    return html.split(PHONE_STYLE).join('');
+    var L = window.NBDDocPhoneLayout;
+    return L ? L.stripPhoneLayout(html) : html;
   }
 
   function msg(icon, title, body) {

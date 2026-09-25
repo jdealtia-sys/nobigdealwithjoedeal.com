@@ -24,13 +24,21 @@
 // same bytes whichever layout the signer saw, and printing the live phone
 // document must produce the same PDF as printing the stored original.
 //
+// homeowner#2's second half (2026-09-25): the rep's doc viewer, where the
+// same contract is signed IN PERSON, showed it at print size too. It now
+// shares sign.html's phone layout (docs/pro/js/doc-phone-layout.js) and is
+// held to the same two rules — plus a third that only it has: html2pdf
+// renders the document's own <style> blocks in the rep's page, so what the
+// viewer saves, PDFs and prints must be the same bytes at 412/360 as at 1280.
+//
 // Cloud Functions (getSignDocument / submitSignature / getEsignEnvelope /
 // submitEsignEnvelope) are mocked with page.route. Tagged @audit so the
 // authed emulator job's audit shard runs it.
 const fs = require('fs');
 const path = require('path');
 const { test, expect } = require('@playwright/test');
-const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
+const { requireTestUser, loginAs, safeEvaluate } = require('./fixtures/auth');
+const { buildContract, measureContract, expectReadableOnPhone, expectPaperOnDesktop, normalizeSigned } = require('./fixtures/generated-contract');
 
 const REPO = path.join(__dirname, '..', '..');
 const WIDGET = '/pro/js/signature-widget.js';
@@ -83,6 +91,53 @@ function probeFn(sel) {
   return { w: r.width, h: r.height, left: r.left, right: r.right, top: r.top, reach: !!hit && (hit === el || el.contains(hit)) };
 }
 
+// Draw a stroke on a signature pad inside the document frame the way a
+// finger drags across it (page coordinates = frame box + canvas box).
+async function drawSignature(p, f, frameEl, role) {
+  await f.evaluate((r) => document.querySelector(`[data-nbd-sig="${r}"]`).scrollIntoView({ block: 'center' }), role);
+  const fr = await frameEl.boundingBox();
+  const c = await f.evaluate((r) => { const b = document.querySelector(`[data-nbd-sig="${r}"] canvas`).getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width }; }, role);
+  await p.mouse.move(fr.x + c.x + 20, fr.y + c.y + 40);
+  await p.mouse.down();
+  for (let i = 1; i <= 12; i++) await p.mouse.move(fr.x + c.x + 20 + i * ((c.w - 40) / 12), fr.y + c.y + 40 + (i % 3) * 12);
+  await p.mouse.up();
+}
+
+// Chromium's print of `html` (a fresh 1280 page), minus the creation/mod
+// dates and random document ID it stamps on every PDF.
+async function pdfOf(browser, html) {
+  const ctx = await browser.newContext(ctxOpts(DESKTOP));
+  try {
+    const p = await ctx.newPage();
+    await p.setContent(html, { waitUntil: 'load' });
+    const buf = await p.pdf({ format: 'Letter', printBackground: true });
+    return buf.toString('latin1').replace(/\/(CreationDate|ModDate) \([^)]*\)/g, '').replace(/\/ID \[<[0-9A-Fa-f]+> <[0-9A-Fa-f]+>\]/g, '');
+  } finally { await ctx.close(); }
+}
+
+// The installed iPhone app's @media(display-mode: standalone) cascade,
+// copied to the top level: a browser tab never matches that query, and Jo
+// signs in person from the home-screen app (same technique as
+// phone-views.spec.js / phone-dashnav.spec.js).
+async function forceStandalone(page) {
+  return safeEvaluate(page, () => {
+    let css = '';
+    for (const sh of document.styleSheets) {
+      let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+      for (const r of rules) {
+        if (r.media && /display-mode:\s*standalone/.test(r.conditionText || r.media.mediaText)) {
+          for (const inner of r.cssRules) css += inner.cssText + '\n';
+        }
+      }
+    }
+    const s = document.createElement('style');
+    s.id = 'e2e-force-standalone';
+    s.textContent = css;
+    document.head.appendChild(s);
+    return css.length;
+  });
+}
+
 // ── homeowner#2 / #3: remote contract on sign.html ─────────────────────
 test.describe('phone signing: remote contract on sign.html @audit', () => {
   // sign.html (and the doc viewer's in-person signing) show the document in
@@ -115,25 +170,7 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
     // A REAL contract from the generator, so the template's own inch-based
     // CSS and inline 9px clause blocks are what gets measured.
     await loginAs(page, creds);
-    await safeWaitForFunction(page, () => window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function', { timeout: 30_000 });
-    const contract = await safeEvaluate(page, async () => {
-      await window.ScriptLoader.loadBundle('docgen');
-      for (let i = 0; i < 100 && !(window.NBDDocGen && window.NBDDocGen.getHTML); i++) await new Promise((r) => setTimeout(r, 100));
-      try { if (window._loadCompanyProfile) await window._loadCompanyProfile(); } catch (_) {}
-      const data = {
-        homeownerName: 'Pat Phone', address: '118 Maple Ridge Ct, Loveland, OH 45140',
-        phone: '(513) 555-0142', email: 'pat@example.com', contractPrice: '$18,430.00', startDate: '2026-10-05',
-        signers: [{ role: 'homeowner', label: 'Homeowner', required: true }, { role: 'contractor', label: 'Contractor', required: true }],
-        // "counterflashing" is the long word that once set the description
-        // column's minimum width and pushed Total past the table edge at 360.
-        lineItems: [
-          { description: 'Tear-off and replace architectural shingles, including starter strip and drip edge', qty: 32, unit: 'SQ', unitPrice: 485 },
-          { description: 'Ice and water shield, eaves and valleys', qty: 6, unit: 'RL', unitPrice: 95 },
-          { description: 'Chimney reflash with counterflashing', qty: 1, unit: 'EA', unitPrice: 1550 },
-        ],
-      };
-      return window.NBDDocGen._injectSignatureAssets(window.NBDDocGen.getHTML('contract', data));
-    });
+    const contract = await buildContract(page);
     expect(contract, 'generator produced a contract with signature pads').toMatch(/data-nbd-sig="homeowner"/);
 
     const records = {};
@@ -162,62 +199,12 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
           await f.waitForFunction(() => window.__NBD_LOADED && window.__NBD_LOADED['signature-widget'], null, { timeout: 15_000 })
             .catch((e) => { throw new Error(`${WIDGET} never ran in the sandboxed signing frame (request failures: ${widgetFailures.join(', ') || 'none'}): ${e.message}`); });
 
-          const m = await f.evaluate(() => {
-            const title = [...document.querySelectorAll('.section-title')].find((e) => /Cancellation/i.test(e.textContent));
-            const clause = title.nextElementSibling;
-            const sec = title.closest('.section');
-            const cs = getComputedStyle(sec);
-            let minFont = Infinity;
-            const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-            for (let n; (n = walker.nextNode());) {
-              if (!n.textContent.trim()) continue;
-              const el = n.parentElement;
-              // The pad's own controls are the widget's, asserted below.
-              if (el.closest('.nbd-sig-controls')) continue;
-              const c = getComputedStyle(el);
-              const b = el.getBoundingClientRect();
-              if (c.display === 'none' || c.visibility === 'hidden' || (!b.width && !b.height)) continue;
-              minFont = Math.min(minFont, parseFloat(c.fontSize));
-            }
-            const table = document.querySelector('.document-container table');
-            const tr = table.getBoundingClientRect();
-            return {
-              clauseFont: parseFloat(getComputedStyle(clause).fontSize),
-              column: sec.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth),
-              headerTop: document.querySelector('.document-header').getBoundingClientRect().top + scrollY,
-              overflow: document.documentElement.scrollWidth - innerWidth,
-              minFont,
-              // The line-item table's own sideways scroll, and any cell whose
-              // right edge sits past the table's (a clipped figure).
-              tableSideways: table.scrollWidth - table.clientWidth,
-              clippedCells: [...table.querySelectorAll('th,td')].filter((c) => c.getBoundingClientRect().right > tr.right + 0.5).map((c) => c.textContent.trim()),
-            };
-          });
-          if (phone) {
-            expect(m.clauseFont, 'cancellation clause text size').toBeGreaterThanOrEqual(15);
-            expect(m.minFont, 'smallest visible text in the contract').toBeGreaterThanOrEqual(12);
-            expect(m.column, 'contract text column width').toBeGreaterThanOrEqual(width * 0.8);
-            expect(m.headerTop, 'blank band above the contract header').toBeLessThanOrEqual(1);
-            expect(m.clippedCells, 'line-item cells cut off at the table edge').toEqual([]);
-            expect(m.tableSideways, 'line-item table scrolls sideways').toBeLessThanOrEqual(0);
-          } else {
-            // Desktop keeps the paper layout exactly as it was.
-            expect(m.clauseFont, 'desktop clause text unchanged').toBe(9);
-            expect(m.headerTop, 'desktop page offset unchanged').toBe(66);
-          }
-          expect(m.overflow, 'contract scrolls sideways').toBeLessThanOrEqual(0);
+          const m = await f.evaluate(measureContract);
+          if (phone) expectReadableOnPhone(expect, m, width, 'sign.html');
+          else expectPaperOnDesktop(expect, m, 'sign.html');
           if (phone && !livePhoneDoc) livePhoneDoc = await f.evaluate(() => '<!DOCTYPE html>\n' + document.documentElement.outerHTML);
 
-          // Draw a stroke on a pad the way a finger drags across it.
-          const draw = async (role) => {
-            await f.evaluate((r) => document.querySelector(`[data-nbd-sig="${r}"]`).scrollIntoView({ block: 'center' }), role);
-            const fr = await frameEl.boundingBox();
-            const c = await f.evaluate((r) => { const b = document.querySelector(`[data-nbd-sig="${r}"] canvas`).getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width }; }, role);
-            await p.mouse.move(fr.x + c.x + 20, fr.y + c.y + 40);
-            await p.mouse.down();
-            for (let i = 1; i <= 12; i++) await p.mouse.move(fr.x + c.x + 20 + i * ((c.w - 40) / 12), fr.y + c.y + 40 + (i % 3) * 12);
-            await p.mouse.up();
-          };
+          const draw = (role) => drawSignature(p, f, frameEl, role);
           await draw('homeowner');
           const hb = '[data-nbd-sig="homeowner"]';
           await expect(f.locator(`${hb} .nbd-sig-state`)).toHaveText(/signed/);
@@ -249,14 +236,9 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
           await p.locator('#spSubmit').click();
           await expect(p.locator('#spMsgTitle')).toHaveText(/All done/, { timeout: 15_000 });
           expect(signed, 'submitSignature received the signed document').toBeTruthy();
-          expect(signed, 'phone layout sheet kept out of the signed record').not.toContain('nbd-sign-phone');
+          expect(signed, 'phone layout sheet kept out of the signed record').not.toContain('nbd-doc-phone');
           expect(signed, 'touch sheet kept out of the signed record').not.toContain('nbd-sig-touch');
-          // What legitimately varies between signings: the drawn PNGs, the
-          // signing timestamps and the date stamp.
-          records[width] = signed
-            .replace(/data:image\/png;base64,[A-Za-z0-9+/=]+/g, 'PNG')
-            .replace(/data-nbd-sig-signed-at="[^"]*"/g, 'data-nbd-sig-signed-at=""')
-            .replace(/Signed [A-Z][a-z]+ \d{1,2}, \d{4}/g, 'Signed DATE');
+          records[width] = normalizeSigned(signed);
         } finally {
           await ctx.close();
         }
@@ -270,19 +252,140 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
 
     // Printing the live phone document (phone + touch sheets present) gives
     // the same PDF as printing the stored original: both sheets are screen-only.
-    const pdfOf = async (html) => {
-      const ctx = await browser.newContext(ctxOpts(DESKTOP));
-      try {
-        const p = await ctx.newPage();
-        await p.setContent(html, { waitUntil: 'load' });
-        const buf = await p.pdf({ format: 'Letter', printBackground: true });
-        // Chromium stamps creation/mod dates and a random document ID.
-        return buf.toString('latin1').replace(/\/(CreationDate|ModDate) \([^)]*\)/g, '').replace(/\/ID \[<[0-9A-Fa-f]+> <[0-9A-Fa-f]+>\]/g, '');
-      } finally { await ctx.close(); }
-    };
-    expect(livePhoneDoc, 'the live phone document carried the phone sheet').toContain('id="nbd-sign-phone"');
-    const [livePdf, storedPdf] = [await pdfOf(livePhoneDoc), await pdfOf(contract)];
+    expect(livePhoneDoc, 'the live phone document carried the phone sheet').toContain('id="nbd-doc-phone"');
+    const [livePdf, storedPdf] = [await pdfOf(browser, livePhoneDoc), await pdfOf(browser, contract)];
     expect(livePdf === storedPdf, 'print of the live phone document matches print of the stored contract').toBe(true);
+  });
+});
+
+// ── homeowner#2, second half: in-person signing in the rep's doc viewer ──
+// The rep generates the contract on the dashboard (the installed iPhone app)
+// and hands the phone over: NBDDocViewer shows it in #nbdv-iframe, the
+// homeowner signs there, and Save / Download PDF / Print each finalize the
+// signatures first. Until 2026-09-25 that was the print-size contract
+// sign.html had just stopped showing. The viewer is driven exactly as the
+// generator drives it (NBDDocViewer.open with onSave + onPersistFinalized);
+// html2pdf and the print fallback's window.open are swapped for recorders so
+// the HTML each path receives is captured, not rendered.
+test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit', () => {
+  test('contract reads at phone size in the viewer; what it saves, PDFs and prints is unchanged', async ({ browser }) => {
+    test.setTimeout(300_000);
+    let creds;
+    try { creds = requireTestUser(); } catch (e) { test.skip(true, e.message); return; }
+
+    let contract = null;
+    let livePhoneDoc = null;
+    const saved = {}; const pdfIn = {}; const printIn = {};
+    for (const width of [...PHONES, DESKTOP]) {
+      await test.step(`${width}px`, async () => {
+        const phone = width < 1000;
+        const ctx = await browser.newContext(ctxOpts(width));
+        try {
+          const p = await ctx.newPage();
+          await loginAs(p, creds);
+          if (!contract) {
+            contract = await buildContract(p);
+            expect(contract, 'generator produced a contract with signature pads').toMatch(/data-nbd-sig="homeowner"/);
+          }
+          await p.waitForFunction(() => window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function', null, { timeout: 30_000 });
+          if (phone) expect(await forceStandalone(p), 'found the installed-app rules to force').toBeGreaterThan(200);
+          await safeEvaluate(p, () => {
+            window.__e2eDoc = { persisted: [], pdf: null, print: null };
+            // html2pdf renders what .from() is handed, in THIS page.
+            window.html2pdf = () => {
+              const chain = { set: () => chain, from: (el) => { window.__e2eDoc.pdf = el.outerHTML; return chain; }, save: () => Promise.resolve() };
+              return chain;
+            };
+            // handlePrint's fallback writes currentContext.html into a new window.
+            window.open = () => ({ closed: false, print() {}, document: { open() {}, close() {}, write: (h) => { window.__e2eDoc.print = h; } } });
+          });
+          await safeEvaluate(p, (html) => window.NBDDocViewer.open({
+            html, title: 'Roofing Contract — Pat Phone', filename: 'Roofing-Contract.pdf',
+            onSave: async () => {},
+            onPersistFinalized: (signedHtml) => { window.__e2eDoc.persisted.push(signedHtml); },
+          }), contract);
+          const frameEl = await p.waitForSelector('#nbdv-iframe');
+          const f = await frameEl.contentFrame();
+          await f.waitForFunction(() => document.querySelector('.document-container') && window.__NBD_LOADED && window.__NBD_LOADED['signature-widget'], null, { timeout: 20_000 });
+
+          const m = await f.evaluate(measureContract);
+          if (phone) expectReadableOnPhone(expect, m, width, 'doc viewer');
+          else expectPaperOnDesktop(expect, m, 'doc viewer');
+          if (phone && !livePhoneDoc) livePhoneDoc = await f.evaluate(() => '<!DOCTYPE html>\n' + document.documentElement.outerHTML);
+
+          if (phone) {
+            // Nothing of the installed app's chrome sits over the viewer.
+            const frameProbe = await p.evaluate(probeFn, '#nbdv-iframe');
+            expect(frameProbe.w, 'viewer frame spans the phone').toBeGreaterThanOrEqual(width - 1);
+            expect(frameProbe.reach, 'viewer frame is the element under its own centre').toBe(true);
+            for (const sel of ['#nbdv-close', '.nbdv-action-btn.primary']) {
+              const b = await p.evaluate(probeFn, sel);
+              expect(b.h, `${sel} height`).toBeGreaterThanOrEqual(44);
+              expect(b.reach, `${sel} is the element under its own centre`).toBe(true);
+            }
+          }
+
+          await drawSignature(p, f, frameEl, 'homeowner');
+          if (phone) {
+            const clear = await f.evaluate(probeFn, '[data-nbd-sig="homeowner"] [data-nbd-sig-action="clear"]');
+            expect(clear.h, 'Clear under the pad height').toBeGreaterThanOrEqual(40);
+            expect(clear.reach, 'Clear is the element under its own centre').toBe(true);
+          }
+          await drawSignature(p, f, frameEl, 'contractor');
+          const press = (label) => { const b = p.locator('.nbdv-action-btn', { hasText: label }); return phone ? b.tap() : b.click(); };
+
+          await press('Save to Customer');
+          await p.waitForFunction(() => window.__e2eDoc.persisted.length >= 1, null, { timeout: 15_000 });
+          await press('Download PDF');
+          await p.waitForFunction(() => !!window.__e2eDoc.pdf, null, { timeout: 20_000 });
+          await press('Print');
+          await p.waitForFunction(() => !!window.__e2eDoc.print, null, { timeout: 15_000 });
+          const got = await p.evaluate(() => window.__e2eDoc);
+
+          for (const [what, html] of [['saved record', got.persisted[0]], ['html2pdf input', got.pdf], ['print fallback', got.print]]) {
+            expect(html, `${width}px ${what}: phone sheet kept out`).not.toContain('nbd-doc-phone');
+            expect(html, `${width}px ${what}: touch sheet kept out`).not.toContain('nbd-sig-touch');
+          }
+          expect(got.persisted.every((h) => !h.includes('nbd-doc-phone')), `${width}px every re-finalize persisted a clean record`).toBe(true);
+          saved[width] = normalizeSigned(got.persisted[0]);
+          pdfIn[width] = normalizeSigned(got.pdf);
+          printIn[width] = normalizeSigned(got.print);
+          expect(printIn[width] === saved[width], `${width}px: the printed record is the saved record`).toBe(true);
+
+          if (width === PHONES[0]) {
+            // Only the generator's letter documents get the phone sheet: the
+            // viewer also shows reports with their own design, like the Close
+            // Board's light-on-dark page, which a white body would blank out.
+            await safeEvaluate(p, () => window.NBDDocViewer.close());
+            await safeEvaluate(p, () => window.NBDDocViewer.open({
+              html: '<!DOCTYPE html><html><head><style>body{background:#0d0f14;color:#e5e7eb}</style></head><body><div class="section"><h1 id="e2eDark">Close Board</h1></div></body></html>',
+              title: 'Close Board',
+            }));
+            await f.waitForSelector('#e2eDark', { timeout: 10_000 });
+            const dark = await f.evaluate(() => ({ sheet: !!document.getElementById('nbd-doc-phone'), bg: getComputedStyle(document.body).backgroundColor }));
+            expect(dark.sheet, 'a non-letter document gets no phone sheet').toBe(false);
+            expect(dark.bg, 'a dark report keeps its own background').toBe('rgb(13, 15, 20)');
+          }
+          await safeEvaluate(p, () => window.NBDDocViewer.close());
+        } finally {
+          await ctx.close();
+        }
+      });
+    }
+
+    // The record does not depend on which layout the signer saw — saved,
+    // handed to html2pdf, or printed.
+    for (const width of PHONES) {
+      expect(saved[width] === saved[DESKTOP], `saved record at ${width}px is byte-identical to desktop's`).toBe(true);
+      expect(pdfIn[width] === pdfIn[DESKTOP], `html2pdf input at ${width}px is byte-identical to desktop's`).toBe(true);
+      expect(printIn[width] === printIn[DESKTOP], `print fallback at ${width}px is byte-identical to desktop's`).toBe(true);
+    }
+
+    // Printing the live phone document (phone sheet present) from the
+    // viewer's own Print gives the same PDF as printing the original.
+    expect(livePhoneDoc, 'the live phone document carried the phone sheet').toContain('id="nbd-doc-phone"');
+    const [livePdf, storedPdf] = [await pdfOf(browser, livePhoneDoc), await pdfOf(browser, contract)];
+    expect(livePdf === storedPdf, 'print of the live phone document in the viewer matches print of the original').toBe(true);
   });
 });
 

@@ -74,6 +74,29 @@
     return html + PRINT_LISTENER_SCRIPT;
   }
 
+  // ─── Phone reading layout (2026-09-25, phone audit homeowner#2) ──
+  // A generated contract showed here at print size on a phone — 9px clause
+  // text in a column a third of the screen — and this is where it is signed
+  // IN PERSON, the homeowner reading it on the rep's phone. doc-phone-
+  // layout.js (shared with sign.html and the portal) adds a screen-only
+  // sheet to the copy the iframe SHOWS. The signature widget hands the live
+  // document back with that sheet inside it, so it is stripped in
+  // finalizeSignaturesIfPresent() BEFORE the HTML becomes currentContext.html
+  // or reaches onPersistFinalized — i.e. before it is stored, printed, or
+  // rendered by html2pdf, which applies the document's own <style> blocks in
+  // THIS page, where a leftover max-width rule would match the rep's phone
+  // and reflow the PDF. currentContext.html never carries the sheet: it
+  // starts as opts.html and is only ever replaced by a stripped reply.
+  // Read at call time; absent, the document is shown exactly as served.
+  function withPhoneLayout(html) {
+    const L = window.NBDDocPhoneLayout;
+    return L ? L.withPhoneLayout(html) : html;
+  }
+  function stripPhoneLayout(html) {
+    const L = window.NBDDocPhoneLayout;
+    return L ? L.stripPhoneLayout(html) : html;
+  }
+
   // ─── CSS (injected once on first open) ───────────────────
   function ensureStyles() {
     if (document.getElementById('nbd-doc-viewer-styles')) return;
@@ -410,6 +433,9 @@
       }
     }).then(function (reply) {
       if (reply && reply.ok && typeof reply.html === 'string') {
+        // The record, not the screen: take the phone sheet back out before
+        // anything below (or any caller of this function) sees the HTML.
+        reply.html = stripPhoneLayout(reply.html);
         currentContext.html = reply.html;
         currentContext.signedSigners = Array.isArray(reply.signers) ? reply.signers : [];
         if (typeof currentContext.onPersistFinalized === 'function') {
@@ -752,7 +778,7 @@
         // blocked by Chrome") and froze the renderer. srcdoc renders in an
         // opaque same-origin context, so it is never blocked.
         iframe.removeAttribute('src');
-        iframe.srcdoc = wrapWithPrintListener(opts.html);
+        iframe.srcdoc = wrapWithPrintListener(withPhoneLayout(opts.html));
         // PR3b: once the sandboxed doc + signature widget have loaded,
         // hand this lead's previously-saved signatures across the
         // boundary so the widget can offer "Use saved". Skipped when
