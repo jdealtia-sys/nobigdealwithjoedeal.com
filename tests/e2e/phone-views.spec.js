@@ -25,7 +25,9 @@
 //            Save, reload — persisted in Firestore and seen by NBDUpgrades
 //   profretry a companyProfile read that gave up at boot (2026-09-25) is
 //            retried; Settings > Estimates refuses unhydrated saves out loud
-//            and repaints when the read lands (412, 360, and desktop 1280)
+//            and repaints when the read lands (412, 360, and desktop 1280);
+//            really offline with a write pending, the SDK's partial local
+//            copy never counts as loaded; a late landing keeps typing
 //
 // Every describe logs in ONCE and walks its surfaces in steps, so the whole
 // file stays around two minutes at --workers=1. Tagged @audit so it rides the
@@ -1115,19 +1117,27 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
 // window.__e2eProfileOffline is true, every companyProfile read that goes
 // through nbdRetryOffline throws the SDK's "client is offline" error (the
 // same wrapper company-profile.js defines, installed before the page runs).
-// The spec's own getDoc/updateDoc calls don't go through it, so it can read
-// the server copy the whole time.
+// Set to 'hang', the read never settles (a stuck getDoc, counted in
+// __e2eProfileHung) — which parks the page's retry run for its 20s
+// per-attempt cap. Set to false, reads reach the real SDK. The spec's own
+// getDoc/updateDoc calls don't go through it, so it can read the server copy
+// the whole time.
 
 async function installProfileOfflineSwitch(page) {
   await page.addInitScript(() => {
     window.__e2eProfileOffline = true;
     window.__e2eProfileReads = 0;
+    window.__e2eProfileHung = 0;
     const retry = async function (fn, tries, delay) {
       tries = tries || 3; delay = delay || 800;
       for (let i = 0; ; i++) {
         try {
           if (/companyProfile/.test(String(fn))) {
             window.__e2eProfileReads++;
+            if (window.__e2eProfileOffline === 'hang') {
+              window.__e2eProfileHung++;
+              await new Promise(() => {});
+            }
             if (window.__e2eProfileOffline) {
               throw Object.assign(new Error('Failed to get document because the client is offline.'), { code: 'unavailable' });
             }
@@ -1169,6 +1179,8 @@ async function restorePricing(page, original) {
       'pricing.countyTax': put(o.countyTax),
       'pricing.fallbackTaxRate': put(o.fallbackTaxRate),
       'pricing.addonPrices': put(o.addonPrices),
+      // Written by the offline step's pending merge write.
+      e2eProfretryProbe: fs.deleteField(),
     });
   }, original);
 }
@@ -1258,18 +1270,83 @@ async function profileRetryWalk(page, { act, openEstimatesTab, widths }) {
       }
     });
 
-    await test.step('the connection comes back: the retry lands and the tab repaints by itself', async () => {
+    // PR #1774 review (blocking): offline, getDoc does not throw once the
+    // SDK holds a local view of the doc — and a merge write issued before
+    // hydration (Settings > Company Profile's Save, the AI persona's "team
+    // default") puts a PARTIAL doc there. Taking that snapshot marked the
+    // profile loaded with no customJurisdictions, and Save All wiped the
+    // company's list under a "✓ saved". The switch fakes offline above the
+    // SDK, so this step goes REALLY offline and lets the reads through.
+    await test.step('really offline with a company write pending: the SDK\'s partial local copy never counts as loaded', async () => {
+      await page.context().setOffline(true);
+      await page.evaluate(() => {
+        window.__e2eProfileOffline = false; // the real SDK from here
+        window.__e2ePendingAcked = false;
+        window._saveCompanyProfile({ e2eProfretryProbe: 1 }).then(() => { window.__e2ePendingAcked = true; }, () => {});
+      });
+      // Positive control: the SDK really does serve the device's partial copy
+      // now — the one written field, from cache, write pending.
+      const local = await safeEvaluate(page, async () => {
+        const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const snap = await fs.getDoc(fs.doc(window.db, 'companyProfile', String(await window._resolveCompanyKey())));
+        return { fromCache: snap.metadata.fromCache, pending: snap.metadata.hasPendingWrites, keys: Object.keys(snap.data() || {}) };
+      });
+      expect(local, 'offline, the SDK hands out the partial doc (the hole under test)').toEqual({ fromCache: true, pending: true, keys: ['e2eProfretryProbe'] });
+      // Ask for the read the way a rep does: reopen the tab.
+      const before = await page.evaluate(() => window.__e2eProfileReads);
+      await openEstimatesTab();
+      await expect.poll(() => page.evaluate((b) => window._companyProfileLoaded === true || window.__e2eProfileReads >= b + 3, before), {
+        message: 'a full read attempt against the offline SDK', timeout: 30_000,
+      }).toBe(true);
+      expect(await page.evaluate(() => window._companyProfileLoaded === true), 'a local-copy snapshot never marks the profile loaded').toBe(false);
+      await expect(page.locator(JUR)).toHaveAttribute('data-jur-wait', /^(loading|failed)$/);
+      // Back online with reads still refused, so the write is acked before
+      // any read can land.
+      await page.evaluate(() => { window.__e2eProfileOffline = true; });
+      await page.context().setOffline(false);
+      await expect.poll(() => page.evaluate(() => window.__e2ePendingAcked), { message: 'the pending write was acked', timeout: 30_000 }).toBe(true);
+      expect(await page.evaluate(() => window._companyProfileLoaded === true), 'still not loaded: no server read has landed').toBe(false);
+    });
+
+    // PR #1774 review: the repaint used to come from the tab's own wait
+    // settling, so nothing proved the landing EVENT repaints it — a landing
+    // from any other reader (the document generator, maps and the pipeline
+    // builder each make one on-demand read). Here the tab's retry run is
+    // parked in a stuck read for 20s while another read lands, so only the
+    // event can repaint the tab inside 5s. And that repaint must keep what
+    // the rep typed into this device's own fields.
+    await test.step('another panel\'s read lands while the retry is stuck: the event repaints the tab, keeping the rep\'s typing', async () => {
+      const rate = page.locator('#v2rateGood');
+      const steep = page.locator('#v2addonSteep');
+      const rateSaved = await rate.inputValue();
+      await rate.fill('777'); // this device's tier rate, not yet saved
+      await steep.fill('99'); // company-wide, and not saveable while unloaded
+      const hung = await page.evaluate(() => window.__e2eProfileHung);
+      await page.evaluate(() => {
+        window.__e2eProfileOffline = 'hang';
+        window.dispatchEvent(new Event('online')); // kicks the retry into its next read now
+      });
+      await expect.poll(() => page.evaluate(() => window.__e2eProfileHung), {
+        message: 'the retry run is parked in a stuck read', timeout: 10_000,
+      }).toBeGreaterThan(hung);
       await page.evaluate(() => {
         window.__e2eProfileOffline = false;
-        window.dispatchEvent(new Event('online'));
+        window._loadCompanyProfile(); // another reader, outside the retry run
       });
       await expect.poll(() => page.evaluate(() => window._companyProfileLoaded === true), {
-        message: 'the profile read landed', timeout: 20_000,
+        message: 'the other reader\'s read landed', timeout: 10_000,
       }).toBe(true);
+      await expect(page.locator(`${JUR} [data-jur-name][value="${E2E_JUR.name}"]`), 'the saved jurisdiction painted by the landing event, not the parked retry').toHaveCount(1, { timeout: 5_000 });
       await expect(page.locator(JUR)).not.toHaveAttribute('data-jur-wait', /.*/);
-      await expect(page.locator(`${JUR} [data-jur-name][value="${E2E_JUR.name}"]`), 'the saved jurisdiction painted without reopening the tab').toHaveCount(1);
       await expect(page.locator('#upgPriceRows')).toHaveAttribute('data-state', 'ready');
+      await expect(rate, 'the rep\'s unsaved tier rate survives the landing').toHaveValue('777');
+      await expect(steep, 'the add-on rate now shows the company value').not.toHaveValue('99');
+      const msg = page.locator('#v2save-msg');
+      await expect(msg).toHaveAttribute('data-kind', 'warn');
+      await expect(msg).toContainText('replaced a county, tax or add-on rate you had changed');
       await page.locator(JUR).screenshot({ path: test.info().outputPath('profile-landed.png') });
+      await msg.screenshot({ path: test.info().outputPath('profile-landed-notice.png') });
+      await rate.fill(rateSaved); // the next Save stores this device's own value
     });
 
     await test.step('now Save All publishes the jurisdiction edit company-wide', async () => {

@@ -383,7 +383,28 @@
           }
         }
       };
-      const snap = await window.nbdRetryOffline(() => getDoc(doc(window.db, 'companyProfile', key)));
+      // ONLY the server's copy counts (2026-09-25, PR #1774 review). Offline,
+      // getDoc resolves from the SDK's local view instead of throwing — and a
+      // merge write issued before hydration (Settings > Company Profile Save,
+      // the AI persona "team default") puts a PARTIAL doc there, holding only
+      // the fields it wrote. Accepting that marked the profile loaded with no
+      // customJurisdictions, and the next Save All full-replaced the
+      // company's list with nothing under a "✓ saved" (reproduced on the rig:
+      // fromCache=true pending=true keys=[the one written field]). Back
+      // online, the acked write's doc can still race the watch update
+      // (fromCache=false, hasPendingWrites=true, same partial keys), so both
+      // flags disqualify a snapshot. Thrown as a retryable 'unavailable' so
+      // nbdRetryOffline and _ensureCompanyProfile keep asking until a clean
+      // server snapshot lands; nothing below — the profile, this tenant's
+      // cache, the flag — is touched by a rejected one.
+      const snap = await window.nbdRetryOffline(async () => {
+        const s = await getDoc(doc(window.db, 'companyProfile', key));
+        const md = s && s.metadata;
+        if (md && (md.fromCache || md.hasPendingWrites)) {
+          throw Object.assign(new Error('companyProfile read came from this device\'s local copy, not the server (the client is offline or a write is still pending)'), { code: 'unavailable' });
+        }
+        return s;
+      });
       if (snap && snap.exists()) {
         const remote = snap.data() || {};
         window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, remote);
@@ -391,7 +412,7 @@
         try { localStorage.setItem(_cacheKeyFor(key), JSON.stringify(remote)); } catch (_) {}
       }
       // Hydration is DEFINITIVE only once the doc read succeeded (exists or
-      // not). Destructive per-tenant writes (the custom-jurisdictions
+      // not) FROM THE SERVER. Destructive per-tenant writes (the custom-jurisdictions
       // full-replace) gate on this flag so a pre-hydration empty render can
       // never be saved as a tenant-wide wipe. A failed read leaves it unset.
       const firstLanding = window._companyProfileLoaded !== true;
@@ -433,7 +454,8 @@
   //
   // THE HYDRATION INVARIANT IS UNCHANGED. Every attempt is a plain
   // window._loadCompanyProfile() call — the only writer of
-  // _companyProfileLoaded, which it sets only after getDoc resolved. A failed,
+  // _companyProfileLoaded, which it sets only after getDoc resolved with the
+  // SERVER's copy (never a local-cache or pending-write snapshot). A failed,
   // refused or timed-out attempt leaves the flag unset, so every destructive
   // full-replace write gated on it stays shut until a real read lands.
   const _ENSURE_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 15000];

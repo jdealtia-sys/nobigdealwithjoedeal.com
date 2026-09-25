@@ -432,18 +432,26 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
     // in success green — the behavioural twin below runs the real save.
     if (!/were NOT saved for your company/.test(BOOT)) throw new Error('skip copy must say the company rates were NOT saved');
   });
-  test('the landing handler repaints the whole panel, not just the jurisdiction rows', () => {
+  test('the landing handler repaints every company input, not just the jurisdiction rows', () => {
     // Was the 500ms rehydrate poll; since 2026-09-25 (lane profretry) a
-    // landing arrives as 'nbd:company-profile-loaded'.
+    // landing arrives as 'nbd:company-profile-loaded'. Since the PR #1774
+    // review it repaints the COMPANY half of the panel only (the per-device
+    // half keeps the rep's typing) — the behavioural twin is the "Profile boot
+    // retry: a late landing" section below.
     const i = BOOT.indexOf('function _jurProfileLanded() {');
     if (i < 0) throw new Error('_jurProfileLanded not found');
     const block = BOOT.slice(i, BOOT.indexOf('\n  }', i));
-    // A DIRECT call (Globals Tranche 3 T3-C, 2026-09-18): the loader is a
-    // module-scope declaration now, off window — a window.X() read here would
+    // A DIRECT call (Globals Tranche 3 T3-C, 2026-09-18): these are
+    // module-scope declarations, off window — a window.X() read here would
     // throw inside the handler and leave the inputs stale. codeOnly(): a
     // commented-out call must not satisfy the pin (PR #1662 review).
-    if (!/(?:^|[^.\w$])_loadEstimateDefaultsV2\(\)/.test(codeOnly(block))) {
-      throw new Error('the landing must re-run _loadEstimateDefaultsV2 or the 14 county inputs stay stale forever');
+    if (!/(?:^|[^.\w$])_repaintCompanyFromProfile\(\)/.test(codeOnly(block))) {
+      throw new Error('the landing must repaint the company inputs or the 14 county inputs stay stale forever');
+    }
+    const r = BOOT.indexOf('function _repaintCompanyFromProfile() {');
+    if (r < 0) throw new Error('_repaintCompanyFromProfile not found');
+    if (!/(?:^|[^.\w$])_paintCompanyEstimateInputs\(\)/.test(codeOnly(BOOT.slice(r, BOOT.indexOf('\n  }', r))))) {
+      throw new Error('_repaintCompanyFromProfile must re-run _paintCompanyEstimateInputs');
     }
   });
   test('reset treats NOT_FOUND as success (a tenant with no profile has nothing to clear)', () => {
@@ -490,6 +498,11 @@ console.log('\nGlobals Tranche 3 T3-C: the panel loader is registry-only');
     const v = reg._loadEstimateDefaultsV2;
     if (!v || v.binding !== '_loadEstimateDefaultsV2') {
       throw new Error('_loadEstimateDefaultsV2 is not registered to its own binding (got ' + JSON.stringify(v) + ')');
+    }
+    // My Jurisdictions' "↻ Try again" (2026-09-25): a registry-only call too.
+    const t = reg._retryJurisdictions;
+    if (!t || t.binding !== '_retryJurisdictions') {
+      throw new Error('_retryJurisdictions is not registered to its own binding (got ' + JSON.stringify(t) + ')');
     }
   });
   test('reset repaints through a direct call, not a window read', () => {
@@ -577,8 +590,13 @@ const flushTimers = () => new Promise((r) => setTimeout(r, 150));
 const within = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + ' never settled')), ms))]);
 
 // company-profile.js in a vm. getDoc outcomes come from `reads`, one per call
-// ('offline' | 'denied' | 'hang' | 'ok'), then `rest`. Timers run at ms/1000,
-// except delays listed in `park`, which end only when the run is kicked.
+// ('offline' | 'denied' | 'hang' | 'ok' | 'cache' | 'pending'), then `rest`.
+// 'cache' is what the real SDK hands back offline once a merge write is
+// pending: the doc as the DEVICE sees it — only the written field —
+// fromCache and hasPendingWrites both true. 'pending' is the acked-write race
+// back online: fromCache false, hasPendingWrites true, same partial doc.
+// Timers run at ms/1000, except delays listed in `park`, which end only when
+// the run is kicked.
 function loadProfileModule(opts) {
   opts = opts || {};
   const script = (opts.reads || []).slice();
@@ -611,7 +629,10 @@ function loadProfileModule(opts) {
       if (r === 'offline') return fail('Failed to get document because the client is offline.', 'unavailable');
       if (r === 'denied') return fail('Missing or insufficient permissions.', 'permission-denied');
       if (r === 'hang') return new Promise(() => {});
-      return Promise.resolve({ exists: () => true, data: () => ({ pricing: { customJurisdictions: { 'custom-x': { name: 'X', cost: 1, rate: 0.01 } } } }) });
+      if (r === 'cache' || r === 'pending') {
+        return Promise.resolve({ exists: () => true, data: () => ({ aiTexting: { enabled: true } }), metadata: { fromCache: r === 'cache', hasPendingWrites: true } });
+      }
+      return Promise.resolve({ exists: () => true, data: () => ({ pricing: { customJurisdictions: { 'custom-x': { name: 'X', cost: 1, rate: 0.01 } } } }), metadata: { fromCache: false, hasPendingWrites: false } });
     },
   };
   const parked = [];
@@ -629,7 +650,7 @@ function loadProfileModule(opts) {
   const src = CP_SRC.replace(FS_IMPORT_RE, '__fsImport()');
   if (src === CP_SRC) throw new Error('harness: no firestore import was rerouted');
   vm.runInNewContext(src, sandbox, { filename: 'company-profile.js' });
-  return { win, log, st, parkedCount: () => parked.filter((h) => h.parked).length };
+  return { win, log, st, store, parkedCount: () => parked.filter((h) => h.parked).length };
 }
 
 asection('\nProfile boot retry: _ensureCompanyProfile (company-profile.js)');
@@ -695,6 +716,30 @@ atest('company-profile.js arriving AFTER the boot asked starts the read itself (
   await flushTimers();
   eq(idle.log.reads, 0, 'reads when the boot has not asked (it reads itself; no double read)');
 });
+atest('a snapshot of the device\'s local copy never counts as loaded (offline + a pending merge write, then the acked-write race)', async () => {
+  // PR #1774 review: offline, getDoc resolves from the SDK's local view, and
+  // a merge write issued before hydration puts a PARTIAL doc there. Taking it
+  // marked the profile loaded with no customJurisdictions, and Save All then
+  // full-replaced the company's list with nothing.
+  const m = loadProfileModule({ reads: ['cache', 'cache', 'cache', 'pending'] });
+  const CK = 'nbd_company_profile_v1:c1'; // company-profile.js's _cacheKeyFor('c1')
+  m.store[CK] = JSON.stringify({ pricing: { customJurisdictions: { 'custom-cached': { name: 'Cached', cost: 2, rate: 0.02 } } } });
+  const cacheBefore = m.store[CK];
+  await m.win._loadCompanyProfile(); // the boot read, offline with the write pending
+  eq(m.win._companyProfileLoaded, undefined, 'flag after the boot read got only local-copy snapshots');
+  eq(m.log.sets.length, 0, 'writes to _companyProfileLoaded');
+  eq(m.log.reads, 3, 'boot read tries (each local-copy snapshot is retried)');
+  eq(m.log.events, 0, 'landing events');
+  eq(m.win._companyProfile.aiTexting && m.win._companyProfile.aiTexting.enabled, undefined, 'the partial doc never became the profile');
+  eq(!!m.win._companyProfile.pricing.customJurisdictions['custom-cached'], true, 'the profile is still this tenant\'s cached copy');
+  eq(m.store[CK], cacheBefore, 'the tenant cache is untouched by a rejected snapshot');
+  // Back online: the acked write's partial doc races the watch update first,
+  // then a clean server snapshot lands.
+  eq(await m.win._ensureCompanyProfile(), true, 'ensure');
+  eq(m.log.reads, 5, 'reads (the pending-write snapshot refused, then the server copy)');
+  eq(JSON.stringify(m.log.sets), '[true]', 'writes to _companyProfileLoaded');
+  eq(m.win._companyProfile.pricing.customJurisdictions['custom-x'].name, 'X', 'the SERVER doc is the profile');
+});
 atest('a getDoc that never settles does not stall the run', async () => {
   const m = loadProfileModule({ reads: ['hang'] });
   eq(await m.win._ensureCompanyProfile(), true, 'ensure');
@@ -726,8 +771,11 @@ function loadJurWaiter() {
       return run;
     },
   };
-  const ctx = vm.createContext({ window: win, document: { getElementById: (id) => (id === 'jurRows' ? host : null) }, _renderJurisdictionRow: () => ({}), Promise });
-  ctx._loadEstimateDefaultsV2 = () => { log.loads++; ctx._renderJurisdictionRows(); };
+  const ctx = vm.createContext({ window: win, document: { getElementById: (id) => (id === 'jurRows' ? host : null) }, _renderJurisdictionRow: () => ({}), Promise, showToast() {}, clearTimeout() {} });
+  // The company half of the panel (it repaints these rows among the rest).
+  ctx._paintCompanyEstimateInputs = () => { log.loads++; ctx._renderJurisdictionRows(); };
+  ctx._companyInputsEdited = () => [];
+  ctx._loadEstimateDefaultsV2 = () => { log.full = (log.full || 0) + 1; ctx._paintCompanyEstimateInputs(); };
   vm.runInContext(BOOT.slice(i, end + 4), ctx);
   const announce = () => { win._companyProfileLoaded = true; (listeners['nbd:company-profile-loaded'] || []).forEach((f) => f()); };
   return {
@@ -740,7 +788,7 @@ function loadJurWaiter() {
 }
 
 asection('\nProfile boot retry: My Jurisdictions asks, and says when it cannot');
-atest('the tab asks for the read, and repaints the whole panel when it lands', async () => {
+atest('the tab asks for the read, and repaints the company inputs when it lands', async () => {
   const w = loadJurWaiter();
   w.ctx._renderJurisdictionRows();
   eq(w.host.getAttribute('data-jur-wait'), 'loading', 'placeholder state');
@@ -753,7 +801,8 @@ atest('the tab asks for the read, and repaints the whole panel when it lands', a
   eq(w.log.loads, 0, 'repaints before the profile lands');
   w.land();
   await flushTimers();
-  eq(w.log.loads, 1, 'whole-panel repaints once it lands');
+  eq(w.log.loads, 1, 'company-input repaints once it lands');
+  eq(w.log.full || 0, 0, 'whole-panel repaints (the per-device inputs are left alone)');
   eq(w.host.hasAttribute('data-jur-wait'), false, 'loading state cleared');
   eq(w.host.rows, 1, 'saved rows painted');
   eq(w.resolved(), true, '_jurRowsResolved after the repaint');
@@ -765,23 +814,149 @@ atest('a run that gives up says so and offers Try again; a landing after that st
   await flushTimers();
   eq(w.host.getAttribute('data-jur-wait'), 'failed', 'state after the run gave up');
   if (!/did not load/.test(w.host.innerHTML)) throw new Error('the rep is not told the list did not load');
-  if (!/data-action="call" data-fn="_loadEstimateDefaultsV2"/.test(w.host.innerHTML)) throw new Error('no Try again wired to the registry loader');
+  if (!/data-action="call" data-fn="_retryJurisdictions"/.test(w.host.innerHTML)) throw new Error('no Try again wired to _retryJurisdictions');
   eq(w.resolved(), false, '_jurRowsResolved on the failure message');
   eq(w.log.loads, 0, 'repaints');
   w.announce(); // lands later through another read (online event, a document generator)
   eq(w.log.loads, 1, 'repaints on the later landing');
   eq(w.host.rows, 1, 'saved rows painted');
 });
+atest('Try again asks again with only the jurisdiction box reloading, never the whole panel', async () => {
+  // It re-ran _loadEstimateDefaultsV2, which also put back every per-device
+  // input over unsaved typing (PR #1774 review follow-up).
+  const w = loadJurWaiter();
+  w.ctx._renderJurisdictionRows();
+  w.giveUp();
+  await flushTimers();
+  eq(w.host.getAttribute('data-jur-wait'), 'failed', 'state after the run gave up');
+  const asked = w.log.ensure;
+  w.ctx._retryJurisdictions();
+  eq(w.host.getAttribute('data-jur-wait'), 'loading', 'state after Try again');
+  eq(w.log.ensure, asked + 1, 'reads asked for by Try again');
+  eq(w.log.full || 0, 0, 'whole-panel repaints');
+  w.land();
+  await flushTimers();
+  eq(w.host.rows, 1, 'saved rows painted once it lands');
+  eq(w.log.full || 0, 0, 'whole-panel repaints after the landing');
+});
+
+// The whole Estimates panel painter (dashboard-bootstrap), real code in a vm:
+// _loadEstimateDefaultsV2 and both its halves, My Jurisdictions and the
+// landing handler, over a stub DOM where every id resolves to an input.
+function loadPanel() {
+  const start = BOOT.indexOf('  let _countyInputsResolved = false;');
+  const fnStart = BOOT.indexOf('function _renderJurisdictionRows() {', start);
+  const end = BOOT.indexOf('\n  }', fnStart);
+  if (start < 0 || fnStart < 0 || end < 0) throw new Error('Estimates panel painter not found');
+  const els = {};
+  const mk = (id) => {
+    const attrs = {};
+    let html = '';
+    return {
+      id, value: '', textContent: '', style: {}, rows: 0,
+      get innerHTML() { return html; }, set innerHTML(v) { html = String(v); this.rows = 0; },
+      setAttribute(k, v) { attrs[k] = String(v); }, getAttribute(k) { return k in attrs ? attrs[k] : null; },
+      hasAttribute(k) { return k in attrs; }, removeAttribute(k) { delete attrs[k]; },
+      appendChild() { this.rows++; },
+    };
+  };
+  const byId = (id) => (els[id] = els[id] || mk(id));
+  const listeners = {};
+  const log = { ensure: 0, toasts: [] };
+  let finish = null;
+  const win = {
+    _companyProfileLoaded: false,
+    _companyProfile: { pricing: {} },
+    NBD_ESTIMATE_CONFIG: { ADDON_STEEP_PER_SQ: 25 },
+    NBDUpgradePriceSettings: { render() {} },
+    addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
+    _ensureCompanyProfile() {
+      log.ensure++;
+      return new Promise((r) => { finish = r; });
+    },
+  };
+  // What getResolvedCountySettings returns: this device's settings, with the
+  // tenant's county policy overlaid once the profile has landed.
+  const device = { tierRates: { good: 545 }, costBasis: { good: 0 }, fallbackTaxRate: 0.07, permits: { 'hamilton-oh': { cost: 100 } }, countyTax: { 'hamilton-oh': 0.07 } };
+  const resolved = () => (win._companyProfileLoaded === true
+    ? Object.assign({}, device, { permits: { 'hamilton-oh': { cost: 150 } }, countyTax: { 'hamilton-oh': 0.078 } })
+    : device);
+  const ctx = vm.createContext({
+    window: win, Promise,
+    document: { getElementById: byId, createElement: () => ({ setAttribute() {}, innerHTML: '' }) },
+    _v2ReadResolvedSettings: resolved,
+    showToast: (m, k) => log.toasts.push({ m: String(m), k }),
+    clearTimeout() {}, setTimeout() { return 0; },
+  });
+  vm.runInContext(BOOT.slice(start, end + 4), ctx);
+  return {
+    ctx, byId, log,
+    val: (id) => String(byId(id).value),
+    type: (id, v) => { byId(id).value = v; },
+    // The profile lands (any reader's read): the company's values arrive.
+    land: () => {
+      win._companyProfileLoaded = true;
+      win._companyProfile = { pricing: { addonPrices: { steepPerSq: 30 }, customJurisdictions: { 'custom-a': { name: 'A', cost: 5, rate: 0.01 } } } };
+      (listeners['nbd:company-profile-loaded'] || []).forEach((f) => f());
+      if (finish) finish(true);
+    },
+    flag: (name) => vm.runInContext(name, ctx),
+  };
+}
+
+asection('\nProfile boot retry: a late landing keeps the rep\'s typing, and says what it replaced');
+atest('the per-device inputs keep unsaved typing; the company inputs take the company values, and the rep is told', async () => {
+  // PR #1774 review: a landing can now arrive any time (the online event,
+  // another panel's read, the retry schedule). It re-ran the whole loader,
+  // so a rep's unsaved tier rate 777 and cost 321 came back as 545 and 0,
+  // with no word.
+  const p = loadPanel();
+  p.ctx._loadEstimateDefaultsV2(); // the tab opens before the profile landed
+  eq(p.byId('jurRows').getAttribute('data-jur-wait'), 'loading', 'jurisdictions while unloaded');
+  eq(p.val('v2rateGood'), '545', 'tier rate as painted');
+  eq(p.val('taxHamOh'), '7.00', 'county tax as painted (device value)');
+  eq(p.flag('_countyInputsResolved'), false, '_countyInputsResolved before the landing');
+  p.type('v2rateGood', '777');
+  p.type('v2costGood', '321');
+  p.type('taxHamOh', '9.99'); // company-wide, and not saveable yet
+  p.land();
+  await flushTimers();
+  eq(p.val('v2rateGood'), '777', 'the rep\'s unsaved tier rate after the landing');
+  eq(p.val('v2costGood'), '321', 'the rep\'s unsaved cost basis after the landing');
+  eq(p.val('taxHamOh'), '7.80', 'county tax shows the company value');
+  eq(p.val('permHamOh'), '150', 'permit cost shows the company value');
+  eq(p.val('v2addonSteep'), '30', 'add-on rate shows the company value');
+  eq(p.byId('jurRows').hasAttribute('data-jur-wait'), false, 'jurisdiction loading state cleared');
+  eq(p.byId('jurRows').rows, 1, 'saved jurisdiction rows painted');
+  eq(p.flag('_countyInputsResolved'), true, '_countyInputsResolved after the landing');
+  eq(p.flag('_jurRowsResolved'), true, '_jurRowsResolved after the landing');
+  const msg = p.byId('v2save-msg');
+  eq(msg.getAttribute('data-kind'), 'warn', 'panel message kind');
+  if (!/replaced a county, tax or add-on rate you had changed/.test(msg.textContent)) throw new Error('panel message: ' + msg.textContent);
+  eq(p.log.toasts.length, 1, 'toasts');
+  eq(p.log.toasts[0].k, 'info', 'toast kind');
+});
+atest('control: a landing with no company input changed says nothing, and still keeps device typing', async () => {
+  const p = loadPanel();
+  p.ctx._loadEstimateDefaultsV2();
+  p.type('v2rateGood', '777');
+  p.land();
+  await flushTimers();
+  eq(p.val('v2rateGood'), '777', 'the rep\'s unsaved tier rate after the landing');
+  eq(p.val('taxHamOh'), '7.80', 'county tax shows the company value');
+  eq(p.log.toasts.length, 0, 'toasts');
+  eq(p.byId('v2save-msg').getAttribute('data-kind'), null, 'panel message kind');
+});
 
 // _saveEstimateDefaultsV2, real code in a vm. `_collectJurisdictionRows`
 // returns {} — what the loading line collects to — so a gate that let it
 // through would full-replace the company's list with nothing.
 function loadSave(state) {
-  const start = BOOT.indexOf('  let _v2SaveMsgTimer = null;');
-  const fnStart = BOOT.indexOf('window._saveEstimateDefaultsV2 = async function() {', start);
+  if (BOOT.indexOf('  let _v2SaveMsgTimer = null;') < 0) throw new Error('the Save All message timer is gone');
+  const fnStart = BOOT.indexOf('window._saveEstimateDefaultsV2 = async function() {');
   const end = BOOT.indexOf('\n  };', fnStart);
-  if (start < 0 || fnStart < 0 || end < 0) throw new Error('_saveEstimateDefaultsV2 not found');
-  const raw = BOOT.slice(start, end + 5);
+  if (fnStart < 0 || end < 0) throw new Error('_saveEstimateDefaultsV2 not found');
+  const raw = BOOT.slice(fnStart, end + 5);
   const src = raw.replace(FS_IMPORT_RE, '__fsImport()');
   if (src === raw) throw new Error('harness: no firestore import was rerouted');
   const log = { company: [], replace: [], userSettings: 0, collected: 0, repaint: 0, kick: 0, toasts: [], fades: 0 };
@@ -809,7 +984,7 @@ function loadSave(state) {
       updateDoc: async (ref, data) => { log.replace.push({ ref, keys: Object.keys(data).sort() }); },
     }),
   });
-  vm.runInContext('var _countyInputsResolved = ' + !!state.county + '; var _jurRowsResolved = ' + !!state.jur + ';', ctx);
+  vm.runInContext('var _countyInputsResolved = ' + !!state.county + '; var _jurRowsResolved = ' + !!state.jur + '; var _v2SaveMsgTimer = null;', ctx);
   vm.runInContext(src, ctx);
   return { save: () => win._saveEstimateDefaultsV2(), log, msg, win };
 }

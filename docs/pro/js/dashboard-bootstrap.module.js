@@ -4587,13 +4587,25 @@
   // Registered in __NBD_CALL_REGISTRY at the end of this file (Globals
   // Tranche 3 T3-C, 2026-09-18), no longer a bare window global. ui.js's
   // switchSettingsTab reads it off the registry; the in-module callers
-  // (the rehydrate poll, the reset) call it directly.
+  // (the reset, Save All) call it directly.
+  //
+  // Two halves since 2026-09-25 (PR #1774 review): the per-device inputs,
+  // and the company-wide ones. A company profile that lands AFTER the tab was
+  // painted repaints only the company half (_repaintCompanyFromProfile) — it
+  // used to re-run this whole loader, which silently put back the saved tier
+  // rates / cost basis / markup over whatever the rep had typed there but not
+  // yet saved, and those inputs never depended on the profile at all.
   function _loadEstimateDefaultsV2() {
     // Resolved (tenant county policy overlaid) — the permit/tax inputs below
     // must show COMPANY values, not this device's stale localStorage copy.
     const s = _v2ReadResolvedSettings();
-    _countyInputsResolved = !!s && window._companyProfileLoaded === true;
-    if (!s) return;
+    if (s) _paintDeviceEstimateInputs(s);
+    _paintCompanyEstimateInputs(s);
+  }
+
+  // Per-device inputs: this device's saved engine settings (localStorage),
+  // never the company profile — so nothing about a profile landing touches them.
+  function _paintDeviceEstimateInputs(s) {
     const byId = (id) => document.getElementById(id);
 
     if (byId('v2rateGood'))   byId('v2rateGood').value   = s.tierRates?.good   ?? 545;
@@ -4614,6 +4626,24 @@
 
     if (byId('defDumpFee'))    byId('defDumpFee').value    = s.dumpFee ?? 550;
     if (byId('defExtraLayer')) byId('defExtraLayer').value = s.tearOffExtraPerSq ?? 50;
+  }
+
+  // The company-wide inputs this panel paints and Save All publishes to
+  // companyProfile.pricing (the fallback tax rate, the 14 county permit/tax
+  // inputs, the add-on rates), recorded by the last company paint so a late
+  // landing can tell which of them the rep has typed into since.
+  let _companyInputIds = [];
+
+  // Company-wide inputs: county policy + fallback tax (resolved over the
+  // tenant profile), My Jurisdictions, upgrade prices and add-on rates.
+  // Called with no argument by a late profile landing.
+  function _paintCompanyEstimateInputs(s) {
+    if (s === undefined) s = _v2ReadResolvedSettings();
+    _countyInputsResolved = !!s && window._companyProfileLoaded === true;
+    if (!s) return;
+    const byId = (id) => document.getElementById(id);
+    const ids = ['defTaxRate'];
+
     if (byId('defTaxRate'))    byId('defTaxRate').value    = ((s.fallbackTaxRate ?? 0.07) * 100).toFixed(2);
 
     // Permit costs
@@ -4626,6 +4656,7 @@
     };
     Object.keys(permMap).forEach(id => {
       const el = byId(id);
+      ids.push(id);
       if (el && permits[permMap[id]]) el.value = permits[permMap[id]].cost;
     });
 
@@ -4639,6 +4670,7 @@
     };
     Object.keys(taxMap).forEach(id => {
       const el = byId(id);
+      ids.push(id);
       if (el && tax[taxMap[id]] != null) el.value = (tax[taxMap[id]] * 100).toFixed(2);
     });
 
@@ -4703,6 +4735,7 @@
     const cfg = window.NBD_ESTIMATE_CONFIG || {};
     const cpAddon = (window._companyProfile && window._companyProfile.pricing && window._companyProfile.pricing.addonPrices) || {};
     const addonField = (id, key, cfgKey, fb) => {
+      ids.push(id);
       const el = byId(id); if (!el) return;
       const cp = cpAddon[key];
       el.value = (cp != null && cp !== '') ? cp : (cfgKey && cfg[cfgKey] != null ? cfg[cfgKey] : fb);
@@ -4721,6 +4754,24 @@
     addonField('v2addonValleyLf',        'valleyMetalLf',        null,                            8.5);
     addonField('v2addonGuttersLf',       'guttersLf',            null,                            8.5);
     addonField('v2addonMatDelivery',     'matDelivery',          'ADDON_MAT_DELIVERY',            412.50);
+
+    // Remember what each company input was painted with, so a late landing
+    // can tell typing (value moved since) from a value it simply replaces.
+    ids.forEach((id) => {
+      const el = byId(id);
+      if (el && typeof el.setAttribute === 'function') el.setAttribute('data-nbd-painted', String(el.value));
+    });
+    _companyInputIds = ids;
+  }
+
+  // Company inputs the rep has changed since they were painted.
+  function _companyInputsEdited() {
+    return _companyInputIds.filter((id) => {
+      const el = document.getElementById(id);
+      return !!el && typeof el.getAttribute === 'function'
+        && el.getAttribute('data-nbd-painted') != null
+        && String(el.value) !== el.getAttribute('data-nbd-painted');
+    });
   }
 
   // ── My Jurisdictions (county-jurisdiction settings, 2026-07-29) ──
@@ -4773,6 +4824,10 @@
   // profile landing a moment later has not repainted yet.
   let _jurRowsResolved = false;
   let _jurWaiting = false;
+  // The panel message's fade timer (#v2save-msg, one per page): Save All and
+  // the late-landing notice below share it, so an earlier clean save's fade
+  // can never blank a newer warning.
+  let _v2SaveMsgTimer = null;
 
   // Ask for the profile read, and repaint the panel when it lands (2026-09-25,
   // lane profretry). This used to be a 500ms poll that only WATCHED
@@ -4784,20 +4839,59 @@
   //
   // A landing — from this wait or from ANY other read (the online event, a
   // document generator's own load) — arrives as 'nbd:company-profile-loaded'.
-  // Repaint the WHOLE panel, not just these rows: the 14 canonical county
-  // inputs were also painted pre-hydration (from factory / device values) and
-  // had no other refresh hook, so they stayed stale until the tab was
-  // re-entered — and a Save then published those stale numbers company-wide
-  // as a dot-path full replace. Only a panel still showing the loading line
-  // or the failure message is repainted: anything else was painted from the
-  // hydrated profile already and may hold typing. No recursion risk: this
-  // pass sees _companyProfileLoaded === true, so it starts no new wait.
+  // Repaint every COMPANY input, not just these rows: the 14 canonical county
+  // inputs (and the add-on rates) were also painted pre-hydration (from
+  // factory / device values) and had no other refresh hook, so they stayed
+  // stale until the tab was re-entered — and a Save then published those
+  // stale numbers company-wide as a dot-path full replace. Only a panel still
+  // showing the loading line or the failure message is repainted: anything
+  // else was painted from the hydrated profile already and may hold typing.
+  // No recursion risk: this pass sees _companyProfileLoaded === true, so it
+  // starts no new wait.
   function _jurProfileLanded() {
     const h = document.getElementById('jurRows');
     if (!h || !h.hasAttribute('data-jur-wait') || window._companyProfileLoaded !== true) return;
-    _loadEstimateDefaultsV2();
+    _repaintCompanyFromProfile();
   }
   try { window.addEventListener('nbd:company-profile-loaded', _jurProfileLanded); } catch (_) { /* no event target */ }
+
+  // A landing can now arrive at ANY point in the session (the online event,
+  // another panel's read, the retry schedule), so it must not quietly undo
+  // typing (2026-09-25, PR #1774 review: a rep's unsaved tier rate 777 and
+  // cost 321 came back as 545 and 0, with no word). Only the company half is
+  // repainted — the per-device inputs are left exactly as typed — and if the
+  // rep had changed any company input since it was painted, those values are
+  // replaced by the company's saved ones (they were never saveable while the
+  // profile was missing), and the rep is told so, in the message that stays.
+  function _repaintCompanyFromProfile() {
+    const replaced = _companyInputsEdited().length;
+    _paintCompanyEstimateInputs();
+    if (replaced) _noticeCompanyValuesReplaced(replaced);
+  }
+
+  function _noticeCompanyValuesReplaced(n) {
+    const what = n === 1 ? 'a county, tax or add-on rate' : n + ' county, tax or add-on rates';
+    const msg = document.getElementById('v2save-msg');
+    if (msg) {
+      msg.style.display = 'block';
+      msg.textContent = '⚠ Your company’s saved rates just loaded and replaced ' + what
+        + ' you had changed here. Those are company-wide: make the change again, then press Save. Your other settings are as you left them.';
+      msg.setAttribute('data-kind', 'warn');
+      msg.style.color = 'var(--orange,#e8720c)';
+      clearTimeout(_v2SaveMsgTimer);
+      _v2SaveMsgTimer = null;
+    }
+    if (typeof showToast === 'function') showToast('⚠ Company rates loaded — make your ' + (n === 1 ? 'change' : n + ' changes') + ' to them again', 'info');
+  }
+
+  // "↻ Try again" on the failure message: ask for the read again, with only
+  // the jurisdiction box going back to "Loading…". It used to re-run the
+  // whole loader, which also put back every per-device input over unsaved
+  // typing. (Landed meanwhile: repaint the company half now.)
+  function _retryJurisdictions() {
+    if (window._companyProfileLoaded === true) { _repaintCompanyFromProfile(); return; }
+    _renderJurisdictionRows();
+  }
 
   function _waitForJurisdictions() {
     const ensure = (typeof window._ensureCompanyProfile === 'function')
@@ -4818,7 +4912,7 @@
       h.setAttribute('data-jur-wait', 'failed');
       h.innerHTML = '<div class="fs-11" data-jur-failed style="color:var(--orange,#e8720c);padding:6px 2px;">'
         + 'Your saved jurisdictions did not load, so they can\'t be changed right now. Check your connection, then try again.</div>'
-        + '<button class="btn btn-ghost fs-11" type="button" data-action="call" data-fn="_loadEstimateDefaultsV2">↻ Try again</button>';
+        + '<button class="btn btn-ghost fs-11" type="button" data-action="call" data-fn="_retryJurisdictions">↻ Try again</button>';
     };
     Promise.resolve(p).then(settle, settle);
   }
@@ -4862,7 +4956,7 @@
     // profile lands would wipe it. Say so instead of taking the typing
     // (2026-09-25, lane profretry).
     // (Loaded since the tab painted: paint the company's list first, then add.)
-    if (!_jurRowsResolved && window._companyProfileLoaded === true) _loadEstimateDefaultsV2();
+    if (!_jurRowsResolved && window._companyProfileLoaded === true) _repaintCompanyFromProfile();
     if (!_jurRowsResolved) {
       if (typeof showToast === 'function') showToast('Your saved jurisdictions are still loading — add one once they appear.', 'info');
       _renderJurisdictionRows();
@@ -4908,9 +5002,6 @@
     });
     return map;
   }
-
-  // The Save All message's fade timer (one per page, see the message below).
-  let _v2SaveMsgTimer = null;
 
   // Save every v2 engine setting from the Estimates tab form
   window._saveEstimateDefaultsV2 = async function() {
@@ -6096,6 +6187,8 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   _loadEstimateDefaultsV2: _loadEstimateDefaultsV2,
   _addJurisdictionRow: _addJurisdictionRow,
   _removeJurisdictionRow: _removeJurisdictionRow,
+  // The My Jurisdictions failure message's "↻ Try again" (2026-09-25).
+  _retryJurisdictions: _retryJurisdictions,
   _saveSiteSlug: _saveSiteSlug,
   _saveCompanyProfileSettings: _saveCompanyProfileSettings,
   _resetCompanyProfileSettings: _resetCompanyProfileSettings,
