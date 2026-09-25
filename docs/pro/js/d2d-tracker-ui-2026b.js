@@ -235,6 +235,17 @@
   // QUICK KNOCK MODAL
   // ============================================================================
   function openQuickKnock(opts) {
+    // Idempotent (2026-09-25, phone-audit follow-up). Two calls used to build
+    // two #d2d-quick-knock-overlay sheets with the same id — a double tap, or
+    // two "+" > D2D Knock taps racing the lazy bundle — and the second call
+    // also reset state.currentKnockEntry under the first. An OPEN sheet wins;
+    // one that is mid-close (closeQuickKnock drops .open, removes it 300ms
+    // later) goes now, so a quick close-then-reopen still opens a fresh one.
+    const existing = document.getElementById('d2d-quick-knock-overlay');
+    if (existing) {
+      if (existing.classList.contains('open')) return;
+      existing.remove();
+    }
     opts = opts || {};
     const address = opts.address || '';
     const esc = state.esc;

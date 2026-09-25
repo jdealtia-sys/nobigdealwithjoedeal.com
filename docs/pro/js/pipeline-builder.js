@@ -42,6 +42,19 @@
 (function () {
   'use strict';
 
+  // ONE copy (2026-09-25, phone-audit follow-up). This file ships inside the
+  // lazily-hydrated settings <template>, and _hydrateViewTemplate
+  // (dashboard-ui.js) executes its scripts TWICE: once when the cloned
+  // <script> is inserted, again when it swaps in a fresh one (measured: two
+  // runs, one fetch, in Chromium and WebKit). Each run had its own _cfg /
+  // _dirty. The _pbWrapped check only kept the second copy from wrapping
+  // switchSettingsTab when nothing else had wrapped it in between — when a
+  // Billing / Connect / Team wrapper landed first (the usual order in WebKit),
+  // both copies drove one panel: the first wired the edit handlers, the second
+  // re-rendered the saved config over the edits. window.PipelineBuilder is set
+  // at the end of the first run, so the second stops here.
+  if (window.PipelineBuilder) return;
+
   var ROOT_ID = 'pipelineBuilderRoot';
   var _cfg = null;      // working config (raw overrides), cloned from companyProfile.pipelines
   // true ONLY when _cfg was cloned from a definitively-loaded profile
@@ -569,22 +582,95 @@
     document.head.appendChild(s);
   }
 
+  // ── leave guard (2026-09-25, phone-audit follow-up views#9) ─────────────
+  // The save bar says "Unsaved changes", but leaving the tab threw the edits
+  // away without a word: openBuilder() resets _dirty and re-clones the saved
+  // config, so Pipelines → Profile → Pipelines (or any view change) silently
+  // dropped a rename or a reorder — and on a phone the bottom nav is one thumb
+  // away from the last stage. Now a tab switch or a view change away from an
+  // edited, on-screen builder asks first; Cancel keeps the working copy.
+  // Deliberately NOT beforeunload: that fires the browser's own prompt on every
+  // reload/close, the spam this guard is meant to avoid.
+  var LEAVE_MSG = 'You have unsaved pipeline changes.\n\nLeave without saving? OK discards them. Cancel stays here so you can Save.';
+  var _asking = false;
+  // Edits are only "pending" while the builder is actually on screen: a hidden
+  // panel (another Settings tab, another view) has nothing to leave.
+  function pendingEdits() {
+    if (!_dirty || !_cfgHydrated) return false;
+    var root = document.getElementById(ROOT_ID);
+    return !!root && typeof root.getClientRects === 'function' && root.getClientRects().length > 0;
+  }
+  // Resolves true when leaving is fine: nothing pending, or the rep chose to
+  // discard (the next Pipelines open reloads the saved config). nbdConfirm is
+  // the installed app's real modal; native confirm is the browser fallback.
+  function confirmLeave() {
+    if (!pendingEdits()) return Promise.resolve(true);
+    if (_asking) return Promise.resolve(false); // a prompt is already up: drop the repeat tap
+    _asking = true;
+    var ask = window.nbdConfirm || function (m) { return Promise.resolve(window.confirm(m)); };
+    return Promise.resolve(ask(LEAVE_MSG)).then(function (ok) {
+      _asking = false;
+      if (ok) _dirty = false;
+      return !!ok;
+    }, function () { _asking = false; return false; });
+  }
+
   // Hook switchSettingsTab so the builder renders when Settings → Pipelines opens
   // (the panel is inside the lazily-hydrated settings template).
   function installHook() {
     injectCss();
+    installNavGuard();
     var _prev = window.switchSettingsTab;
     if (typeof _prev !== 'function' || _prev._pbWrapped) { return; }
     var wrapped = function (tab) {
-      var r = _prev.apply(this, arguments);
-      // openBuilder is async (it may await the profile load), so a try/catch
-      // here would never see its failures — attach the handler to the promise
-      // instead of leaving an unhandled rejection.
-      if (tab === 'pipelines') { openBuilder().catch(function (e) { console.warn('[pipelines] open failed', e); }); }
-      return r;
+      var self = this, args = arguments;
+      function run() {
+        var r = _prev.apply(self, args);
+        // openBuilder is async (it may await the profile load), so a try/catch
+        // here would never see its failures — attach the handler to the promise
+        // instead of leaving an unhandled rejection.
+        if (tab === 'pipelines') { openBuilder().catch(function (e) { console.warn('[pipelines] open failed', e); }); }
+        return r;
+      }
+      if (pendingEdits()) {
+        // Re-selecting Pipelines while it is open with edits: openBuilder would
+        // reset the working copy, so leave the panel exactly as it is.
+        if (tab === 'pipelines') return;
+        confirmLeave().then(function (ok) { if (ok) run(); });
+        return;
+      }
+      return run();
     };
     wrapped._pbWrapped = true;
     window.switchSettingsTab = wrapped;
+  }
+
+  // View changes: every navigation (sidebar, bottom nav, More, the header's
+  // Settings pill, the hash router on Back) goes through window.goTo — the
+  // delegate and the router call it as a bare global. This file loads with the
+  // Settings template, after goTo and its other wrappers exist. goTo('settings')
+  // itself passes: it re-opens Settings on Profile via switchSettingsTab, which
+  // is guarded above.
+  function installNavGuard() {
+    var _prevGoTo = window.goTo;
+    if (typeof _prevGoTo !== 'function' || _prevGoTo._pbGuard) return;
+    var guarded = function (name) {
+      var self = this, args = arguments;
+      if (name !== 'settings' && pendingEdits()) {
+        confirmLeave().then(function (ok) {
+          if (ok) { _prevGoTo.apply(self, args); return; }
+          // Cancelled a Back press: the router already moved the hash, so put
+          // it back without firing another hashchange.
+          if (location.hash.indexOf('#/settings') !== 0 && history.replaceState) {
+            try { history.replaceState(history.state, '', '#/settings'); } catch (_) { /* hash stays as-is */ }
+          }
+        });
+        return;
+      }
+      return _prevGoTo.apply(this, arguments);
+    };
+    guarded._pbGuard = true;
+    window.goTo = guarded;
   }
 
   // Public surface: the pure delete-guard decision (occupied stages can't be

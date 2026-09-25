@@ -77,15 +77,22 @@ const REAL = {
 
 function loadBuilder(opts) {
   opts = opts || {};
-  const state = { throwOnRoot: false, loadCalls: 0, applied: 0 };
+  const state = { throwOnRoot: false, loadCalls: 0, applied: 0, renders: 0, asks: [], switched: [], nav: [] };
+  let html = '';
   const root = {
-    innerHTML: '', _listeners: {},
+    // Every render() is one innerHTML write; counted for section 10.
+    get innerHTML() { return html; },
+    set innerHTML(v) { html = v; state.renders++; },
+    _listeners: {},
     addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); },
     querySelector() { return null; },
     // The builder reaches every Save copy (header + the bottom save bar,
     // 2026-09-25) through querySelectorAll; nothing is rendered here, so none.
     querySelectorAll() { return []; },
   };
+  // Section 10's leave guard only acts on an ON-SCREEN builder; the other
+  // sections keep a root with no layout, exactly as before.
+  if (opts.visible) root.getClientRects = () => [{ width: 1, height: 1 }];
   const toasts = [], warns = [], saves = [];
   const win = {
     _companyProfile: opts.profile || {},
@@ -94,7 +101,7 @@ function loadBuilder(opts) {
     _user: { uid: 'u1' },
     _leads: [], _leadsLoaded: true,
     showToast: (m, k) => { toasts.push({ m: String(m), k }); },
-    nbdConfirm: async () => true,
+    nbdConfirm: async (m) => { state.asks.push(String(m)); return ('confirm' in opts) ? opts.confirm : true; },
     __NBD_CALL_REGISTRY: {
       resolvePipelineConfig,
       STAGE_ROLE: { NEW: 'new', ACTIVE: 'active', JOB: 'job', WON: 'won', LOST: 'lost' },
@@ -105,7 +112,8 @@ function loadBuilder(opts) {
       if (opts.saveRejects) throw new Error('client is offline');
       return win._companyProfile;
     },
-    switchSettingsTab: function (tab) { return 'orig:' + tab; },
+    switchSettingsTab: function (tab) { state.switched.push(tab); return 'orig:' + tab; },
+    goTo: function (name) { state.nav.push(name); },
   };
   if (opts.loadImpl) {
     win._loadCompanyProfile = function () { state.loadCalls++; return opts.loadImpl(win, state.loadCalls); };
@@ -123,8 +131,16 @@ function loadBuilder(opts) {
     querySelector() { return null; },
     querySelectorAll() { return []; },
   };
-  const sandbox = { window: win, document, console: { log() {}, warn: (...a) => { warns.push(a.map(String).join(' ')); }, error() {} } };
+  const sandbox = { window: win, document, location: { hash: '#/settings' }, history: {}, console: { log() {}, warn: (...a) => { warns.push(a.map(String).join(' ')); }, error() {} } };
   vm.runInNewContext(SRC, sandbox, { filename: 'pipeline-builder.js' });
+  if (opts.twice) {
+    // What template hydration does (dashboard-ui.js _hydrateViewTemplate):
+    // the file runs a second time — and another template script (Billing /
+    // Connect / Team) can wrap switchSettingsTab between the two runs.
+    const inner = win.switchSettingsTab;
+    win.switchSettingsTab = function () { return inner.apply(this, arguments); };
+    vm.runInNewContext(SRC, sandbox, { filename: 'pipeline-builder.js (2nd run)' });
+  }
 
   const btn = (attrs) => { const b = { getAttribute: (k) => (k in attrs ? attrs[k] : null) }; b.closest = () => b; return b; };
   const fire = async (type, target) => {
@@ -334,6 +350,72 @@ function loadBuilder(opts) {
       good.saves.length === 1 && JSON.stringify(good.saves[0].pipelines) === JSON.stringify({ stages: {}, views: {} }));
     assert('reset + hydrated: in-memory config cleared and the board re-applied',
       JSON.stringify(good.win._companyProfile.pipelines) === '{}' && good.state.applied >= 1);
+  }
+
+  // ── 10. leaving with unsaved edits asks first; one copy even when the
+  //        template runs the file twice (2026-09-25, phone-audit follow-up) ──
+  {
+    // Loaded twice with a foreign wrapper in between, as hydration does.
+    const b = loadBuilder({ loaded: true, profile: { pipelines: clone(REAL) }, visible: true, twice: true, confirm: false });
+    b.open();
+    await flush();
+    assert('loaded twice: one copy renders the panel (one render per open, not two)', b.state.renders === 1);
+    await b.rename('contacted', 'Called');
+    b.open();
+    await flush();
+    assert('re-selecting Pipelines with unsaved edits does not re-render over them', b.state.renders === 1);
+    assert('...and does not ask', b.state.asks.length === 0);
+
+    // Another Settings tab → Cancel: the switch never happens.
+    const before = b.state.switched.length;
+    b.win.switchSettingsTab('profile');
+    await flush();
+    assert('switching tabs with unsaved edits asks once', b.state.asks.length === 1 && /unsaved pipeline changes/i.test(b.state.asks[0]));
+    assert('Cancel keeps Pipelines (the tab switch never ran)', b.state.switched.length === before);
+
+    // A view change → Cancel: goTo never runs.
+    b.win.goTo('dash');
+    await flush();
+    assert('leaving the view with unsaved edits asks', b.state.asks.length === 2);
+    assert('Cancel keeps the view (goTo never ran)', b.state.nav.length === 0);
+    b.win.goTo('settings');
+    await flush();
+    assert('goTo(\'settings\') itself passes straight through', b.state.nav.join() === 'settings' && b.state.asks.length === 2);
+
+    // Cancel kept the working copy: Save writes the rename.
+    await b.click({ 'data-pb-action': 'save' });
+    assert('after Cancel, Save still writes the edit', b.saves.length === 1 && b.saves[0].pipelines.stages.contacted.label === 'Called');
+    b.win.switchSettingsTab('profile');
+    await flush();
+    assert('saved: leaving asks nothing', b.state.asks.length === 2 && b.state.switched[b.state.switched.length - 1] === 'profile');
+  }
+  {
+    // OK discards: the switch runs and the next open reloads the saved config.
+    const b = loadBuilder({ loaded: true, profile: { pipelines: clone(REAL) }, visible: true, confirm: true });
+    b.open();
+    await flush();
+    await b.rename('contacted', 'Called');
+    b.win.goTo('dash');
+    await flush();
+    assert('OK: the view change runs', b.state.nav.join() === 'dash');
+    const renders = b.state.renders;
+    b.open();
+    await flush();
+    assert('OK: the next open reloads (re-renders) the saved config', b.state.renders === renders + 1);
+    await b.click({ 'data-pb-action': 'save' });
+    assert('OK: the discarded rename is not what a later Save writes', b.saves.length === 1 && b.saves[0].pipelines.stages.contacted === undefined);
+  }
+  {
+    // Off screen (another tab or view): nothing to leave, nothing asked.
+    const b = loadBuilder({ loaded: true, profile: { pipelines: clone(REAL) }, confirm: false });
+    b.open();
+    await flush();
+    await b.rename('contacted', 'Called');
+    b.win.switchSettingsTab('profile');
+    b.win.goTo('dash');
+    await flush();
+    assert('hidden builder: no prompt, the switch and the view change both run',
+      b.state.asks.length === 0 && b.state.switched.indexOf('profile') !== -1 && b.state.nav.join() === 'dash');
   }
 
   await flush();

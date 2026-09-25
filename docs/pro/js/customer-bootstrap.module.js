@@ -2591,6 +2591,7 @@ function updateGlobalUploadStatus() {
   // Hide widget when nothing is in-flight.
   if (inflight.length === 0) {
     widget.classList.remove('active');
+    syncUploadLift();
     return;
   }
   var done = queue.filter(function(it){ return it && it.uploading && it.progress >= 100; }).length;
@@ -2614,7 +2615,34 @@ function updateGlobalUploadStatus() {
   var modalOpen = modal && modal.classList.contains('open');
   if (reopen) reopen.style.display = modalOpen ? 'none' : 'block';
   widget.classList.add('active');
+  syncUploadLift();
 }
+
+// Toasts stack ABOVE the upload widget (2026-09-25, phone-audit follow-up
+// from review:chrome). The widget and #toastContainer (customer-tasks-ui.js)
+// both sit in the bottom-right corner at the same offset — on a phone both
+// read --nbd-toast-bottom, on desktop 16px vs 20px — and the toast layer is
+// higher, so a toast raised mid-upload covered "View details" for up to 9s.
+// While the widget shows, publish its height + an 8px gap as
+// --nbd-upload-lift; the toast container and the Voice Intel toast add it to
+// their bottom offset, so the two stack instead of overlapping. A
+// ResizeObserver catches every way the height changes (show/hide via .active,
+// the reopen button toggling while the modal opens); updateGlobalUploadStatus
+// also calls it directly for engines without one.
+function syncUploadLift() {
+  var widget = document.getElementById('nbdUploadWidget');
+  var root = document.documentElement;
+  // offsetHeight is 0 while the widget is display:none (no .active).
+  var h = widget && widget.classList.contains('active') ? widget.offsetHeight : 0;
+  if (h > 0) root.style.setProperty('--nbd-upload-lift', (h + 8) + 'px');
+  else root.style.removeProperty('--nbd-upload-lift');
+}
+(function watchUploadWidget() {
+  var widget = document.getElementById('nbdUploadWidget');
+  if (!widget) return;
+  if (typeof ResizeObserver === 'function') new ResizeObserver(syncUploadLift).observe(widget);
+  syncUploadLift();
+})();
 
 window.removeFromQueue = function(index) {
   window._uploadQueue.splice(index, 1);

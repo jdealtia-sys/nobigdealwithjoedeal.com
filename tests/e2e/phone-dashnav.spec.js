@@ -11,8 +11,12 @@
 //   greeting    pipeline#13 / views#12 — the bottom-nav Home tab greeted
 //               every tenant with a hard-coded owner's name.
 //   bell        views#10 — tapping What's New also navigated to Settings.
-//   task        pipeline#3 — "+" > Task opened nameless and refused to save.
-//   knock       pipeline#8 — "+" > D2D Knock opened the map, not the form.
+//   pill        follow-up (review:dashnav) — with the bell moved out, the
+//               Settings avatar pill was a 38×36 target.
+//   task        pipeline#3 — "+" > Task opened nameless and refused to save;
+//               follow-up: its "Change customer" link was 32px tall.
+//   knock       pipeline#8 — "+" > D2D Knock opened the map, not the form;
+//               follow-up: a second tap while the form loaded opened two.
 //   gate        pipeline#5 — the knock door-number confirm fired ~800px
 //               off-screen, and only its 18px text row was tappable.
 //   note        pipeline#8 — "+" > Quick Note opened the ADD LEAD form.
@@ -191,6 +195,57 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     expect(await activeView(page), 'where closing the panel leaves the rep').toBe('view-dash');
   });
 
+  test('pill: the Settings avatar pill is a 44px target, and the header does not move', async () => {
+    await safeEvaluate(page, () => window.goTo('dash'));
+    await expect.poll(() => activeView(page)).toBe('view-dash');
+    for (const width of [412, 360]) {
+      await page.setViewportSize({ width, height: 860 });
+      await page.waitForTimeout(250);
+      const r = await safeEvaluate(page, () => {
+        const who = (h) => (h ? h.tagName + '#' + h.id + '.' + String(h.className).split(' ')[0] : 'nothing');
+        const pill = document.querySelector('header .upill');
+        const b = pill.getBoundingClientRect();
+        const cx = b.left + b.width / 2;
+        const cy = b.top + b.height / 2;
+        // The rim of a 44×44 box centred on the pill, 1px inside it.
+        const miss = [];
+        for (const [dx, dy] of [[-21, -21], [0, -21], [21, -21], [-21, 0], [21, 0], [-21, 21], [0, 21], [21, 21]]) {
+          const h = document.elementFromPoint(cx + dx, cy + dy);
+          if (!h || !h.closest('.upill')) miss.push(`(${dx},${dy}) → ${who(h)}`);
+        }
+        // Its neighbours keep their own taps, and the bar keeps its height.
+        const own = (el) => {
+          const r2 = el.getBoundingClientRect();
+          const h = document.elementFromPoint(r2.left + r2.width / 2, r2.top + r2.height / 2);
+          return !!h && (h === el || el.contains(h)) ? 'hit' : who(h);
+        };
+        return {
+          miss, cx, cy,
+          bell: own(document.getElementById('nbd-whats-new-bell')),
+          kebab: own(document.getElementById('hdrMobileBtn')),
+          headerH: Math.round(document.querySelector('header').getBoundingClientRect().height),
+          pillBox: [Math.round(b.width), Math.round(b.height)],
+        };
+      });
+      expect(r.miss, `the pill's 44px target at ${width}px`).toEqual([]);
+      expect(r.bell, `What's New bell keeps its own tap at ${width}px`).toBe('hit');
+      expect(r.kebab, `⋮ menu keeps its own tap at ${width}px`).toBe('hit');
+      expect(r.headerH, `header height at ${width}px`).toBe(48);
+      // The pill paints no bigger than before (38×36): the target grows, the
+      // header layout (and the 360px logo clip) does not.
+      expect(r.pillBox[0], `painted pill width at ${width}px`).toBeLessThanOrEqual(38);
+      expect(r.pillBox[1], `painted pill height at ${width}px`).toBeLessThanOrEqual(36);
+      if (width === 412) {
+        // A thumb landing on the target's corner, off the painted pill, opens Settings.
+        await page.touchscreen.tap(r.cx + 20, r.cy + 20);
+        await expect.poll(() => activeView(page)).toBe('view-settings');
+        await safeEvaluate(page, () => window.goTo('dash'));
+        await expect.poll(() => activeView(page)).toBe('view-dash');
+      }
+    }
+    await page.setViewportSize(PHONE.viewport);
+  });
+
   test('task: "+" > Task asks for the customer, then the task saves to them', async () => {
     test.skip(!lead, 'could not seed a lead');
     await safeEvaluate(page, () => window.goTo('crm'));
@@ -206,6 +261,10 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     await expectTappable(page, pick, 'the seeded customer in the picker');
     await page.locator(pick).tap();
     await expect(page.locator('#taskModalName')).toHaveText(lead.name);
+    // "Change customer" was the one control in this flow under 44px (32px).
+    const change = await hitTest(page, '#taskLeadChange');
+    expect(change.why, '"Change customer" is under a thumb').toBe('hit');
+    expect(change.height, '"Change customer" is a 44px target').toBeGreaterThanOrEqual(44);
 
     const text = `Call adjuster back ${stamp}`;
     await expectTappable(page, '#taskInput', 'task input');
@@ -220,14 +279,40 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     await expect(page.locator('#taskModal')).not.toHaveClass(/\bopen\b/);
   });
 
-  test('knock: "+" > D2D Knock opens the knock form, even cold', async () => {
-    await safeEvaluate(page, () => window.goTo('crm'));
-    await openCreateSheet(page);
-    const row = '#mCreatePopover .m-create-row[data-arg="knock"]';
-    await expectTappable(page, row, 'D2D Knock row');
-    await page.locator(row).tap();
-    await expect(page.locator('#d2d-quick-knock-overlay .d2d-modal-title')).toContainText('Knock', { timeout: 15_000 });
-    await expectTappable(page, '#d2d-qk-address', 'knock address field');
+  test('knock: "+" > D2D Knock opens the knock form, even cold — once, however often it is tapped', async () => {
+    // A phone on LTE: hold the lazy D2D bundle so the map shows well before
+    // the form. That gap is when a rep taps "+" > D2D Knock again, and each
+    // tap used to open its own form when the bundle landed — two
+    // #d2d-quick-knock-overlay sheets with one id, one hidden under the other.
+    const D2D_BUNDLE = /\/pro\/js\/d2d-tracker-(core-|ui-)?2026b\.js/;
+    await page.route(D2D_BUNDLE, async (route) => {
+      await new Promise((r) => setTimeout(r, 2_500));
+      await route.continue().catch(() => {});
+    });
+    try {
+      await safeEvaluate(page, () => window.goTo('crm'));
+      const cold = await safeEvaluate(page, () => !(window.D2D && typeof window.D2D.openQuickKnock === 'function'));
+      expect(cold, 'D2D is not loaded yet (this test is the cold path)').toBe(true);
+      await openCreateSheet(page);
+      const row = '#mCreatePopover .m-create-row[data-arg="knock"]';
+      await expectTappable(page, row, 'D2D Knock row');
+      await page.locator(row).tap();
+      // The map is up, the form isn't: tap "+" > D2D Knock again.
+      await expect.poll(() => activeView(page)).toBe('view-d2d');
+      expect(await page.locator('#d2d-quick-knock-overlay').count(), 'form still loading').toBe(0);
+      await openCreateSheet(page);
+      await expectTappable(page, row, 'D2D Knock row, second time');
+      await page.locator(row).tap();
+      // .first(): with the bug there are two titles, and the count below is
+      // the assertion that should say so.
+      await expect(page.locator('#d2d-quick-knock-overlay .d2d-modal-title').first()).toContainText('Knock', { timeout: 15_000 });
+      // Both taps' 100ms pollers have fired well within this.
+      await page.waitForTimeout(1_500);
+      expect(await page.locator('#d2d-quick-knock-overlay').count(), 'one knock form, not one per tap').toBe(1);
+      await expectTappable(page, '#d2d-qk-address', 'knock address field');
+    } finally {
+      await page.unroute(D2D_BUNDLE);
+    }
   });
 
   test('gate: Save brings the door-number confirm on screen, and the whole row ticks it', async () => {

@@ -14,7 +14,8 @@
 //   views#8  bell rows squeezed to a 98px text column; 11px-tall header buttons
 //   views#6  Settings > Profile stayed two 145px columns
 //   views#7  Settings > Team invite box 66px wide, typed text invisible (light)
-//   views#9  Pipelines editor: 22x20 arrows, Save only 7 screens up
+//   views#9  Pipelines editor: 22x20 arrows, Save only 7 screens up; and
+//            (follow-up) leaving the tab or view silently dropped edits
 //   views#13 brand colour pickers rendered as a 5px grey rule
 //   views#14 Products: 22px Edit/Archive in an 88,000px list
 //   views#3  Objection Obliterator text dark-on-navy in light mode
@@ -493,6 +494,65 @@ test.describe('phone views: Settings panels @audit', () => {
       await first.locator('button.pb-mini[data-pb-action="down"]').tap();
       const after = await order();
       expect(after.slice(0, 2), '▼ on the first stage swaps it with the second').toEqual([before[1], before[0]]);
+    });
+
+    // Follow-up (views#9 review): the bar said "Unsaved changes", but leaving
+    // the tab or the view threw the edit away without a word — openBuilder()
+    // re-clones the saved config on every open. The ▼ above left an unsaved
+    // reorder; leaving must ask, Cancel must keep it, OK must discard it.
+    await test.step('views#9 leaving Pipelines with unsaved edits asks first', async () => {
+      const view = await page.locator('#pipelineBuilderRoot .pb-stage-row').first().getAttribute('data-view');
+      const order = () => page.evaluate((v) => [...document.querySelectorAll(`#pipelineBuilderRoot .pb-stage-row[data-view="${v}"]`)].map((r) => r.dataset.stage), view);
+      const saveBar = page.locator('#pipelineBuilderRoot .pb-savebar [data-pb-action="save"]');
+      const edited = await order();
+      await expect(saveBar, 'the ▼ left unsaved edits').toBeVisible();
+      const asked = [];
+      let accept = false;
+      const onDialog = (d) => { asked.push(d.message()); (accept ? d.accept() : d.dismiss()).catch(() => {}); };
+      page.on('dialog', onDialog);
+      const tapTab = async (tab) => {
+        const b = page.locator(`#stab-${tab}`);
+        await b.scrollIntoViewIfNeeded();
+        await b.tap();
+      };
+      try {
+        // Another Settings tab → Cancel: still on Pipelines, edit intact.
+        await tapTab('profile');
+        await expect.poll(() => asked.length, { message: 'switching tabs asks' }).toBe(1);
+        expect(asked[0]).toMatch(/unsaved pipeline changes/i);
+        await expect(page.locator('#stab-panel-pipelines')).toBeVisible();
+        await expect(page.locator('#stab-panel-profile')).toBeHidden();
+        expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
+
+        // The bottom nav → Cancel: still in Settings, edit intact.
+        await page.locator('#mni-dash').tap();
+        await expect.poll(() => asked.length, { message: 'leaving the view asks' }).toBe(2);
+        expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id)).toBe('view-settings');
+        expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
+        await expect(saveBar).toBeVisible();
+
+        // Tapping Pipelines again while it is open keeps the working copy.
+        await tapTab('pipelines');
+        await page.waitForTimeout(400);
+        expect(asked.length, 're-selecting Pipelines does not ask').toBe(2);
+        expect(await order(), 're-selecting Pipelines keeps the reorder').toEqual(edited);
+
+        // OK discards: Profile opens, and Pipelines comes back as saved.
+        accept = true;
+        await tapTab('profile');
+        await expect.poll(() => asked.length).toBe(3);
+        await expect(page.locator('#stab-panel-profile')).toBeVisible();
+        await openSettingsTab(page, 'pipelines');
+        await expect.poll(async () => (await order()).slice(0, 2), { message: 'the discarded ▼ is undone' }).toEqual([edited[1], edited[0]]);
+        await expect(saveBar).toBeHidden();
+
+        // Nothing unsaved: leaving asks nothing.
+        await tapTab('profile');
+        await expect(page.locator('#stab-panel-profile')).toBeVisible();
+        expect(asked.length, 'a clean editor never asks').toBe(3);
+      } finally {
+        page.off('dialog', onDialog);
+      }
     });
   });
 });
