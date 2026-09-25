@@ -154,6 +154,14 @@ function _leadModalReset(){
   // Clear insurance/finance/job fields
   ['lClaimNumber','lEstimateAmount','lDeductible','lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
   ['lClaimFiledBy','lSupplementStatus','lLoanStatus'].forEach(id=>{ const e=document.getElementById(id); if(e) e.value=''; });
+  // 2026-09-25: editLead fills these six (crm-portal-bridge.js) but no reset
+  // ever cleared them, so dismissing an edit and tapping Add Lead opened the
+  // NEXT lead pre-filled with the last one's damage type, claim status,
+  // source, sub-type, policy number and date of loss — a rep typing a new
+  // name saved another homeowner's claim onto it. Selects go back to their
+  // first option ('' / Door Knock / No Claim), which is each one's default.
+  ['lPolicyNumber','lDateOfLoss'].forEach(setVal);
+  ['lDamageType','lClaimStatus','lSource','lSubType'].forEach(id=>{ const e=document.getElementById(id); if(e && e.options && e.options.length) e.value=e.options[0].value; });
   // 2026-09-15 (Paperwork Filing) — checkboxes, not text fields: .value='' is
   // a no-op on an <input type="checkbox"> (it never uncheckes one). Without
   // this, a filed checkbox ticked while editing lead A would still read
@@ -186,7 +194,7 @@ const _leadModal = document.getElementById('leadModal');
 // nobody has touched — counting them would prompt on every single dismiss.
 const _LEAD_TYPED_FIELDS = [
   'lFname','lLname','lAddr','lPhone','lEmail','lNotes','lJobValue','lLeadCost','lFollowUp',
-  'lInsCarrier','lReferralCode','lClaimNumber','lEstimateAmount','lDeductible',
+  'lInsCarrier','lReferralCode','lClaimNumber','lPolicyNumber','lDateOfLoss','lEstimateAmount','lDeductible',
   'lScopeOfWork','lFinanceCompany','lLoanAmount','lPreQualLink','lScheduledDate','lCrew'
 ];
 function _leadFormHasContent(){

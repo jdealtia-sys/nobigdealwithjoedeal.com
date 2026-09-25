@@ -1693,6 +1693,62 @@ test.describe.serial('CSP-fix regressions @shard2', () => {
     }, { timeout: 5_000 });
   });
 
+  // 2026-09-25: _leadModalReset never cleared six fields editLead fills, so
+  // dismissing an edit and opening Add Lead handed the NEXT homeowner the
+  // last one's damage type, claim status, source, sub-type, policy number and
+  // date of loss (reproduced at 412px before the fix). Same day, Date of Loss
+  // moved out of #insuranceFieldsBlock — hidden on every non-insurance job —
+  // to sit beside Damage Type, where it has to stay visible on a phone.
+  test('lead modal: dismiss resets every field editLead fills; Date of Loss shows beside Damage Type on a phone', async ({ page }) => {
+    await page.setViewportSize({ width: 412, height: 860 });
+    await loginAs(page, creds);
+    await openCrmView(page);
+    await safeEvaluate(page, () => window.openLeadModal());
+    await expect(page.locator('#leadModal')).toHaveClass(/open/, { timeout: 5_000 });
+    // What editLead (crm-portal-bridge.js) writes for a real lead.
+    const EDITED = {
+      lDamageType: 'Full Exterior', lClaimStatus: 'Claim Filed', lSource: 'Referral',
+      lPolicyNumber: 'POL-E2E-CARRY', lDateOfLoss: '2026-05-01',
+    };
+    await safeEvaluate(page, (vals) => {
+      for (const [id, v] of Object.entries(vals)) document.getElementById(id).value = v;
+      document.getElementById('lEditId').value = 'e2e-synthetic-lead';
+    }, EDITED);
+    const filled = await safeEvaluate(page, (ids) => ids.map((id) => document.getElementById(id).value), Object.keys(EDITED));
+    expect(filled, 'precondition: every select accepted the edited value').toEqual(Object.values(EDITED));
+    await safeEvaluate(page, () => window.closeLeadModal());
+    await expect(page.locator('#leadModal')).not.toHaveClass(/open/, { timeout: 5_000 });
+
+    await safeEvaluate(page, () => window.openLeadModal());
+    await expect(page.locator('#leadModal')).toHaveClass(/open/, { timeout: 5_000 });
+    const after = await safeEvaluate(page, () => Object.fromEntries(
+      ['lDamageType', 'lClaimStatus', 'lSource', 'lSubType', 'lPolicyNumber', 'lDateOfLoss', 'lEditId']
+        .map((id) => [id, document.getElementById(id).value])));
+    expect(after, 'Add Lead after an edit opens with defaults, not the last lead').toEqual({
+      lDamageType: '', lClaimStatus: 'No Claim', lSource: 'Door Knock', lSubType: '',
+      lPolicyNumber: '', lDateOfLoss: '', lEditId: '',
+    });
+
+    // A cash job hides #insuranceFieldsBlock; Date of Loss must not go with it.
+    await safeEvaluate(page, () => {
+      const jt = document.getElementById('lJobType');
+      jt.value = 'cash';
+      jt.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    const geo = await safeEvaluate(page, () => {
+      const box = (id) => {
+        const el = document.getElementById(id);
+        const r = el.getBoundingClientRect();
+        return { visible: !!el.offsetParent && r.width > 0, top: Math.round(r.top), right: Math.round(r.right) };
+      };
+      return { vw: document.documentElement.clientWidth, damage: box('lDamageType'), dol: box('lDateOfLoss') };
+    });
+    expect(geo.dol.visible, 'Date of Loss visible on a cash job').toBe(true);
+    expect(geo.dol.top, 'Date of Loss shares the Damage Type row').toBe(geo.damage.top);
+    expect(geo.dol.right, 'Date of Loss fits the phone width').toBeLessThanOrEqual(geo.vw);
+    await safeEvaluate(page, () => window.closeLeadModal());
+  });
+
   // Mobile FAB speed-dial (2026-07-06, Jo's pick): phones collapse the
   // field-tool FABs behind one ⋯ launcher. This runs the whole open /
   // dismiss / recording-guard lifecycle at a real phone viewport — the
