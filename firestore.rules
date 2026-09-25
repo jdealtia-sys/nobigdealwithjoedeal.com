@@ -182,6 +182,13 @@ service cloud.firestore {
     // stageWriteOk()'s enum-check style. status/reason are the only fields
     // worth enum-gating; free-text notes fields are size-capped only, same
     // trust bar as everything else on this doc (same-company staff writer).
+    //
+    // CREATE/UPDATE ONLY (2026-09-25). This reads request.resource, which is
+    // NULL on a delete, so `request.resource.data` is an evaluation error and
+    // the whole condition denies. It sat inside an `allow write` (write =
+    // create + update + delete) and so made every claim row undeletable by any
+    // client, owner included. Same for documentStatusWriteOk() below. A shape
+    // validator belongs on `allow create, update`; delete gets its own line.
     function warrantyClaimWriteOk() {
       let status = request.resource.data.get('status', null);
       let reason = request.resource.data.get('reason', null);
@@ -199,6 +206,7 @@ service cloud.firestore {
     // forgery gap. Same trust bar as the rest of this doc: an owner or
     // same-company staffer could already stamp a fake signedAt; this only
     // stops an oversized/garbage status value, mirroring warrantyClaimWriteOk().
+    // CREATE/UPDATE ONLY — see the delete note on warrantyClaimWriteOk().
     function documentStatusWriteOk() {
       let status = request.resource.data.get('status', null);
       return status == null || status in ['draft', 'sent', 'signed'];
@@ -481,10 +489,30 @@ service cloud.firestore {
         // photo report started filing itself — no report row either.
         // isCompanyStaff() is company_admin|manager, so `viewer` and
         // `sales_rep` stay read-only exactly as they are on notes and tasks.
-        allow write: if isAuth()
+        //
+        // 2026-09-25: split out of `allow write`. documentStatusWriteOk() reads
+        // request.resource, which is null on a delete, so the old single line
+        // denied EVERY client delete here, owner included (emulator: "Null
+        // value error" at the helper). Delete keeps exactly the writer check
+        // create/update use: lead owner, or company_admin/manager in the parent
+        // lead's tenant. No wider: a viewer or sales_rep on someone else's
+        // lead is refused, and so is the platform admin, the same set as
+        // tasks/notes/drawings. A caller who OWNS the lead passes the owner
+        // branch whatever their role, a viewer-owner included, exactly as on
+        // create/update here and on tasks/notes/drawings. The lead doc itself
+        // bars a viewer-owner from update/delete (Audit #3 F-1); matching that
+        // means one pass over every subcollection's owner branch, not delete
+        // alone (a viewer-owner who can `set` a row can already blank it).
+        // The parent lead has to still exist for the check to pass. A
+        // hard-deleted lead's rows are swept by onLeadDeleted (admin SDK,
+        // functions/lead-artifact-cleanup.js); see the privacy note there.
+        allow create, update: if isAuth()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
           && documentStatusWriteOk();
+        allow delete: if isAuth()
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
 
       // ── WARRANTY CLAIMS (2026-09-15) ───────────────────
@@ -499,10 +527,16 @@ service cloud.firestore {
         allow read:  if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
-        allow write: if isAuth()
+        // 2026-09-25: same split, same reason as /documents directly above.
+        // warrantyClaimWriteOk() reads request.resource, so the old
+        // `allow write` denied every client delete of a claim row.
+        allow create, update: if isAuth()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
           && warrantyClaimWriteOk();
+        allow delete: if isAuth()
+          && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
+              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
 
       // ── DRAWINGS (roof measurements, sketches) ────────

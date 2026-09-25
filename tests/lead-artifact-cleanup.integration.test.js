@@ -23,6 +23,11 @@
  * (another lead's appointment must survive) and that a lead with no linked
  * appointment still deletes cleanly.
  *
+ * 2026-09-25: also asserts the lead's documents + warrantyClaims subcollection
+ * rows are swept (and another lead's claim row is not). After a hard delete
+ * the client rules can no longer reach those rows, so the trigger is the only
+ * cleanup path for them.
+ *
  * RUN:
  *   npx firebase-tools emulators:exec --only functions,firestore --project demo-nbd-pl \
  *     "node tests/lead-artifact-cleanup.integration.test.js"
@@ -72,6 +77,13 @@ async function run() {
     bookingId: bookingId1b, leadId, userId: OWNER, repUid: OWNER,
     status: 'cancelled', cancelledReason: 'rescheduled', supersededBy: bookingId, source: 'calcom',
   });
+  // 2026-09-25: lead subcollection rows the trigger must sweep. Once the lead
+  // is gone no client can delete them (the rules check reads the parent
+  // lead), so onLeadDeleted is their only path out. documents was already
+  // swept (step 1) but never asserted; warrantyClaims is new (step 1b).
+  await db.doc(`leads/${leadId}/documents/d1`).set({ name: 'contract.html', status: 'signed', userId: OWNER });
+  await db.doc(`leads/${leadId}/warrantyClaims/c1`).set({ status: 'resolved', reason: 'workmanship' });
+  await db.doc(`leads/${leadId}/warrantyClaims/c2`).set({ status: 'open', reason: 'material' });
 
   // ── 2) An unrelated lead + appointment — CONFINEMENT control ────────
   const leadId2 = RUN + '_lead2';
@@ -84,6 +96,7 @@ async function run() {
     bookingId: bookingId2, leadId: leadId2, userId: OWNER, repUid: OWNER,
     status: 'booked', source: 'calcom',
   });
+  await db.doc(`leads/${leadId2}/warrantyClaims/c9`).set({ status: 'open', reason: 'workmanship' });
 
   // ── 3) A lead with no linked appointment at all ─────────────────────
   const leadId3 = RUN + '_lead3';
@@ -101,12 +114,20 @@ async function run() {
   const gone1b = await staysGone(db.doc(`appointments/${bookingId1b}`));
   ok('a second appointment sharing the same leadId (reschedule chain) is also swept', gone1b);
 
+  ok("the hard-deleted lead's documents row is swept",
+    await staysGone(db.doc(`leads/${leadId}/documents/d1`)));
+  ok("the hard-deleted lead's warrantyClaims rows are swept",
+    (await staysGone(db.doc(`leads/${leadId}/warrantyClaims/c1`)))
+    && (await staysGone(db.doc(`leads/${leadId}/warrantyClaims/c2`))));
+
   // lead3's delete has no appointment to wait on; give the trigger the same
   // settle window so any crash on the empty-query path would have surfaced.
   await sleep(4000);
 
   const stillThere2 = await db.doc(`appointments/${bookingId2}`).get();
   ok("an unrelated lead's appointment survives (confinement)", stillThere2.exists);
+  ok("an unrelated lead's warrantyClaims row survives (confinement)",
+    (await db.doc(`leads/${leadId2}/warrantyClaims/c9`).get()).exists);
 
   const lead3Gone = await staysGone(db.doc(`leads/${leadId3}`), 5000);
   ok('a lead with no linked appointment still deletes cleanly (no crash on empty sweep)', lead3Gone);

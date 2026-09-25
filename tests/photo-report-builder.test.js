@@ -536,10 +536,13 @@ console.log('\n7. Filed on the lead');
   // owner-only clause as a fixed dependency; the next commit widened it, and
   // the assertion reddened — which is the check working. It now pins the shape
   // filing actually needs: the owner OR same-company staff, never a viewer.
+  // 2026-09-25: filing is a CREATE; the rule split `allow write` into
+  // `allow create, update` + a separate `allow delete` (the status validator
+  // read request.resource, null on a delete, so no client could delete a row).
   const docRule = RULES.slice(RULES.indexOf('match /documents/{documentId}'),
     RULES.indexOf('match /drawings/{drawingId}'));
   ok('the documents write rule admits the owner and same-company staff',
-    /allow write: if isAuth\(\)/.test(docRule)
+    /allow create, update: if isAuth\(\)/.test(docRule)
     && /isOwner\(get\(/.test(docRule)
     && /isCompanyStaff\(\) && parentLeadInMyCompany\(leadId\)/.test(docRule));
   ok('and it does not reach for isCompanyReader, which would hand viewers write',
