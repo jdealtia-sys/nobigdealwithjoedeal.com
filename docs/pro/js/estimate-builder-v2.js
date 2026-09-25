@@ -853,6 +853,21 @@
     return { rawSqft, pitchRatio, waste, adjustedSqft, sq };
   }
 
+  // Gutter footage this engine prices: a finite guttersLf above zero, else 0
+  // (no gutters). Both gutter sites below read it, and "present" means the same
+  // thing as EstimateLogic's GUTTER_LF ('guttersLf > 0 ? guttersLf : eaveLf'),
+  // so a job's gutters come from one number on every path (Jo, 2026-09-25,
+  // Draw-tool decision 2). The per-SQ quote never falls back to eaveLf: with no
+  // gutter measurement it carries no gutter add-on, as before.
+  //
+  // It used to be a bare truthiness test. A negative figure then priced as a
+  // gutter CREDIT on the per-SQ quote, and a non-numeric one reached the
+  // generated scope as a NaN quantity.
+  function _gutterLf(input) {
+    const n = Number(input && input.guttersLf);
+    return (Number.isFinite(n) && n > 0) ? n : 0;
+  }
+
   // ═════════════════════════════════════════════════════════
   // SECTION 7 — PER-SQ MODE calculation
   // ═════════════════════════════════════════════════════════
@@ -909,11 +924,12 @@
       addOnsCents.valleyMetal = _toCents(Number(input.valleyMetalLf) * Number(s.addonPrices.valleyMetalLf));
     }
 
-    if (input.guttersLf) {
+    const gutterLf = _gutterLf(input);
+    if (gutterLf) {
       const gRate = (input.guttersRatePerLf != null)
         ? Number(input.guttersRatePerLf)
         : Number(s.addonPrices.guttersLf);
-      addOnsCents.gutters = _toCents(Number(input.guttersLf) * gRate);
+      addOnsCents.gutters = _toCents(gutterLf * gRate);
     }
 
     // ── Phase 1 complexity adders (estimate-qa-2026-06-08, Joe-confirmed) ──
@@ -1146,9 +1162,12 @@
       laborCost: 0
     });
 
-    // Gutters — optional add-on
-    if (input.guttersLf) {
-      addFromCatalog('gutters-6in', Number(input.guttersLf));
+    // Gutters — optional add-on, from the job's measured gutter footage only
+    // (see _gutterLf). This generated scope has no eave-sized gutter line, so
+    // the gutters are priced once.
+    const gutterLf = _gutterLf(input);
+    if (gutterLf) {
+      addFromCatalog('gutters-6in', gutterLf);
     }
 
     return items;

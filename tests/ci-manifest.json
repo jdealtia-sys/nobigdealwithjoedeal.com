@@ -193,7 +193,8 @@
     "lead-trades-unknown.test.js",
     "strip-redundant-inline-css.test.js",
     "upgrade-pricing.test.js",
-    "job-template-honest-paperwork.test.js"
+    "job-template-honest-paperwork.test.js",
+    "estimate-gutter-source.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
