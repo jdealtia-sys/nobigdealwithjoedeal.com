@@ -132,20 +132,42 @@ async function hitReport(page, selector) {
     }), selector);
 }
 
-// The bar re-renders 120ms after any resize and slides in over 250ms;
-// measure it at rest.
+// The bar re-renders (remove + rebuild) 120ms after any resize and 60ms
+// after every nbd:data-refreshed, then slides in over 250ms. Measure it
+// present and at rest: on a phone an absent bar would make every "is the
+// bar on top?" probe below pass vacuously.
 async function settleBar(page) {
   await page.waitForTimeout(200);
   await safeWaitForFunction(page, () => {
     const bar = document.getElementById('nbd-quick-action-bar');
-    return !bar || bar.getAnimations().every((a) => a.playState === 'finished');
-  }, { timeout: 5_000 });
+    if (!bar) return innerWidth > 640;
+    return !!bar.querySelector('.qab-call') && bar.getAnimations().every((a) => a.playState === 'finished');
+  }, { timeout: 8_000 });
 }
 
 // Toasts deliberately sit above every overlay (--z-toast); a lingering
 // "Job costs saved" from an earlier test is not what a later test measures.
 async function clearToasts(page) {
   await safeEvaluate(page, () => document.querySelectorAll('#toastContainer > div').forEach((t) => t.remove()));
+  await settleBar(page);
+}
+
+// RGBA of one screen pixel. A 1x1 clip screenshot is a PNG whose IDAT
+// inflates to [filter byte, R, G, B(, A)] — no image library needed.
+async function pixelAt(page, x, y) {
+  const png = await page.screenshot({ clip: { x: Math.round(x), y: Math.round(y), width: 1, height: 1 } });
+  const zlib = require('zlib');
+  const idat = [];
+  let colorType = 6;
+  for (let o = 8; o < png.length;) {
+    const len = png.readUInt32BE(o);
+    const type = png.toString('ascii', o + 4, o + 8);
+    if (type === 'IHDR') colorType = png[o + 8 + 9];
+    if (type === 'IDAT') idat.push(png.subarray(o + 8, o + 8 + len));
+    o += 12 + len;
+  }
+  const raw = zlib.inflateSync(Buffer.concat(idat));
+  return { r: raw[1], g: raw[2], b: raw[3], a: colorType === 6 ? raw[4] : 255 };
 }
 
 function covered(report) {
@@ -429,11 +451,13 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
     await chooser.setFiles(Array.from({ length: 15 }, (_, i) => ({ name: `batch-${i}.png`, mimeType: 'image/png', buffer: PNG_1PX })));
     await expect(page.locator('#uploadCount')).toHaveText('15', { timeout: 15_000 });
     // No scrolling: the rep must see the primary action as soon as the batch lands.
-    const btns = await hitReport(page, '#uploadModal #uploadBtn, #uploadModal .upload-actions button');
+    // Selected by role, not by the footer's class, so a break-test against
+    // the old markup fails on reachability rather than on a missing class.
+    const btns = await hitReport(page, '#uploadModal #uploadBtn, #uploadModal button.btn[data-action="closeUploadModal"]');
     expect(btns.length, 'Upload + Cancel rendered').toBe(2);
     expect(covered(btns), 'Upload / Cancel with 15 queued').toEqual([]);
     expect(await chromeTopmostWhileOpen(page), 'page chrome above the upload modal').toEqual([]);
-    await page.locator('#uploadModal .upload-actions button', { hasText: 'Cancel' }).tap();
+    await page.locator('#uploadModal button.btn[data-action="closeUploadModal"]').tap();
     await expect(page.locator('#uploadModal.open')).toHaveCount(0);
   });
 
@@ -465,6 +489,24 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
       expect(r.leaks, `page shows through beside the pinned bar at ${width}px`).toEqual([]);
       expect(r.secTop, `section starts below the bar at ${width}px`).toBeGreaterThanOrEqual(r.navBottom - 1);
       expect(r.secTop - r.navBottom, `gap between bar and section at ${width}px`).toBeLessThanOrEqual(24);
+
+      // Hit-testing can't see a mask: a masked-out edge still hit-tests as
+      // the bar while painting whatever scrolls under it. Put a red band
+      // UNDER the pinned bar and read the pixel at the bar's right edge.
+      const edge = await safeEvaluate(page, () => {
+        const band = document.createElement('div');
+        band.id = '__chromeProbeBand';
+        band.style.cssText = 'position:fixed;left:0;right:0;top:0;height:64px;background:#ff0000;z-index:1;pointer-events:none;';
+        document.body.appendChild(band);
+        const nav = document.getElementById('tabBar').getBoundingClientRect();
+        return { x: nav.right - 3, y: nav.top + nav.height / 2 };
+      });
+      try {
+        const px = await pixelAt(page, edge.x, edge.y);
+        expect(px.r - Math.max(px.g, px.b), `red band shows through the pinned bar's right edge at ${width}px (rgb ${px.r},${px.g},${px.b})`).toBeLessThan(80);
+      } finally {
+        await safeEvaluate(page, () => { const b = document.getElementById('__chromeProbeBand'); if (b) b.remove(); });
+      }
     }
     await page.setViewportSize({ width: 412, height: 860 });
   });
