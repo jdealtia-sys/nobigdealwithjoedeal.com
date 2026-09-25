@@ -585,6 +585,13 @@ test.describe('phone views: light mode stays readable @audit', () => {
       for (const t of c.tools) expect(t, 'header icon').toBeGreaterThanOrEqual(3);
       expect(c.nav.length).toBeGreaterThan(0);
       for (const n of c.nav) expect(n.c, `bottom-nav "${n.t}"`).toBeGreaterThanOrEqual(4.5);
+      // :hover turned a header icon var(--t) — #0f172a on the near-black bar,
+      // 1.04:1 — and on Android a tap leaves :hover stuck on what was tapped,
+      // so the bell went dark-on-dark right after you opened it.
+      await page.locator('#notifBtn').hover();
+      const hovered = await page.evaluate(() => window.__pvContrast(document.getElementById('notifBtn')));
+      expect(hovered, 'hovered header icon on the dark header').toBeGreaterThanOrEqual(3);
+      await page.mouse.move(1, 400);
     });
 
     await test.step('views#11 Engagement Cohort + Next Best Actions labels', async () => {

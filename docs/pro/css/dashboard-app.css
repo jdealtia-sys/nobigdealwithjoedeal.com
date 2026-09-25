@@ -2067,8 +2067,10 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
    name. The fix is the layout, not the buttons: below 600px the action
    cluster moves to its own full-width grid row under the name, so the name
    gets the whole row beside the badge (and score), and every action stays
-   36px and on-screen. The inline grid-template-columns needs !important to
-   be overridden. The no-actions placeholder is an empty div; hide it so it
+   36px and on-screen. The move (grid-column:1/-1) is the load-bearing part;
+   the Hot Leads template override (!important, to beat the inline style)
+   only drops the now-empty fourth track and its gap, which is 10px more for
+   the name (178 -> 188px at 412). The no-actions placeholder is an empty div; hide it so it
    doesn't open an empty second row. Desktop and tablet keep the one-line
    rows (the name track is 316px+ from 800px up). */
 @media (max-width:600px){
