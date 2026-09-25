@@ -607,6 +607,13 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         notes: '',
         // The rule's own sentence, not "50% deposit due upon scheduling".
         depositTerms: depositPlan ? depositPlan.summary : '',
+        // Rep-only (review fix, 2026-09-25): why this deposit is what it is
+        // when the rep should know — a classic Override % honored, a deposit
+        // raised to the deductible, no deductible entered (an insurance
+        // invoice then shows no deposit line at all), the old $2,500
+        // placeholder. Shown in the invoice detail view, never on the
+        // customer's invoice (buildInvoiceHtml does not read it).
+        depositRepNote: (depositPlan && depositPlan.repNote) ? depositPlan.repNote : '',
         terms: 'Net 14.' + (depositPlan && depositPlan.summary ? ' ' + depositPlan.summary : ''),
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -1428,6 +1435,10 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
                 <span>${formatCurrency(inv.depositPaid ? inv.balanceDue : (Number(inv.total) - Number(inv.depositAmount)))}</span>
               </div>
               ` : ''}
+              ${inv.depositRepNote ? `
+              <div data-ip-deposit-note style="padding:8px;border-top:1px solid var(--br);font-size:11px;line-height:1.4;color:var(--orange);font-weight:600;">
+                ${_esc(inv.depositRepNote)}
+              </div>` : ''}
             </div>
           </div>
 

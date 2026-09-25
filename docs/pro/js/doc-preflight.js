@@ -142,10 +142,9 @@
    */
   // Deposit defaults retired by the deposit rule (2026-09-25). A contract
   // generated before the rule persisted its PREFILLS as per-doc overrides —
-  // the 50% literal below and jobValue × 0.5 — so without this the next
-  // contract for that lead would bring the old 50/50 back as if a rep had
-  // typed it. Only those exact values are retired; a figure a rep actually
-  // edited is still an override and still wins.
+  // the 50% literal below and jobValue × 0.5. Those were never a rep's
+  // choice, so resolveDepositField drops them without the "not carried
+  // over" note it shows for a figure a rep did type.
   var RETIRED_SCHEDULE_LITERAL = '50% due upon contract execution; remaining balance due upon substantial completion.';
   function isRetiredDepositDefault(key, v, ctx) {
     if (key === 'paymentSchedule') return String(v == null ? '' : v).trim() === RETIRED_SCHEDULE_LITERAL;
@@ -158,10 +157,117 @@
     return false;
   }
 
+  // ── Deposit-rule fields (review of PR #1765, 2026-09-25) ──────────
+  // Deposit Amount, the contract's Payment Schedule / Terms sentence and the
+  // Payment Agreement's Payment 1 / Payment 2 are DERIVED from deposit-rule.js
+  // on the price the form shows. They used to resolve like every other field:
+  // prefilled once at open() from lead.jobValue, then saved as a per-doc
+  // override on every submit whether or not the rep touched them. So
+  //   (a) editing the Contract Price left the old deposit in place, and the
+  //       contract printed it as an unlabelled "rep override";
+  //   (b) the NEXT contract for the lead reloaded the last contract's dollar
+  //       deposit and dollar sentence as if a rep had typed them — after the
+  //       price, the job type or the claim had moved — so one binding
+  //       contract printed a terms paragraph contradicting its own table.
+  // Now a deposit field follows the price until the rep edits it; it is
+  // saved only when the rep changed it from the rule's figure, stamped with
+  // the basis it was set against (price, mode, deductible, ACV); and a saved
+  // one reloads only while that basis still holds. Anything dropped is named
+  // in the pre-flight's deposit note, so nothing changes silently.
+  var DEPOSIT_SOURCES = {
+    'computed.depositAmount': true,   // contract: the deposit at signing
+    'computed.depositTerms': true,    // contract: the Payment Schedule / Terms sentence
+    'computed.depositPayment1': true, // payment agreement: due at signing
+    'computed.depositPayment2': true  // payment agreement: the insurance ACV check
+  };
+  function isDepositField(field) {
+    return !!(field && typeof field.source === 'string' && DEPOSIT_SOURCES[field.source]);
+  }
+
+  // Dollars (number or "$1,234.50") → integer cents; blank → null.
+  function _depCents(v) {
+    if (v == null || v === '') return null;
+    var n = (typeof v === 'string') ? Number(v.replace(/[$,\s]/g, '')) : Number(v);
+    return isFinite(n) ? Math.round(n * 100) : null;
+  }
+
+  // Is this the same value the rule would put there? Money compares by cents
+  // (the input hands back a number, the prefill a "4500.00" string); the
+  // sentence by its trimmed text.
+  function sameDepositValue(key, a, b) {
+    if (key === 'paymentSchedule') {
+      return String(a == null ? '' : a).trim() === String(b == null ? '' : b).trim();
+    }
+    return _depCents(a) === _depCents(b);
+  }
+
+  // What the rule puts in a deposit field, from a plan (no rep override).
+  function depositFieldDefault(source, plan) {
+    if (!plan || !(plan.totalCents > 0)) return '';
+    var dollars = function (c) { return (c / 100).toFixed(2); };
+    switch (source) {
+      case 'computed.depositAmount':
+        return dollars(plan.depositCents);
+      case 'computed.depositTerms':
+        return plan.summary || '';
+      case 'computed.depositPayment1':
+        // Due at signing. On a claim that is the deductible — the ACV check
+        // is Payment 2, due when the carrier releases it, not "today" — and
+        // blank when nobody has entered the deductible, so the rep must.
+        if (plan.mode === 'insurance') {
+          return plan.deductibleCents != null ? dollars(Math.min(plan.deductibleCents, plan.totalCents)) : '';
+        }
+        return dollars(plan.depositCents);
+      case 'computed.depositPayment2':
+        var acv = (plan.rows || []).filter(function (r) { return r && r.key === 'acv' && r.amountCents != null; })[0];
+        return acv ? dollars(acv.amountCents) : '';
+    }
+    return '';
+  }
+
+  // What a saved deposit override was set against. It reloads only while
+  // all four still hold.
+  function depositBasisOf(plan) {
+    if (!plan || !(plan.totalCents > 0)) return null;
+    return {
+      totalCents: plan.totalCents,
+      mode: plan.mode || 'cash',
+      deductibleCents: plan.deductibleCents == null ? null : plan.deductibleCents,
+      acvCents: plan.acvValueCents == null ? null : plan.acvValueCents
+    };
+  }
+  function sameDepositBasis(saved, now) {
+    if (!saved || typeof saved !== 'object' || !now) return false;
+    var n = function (v) { return (v == null || v === '') ? null : Number(v); };
+    return n(saved.totalCents) === now.totalCents && String(saved.mode) === now.mode
+      && n(saved.deductibleCents) === now.deductibleCents && n(saved.acvCents) === now.acvCents;
+  }
+
+  function resolveDepositField(field, ctx) {
+    var plan = depositPlanFor(ctx, ('depositTotal' in ctx) ? { total: ctx.depositTotal } : {});
+    var def = depositFieldDefault(field.source, plan);
+    var ov = ctx.overrides;
+    if (ov && Object.prototype.hasOwnProperty.call(ov, field.key)) {
+      var saved = ov[field.key];
+      // A rep's own figure, saved against this same price / mode / claim.
+      if (sameDepositBasis(ov.depositBasis, depositBasisOf(plan))) return saved;
+      // Anything else — a prefill saved before this fix, a figure set for a
+      // different price or claim — gives way to the rule, and the note says so.
+      if (Array.isArray(ctx.depositDropped) && !isEmpty(saved)
+          && !isRetiredDepositDefault(field.key, saved, ctx)
+          && !sameDepositValue(field.key, saved, def)) {
+        ctx.depositDropped.push({ key: field.key, label: field.label || field.key, value: saved });
+      }
+    }
+    return def;
+  }
+
   function resolveFieldValue(field, ctx) {
+    // 0. Deposit-rule fields have their own override rules (above).
+    if (isDepositField(field)) return resolveDepositField(field, ctx);
+
     // 1. Per-doc override wins
-    if (ctx.overrides && Object.prototype.hasOwnProperty.call(ctx.overrides, field.key)
-        && !isRetiredDepositDefault(field.key, ctx.overrides[field.key], ctx)) {
+    if (ctx.overrides && Object.prototype.hasOwnProperty.call(ctx.overrides, field.key)) {
       return ctx.overrides[field.key];
     }
 
@@ -252,8 +358,10 @@
    * The job's deposit plan from deposit-rule.js (2026-09-25): the contract
    * price the pre-flight prefills (computed.jobValue's own priority), the
    * estimate's mode + claim, the lead's deductible as fallback.
-   * extra.total / extra.overrideAmount carry the rep's edited Contract Price
-   * and Deposit Amount at submit time.
+   * extra.total / extra.overrideAmount carry the form's Contract Price and a
+   * rep-edited Deposit Amount. An extra.total that is PRESENT but blank (the
+   * rep cleared the price) means no price — never a silent fall back to
+   * lead.jobValue (review fix, 2026-09-25).
    */
   function depositPlanFor(ctx, extra) {
     var R = (typeof window !== 'undefined') && window.NBDDepositRule;
@@ -262,10 +370,11 @@
     extra = extra || {};
     var lead = ctx.lead || {};
     var est = ctx.estimate || {};
-    var total = (extra.total != null && extra.total !== '')
+    var total = Object.prototype.hasOwnProperty.call(extra, 'total') && extra.total !== undefined
       ? extra.total
       : (lead.jobValue || est.grandTotal || est.total || est.amount || 0);
-    var opts = { total: total, lead: lead };
+    // Cents here, so a "$9,000.00"-style value can't be read as no price.
+    var opts = { totalCents: Math.max(0, _depCents(total) || 0), lead: lead };
     if (extra.overrideAmount != null && extra.overrideAmount !== '') opts.overrideAmount = extra.overrideAmount;
     return R.fromEstimate(est, opts);
   }
@@ -288,15 +397,17 @@
       case 'receiptNumber':
         return 'RCT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5);
       case 'depositAmount':
-        // deposit-rule.js (2026-09-25) — was a flat jobValue × 0.5, so a
-        // $555 repair's contract asked $277.50 and an insurance job's asked
-        // half the claim instead of the deductible + ACV payment.
-        var dpA = depositPlanFor(ctx);
-        return (dpA && dpA.totalCents > 0) ? (dpA.depositCents / 100).toFixed(2) : '';
       case 'depositTerms':
-        // The same plan in words, for the contract's Payment Schedule / Terms.
-        var dpT = depositPlanFor(ctx);
-        return (dpT && dpT.summary) ? dpT.summary : '';
+      case 'depositPayment1':
+      case 'depositPayment2':
+        // deposit-rule.js (2026-09-25) — depositAmount was a flat
+        // jobValue × 0.5, so a $555 repair's contract asked $277.50 and an
+        // insurance job's asked half the claim instead of the deductible +
+        // ACV payment. resolveDepositField normally answers these (it also
+        // decides whether a saved figure still applies); this is the bare
+        // rule for any other caller.
+        return depositFieldDefault('computed.' + name,
+          depositPlanFor(ctx, ('depositTotal' in ctx) ? { total: ctx.depositTotal } : {}));
       case 'dueDate':
         var d = new Date();
         d.setDate(d.getDate() + 30);
@@ -469,9 +580,11 @@
             // deductible + the ACV payment. A Deposit Amount the rep edits is
             // a rep override: the contract's schedule honors it (never below
             // an insurance deductible). Were "Typically 50%" + a 50% literal.
+            // Both follow the Contract Price until edited, and save only when
+            // edited (resolveDepositField, review fix 2026-09-25).
             { key: 'depositAmount', label: 'Deposit Amount', type: 'currency',
               source: 'computed.depositAmount', persist: PERSIST.DOCUMENT, required: true,
-              help: 'Set by the deposit rule: cash under $2,000 none, $2,000+ 50%, insurance the deductible + ACV payment. Edit to override.' },
+              help: 'Set by the deposit rule and follows the Contract Price. Edit it to override — an override is labelled below and kept only for this price and claim.' },
             { key: 'paymentSchedule', label: 'Payment Schedule / Terms', type: 'textarea', rows: 2,
               source: 'computed.depositTerms',
               persist: PERSIST.DOCUMENT },
@@ -1191,12 +1304,21 @@
           fields: [
             { key: 'totalPrice', label: 'Total Amount', type: 'currency', required: true,
               source: 'computed.jobValue', persist: PERSIST.DOCUMENT },
+            // Deposit rule (review fix, 2026-09-25): Payment 1 is what is due
+            // at signing — the deductible on a claim, the cash deposit
+            // otherwise — and Payment 2 is a claim's ACV check, due when the
+            // carrier releases it. Payment 1 used to be the WHOLE up-front
+            // amount (deductible + ACV) dated today, and a sub-$2,000 cash
+            // job printed "1. Deposit $0.00 Pending". submit() adds the
+            // balance as the final payment so the schedule foots.
             { key: 'payment1Amount', label: 'Payment 1 Amount', type: 'currency', required: true,
-              source: 'computed.depositAmount', persist: PERSIST.DOCUMENT },
+              source: 'computed.depositPayment1', persist: PERSIST.DOCUMENT,
+              help: 'Due at signing, from the deposit rule: the deductible on an insurance job, the deposit on a cash job.' },
             { key: 'payment1Date', label: 'Payment 1 Date', type: 'date', required: true,
               source: 'computed.todayISO', persist: PERSIST.DOCUMENT },
             { key: 'payment2Amount', label: 'Payment 2 Amount', type: 'currency',
-              source: 'literal:', persist: PERSIST.DOCUMENT },
+              source: 'computed.depositPayment2', persist: PERSIST.DOCUMENT,
+              help: 'Insurance: the ACV check, due when the carrier releases it (leave the date blank). The balance prints as the final payment.' },
             { key: 'payment2Date', label: 'Payment 2 Date', type: 'date',
               source: 'literal:', persist: PERSIST.DOCUMENT },
             { key: 'paymentTerms', label: 'Terms', type: 'textarea', rows: 2,
@@ -1227,7 +1349,15 @@
     // NBDCustomerEstimateRows.estimateWarranty(estimate) for this open():
     // non-null with a string `text` when the estimate is a Job Template one
     // whose warranty comes from its JOB TYPE, not a tier (2026-09-25).
-    jobWarranty: null
+    jobWarranty: null,
+    // Deposit rule (review fix, 2026-09-25), set by open() for documents
+    // that state payment terms:
+    //   { ctx: {lead, estimate},
+    //     defaults: { fieldKey: what the rule puts there at the form's
+    //                 current price } — a field still equal to its default
+    //                 is untouched, so it follows the price,
+    //     dropped:  [{key,label,value}] saved figures that no longer apply }
+    deposit: null
   };
 
   // True when this document's warranty is decided by the estimate's job type,
@@ -1244,6 +1374,83 @@
   function fieldRequired(f) {
     if (!f || !f.required) return false;
     return !(f.type === 'warranty-tier' && jobWarrantyGoverns());
+  }
+
+  // ── Deposit state helpers (review fix, 2026-09-25) ──────────────────
+  // A deposit field the rep has not changed from the rule's figure.
+  function depositTouched(key) {
+    var d = state.deposit;
+    if (!d || !Object.prototype.hasOwnProperty.call(d.defaults, key)) return false;
+    return !sameDepositValue(key, state.values[key], d.defaults[key]);
+  }
+
+  // Re-ask the rule at the form's current price. Every field still showing
+  // its old default follows the new one (in the DOM too when the modal is
+  // up); an edited field is left alone — it is the rep's override. The terms
+  // sentence follows the plan INCLUDING an edited Deposit Amount, so the
+  // form never shows a sentence that disagrees with the deposit above it.
+  function refreshDepositDefaults(modal) {
+    var d = state.deposit;
+    if (!d) return;
+    var rulePlan = depositPlanFor(d.ctx, { total: state.values.totalPrice });
+    var termsPlan = currentDepositPlan() || rulePlan;
+    Object.keys(d.defaults).forEach(function (k) {
+      var f = state.fieldIndex[k];
+      var src = f && f.source;
+      var next = depositFieldDefault(src, src === 'computed.depositTerms' ? termsPlan : rulePlan);
+      if (sameDepositValue(k, state.values[k], d.defaults[k]) && !sameDepositValue(k, state.values[k], next)) {
+        state.values[k] = next;
+        if (modal && modal.querySelector) {
+          var el = modal.querySelector('[data-field="' + CSS.escape(k) + '"]');
+          if (el) el.value = next;
+          updateFieldMissingState(k);
+        }
+      }
+      d.defaults[k] = next;
+    });
+  }
+
+  // The plan this document will print right now: the rule at the form's
+  // price, with an edited contract Deposit Amount as the rep override.
+  function currentDepositPlan() {
+    var d = state.deposit;
+    if (!d) return null;
+    var extra = { total: state.values.totalPrice };
+    if (state.fieldIndex.depositAmount && depositTouched('depositAmount')) {
+      extra.overrideAmount = state.values.depositAmount;
+    }
+    return depositPlanFor(d.ctx, extra);
+  }
+
+  // Rep-facing note under the payment fields: what prints, and anything the
+  // rep must know — an override (with the rule's own figure), a claim with no
+  // deductible, the old $2,500 placeholder, a saved figure that was dropped.
+  // Rep-only: none of this reaches the document.
+  function depositNoteHTML() {
+    var d = state.deposit;
+    if (!d || !Object.keys(d.defaults).length) return '';
+    var plan = currentDepositPlan();
+    var out = [];
+    if (plan && plan.totalCents > 0) {
+      out.push('<div><strong>' + esc(plan.label) + ': ' + esc(plan.valueText) + '</strong> — ' + esc(plan.summary) + '</div>');
+      if (plan.repNote) out.push('<div class="dpf-deposit-warn">' + esc(plan.repNote) + '</div>');
+    } else {
+      out.push('<div>Enter the price to set the deposit.</div>');
+    }
+    if (state.fieldIndex.paymentSchedule && depositTouched('paymentSchedule')) {
+      out.push('<div class="dpf-deposit-warn">Payment Schedule / Terms is your own wording and prints as written — check it agrees with the deposit above.</div>');
+    }
+    (d.dropped || []).forEach(function (x) {
+      out.push('<div class="dpf-deposit-warn">Not carried over from the last one: ' + esc(x.label) + ' “' + esc(x.value) +
+        '” — it was set for a different price or claim, or before the deposit rule. The rule’s figure is shown; edit the field to override it again.</div>');
+    });
+    return out.join('');
+  }
+
+  function updateDepositNote(modal) {
+    var root = modal || document.getElementById(MODAL_ID);
+    var el = root && root.querySelector ? root.querySelector('[data-dpf-deposit-note]') : null;
+    if (el) el.innerHTML = depositNoteHTML();
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -1292,6 +1499,11 @@
       '.dpf-textarea{resize:vertical;min-height:60px;font-family:inherit;line-height:1.45;}',
       '.dpf-field.missing .dpf-input,.dpf-field.missing .dpf-textarea,.dpf-field.missing .dpf-select{border-color:var(--red,#E05252);}',
       '.dpf-field-help{font-size:11px;color:var(--m,#6B7280);margin-top:5px;line-height:1.4;}',
+      // Deposit note (2026-09-25): the plan the document will print, and
+      // any rep override / missing deductible / dropped saved figure.
+      '.dpf-deposit-note{font-size:12px;line-height:1.45;color:var(--t,#E8EAF0);background:var(--s2,#181C22);border:1px solid var(--br,rgba(255,255,255,.09));border-radius:8px;padding:10px 12px;margin:4px 0 12px;overflow-wrap:anywhere;}',
+      '.dpf-deposit-note:empty{display:none;}',
+      '.dpf-deposit-warn{margin-top:6px;color:var(--orange,#BD5728);font-weight:600;}',
       '.dpf-field-error{font-size:11px;color:var(--red,#E05252);margin-top:5px;display:none;}',
       '.dpf-field.missing .dpf-field-error{display:block;}',
       '.dpf-currency-wrap{position:relative;}',
@@ -1714,6 +1926,10 @@
       var fieldsHTML = sec.fields.map(function (f) {
         return renderField(f, state.values[f.key]);
       }).join('');
+      // The deposit note sits with the deposit fields (2026-09-25).
+      if (state.deposit && sec.fields.some(isDepositField)) {
+        fieldsHTML += '<div class="dpf-deposit-note" data-dpf-deposit-note>' + depositNoteHTML() + '</div>';
+      }
       return '<div class="dpf-section' + collapsed + '" data-section="' + esc(sec.id) + '">' +
         '<div class="dpf-section-head" data-section-toggle="' + esc(sec.id) + '">' +
           '<h3 class="dpf-section-title">' + esc(sec.title) + '</h3>' +
@@ -1992,6 +2208,12 @@
         else v = el.value;
         state.values[key] = v;
         updateFieldMissingState(key);
+        // Deposit rule (2026-09-25): an untouched deposit follows the price;
+        // the note re-states the plan on every price or deposit edit.
+        if (state.deposit && (key === 'totalPrice' || Object.prototype.hasOwnProperty.call(state.deposit.defaults, key))) {
+          refreshDepositDefaults(modal);
+          updateDepositNote(modal);
+        }
         return;
       }
 
@@ -2255,12 +2477,7 @@
       return;
     }
 
-    var ctx = { lead: lead, estimate: estimate, photos: photos, overrides: overrides, jobWarranty: jobWarranty };
-    // Deposit rule context (2026-09-25): submit() re-asks the rule with the
-    // rep's final Contract Price / Deposit Amount, and swaps an untouched
-    // terms paragraph for the final plan's sentence.
-    state.depositCtx = { lead: lead, estimate: estimate };
-    state.depositTermsDefault = computeValue('depositTerms', ctx, {});
+    var ctx = { lead: lead, estimate: estimate, photos: photos, overrides: overrides, jobWarranty: jobWarranty, depositDropped: [] };
     var schema = DOC_SCHEMAS[type];
     var values = {};
     var fieldIndex = {};
@@ -2268,16 +2485,36 @@
     state.jobWarranty = jobWarranty;
     var jobGoverns = jobWarrantyGoverns();
 
+    var depositFields = [];
     schema.sections.forEach(function (sec) {
       sec.fields.forEach(function (field) {
+        fieldIndex[field.key] = field;
+        if (field.type === 'line-items') lineItemsMode[field.key] = 'locked';
+        // Deposit fields resolve below, once the price they follow is known.
+        if (isDepositField(field)) { depositFields.push(field); return; }
         values[field.key] = resolveFieldValue(field, ctx);
         // The job type decides this warranty: no tier, and a tier saved on an
         // earlier document for this lead (docOverrides) must not come back.
         if (jobGoverns && field.type === 'warranty-tier') values[field.key] = '';
-        fieldIndex[field.key] = field;
-        if (field.type === 'line-items') lineItemsMode[field.key] = 'locked';
       });
     });
+
+    // Deposit rule (review fix, 2026-09-25). The deposit fields derive from
+    // the price THIS form shows — a saved Contract Price included — not from
+    // lead.jobValue, so the prefill and the price never start out apart.
+    // submit() re-asks the rule at the final price; the contract and the
+    // proposal print its plan even though the proposal has no deposit field.
+    state.deposit = null;
+    if (depositFields.length || type === 'contract' || type === 'proposal') {
+      if (Object.prototype.hasOwnProperty.call(values, 'totalPrice')) ctx.depositTotal = values.totalPrice;
+      var depDefaults = {};
+      var depPlan = depositPlanFor(ctx, ('depositTotal' in ctx) ? { total: ctx.depositTotal } : {});
+      depositFields.forEach(function (field) {
+        values[field.key] = resolveFieldValue(field, ctx);
+        depDefaults[field.key] = depositFieldDefault(field.source, depPlan);
+      });
+      state.deposit = { ctx: { lead: lead, estimate: estimate }, defaults: depDefaults, dropped: ctx.depositDropped };
+    }
 
     state.open = true;
     state.type = type;
@@ -2285,6 +2522,9 @@
     state.schema = schema;
     state.values = values;
     state.fieldIndex = fieldIndex;
+    // A reloaded Deposit Amount override restates the untouched terms
+    // sentence before the form first shows it (2026-09-25).
+    if (state.deposit) refreshDepositDefaults(null);
     state.lineItemsMode = lineItemsMode;
     state.showAll = false;
     // Per-open reset: an address warning acknowledged on the last document
@@ -2330,8 +2570,7 @@
     state.values = {};
     state.fieldIndex = {};
     state.jobWarranty = null;
-    state.depositCtx = null;
-    state.depositTermsDefault = '';
+    state.deposit = null;
   }
 
   /**
@@ -2391,24 +2630,47 @@
       mergedData.warrantyKind = state.jobWarranty.kind;
     }
 
-    // Deposit plan (2026-09-25) for the documents that state payment terms:
-    // deposit-rule.js on the rep's final Contract Price, with an edited
-    // Deposit Amount honored as a rep override (never below an insurance
-    // deductible). The server contract turns it into its Payment Schedule
-    // table; the proposal prints its sentence.
-    if (state.type === 'contract' || state.type === 'proposal') {
-      var _dpPlan = depositPlanFor(state.depositCtx, {
-        total: mergedData.totalPrice,
-        overrideAmount: mergedData.depositAmount
+    // Deposit plan (2026-09-25; review fixes the same day) for the documents
+    // that state payment terms: deposit-rule.js at the FINAL price, with a
+    // Deposit Amount the rep actually edited as the rep override (never below
+    // an insurance deductible). The server contract turns it into its
+    // Payment Schedule table; the proposal prints its sentence.
+    if (state.deposit) {
+      // Catch the price up first: a field still at its default follows it,
+      // even when the price changed without an input event.
+      refreshDepositDefaults(null);
+      var _dpKeys = Object.keys(state.deposit.defaults);
+      var _dpTouched = {};
+      _dpKeys.forEach(function (k) {
+        _dpTouched[k] = depositTouched(k);
+        mergedData[k] = state.values[k];
       });
-      if (_dpPlan && _dpPlan.totalCents > 0 && window.NBDDepositRule) {
+      var _dpRule = depositPlanFor(state.deposit.ctx, { total: mergedData.totalPrice });
+      var _dpPlan = currentDepositPlan();
+      _dpKeys.forEach(function (k) {
+        // Untouched: not a per-doc override. It is re-derived next time, so
+        // it can never come back after the price, job type or claim moves.
+        if (!_dpTouched[k]) delete docOverrides[k];
+      });
+      // Edited: saved with the basis it was set against, and reloaded only
+      // while that basis still holds (resolveDepositField).
+      if (_dpKeys.some(function (k) { return _dpTouched[k]; }) && depositBasisOf(_dpRule)) {
+        docOverrides.depositBasis = depositBasisOf(_dpRule);
+      }
+
+      if ((state.type === 'contract' || state.type === 'proposal')
+          && _dpPlan && _dpPlan.totalCents > 0 && window.NBDDepositRule) {
         mergedData.depositPlan = window.NBDDepositRule.toStored(_dpPlan);
-        // An untouched terms paragraph follows the FINAL plan, so an edited
-        // Deposit Amount can't leave a paragraph still stating the rule's figure.
-        if (typeof mergedData.paymentSchedule === 'string' && state.depositTermsDefault
-            && mergedData.paymentSchedule.trim() === String(state.depositTermsDefault).trim()) {
-          mergedData.paymentSchedule = _dpPlan.summary;
-        }
+        // The figure the plan settled on (an override below a deductible is
+        // raised to it), so nothing downstream reads a different number.
+        if (state.fieldIndex.depositAmount) mergedData.depositAmount = (_dpPlan.depositCents / 100).toFixed(2);
+        // An untouched terms paragraph states the FINAL plan (an edited
+        // Deposit Amount included), never an earlier default.
+        if (state.fieldIndex.paymentSchedule && !_dpTouched.paymentSchedule) mergedData.paymentSchedule = _dpPlan.summary;
+      }
+
+      if (state.type === 'payment_agreement' && _dpRule && _dpRule.totalCents > 0) {
+        applyPaymentAgreementPlan(mergedData, _dpRule, _dpTouched);
       }
     }
 
@@ -2466,6 +2728,38 @@
     }
 
     close();
+  }
+
+  /**
+   * Payment Agreement rows from the deposit rule (review fix, 2026-09-25).
+   * Payment 1 is named for what it is (the deductible on a claim, else the
+   * deposit); an untouched Payment 2 on a claim is the ACV check, due when
+   * the carrier releases it; and the balance becomes the final payment, so
+   * the schedule foots to the total. The schema never collected a final
+   * payment, so every agreement printed a "does not match" warning under a
+   * schedule that stopped at the deposit. Additive only: a value the data
+   * already carries is kept.
+   */
+  function applyPaymentAgreementPlan(data, plan, touched) {
+    var ins = plan.mode === 'insurance';
+    if (data.depositLabel == null) data.depositLabel = ins ? 'Your deductible' : 'Deposit';
+    if (ins && !(touched && touched.payment2Amount) && !isEmpty(data.payment2Amount)) {
+      if (data.progressLabel == null) data.progressLabel = 'Insurance ACV payment (your carrier’s first check)';
+      if (data.progressDue == null && !data.payment2Date) data.progressDue = 'When your carrier releases it';
+    }
+    var total = _depCents(data.totalPrice);
+    var rest = (total == null) ? 0 : total - (_depCents(data.payment1Amount) || 0) - (_depCents(data.payment2Amount) || 0);
+    if (data.finalAmount == null && rest > 0) {
+      data.finalAmount = (rest / 100).toFixed(2);
+      if (data.finalLabel == null) data.finalLabel = 'Balance';
+      if (data.finalDue == null) {
+        // ACV not known yet and no Payment 2: the balance still carries the
+        // ACV check, so it says so (the rule's own wording).
+        var bal = (plan.rows || []).filter(function (r) { return r && r.key === 'balance'; })[0];
+        data.finalDue = (ins && !plan.acvKnown && isEmpty(data.payment2Amount) && bal && bal.due && bal.due !== 'On completion')
+          ? bal.due : 'Upon project completion';
+      }
+    }
   }
 
   /**

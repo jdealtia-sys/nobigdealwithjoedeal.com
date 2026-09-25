@@ -160,6 +160,9 @@ const { safeDepositPlan } = require(path.join(ROOT, 'functions/deposit-plan-view
 // The table. Figures written out by hand.
 // ════════════════════════════════════════════════════════════════════
 const ACV_SENT = 'insurance ACV payment (your carrier’s first check)';
+// Insurance cases use a $2,000 deductible, never $2,500: the docs below are
+// pre-rule (no depositPlan stamp), and an unstamped doc carrying exactly
+// $2,500 is the retired V2 placeholder (section 7) — review fix 2026-09-25.
 const CASES = [
   { name: 'cash $1,999.99', mode: 'cash', total: 1999.99,
     dep: 0, bal: 199999, label: 'Due at signing', value: 'No deposit',
@@ -173,26 +176,26 @@ const CASES = [
     dep: 350000, bal: 348813, label: 'Due at signing', value: '$3,500',
     summary: '50% deposit of $3,500 due at signing; balance of $3,488.13 due on completion.',
     rows: [['50% deposit', 'At signing', '$3,500'], ['Balance', 'On completion', '$3,488.13']] },
-  { name: 'insurance, deductible only (ACV not known yet)', mode: 'insurance', total: 12000, deductible: 2500,
-    dep: 250000, bal: 950000, label: 'Due at signing', value: '$2,500',
-    summary: 'Your $2,500 deductible is due at signing. Your ' + ACV_SENT +
-      ' is due when your carrier releases it, and the rest of the $9,500 balance is due on completion.',
-    rows: [['Your deductible', 'At signing', '$2,500'],
-      ['Balance', 'Insurance ACV payment when your carrier releases it; the rest on completion', '$9,500']] },
-  { name: 'insurance, deductible + ACV (both up front)', mode: 'insurance', total: 15000, deductible: 2500, acv: 10500,
+  { name: 'insurance, deductible only (ACV not known yet)', mode: 'insurance', total: 12000, deductible: 2000,
+    dep: 200000, bal: 1000000, label: 'Due at signing', value: '$2,000',
+    summary: 'Your $2,000 deductible is due at signing. Your ' + ACV_SENT +
+      ' is due when your carrier releases it, and the rest of the $10,000 balance is due on completion.',
+    rows: [['Your deductible', 'At signing', '$2,000'],
+      ['Balance', 'Insurance ACV payment when your carrier releases it; the rest on completion', '$10,000']] },
+  { name: 'insurance, deductible + ACV (both up front)', mode: 'insurance', total: 15000, deductible: 2000, acv: 10500,
     dep: 1050000, bal: 450000, label: 'Due up front', value: '$10,500',
     // A Close Board deal carries the deductible but no ACV field, so its
     // cards state the rule's ACV-not-known-yet answer: the deductible.
-    cb: ['Due at signing', '$2,500'],
+    cb: ['Due at signing', '$2,000'],
     cbTerms: 'Your deductible at signing; your insurance ACV payment when your carrier releases it; the balance on completion.',
-    summary: 'Due up front: your $2,500 deductible at signing, plus your $8,000 ' + ACV_SENT +
+    summary: 'Due up front: your $2,000 deductible at signing, plus your $8,500 ' + ACV_SENT +
       ' as soon as your carrier releases it — $10,500 in all. Balance of $4,500 due on completion.',
-    rows: [['Your deductible', 'At signing', '$2,500'],
-      ['Insurance ACV payment (your carrier’s first check)', 'Up front — as soon as your carrier releases it', '$8,000'],
+    rows: [['Your deductible', 'At signing', '$2,000'],
+      ['Insurance ACV payment (your carrier’s first check)', 'Up front — as soon as your carrier releases it', '$8,500'],
       ['Balance', 'On completion', '$4,500']] },
-  { name: 'insurance, deductible above the job total', mode: 'insurance', total: 1800, deductible: 2500,
+  { name: 'insurance, deductible above the job total', mode: 'insurance', total: 1800, deductible: 2000,
     dep: 180000, bal: 0, label: 'Due at signing', value: '$1,800',
-    summary: 'The job total of $1,800 is at or below your $2,500 deductible, so the full $1,800 is due at signing.',
+    summary: 'The job total of $1,800 is at or below your $2,000 deductible, so the full $1,800 is due at signing.',
     rows: [['Job total (at or below your deductible)', 'At signing', '$1,800']] },
   { name: 'insurance, deductible blank + ACV blank', mode: 'insurance', total: 12000, deductible: null, acv: '',
     dep: 0, bal: 1200000, label: 'Due at signing', value: 'Your deductible', needsDeductible: true,
@@ -306,6 +309,92 @@ async function contractFor(savedDoc, lead, editDeposit) {
   const payload = w.NBDDocGen._buildServerPayload('contract', Object.assign({}, captured));
   const html = CONTRACT_HBS(Object.assign({ company: { footerName: 'NBD Co' } }, payload));
   return { data: captured, payload, html };
+}
+
+// Doc pre-flight driven the way a rep drives it, for the review fixes
+// (2026-09-25): open() → edits (straight into state, or through the REAL
+// input handler bound on the modal root) → submit(), with the Firestore write
+// captured, so a SECOND document for the same lead can reload exactly what
+// the first one saved (lead.docOverrides), as the next open() on that lead
+// does. Returns the generator data, the server payload, the rendered HTML
+// (contract.hbs for a contract, the real Payment Agreement template for
+// one), the persisted overrides and the deposit note — both as first
+// rendered and as the input handler last rewrote it.
+async function preflight(type, savedDoc, lead, steps) {
+  const w = DOCS.win;
+  w._leadDoc = Object.assign({ firstName: 'Jane', lastName: 'Smith', address: '1 Elm St, Cincinnati, OH 45202',
+    phone: '5135550100', email: 'jane@example.test', scopeOfWork: 'Gutters as quoted.' }, lead || {});
+  w._currentLead = w._leadDoc;
+  w._customerEstimates = savedDoc ? [savedDoc] : [];
+  let captured = null, written = null;
+  const real = w.NBDDocGen.generate;
+  w.NBDDocGen.generate = (t, data) => { captured = data; };
+  Object.assign(w, { db: {}, doc: () => ({}), updateDoc: async (_r, u) => { written = u; }, serverTimestamp: () => 'ts' });
+  // The modal root: records the handlers bindModalEvents attaches and hands
+  // back stub inputs + the note element, so the real handler can be driven.
+  const inputs = {}; const note = { innerHTML: '' }; const handlers = {};
+  const stubInput = (key) => (inputs[key] = inputs[key] || { value: undefined, type: 'text', key,
+    hasAttribute: (a) => a === 'data-field', getAttribute: (a) => (a === 'data-field' ? key : null) });
+  DOCS.byId.docPreflightModal = {
+    id: 'docPreflightModal', remove() {}, removeEventListener() {},
+    addEventListener(t, fn) { (handlers[t] = handlers[t] || []).push(fn); },
+    querySelector(sel) {
+      if (sel === '[data-dpf-deposit-note]') return note;
+      const m = /^\[data-field="([^"]+)"\]$/.exec(sel);
+      return m ? stubInput(m[1]) : null;
+    },
+    querySelectorAll() { return []; },
+  };
+  // The rendered modal HTML (renderModal writes it into a created wrapper).
+  const origCreate = w.document.createElement;
+  let modalHtml = '';
+  w.document.createElement = (tag) => {
+    const e = origCreate(tag);
+    let h = '';
+    Object.defineProperty(e, 'innerHTML', { get() { return h; }, set(v) { h = String(v); if (/dpf-overlay/.test(h)) modalHtml = h; } });
+    return e;
+  };
+  const type_ = (key, value, inputType) => {
+    const el = stubInput(key); el.value = String(value); el.type = inputType || 'number';
+    (handlers.input || []).forEach((fn) => fn({ target: el }));
+  };
+  let st = null;
+  try {
+    w.DocPreflight.open(type, 'lead_1');
+    st = w.DocPreflight._state;
+    const openedHtml = modalHtml;
+    const opened = { values: JSON.parse(JSON.stringify(st.values || {})), noteHtml: openedHtml };
+    if (typeof steps === 'function') await steps({ st, type: type_, inputs, note });
+    if (st.open) { st.softAck = true; await w.DocPreflight.submit(); }
+    const out = { opened, data: captured, written, saved: written && written['docOverrides.' + type], note: note.innerHTML, stayedOpen: !!st.open };
+    if (captured && type === 'contract') {
+      out.payload = w.NBDDocGen._buildServerPayload('contract', Object.assign({}, captured));
+      out.html = CONTRACT_HBS(Object.assign({ company: { footerName: 'NBD Co' } }, out.payload));
+    }
+    if (captured && type === 'payment_agreement') out.html = w.NBDDocGen.renderPaymentAgreement(Object.assign({}, captured));
+    return out;
+  } finally {
+    if (st && st.open) w.DocPreflight.close();
+    w.NBDDocGen.generate = real;
+    w.document.createElement = origCreate;
+    delete DOCS.byId.docPreflightModal;
+    ['db', 'doc', 'updateDoc', 'serverTimestamp'].forEach((k) => { delete w[k]; });
+  }
+}
+// The Payment Agreement template's schedule rows: [label, amount, due].
+function agreementRows(html) {
+  const out = [];
+  const re = /<tr><td><strong>\d+\. ([^<]*)<\/strong><\/td><td class="right">([^<]*)<\/td><td>([^<]*)<\/td>/g;
+  let m;
+  while ((m = re.exec(html))) out.push([stripTags(m[1]), stripTags(m[2]), stripTags(m[3])]);
+  return out;
+}
+// A minimal saved estimate for the pre-flight rounds (one retail line).
+function pfDoc(total, mode, claim, extra) {
+  return Object.assign({ id: 'pf_' + total + '_' + mode, builder: 'v2', mode, tier: 'better', priceMode: 'line-item', leadId: 'lead_1',
+    grandTotal: total, total, claim: claim || null,
+    rows: [{ code: 'X', desc: 'Work', qty: '1EA', rate: '$' + total, total, retailTotal: total, quantity: 1, unit: 'EA', unitPrice: total }],
+    subtotal: total, tax: 0, taxRate: 0 }, extra || {});
 }
 
 // The Close Board deal page (the real close-board.js; its Firestore import()
@@ -586,9 +675,18 @@ function closeBoardPage(price, mode, deductible) {
     const retiredAmt = PF._resolveFieldValue({ key: 'depositAmount', source: 'computed.depositAmount' },
       { lead: {}, estimate: { grandTotal: 1500, mode: 'cash' }, overrides: { depositAmount: '750.00' } });
     ok('pre-flight: the retired jobValue × 0.5 saved as an override does not come back', retiredAmt === '0.00', retiredAmt);
+    // A rep's figure is kept only with the basis it was set against (review
+    // fix 2026-09-25) — see section 6 for the full save / reload round trip.
+    const basis1500 = { totalCents: 150000, mode: 'cash', deductibleCents: null, acvCents: null };
     const keptAmt = PF._resolveFieldValue({ key: 'depositAmount', source: 'computed.depositAmount' },
-      { lead: {}, estimate: { grandTotal: 1500, mode: 'cash' }, overrides: { depositAmount: '400.00' } });
-    ok('pre-flight: a figure a rep actually typed still wins', keptAmt === '400.00', keptAmt);
+      { lead: {}, estimate: { grandTotal: 1500, mode: 'cash' }, overrides: { depositAmount: '400.00', depositBasis: basis1500 } });
+    ok('pre-flight: a figure a rep typed, saved against this same price, still wins', keptAmt === '400.00', keptAmt);
+    const dropped = [];
+    const unbased = PF._resolveFieldValue({ key: 'depositAmount', label: 'Deposit Amount', source: 'computed.depositAmount' },
+      { lead: {}, estimate: { grandTotal: 1500, mode: 'cash' }, overrides: { depositAmount: '400.00' }, depositDropped: dropped });
+    ok('pre-flight: the same figure saved with no basis (before this fix) gives way to the rule', unbased === '0.00', unbased);
+    ok('…and is named for the rep\'s note, not dropped silently', dropped.length === 1 && dropped[0].value === '400.00' && dropped[0].label === 'Deposit Amount',
+      JSON.stringify(dropped));
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -639,6 +737,246 @@ function closeBoardPage(price, mode, deductible) {
       dash.indexOf('js/estimate-config.js') < dash.indexOf('js/deposit-rule.js') && dash.indexOf('js/deposit-rule.js') < dash.indexOf('js/company-profile.js'));
     const cust = read('docs/pro/customer.html');
     ok('customer.html: deposit-rule.js loads before company-profile.js', cust.indexOf('js/deposit-rule.js') > 0 && cust.indexOf('js/deposit-rule.js') < cust.indexOf('js/company-profile.js'));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('6. PRE-FLIGHT — the deposit follows the price, and only a rep\'s own edit is ever saved (review fixes)');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    const CASH10K = pfDoc(10000, 'cash');
+    const agrees = (k) => !!k && !!k.data && !!k.data.depositPlan && k.payload.paymentTerms === k.data.depositPlan.summary
+      && sameRows(contractRows(k.html), k.data.depositPlan.rows.map((r) => [r.label, r.due, r.amountCents != null ? R.fmtCents(r.amountCents) : r.amountText]));
+
+    // (a) The rep edits the Contract Price and leaves Deposit Amount alone.
+    const a = await preflight('contract', CASH10K, { jobValue: 10000 }, ({ st }) => { st.values.totalPrice = 9000; });
+    ok('(a) opened with the rule\'s prefill for the form\'s price ($10,000 → 5000.00)', a.opened.values.depositAmount === '5000.00', a.opened.values.depositAmount);
+    ok('(a) price edited to $9,000, deposit untouched → the table is the RULE at $9,000 ($4,500 / $4,500)',
+      !!a.html && sameRows(contractRows(a.html), [['50% deposit', 'At signing', '$4,500'], ['Balance', 'On completion', '$4,500']]), a.html && JSON.stringify(contractRows(a.html)));
+    ok('(a) …the paragraph says the same', !!a.payload && a.payload.paymentTerms === '50% deposit of $4,500 due at signing; balance of $4,500 due on completion.', a.payload && a.payload.paymentTerms);
+    ok('(a) …and it is the rule, not a silent "rep override"', !!a.data && a.data.depositPlan.kind === 'cash-percent' && a.data.depositAmount === '4500.00', a.data && a.data.depositPlan.kind);
+    ok('(a) nothing deposit-related is saved as a per-doc override (prefills are not the rep\'s)', !!a.saved
+      && !('depositAmount' in a.saved) && !('paymentSchedule' in a.saved) && !('depositBasis' in a.saved), a.saved && Object.keys(a.saved).join(','));
+
+    // The same edit through the REAL input handler: the deposit field and the
+    // untouched sentence follow the price live, and the note restates it.
+    const snap = {};
+    const live = await preflight('contract', CASH10K, { jobValue: 10000 }, ({ type, inputs, note }) => {
+      type('totalPrice', '9000');
+      snap.afterPrice = { dep: inputs.depositAmount && inputs.depositAmount.value, sched: inputs.paymentSchedule && inputs.paymentSchedule.value, note: note.innerHTML };
+      type('depositAmount', '3000');
+      snap.afterDep = { sched: inputs.paymentSchedule && inputs.paymentSchedule.value, note: note.innerHTML };
+      type('totalPrice', '12000');
+      snap.afterPrice2 = { dep: inputs.depositAmount && inputs.depositAmount.value, note: note.innerHTML };
+    });
+    Object.assign(live, snap);
+    ok('live: typing the price moves the untouched Deposit Amount input (→ 4500.00)', live.afterPrice.dep === '4500.00', live.afterPrice.dep);
+    ok('live: …and the untouched terms sentence', live.afterPrice.sched === '50% deposit of $4,500 due at signing; balance of $4,500 due on completion.', live.afterPrice.sched);
+    ok('live: the note restates the plan, no override', /Due at signing: \$4,500/.test(stripTags(live.afterPrice.note)) && !/Rep override/.test(live.afterPrice.note), stripTags(live.afterPrice.note));
+    ok('live: a typed deposit is labelled as a rep override with the rule\'s own figure',
+      /Rep override — the deposit rule would ask \$4,500\./.test(stripTags(live.afterDep.note)), stripTags(live.afterDep.note));
+    ok('live: …and the untouched sentence follows the override', live.afterDep.sched === 'Deposit of $3,000 due at signing; balance of $6,000 due on completion.', live.afterDep.sched);
+    ok('live: a later price change leaves the rep\'s deposit alone, and the note re-states the rule at the new price',
+      live.afterPrice2.dep === '3000' && /Rep override — the deposit rule would ask \$6,000\./.test(stripTags(live.afterPrice2.note)),
+      live.afterPrice2.dep + ' / ' + stripTags(live.afterPrice2.note));
+    ok('live: the contract prints the override, table and paragraph agreeing ($3,000 / $9,000)', agrees(live)
+      && sameRows(contractRows(live.html), [['Deposit', 'At signing', '$3,000'], ['Balance', 'On completion', '$9,000']]), live.html && JSON.stringify(contractRows(live.html)));
+    ok('live: the rep\'s figure IS saved — with the basis it was set against', !!live.saved && Number(live.saved.depositAmount) === 3000
+      && JSON.stringify(live.saved.depositBasis) === JSON.stringify({ totalCents: 1200000, mode: 'cash', deductibleCents: null, acvCents: null })
+      && !('paymentSchedule' in live.saved), live.saved && JSON.stringify(live.saved));
+
+    // (b) The next contract for the same lead reloads what the last one saved.
+    const again = await preflight('contract', pfDoc(12000, 'cash'), { jobValue: 12000, docOverrides: { contract: live.saved } });
+    ok('reload, same price + mode + claim: the rep\'s override comes back, labelled', again.opened.values.depositAmount === 3000
+      && /Rep override — the deposit rule would ask \$6,000\./.test(stripTags(again.opened.noteHtml)), again.opened.values.depositAmount + ' / ' + stripTags(again.opened.noteHtml).slice(-160));
+    ok('reload: …its untouched sentence states the override before the rep touches anything',
+      again.opened.values.paymentSchedule === 'Deposit of $3,000 due at signing; balance of $9,000 due on completion.', again.opened.values.paymentSchedule);
+    ok('reload: …and prints with table and paragraph agreeing', agrees(again) && again.data.depositPlan.kind === 'override');
+    const moved = Object.assign({}, live.saved, { totalPrice: 15000 });
+    const m2 = await preflight('contract', pfDoc(15000, 'cash'), { jobValue: 15000, docOverrides: { contract: moved } });
+    ok('reload after the price moved: the saved override gives way to the rule ($7,500)', !!m2.data && m2.data.depositPlan.kind === 'cash-percent'
+      && sameRows(contractRows(m2.html), [['50% deposit', 'At signing', '$7,500'], ['Balance', 'On completion', '$7,500']]) && agrees(m2), m2.html && JSON.stringify(contractRows(m2.html)));
+    ok('…and the rep is told what was not carried over', /Not carried over from the last one: Deposit Amount “3000”/.test(stripTags(m2.opened.noteHtml)), stripTags(m2.opened.noteHtml));
+    const toIns = await preflight('contract', pfDoc(12000, 'insurance', { deductible: 1000, acv: null }), { jobValue: 12000, docOverrides: { contract: live.saved } });
+    ok('reload after the job became an insurance claim: the cash override is dropped, the deductible is due',
+      !!toIns.data && toIns.data.depositPlan.rule === 'insurance' && sameRows(contractRows(toIns.html), [['Your deductible', 'At signing', '$1,000'],
+        ['Balance', 'Insurance ACV payment when your carrier releases it; the rest on completion', '$11,000']]) && agrees(toIns), toIns.html && JSON.stringify(contractRows(toIns.html)));
+
+    // The reviewers' exact rounds: what a contract saved under the unfixed
+    // pre-flight (every prefill, no basis) must not bring back.
+    const legacy = { totalPrice: 10000, depositAmount: '5000.00', paymentSchedule: '50% deposit of $5,000 due at signing; balance of $5,000 due on completion.' };
+    for (const [price, rows] of [
+      [12500, [['50% deposit', 'At signing', '$6,250'], ['Balance', 'On completion', '$6,250']]],
+      [12000, [['50% deposit', 'At signing', '$6,000'], ['Balance', 'On completion', '$6,000']]],
+      [1800, [['Payment in full', 'On completion', '$1,800']]],
+    ]) {
+      const k = await preflight('contract', pfDoc(price, 'cash'), { jobValue: price, docOverrides: { contract: Object.assign({}, legacy, { totalPrice: price }) } });
+      ok('stale saved prefills, price now ' + R.fmtCents(price * 100) + ': table = the rule', !!k.html && sameRows(contractRows(k.html), rows), k.html && JSON.stringify(contractRows(k.html)));
+      ok('stale saved prefills, price now ' + R.fmtCents(price * 100) + ': the paragraph agrees with the table (no "$5,000 … $5,000")', agrees(k) && !/\$5,000/.test(k.payload.paymentTerms), k.payload && k.payload.paymentTerms);
+    }
+    const i1 = await preflight('contract', pfDoc(15000, 'insurance', { deductible: null, acv: null }), { jobValue: 15000 });
+    ok('insurance, no deductible yet: nothing deposit-related saved', !!i1.saved && !('depositAmount' in i1.saved) && !('paymentSchedule' in i1.saved));
+    const i2 = await preflight('contract', pfDoc(15000, 'insurance', { deductible: 2000, acv: 10500 }),
+      { jobValue: 15000, docOverrides: { contract: Object.assign({}, i1.saved, { depositAmount: '0.00', paymentSchedule: i1.data.paymentSchedule }) } });
+    ok('insurance, deductible + ACV entered later: the rule\'s up-front plan, table and paragraph agreeing',
+      !!i2.html && sameRows(contractRows(i2.html), [['Your deductible', 'At signing', '$2,000'],
+        ['Insurance ACV payment (your carrier’s first check)', 'Up front — as soon as your carrier releases it', '$8,500'], ['Balance', 'On completion', '$4,500']]) && agrees(i2),
+      i2.html && JSON.stringify(contractRows(i2.html)) + ' | ' + (i2.payload && i2.payload.paymentTerms));
+    // A rep's OWN wording is kept, and the note warns it prints as written.
+    const words = await preflight('contract', CASH10K, { jobValue: 10000 }, ({ type }) => { type('paymentSchedule', 'Half down, half on the last day.', 'textarea'); });
+    ok('a rep-typed terms sentence prints as written and is saved with its basis', !!words.payload && words.payload.paymentTerms === 'Half down, half on the last day.'
+      && words.saved && words.saved.paymentSchedule === 'Half down, half on the last day.' && !!words.saved.depositBasis);
+    ok('…and the note says it is the rep\'s own wording', /your own wording and prints as written/.test(stripTags(words.note)), stripTags(words.note));
+    // A claim with no deductible: the note says so (the contract still prints
+    // "Per your policy", never $0).
+    ok('insurance, no deductible: the pre-flight note tells the rep', /No deductible entered/.test(stripTags(i1.opened.noteHtml)), stripTags(i1.opened.noteHtml));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('7. THE OLD $2,500 PLACEHOLDER DEDUCTIBLE — never printed as the homeowner\'s (review fix)');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    // V2 saved claim.deductible 2500 on every doc before the rule (its state
+    // default). The reviewer's reproduction, through the real invoice path.
+    const legacyV2 = { id: 'est_legacy', builder: 'v2', mode: 'insurance', tier: 'better', leadId: 'lead_legacy', grandTotal: 14000,
+      claim: { carrier: 'State Farm', deductible: 2500, acv: null }, deposit: 0,
+      rows: [{ code: 'X', desc: 'Roof', total: 14000, retailTotal: 14000, quantity: 1, unit: 'EA' }], subtotal: 14000, tax: 0, taxRate: 0 };
+    let cap = null;
+    Object.assign(W, {
+      _db: {}, doc: () => ({}), collection: () => ({}), _leads: [{ id: 'lead_legacy', firstName: 'Jane', lastName: 'Smith', deductibleOrOwedByHO: 1000 }],
+      getDoc: async () => ({ exists: () => true, id: 'est_legacy', data: () => JSON.parse(JSON.stringify(legacyV2)) }),
+      addDoc: async (_c, data) => { cap = data; return { id: 'inv_legacy' }; },
+      getDocs: async () => ({ empty: true, size: 0, forEach() {}, docs: [] }), query: () => ({}), where: () => ({}),
+    });
+    const leadDed = R.fromEstimate(legacyV2, { lead: { deductibleOrOwedByHO: 1000 } });
+    ok('placeholder + the lead records $1,000: the deposit is the lead\'s $1,000', leadDed.depositCents === 100000 && /Your \$1,000 deductible is due at signing/.test(leadDed.summary), leadDed.summary);
+    ok('…and the rep is told why', /old \$2,500 placeholder deductible, so the customer record’s \$1,000 deductible is used/.test(leadDed.repNote), leadDed.repNote);
+    const noLead = R.fromEstimate(legacyV2, {});
+    ok('placeholder, nothing on the lead: treated as not entered — no "$2,500" anywhere', noLead.needsDeductible === true
+      && !/2,500/.test(noLead.summary + noLead.valueText + JSON.stringify(noLead.rows)), noLead.summary);
+    ok('…with a rep warning naming the placeholder', /old \$2,500 placeholder deductible, which nobody confirmed/.test(noLead.repNote), noLead.repNote);
+    const stamped = Object.assign({}, legacyV2, { depositPlan: R.toStored(R.compute({ total: 14000, mode: 'insurance', deductible: 2500 })) });
+    ok('a doc saved UNDER the rule (stamped) with a real $2,500 deductible keeps it', R.fromEstimate(stamped, { lead: { deductibleOrOwedByHO: 1000 } }).depositCents === 250000);
+    ok('a live V2 claim of $2,500 (the rep typing it now) is trusted', R.fromEstimate(legacyV2, { claim: { deductible: 2500 } }).depositCents === 250000);
+    ok('hasLegacyPlaceholderDeductible: only unstamped + exactly $2,500', R.hasLegacyPlaceholderDeductible(legacyV2) && !R.hasLegacyPlaceholderDeductible(stamped)
+      && !R.hasLegacyPlaceholderDeductible(Object.assign({}, legacyV2, { claim: { deductible: 2400 } })));
+
+    // Through the real createInvoiceFromEstimate (the lead lookup is by id).
+    let invErr = null;
+    try { await IP.createInvoiceFromEstimate('est_legacy'); } catch (e) { invErr = e; }
+    ok('invoice from the reviewer\'s legacy doc: no "$2,500 deductible"', !invErr && !!cap && !/2,500/.test(String(cap.terms)), (invErr && invErr.message) || (cap && cap.terms));
+    if (cap) {
+      ok('invoice: the deposit is the lead\'s $1,000 (window._leads carries it)', cents(cap.depositAmount) === 100000
+        && cap.terms === 'Net 14. Your $1,000 deductible is due at signing. Your ' + ACV_SENT + ' is due when your carrier releases it, and the rest of the $13,000 balance is due on completion.',
+        cap.depositAmount + ' | ' + cap.terms);
+      ok('invoice: the rep-only note is stored for the invoice view', /old \$2,500 placeholder/.test(String(cap.depositRepNote)), cap.depositRepNote);
+      const invHtml = IP.buildInvoiceHtml(Object.assign({ invoiceNumber: 'INV-L', customerName: 'Jane', customerAddress: '1 Elm St', items: [] }, cap));
+      ok('invoice: the customer\'s invoice never prints the rep note', !/placeholder|customer record/.test(stripTags(invHtml)));
+    }
+
+    // Through the contract pre-flight (the lead carries the real deductible).
+    const k = await preflight('contract', legacyV2, { jobValue: 14000, deductibleOrOwedByHO: 1000 });
+    ok('contract from the legacy doc: deposit prefill is the lead\'s $1,000, not $2,500', k.opened.values.depositAmount === '1000.00', k.opened.values.depositAmount);
+    ok('…the contract table names $1,000', !!k.html && sameRows(contractRows(k.html).slice(0, 1), [['Your deductible', 'At signing', '$1,000']]) && !/2,500/.test(stripTags(k.html)),
+      k.html && JSON.stringify(contractRows(k.html)));
+    ok('…and the pre-flight note says why', /old \$2,500 placeholder/.test(stripTags(k.opened.noteHtml)), stripTags(k.opened.noteHtml));
+
+    // V2 reopening the legacy doc: the placeholder is not entered, so a
+    // re-save cannot launder it into a confirmed "$2,500 deductible".
+    // (savedDocFor: the full pre-rule V2 shape — no stamp, claim.deductible 2500.)
+    const legacyFull = savedDocFor({ mode: 'insurance', total: 14000, deductible: 2500 }, 'est_legacy_v2');
+    legacyFull.leadId = null;
+    W._estimates = [JSON.parse(JSON.stringify(legacyFull))];
+    V2.rehydrateFromSaved('est_legacy_v2');
+    const reopened = V2.getState();
+    const ep = (V2.effectiveEstimate() || {}).depositPlan || {};
+    ok('V2 reopen of a legacy doc: the $2,500 placeholder comes back as NOT entered', reopened.claim.deductible === null, String(reopened.claim.deductible));
+    ok('…so the builder says the deductible is due without inventing a number', ep.needsDeductible === true && !/2,500/.test(String(ep.summary)),
+      JSON.stringify({ mode: reopened.jobMode, total: ep.totalCents, summary: ep.summary }));
+    const stampedV2 = Object.assign({}, legacyFull, { id: 'est_stamped_v2', depositPlan: stamped.depositPlan });
+    W._estimates = [JSON.parse(JSON.stringify(stampedV2))];
+    V2.rehydrateFromSaved('est_stamped_v2');
+    ok('V2 reopen of a doc saved under the rule keeps its real $2,500', V2.getState().claim.deductible === 2500);
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('8. PAYMENT AGREEMENT — deductible at signing, the ACV check when released, the balance last; it foots');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    const today = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); })();
+    const ins = await preflight('payment_agreement', pfDoc(15000, 'insurance', { deductible: 2000, acv: 10500 }), { jobValue: 15000 });
+    ok('insurance + ACV: 1. Your deductible $2,000 today · 2. the ACV check $8,500 when released · 3. Balance $4,500',
+      !!ins.html && sameRows(agreementRows(ins.html), [['Your deductible', '$2,000.00', today],
+        ['Insurance ACV payment (your carrier’s first check)', '$8,500.00', 'When your carrier releases it'],
+        ['Balance', '$4,500.00', 'Upon project completion']]), ins.html && JSON.stringify(agreementRows(ins.html)));
+    ok('…and no "does not match the contract amount" warning', !!ins.html && !/does not match the contract amount/.test(ins.html));
+    const insNoAcv = await preflight('payment_agreement', pfDoc(12000, 'insurance', { deductible: 2000, acv: null }), { jobValue: 12000 });
+    ok('insurance, ACV unknown: the deductible, then the balance "ACV when released; the rest on completion"',
+      !!insNoAcv.html && sameRows(agreementRows(insNoAcv.html), [['Your deductible', '$2,000.00', today],
+        ['Balance', '$10,000.00', 'Insurance ACV payment when your carrier releases it; the rest on completion']]), insNoAcv.html && JSON.stringify(agreementRows(insNoAcv.html)));
+    const small = await preflight('payment_agreement', pfDoc(1500, 'cash'), { jobValue: 1500 });
+    ok('cash under $2,000: no "Deposit $0.00 Pending" row — one payment of $1,500 on completion',
+      !!small.html && sameRows(agreementRows(small.html), [['Balance', '$1,500.00', 'Upon project completion']]) && !/\$0\.00/.test(agreementRows(small.html).join('|')),
+      small.html && JSON.stringify(agreementRows(small.html)));
+    const cash = await preflight('payment_agreement', pfDoc(10000, 'cash'), { jobValue: 10000 });
+    ok('cash $10,000: Deposit $5,000 then Balance $5,000, footing to the total', !!cash.html && sameRows(agreementRows(cash.html),
+      [['Deposit', '$5,000.00', today], ['Balance', '$5,000.00', 'Upon project completion']]) && !/does not match the contract amount/.test(cash.html),
+      cash.html && JSON.stringify(agreementRows(cash.html)));
+    const noDed = await preflight('payment_agreement', pfDoc(12000, 'insurance', { deductible: null, acv: null }), { jobValue: 12000 });
+    ok('insurance, no deductible entered: Payment 1 is left blank and required — nothing is generated until the rep enters it',
+      noDed.opened.values.payment1Amount === '' && noDed.stayedOpen && !noDed.data, JSON.stringify(noDed.opened.values.payment1Amount));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('9. TIER CARDS — each card states its own deposit (review fix)');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    const est = { total: 12300, mode: 'cash', lines: [], depositPlan: R.compute({ total: 12300, mode: 'cash' }) };
+    const tiers = { good: { total: 1900 }, better: { total: 12300 }, best: { total: 15900 }, recommended: 'better' };
+    const meta = { customer: { name: 'Jane' }, estimate: { number: 'EST-T' }, tiers };
+    const pay = V2.buildEstimatePayload('retail-quote', est, meta);
+    const notes = (pay.tierList || []).map((t) => t.priceNote);
+    ok('server PDF tier cards: $1,900 → no deposit, $12,300 → $6,150, $15,900 → $7,950',
+      JSON.stringify(notes) === JSON.stringify(['Due at signing: No deposit', 'Due at signing: $6,150', 'Due at signing: $7,950']), JSON.stringify(notes));
+    const pdf = ESTIMATE_HBS(Object.assign({ company: { footerName: 'NBD Co', seal: 'Estimate' } }, pay));
+    const printed = (pdf.match(/<div class="tier-price-note">([^<]*)<\/div>/g) || []).map(stripTags);
+    ok('…and estimate.hbs prints them under each price', JSON.stringify(printed) === JSON.stringify(notes), JSON.stringify(printed));
+    const rq = FIN.formatEstimate(est, 'retail-quote', meta);
+    const onScreen = (rq.html.match(/<div class="tier-deposit"[^>]*>([^<]*)<\/div>/g) || []).map(stripTags);
+    ok('on-screen Retail Quote tier cards say the same', JSON.stringify(onScreen) === JSON.stringify(notes), JSON.stringify(onScreen));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('10. JOB TEMPLATES + SANDBOX DEMO — the lead\'s deductible, and the demo quotes the rule');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    const jt = JT.buildEstimatePayload({ totals: { total: 9000, mode: 'insurance', lines: [] }, measurements: {} }, { owner: 'Jane', deductible: 1000 });
+    ok('a Job Template insurance estimate saves the lead\'s deductible in its plan (portal = invoice)', !!jt && !!jt.depositPlan
+      && jt.depositPlan.depositCents === 100000 && /Your \$1,000 deductible/.test(jt.depositPlan.summary), jt && jt.depositPlan && jt.depositPlan.summary);
+    const ui = read('docs/pro/js/job-templates-ui.js').replace(/\r\n/g, '\n');
+    ok('the build screen passes the selected lead\'s deductible (deductibleOrOwedByHO)', /opts\.deductible = Number\(leadDed\)/.test(ui) && /lead\.deductibleOrOwedByHO/.test(ui));
+
+    // sandbox.html's demo, run for real with the rule loaded first.
+    const els = {};
+    const mk = () => ({ _h: '', set innerHTML(v) { this._h = String(v); }, get innerHTML() { return this._h; }, textContent: '',
+      classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } }, setAttribute() {}, getAttribute() { return null; },
+      addEventListener() {}, appendChild() {}, querySelector: () => null, querySelectorAll: () => [], closest: () => null, style: {}, dataset: {} });
+    const sb = { console: { log() {}, warn() {}, error() {} }, JSON, Math, Number, String, Array, Object, Date, setTimeout, clearTimeout,
+      document: { querySelector: (s) => (els[s] = els[s] || mk()), querySelectorAll: () => [], getElementById: (id) => (els['#' + id] = els['#' + id] || mk()),
+        addEventListener() {}, createElement: mk, documentElement: mk(), body: mk() },
+      localStorage: { getItem: () => null, setItem() {} }, matchMedia: () => ({ matches: false, addEventListener() {} }) };
+    sb.window = sb;
+    vm.createContext(sb);
+    let demoErr = null;
+    try {
+      vm.runInContext(read('docs/pro/js/deposit-rule.js'), sb, { filename: 'deposit-rule.js' });
+      vm.runInContext(read('docs/pro/js/sandbox-demo.js'), sb, { filename: 'sandbox-demo.js' });
+    } catch (e) { demoErr = e; }
+    const summary = stripTags((els['#estSummary'] || { innerHTML: '' }).innerHTML);
+    ok('sandbox demo: the selected tier states the rule\'s deposit ($12,300 → "Due at signing $6,150"), not a hard-coded "50% deposit"',
+      !demoErr && /Due at signing \$6,150/.test(summary) && !/50% deposit/.test(summary), (demoErr && demoErr.message) || summary);
+    const sbHtml = read('docs/pro/sandbox.html');
+    ok('sandbox.html loads deposit-rule.js (deferred) before the demo', /<script defer src="\/pro\/js\/deposit-rule\.js\?v=\d+"><\/script>/.test(sbHtml)
+      && sbHtml.indexOf('js/deposit-rule.js') < sbHtml.indexOf('js/sandbox-demo.js'));
   }
 
   console.log('\n──────────────────────────────────────────────────');

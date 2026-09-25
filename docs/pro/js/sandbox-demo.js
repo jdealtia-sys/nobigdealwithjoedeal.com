@@ -138,7 +138,13 @@
     document.querySelectorAll('.sb-tier').forEach(function (el) {
       el.classList.toggle('active', el.getAttribute('data-tier') === key);
     });
-    $('#estSummary').innerHTML = 'Selected: <strong>' + t.label + ' — ' + money(t.total) + '</strong> · 50% deposit ' + money(t.total / 2) +
+    // The deposit comes from the real rule (deposit-rule.js, loaded first on
+    // sandbox.html) — this demo hard-coded "50% deposit", which only matched
+    // because every sample tier is a cash job over the no-deposit threshold.
+    const R = window.NBDDepositRule;
+    const plan = R ? R.compute({ total: t.total, mode: 'cash' }) : null;
+    const depText = plan ? (plan.label + ' ' + plan.valueText) : '';
+    $('#estSummary').innerHTML = 'Selected: <strong>' + t.label + ' — ' + money(t.total) + '</strong>' + (depText ? ' · ' + depText : '') +
       ' · In the real builder this prices itself from measurements, pitch, and waste — and turns into a signed contract and an invoice without retyping anything.';
   }
 

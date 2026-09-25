@@ -852,6 +852,17 @@ ${footer}
             // V2-2 fix: float-equality of a per-SQ tier total against the
             // line-item estimate.total could never match, so the badge never fired.
             const selected = tiers.recommended ? (t.key === tiers.recommended) : (tierEst.total === estimate.total);
+            // Each card states its own deposit (deposit-rule.js, 2026-09-25):
+            // the Payment Terms below are the SELECTED tier's, so without this
+            // a homeowner comparing tiers read one tier's deposit under all.
+            const _tr = (typeof window !== 'undefined') ? window.NBDDepositRule : null;
+            const _stamped = meta.depositPlan || estimate.depositPlan || null;
+            const _tp = (_stamped && _stamped.totalCents === Math.round(Number(tierEst.total) * 100))
+              ? _stamped   // the plan the Payment Terms print, for the tier they are for
+              : ((_tr && Number(tierEst.total) > 0)
+                ? _tr.fromEstimate(estimate, { claim: meta.claim || null, total: Number(tierEst.total) }) : null);
+            const tierDep = (_tp && _tp.totalCents > 0)
+              ? `<div class="tier-deposit" style="font-size:11px;color:#555;margin-top:8px;">${escapeHtml(_tp.label)}: ${escapeHtml(_tp.valueText)}</div>` : '';
             return `
               <div style="border:${selected ? '3' : '1'}px solid ${t.color};
                           border-radius:8px; padding:20px; text-align:center;
@@ -866,6 +877,7 @@ ${footer}
                             font-weight:800;color:${t.color};margin-top:12px;line-height:1;">
                   ${fmtMoneyBig(tierEst.total)}
                 </div>
+                ${tierDep}
                 ${selected ? `<div style="font-size:9px;font-weight:700;letter-spacing:.15em;
                                           text-transform:uppercase;color:${t.color};margin-top:8px;">
                               ✓ Selected</div>` : ''}

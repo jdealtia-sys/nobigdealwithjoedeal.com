@@ -1096,9 +1096,35 @@
   // ═════════════════════════════════════════════════════════
 
   /**
+   * depositStamp(total, mode, meta) → { deposit, depositPlan } for a payload.
+   * Deposit (2026-09-25): deposit-rule.js on the SAVED total. This saved
+   * `deposit: meta.deposit` — which no caller passes — so every template
+   * estimate stored null and the invoice fell back to 50%: a $555 repair
+   * asked a $277.50 deposit. Now a sub-$2,000 cash job stores $0 and says
+   * "No deposit"; a caller-supplied meta.deposit is a rep override.
+   * Review fixes (same day): meta.deductible (the lead's recorded
+   * deductible, passed by the build screen) reaches an insurance plan, so the
+   * portal names the dollar deductible the invoice does; and createEstimate
+   * re-stamps after upgrades move the total, so the saved plan is never for
+   * a price the estimate no longer has.
+   */
+  function depositStamp(total, mode, meta) {
+    meta = meta || {};
+    const R = (typeof window !== 'undefined' && window.NBDDepositRule) || null;
+    if (!R) return { deposit: (meta.deposit != null ? Number(meta.deposit) : null), depositPlan: null };
+    const plan = R.compute({
+      total: total,
+      mode: mode || 'cash',
+      deductible: meta.deductible,
+      overrideAmount: (meta.deposit != null && meta.deposit !== '') ? meta.deposit : undefined
+    });
+    return { deposit: plan.depositCents / 100, depositPlan: R.toStored(plan) };
+  }
+
+  /**
    * buildEstimatePayload(resolved, meta)
    *   resolved: resolveSelection() result (totals required)
-   *   meta:     {name, leadId, addr, owner, deposit, county?, repairWarranty?}
+   *   meta:     {name, leadId, addr, owner, deposit, deductible?, county?, repairWarranty?}
    * county persists (V2 _buildSavePayload parity — estimate-v2-ui.js:2120)
    * so reopen doesn't silently re-tax at a different rate; meta.owner/addr
    * pass through (blank default stays '').
@@ -1129,17 +1155,7 @@
     const repairWarranty = meta.repairWarranty === true
       && resolved.warrantyKind !== 'roof'
       && warrantyParts.some(p => p && p.kind === 'repair');
-    // Deposit (2026-09-25): deposit-rule.js on the saved total. This saved
-    // `deposit: meta.deposit` — which no caller passes — so every template
-    // estimate stored null and the invoice fell back to 50%: a $555 repair
-    // asked a $277.50 deposit. Now a sub-$2,000 cash job stores $0 and says
-    // "No deposit"; a caller-supplied meta.deposit is a rep override.
-    const _depRule = (typeof window !== 'undefined' && window.NBDDepositRule) || null;
-    const depositPlan = _depRule ? _depRule.compute({
-      total: est.total,
-      mode: est.mode || 'cash',
-      overrideAmount: (meta.deposit != null && meta.deposit !== '') ? meta.deposit : undefined
-    }) : null;
+    const dep = depositStamp(est.total, est.mode || 'cash', meta);
 
     return {
       // Identity
@@ -1219,8 +1235,8 @@
       grandTotal:      est.total,
       selectedTier:    savedTier,
       priceMode:       'line-item',
-      deposit:         depositPlan ? depositPlan.depositCents / 100 : (meta.deposit != null ? Number(meta.deposit) : null),
-      depositPlan:     depositPlan ? _depRule.toStored(depositPlan) : null,
+      deposit:         dep.deposit,
+      depositPlan:     dep.depositPlan,
       materialCost:    est.materialCost,
       laborCost:       est.laborCost,
       subtotal:        est.subtotal,
@@ -1464,6 +1480,12 @@
         throw err;
       }
       payload = up.payload;
+      // Upgrades move grandTotal; the deposit follows it (2026-09-25) — a
+      // $1,900 base with a $300 upgrade is a $2,200 job, not a no-deposit one.
+      if (payload && payload.grandTotal !== undefined) {
+        const dep = depositStamp(payload.grandTotal, payload.mode, opts);
+        payload = Object.assign({}, payload, { deposit: dep.deposit, depositPlan: dep.depositPlan });
+      }
     }
     if (typeof window._saveEstimate !== 'function') {
       throw new Error('[JobTemplates] _saveEstimate not loaded');

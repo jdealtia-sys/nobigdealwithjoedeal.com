@@ -345,13 +345,30 @@
     return null;
   }
 
+  // V2 defaulted state.claim.deductible to a $2,500 PLACEHOLDER until this
+  // rule landed (2026-09-25) and saved the claim whenever the deductible was
+  // non-null — i.e. always — so every V2 estimate saved before the rule
+  // carries claim.deductible 2500 whether or not anybody entered it. Such a
+  // doc has no depositPlan stamp (the rule writes one on every save), so
+  // "no stamp + exactly $2,500" is the unconfirmed placeholder: the lead's
+  // recorded deductible wins, and with none the deductible is treated as not
+  // entered (and the rep is told why) — never printed as the homeowner's.
+  // V2's prefillFromLead has treated 2500 as unset for the same reason.
+  var LEGACY_PLACEHOLDER_DEDUCTIBLE_CENTS = 250000;
+  function hasLegacyPlaceholderDeductible(est) {
+    if (!est || typeof est !== 'object' || est.depositPlan) return false;
+    var c = est.claim;
+    return !!(c && typeof c === 'object' && toCents(c.deductible) === LEGACY_PLACEHOLDER_DEDUCTIBLE_CENTS);
+  }
+
   /**
    * fromEstimate(est, opts) → plan for a SAVED or in-builder estimate doc
    * (classic, V2 or Job Template shape).
    *   opts.total / opts.totalCents — price to split (an invoice folds in
    *     approved supplements, so it passes its own total)
    *   opts.claim — live claim fields (V2 state.claim) instead of est.claim
-   *   opts.lead  — lead doc; its deductible fills in when the estimate has none
+   *   opts.lead  — lead doc; its deductible fills in when the estimate has
+   *     none, or only the old $2,500 placeholder (see above)
    *   opts.overrideAmount / opts.overridePct — a rep override from the caller
    * A stored plan's override is honored; a stored plan's AMOUNT never is —
    * the deposit is always recomputed, so an estimate saved under the old
@@ -366,7 +383,11 @@
     var claim = opts.claim || est.claim
       || ((est.insurance && typeof est.insurance === 'object') ? est.insurance : null) || {};
     var lead = opts.lead || {};
-    var deductible = _firstPositive(claim.deductible, lead.deductibleOrOwedByHO, lead.deductible);
+    // A live claim (opts.claim — V2's state) is the rep's current entry; only
+    // the SAVED claim can carry the old placeholder.
+    var placeholder = !opts.claim && hasLegacyPlaceholderDeductible(est);
+    var leadDeductible = _firstPositive(lead.deductibleOrOwedByHO, lead.deductible);
+    var deductible = placeholder ? leadDeductible : _firstPositive(claim.deductible, leadDeductible);
     var input = {
       totalCents: totalCents, mode: mode,
       deductible: deductible, acv: _first(claim.acv),
@@ -379,7 +400,16 @@
     else if (stored && stored.pct != null) input.overridePct = stored.pct;
     else if (est.depositPctOverride != null && est.depositPctOverride !== '') input.overridePct = est.depositPctOverride;
     else if (est.depositOverridePct != null && est.depositOverridePct !== '') input.overridePct = est.depositOverridePct;
-    return compute(input);
+    var plan = compute(input);
+    if (placeholder && plan.mode === 'insurance' && plan.totalCents > 0) {
+      var why = (leadDeductible != null)
+        ? 'This estimate was saved with the old $2,500 placeholder deductible, so the customer record’s ' +
+          fmtCents(toCents(leadDeductible)) + ' deductible is used.'
+        : 'This estimate was saved with the old $2,500 placeholder deductible, which nobody confirmed — enter the real deductible to set the deposit.';
+      plan.repNote = (plan.repNote && !plan.needsDeductible) ? (why + ' ' + plan.repNote) : why;
+      plan.legacyPlaceholderDeductible = true;
+    }
+    return plan;
   }
 
   // The persisted / whitelisted shape: display strings + cents, no repNote
@@ -421,6 +451,7 @@
     fromEstimate: fromEstimate,
     toStored: toStored,
     policyText: policyText,
+    hasLegacyPlaceholderDeductible: hasLegacyPlaceholderDeductible,
     fmtCents: fmtCents,
     toCents: toCents,
     isInsuranceMode: isInsuranceMode

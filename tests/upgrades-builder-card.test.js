@@ -510,6 +510,12 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('GRAND TOTAL moves by exactly the quote + its tax', cents(sv.grandTotal) - cents(baseP.grandTotal) === cardLine + aluTax,
     (cents(sv.grandTotal) - cents(baseP.grandTotal)) + ' vs ' + (cardLine + aluTax));
   ok('O&P untouched (upgrades sit outside markup and O&P)', sv.overhead === baseP.overhead && sv.profit === baseP.profit && sv.retailBeforeOHP === baseP.retailBeforeOHP);
+  // The deposit follows the moved total (deposit-rule review fix, 2026-09-25):
+  // the base payload's plan was stamped BEFORE the upgrade was added.
+  const depWant = W.NBDDepositRule.compute({ total: sv.grandTotal, mode: sv.mode || 'cash' });
+  ok('DEPOSIT is re-stamped on the upgraded total (plan total = grandTotal, deposit = the rule)', !!sv.depositPlan
+    && sv.depositPlan.totalCents === cents(sv.grandTotal) && cents(sv.deposit) === depWant.depositCents && sv.depositPlan.summary === depWant.summary,
+    sv.depositPlan && (sv.depositPlan.totalCents + ' vs ' + cents(sv.grandTotal)));
   ok('upgradeCents / upgradeTaxCents / upgrades[] on the estimate', sv.upgradeCents === cardLine && sv.upgradeTaxCents === aluTax
     && sv.upgrades.length === 1 && sv.upgrades[0].id === 'alurex' && sv.upgrades[0].unitCents === 1800);
   const log = sv.upgradeLog;

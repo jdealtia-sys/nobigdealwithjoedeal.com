@@ -2613,6 +2613,16 @@
     // contradict the line items on a binding payment agreement.
     const scheduledTotal = deposit + progress + final;
     const recMismatch = total > 0 && Math.abs(total - scheduledTotal) >= 0.01;
+    // Deposit rule (2026-09-25): rows are named by the pre-flight's plan (a
+    // claim's first payment is "Your deductible", its second the insurance
+    // ACV check) and numbered in order; a $0 deposit row is not printed —
+    // a cash job under the no-deposit threshold printed "1. Deposit $0.00
+    // Pending". Labels fall back to the old Deposit / Progress / Final.
+    const payRows = [
+      deposit > 0 ? { label: d.depositLabel || 'Deposit', amount: deposit, due: d.depositDue } : null,
+      progress > 0 ? { label: d.progressLabel || 'Progress Payment', amount: progress, due: d.progressDue } : null,
+      final > 0 ? { label: d.finalLabel || 'Final Payment', amount: final, due: d.finalDue } : null,
+    ].filter(Boolean);
 
     return page('Payment Agreement', `
       ${letterhead()}
@@ -2635,12 +2645,8 @@
         <table class="items">
           <thead><tr><th>Payment</th><th>Amount</th><th>Due</th><th>Status</th></tr></thead>
           <tbody>
-            <tr><td><strong>1. Deposit</strong></td><td class="right">${money(deposit)}</td><td>${esc(d.depositDue)}</td>
-              <td><span class="badge" style="background:#fef3c7;color:#92400e;">Pending</span></td></tr>
-            ${progress > 0 ? `<tr><td><strong>2. Progress Payment</strong></td><td class="right">${money(progress)}</td><td>${esc(d.progressDue)}</td>
-              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>` : ''}
-            ${final > 0 ? `<tr><td><strong>3. Final Payment</strong></td><td class="right">${money(final)}</td><td>${esc(d.finalDue)}</td>
-              <td><span class="badge" style="background:#f3f4f6;color:#6b7280;">Upcoming</span></td></tr>` : ''}
+            ${payRows.map((r, i) => `<tr><td><strong>${i + 1}. ${esc(r.label)}</strong></td><td class="right">${money(r.amount)}</td><td>${esc(r.due)}</td>
+              <td><span class="badge" style="${i === 0 ? 'background:#fef3c7;color:#92400e;' : 'background:#f3f4f6;color:#6b7280;'}">${i === 0 ? 'Pending' : 'Upcoming'}</span></td></tr>`).join('')}
             <tr style="font-weight:700;border-top:3px solid ${A};">
               <td>TOTAL</td><td class="right" style="color:${A};font-size:16px;">${money(scheduledTotal)}</td>
               <td colspan="2"></td></tr>

@@ -3623,12 +3623,19 @@
       const buildTier = (key, name, subtitle, features) => {
         const src = meta.tiers[key];
         if (!src) return null;
+        const tierTotal = Number(src.total || src.grandTotal || 0);
+        // Each card states ITS OWN deposit (deposit-rule.js, 2026-09-25): the
+        // Terms section's deposit is the selected tier's, so a homeowner
+        // weighing Good against Best otherwise saw a dollar deposit for a
+        // price they were not choosing.
+        const tierPlan = _depositPlanFor({ total: tierTotal, mode: estimate.mode },
+          meta.claim || state.claim, estimate.mode || state.jobMode || null);
         return {
           name,
           subtitle,
-          total: Number(src.total || src.grandTotal || 0),
+          total: tierTotal,
           features,
-          priceNote: null,
+          priceNote: (tierPlan && tierPlan.totalCents > 0) ? (tierPlan.label + ': ' + tierPlan.valueText) : null,
           isRecommended: key === recommended,
         };
       };
@@ -4162,8 +4169,15 @@
           carrier: doc.claim.carrier || '', number: doc.claim.number || '',
           adjuster: doc.claim.adjuster || '', dateOfLoss: doc.claim.dateOfLoss || '',
           // null = not entered (no $2,500 placeholder since the deposit rule,
-          // 2026-09-25 — see the state default).
-          deductible: (doc.claim.deductible != null ? Number(doc.claim.deductible) : null),
+          // 2026-09-25 — see the state default). A doc saved BEFORE the rule
+          // with exactly 2500 carries that placeholder, not a deductible
+          // anyone entered (deposit-rule.js hasLegacyPlaceholderDeductible):
+          // reopen it as not entered — prefillFromLead fills the lead's, and
+          // the deposit line says it is missing — so a re-save can't launder
+          // the placeholder into a confirmed "$2,500 deductible".
+          deductible: (doc.claim.deductible == null ||
+            (window.NBDDepositRule && window.NBDDepositRule.hasLegacyPlaceholderDeductible(doc)))
+            ? null : Number(doc.claim.deductible),
           acv: (doc.claim.acv != null ? Number(doc.claim.acv) : null),
           recoverableDepreciation: (doc.claim.recoverableDepreciation != null ? Number(doc.claim.recoverableDepreciation) : null),
           policyNumber: doc.claim.policyNumber || '',
