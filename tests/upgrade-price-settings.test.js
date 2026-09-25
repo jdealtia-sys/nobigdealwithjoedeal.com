@@ -400,6 +400,87 @@ test('collect() hands both saves only this device\'s edits, and markSaved stops 
   }
 });
 
+test('a panel painted for another account\'s company is never saved — by Save All or by its own Save', () => {
+  // PR #1774 review: after an account switch in the same tab the panel still
+  // reads "ready" with the previous account's rows and edits, while the
+  // company profile was reset under it; its own Save (or Save All) wrote those
+  // edits to the new account's company.
+  const rows = LIB.items.map((it) => fakeRow(it.id, { priceText: '', enabled: true, installerName: '' }));
+  const attrs = { 'data-state': 'ready', 'data-editable': '1' };
+  const host = {
+    getAttribute: (a) => (a in attrs ? attrs[a] : null), setAttribute: (a, v) => { attrs[a] = String(v); },
+    querySelectorAll: () => rows, appendChild() {}, addEventListener() {}, set textContent(v) { /* the loading line */ },
+  };
+  const msg = { textContent: '', hidden: true, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } };
+  const doc = win.document;
+  const realGet = doc.getElementById;
+  const realCreate = doc.createElement;
+  // Just enough DOM for render() to build its rows: attributes, children, and
+  // querySelector('[data-attr]') over the subtree.
+  const mkEl = () => {
+    const at = {};
+    const kids = [];
+    const n = {
+      style: {}, classList: { add() {}, remove() {}, toggle() {} },
+      getAttribute: (a) => (a in at ? at[a] : null), setAttribute: (a, v) => { at[a] = String(v); },
+      removeAttribute: (a) => { delete at[a]; }, hasAttribute: (a) => a in at,
+      appendChild: (c) => { kids.push(c); return c; }, addEventListener() {},
+      querySelector: (sel) => {
+        const want = /^\[([\w-]+)\]$/.exec(sel);
+        const walk = (list) => {
+          for (const k of list) {
+            if (want && k.hasAttribute && k.hasAttribute(want[1])) return k;
+            const hit = k.__kids ? walk(k.__kids) : null;
+            if (hit) return hit;
+          }
+          return null;
+        };
+        return walk(kids);
+      },
+      __kids: kids,
+    };
+    return n;
+  };
+  doc.getElementById = (id) => (id === 'upgPriceRows' ? host : id === 'upgPriceMsg' ? msg : null);
+  doc.createElement = mkEl;
+  const writes = [];
+  win._saveCompanyProfile = async (o) => { writes.push(o); };
+  try {
+    // Control: painted from account A's company (key cA), still loaded for cA.
+    win._companyProfileLoaded = true;
+    win._companyProfileLoadedKey = () => 'cA';
+    win._companyProfile = { pricing: {} };
+    win._user = { uid: 'uA' };
+    win._userClaims = {};
+    S.render();
+    eq(attrs['data-state'], 'ready', 'painted');
+    rows.find((r) => r.getAttribute('data-upg-id') === 'fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    eq(JSON.stringify((S.collect() || {}).changes), '{"fascia_wrap":{"cents":975,"enabled":true}}', 'control: the same tenant publishes the edit');
+    // The account switches: company-profile.js now names B's company (its
+    // read landed), or nothing (reset, B's read still out).
+    win._companyProfileLoadedKey = () => 'cB';
+    eq(S.collect(), null, 'collect() for Save All: nothing to publish');
+    win._companyProfileLoaded = false;
+    win._companyProfileLoadedKey = () => null; // reset, the new account's read still out
+    eq(S.collect(), null, 'collect() while the new account\'s profile is loading');
+    // Its own Save refuses before its first await, so all of it shows now.
+    S.save();
+    eq(writes.length, 0, 'company writes');
+    eq(attrs['data-state'], 'loading', 'the panel goes back to its loading line');
+    truthy(/Nothing was saved/.test(msg.textContent), 'the rep is told: ' + msg.textContent);
+  } finally {
+    doc.getElementById = realGet;
+    doc.createElement = realCreate;
+    delete win._companyProfileLoadedKey;
+    delete win._companyProfileLoaded;
+    delete win._saveCompanyProfile;
+    delete win._companyProfile;
+    delete win._user;
+    delete win._userClaims;
+    S.markSaved(S.savedEntries(null));
+  }
+});
+
 // ═════════════════════════════════════════════════════════════════════════
 console.log('\n4. round-trip — typed dollars reach the quote and the paper, to the cent');
 console.log('──────────────────────────────────────────────────');

@@ -600,19 +600,28 @@ const within = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTim
 function loadProfileModule(opts) {
   opts = opts || {};
   const script = (opts.reads || []).slice();
-  const st = { rest: opts.rest || 'ok' };
+  const st = { rest: opts.rest || 'ok', blockCache: !!opts.blockCache };
   const park = new Set(opts.park || []);
-  const log = { reads: 0, sets: [], events: 0 };
+  const log = { reads: 0, sets: [], events: 0, refs: [] };
   const store = {};
-  const localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  // blockCache: this tenant cache can be neither read nor written (storage
+  // blocked, quota full) — what the PR #1774 review used to reach the wipe.
+  const isCache = (k) => String(k).indexOf('nbd_company_profile_v1') === 0;
+  const blocked = (k) => { if (st.blockCache && isCache(k)) throw new Error('QuotaExceededError'); };
+  const localStorage = {
+    getItem: (k) => { blocked(k); return (k in store ? store[k] : null); },
+    setItem: (k, v) => { blocked(k); store[k] = String(v); },
+    removeItem: (k) => { delete store[k]; },
+  };
   const listeners = {};
   const win = {
     localStorage,
     addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
     dispatchEvent(ev) { if (ev.type === 'nbd:company-profile-loaded') log.events++; (listeners[ev.type] || []).forEach((f) => f(ev)); return true; },
     db: { name: 'db' },
-    _userClaims: opts.noKey ? undefined : { companyId: 'c1' },
+    _userClaims: opts.noKey ? undefined : (opts.claims || { companyId: 'c1' }),
     _user: opts.signedIn ? { uid: 'u1' } : undefined,
+    auth: opts.auth,
     __nbdCompanyProfileWanted: opts.wanted === true ? true : undefined,
   };
   let loaded;
@@ -623,12 +632,15 @@ function loadProfileModule(opts) {
   const fsStub = {
     doc: (...a) => a.slice(1).join('/'),
     setDoc: () => Promise.resolve(),
-    getDoc: () => {
+    getDoc: (ref) => {
       log.reads++;
+      log.refs.push(ref);
       const r = script.length ? script.shift() : st.rest;
+      if (typeof r === 'function') return r(ref); // a read the test settles itself
       if (r === 'offline') return fail('Failed to get document because the client is offline.', 'unavailable');
       if (r === 'denied') return fail('Missing or insufficient permissions.', 'permission-denied');
       if (r === 'hang') return new Promise(() => {});
+      if (r === 'none') return Promise.resolve({ exists: () => false, data: () => undefined, metadata: { fromCache: false, hasPendingWrites: false } });
       if (r === 'cache' || r === 'pending') {
         return Promise.resolve({ exists: () => true, data: () => ({ aiTexting: { enabled: true } }), metadata: { fromCache: r === 'cache', hasPendingWrites: true } });
       }
@@ -744,6 +756,114 @@ atest('a getDoc that never settles does not stall the run', async () => {
   const m = loadProfileModule({ reads: ['hang'] });
   eq(await m.win._ensureCompanyProfile(), true, 'ensure');
   eq(m.log.reads, 2, 'reads');
+});
+
+// PR #1774 second review: the flag must also mean "the profile in memory IS
+// this tenant's server copy". Every re-read reset it to defaults + the tenant
+// cache before its getDoc, so a re-read that failed left that copy under a
+// true flag — bare defaults when the cache was missing and unwritable — and
+// Save All full-replaced the company's jurisdictions with nothing.
+const CK1 = 'nbd_company_profile_v1:c1'; // company-profile.js's _cacheKeyFor('c1')
+const cjOf = (win) => Object.keys((win._companyProfile.pricing && win._companyProfile.pricing.customJurisdictions) || {}).sort().join(',');
+asection('\nProfile boot retry: "loaded" means the server copy is what is in memory');
+atest('a re-read that fails keeps the server copy — never the cache (stale, or missing and unwritable) or bare defaults', async () => {
+  const m = loadProfileModule();
+  await m.win._loadCompanyProfile();
+  eq(m.win._companyProfileLoadedKey(), 'c1', 'loaded key after the server read');
+  eq(cjOf(m.win), 'custom-x', 'jurisdictions after the server read');
+  // The tenant cache is gone and cannot be written (storage blocked / quota).
+  delete m.store[CK1];
+  m.st.blockCache = true;
+  m.st.rest = 'offline';
+  await m.win._loadCompanyProfile(); // Settings > Company Profile, a document generator…
+  eq(m.win._companyProfileLoaded, true, 'flag after the failed re-read');
+  eq(cjOf(m.win), 'custom-x', 'jurisdictions in memory after the failed re-read (missing cache)');
+  // A cache older than the server copy is not put in its place either.
+  m.st.blockCache = false;
+  m.store[CK1] = JSON.stringify({ pricing: { customJurisdictions: { 'custom-old': { name: 'Old', cost: 9, rate: 0.09 } } } });
+  await m.win._loadCompanyProfile();
+  eq(cjOf(m.win), 'custom-x', 'jurisdictions in memory after the failed re-read (stale cache)');
+  eq(JSON.stringify(m.log.sets), '[true]', 'writes to _companyProfileLoaded');
+  // …and a re-read that lands still replaces it.
+  m.st.rest = 'ok';
+  await m.win._loadCompanyProfile();
+  eq(cjOf(m.win), 'custom-x', 'jurisdictions after a re-read landed');
+  eq(JSON.parse(m.store[CK1]).pricing.customJurisdictions['custom-x'].name, 'X', 'the landed copy is cached again');
+});
+atest('a save builds on the server copy in memory, not on a cache it cannot read', async () => {
+  const m = loadProfileModule();
+  await m.win._loadCompanyProfile();
+  delete m.store[CK1];
+  m.st.blockCache = true;
+  await m.win._saveCompanyProfile({ businessName: 'Acme Roofing' }); // Settings > Company Profile's Save
+  eq(m.win._companyProfile.businessName, 'Acme Roofing', 'the save is in memory');
+  eq(cjOf(m.win), 'custom-x', 'the saved jurisdictions survive a save the cache could not take');
+  // Control: before any server copy landed, the save still builds on this
+  // tenant's cache (unchanged).
+  const n = loadProfileModule();
+  n.store[CK1] = JSON.stringify({ pricing: { customJurisdictions: { 'custom-cached': { name: 'C', cost: 1, rate: 0.01 } } } });
+  await n.win._saveCompanyProfile({ businessName: 'B' });
+  eq(cjOf(n.win), 'custom-cached', 'unloaded: the save builds on the tenant cache');
+});
+atest('the server has no doc: the defaults are the profile, and the stale cache goes', async () => {
+  const m = loadProfileModule({ reads: ['none'] });
+  m.store[CK1] = JSON.stringify({ pricing: { customJurisdictions: { 'custom-refused': { name: 'R', cost: 1, rate: 0.01 } } } });
+  await m.win._loadCompanyProfile();
+  eq(m.win._companyProfileLoaded, true, 'flag (a server answer, even "no doc", is definitive)');
+  eq(cjOf(m.win), '', 'jurisdictions in memory');
+  eq(CK1 in m.store, false, 'the tenant cache is removed');
+});
+
+// …and which tenant: an account switch in the same tab never reset the flag,
+// so Save All could full-replace the NEW account's company with the old
+// account's rows, or with nothing.
+asection('\nProfile boot retry: an account switch forgets the profile, and never writes across');
+atest('_resetCompanyProfile: the flag goes false, the profile back to defaults, the loaded key to null', async () => {
+  const m = loadProfileModule();
+  await m.win._loadCompanyProfile();
+  m.win._resetCompanyProfile();
+  eq(m.win._companyProfileLoaded, false, 'flag after the reset');
+  eq(m.win._companyProfileLoadedKey(), null, 'loaded key after the reset');
+  eq(cjOf(m.win), '', 'the previous account\'s jurisdictions in memory');
+  eq(JSON.stringify(m.log.sets), '[true,false]', 'writes to _companyProfileLoaded');
+  eq(await m.win._ensureCompanyProfile(), true, 'the next account\'s read');
+  eq(m.log.events, 2, 'landing events (one per account)');
+});
+atest('a read already out when the account changed lands nothing', async () => {
+  let release;
+  const m = loadProfileModule({ reads: [() => new Promise((r) => { release = r; })] });
+  const p = m.win._loadCompanyProfile();
+  await flushTimers();
+  eq(typeof release, 'function', 'the read is out');
+  m.win._resetCompanyProfile(); // the account changes while it is out
+  release({ exists: () => true, data: () => ({ pricing: { customJurisdictions: { 'custom-prev': { name: 'Prev', cost: 1, rate: 0.01 } } } }), metadata: { fromCache: false, hasPendingWrites: false } });
+  await p;
+  eq(m.win._companyProfileLoaded === true, false, 'flag after the previous account\'s read came back');
+  eq(cjOf(m.win), '', 'the previous account\'s doc never became the profile');
+  eq(m.log.events, 0, 'landing events');
+  eq(await m.win._ensureCompanyProfile(), true, 'this account\'s read then lands');
+});
+atest('the key changed under the tab: the other tenant\'s copy is dropped even when the new read fails', async () => {
+  const m = loadProfileModule();
+  await m.win._loadCompanyProfile();
+  m.win._userClaims = { companyId: 'c2' };
+  m.st.rest = 'offline';
+  await m.win._loadCompanyProfile();
+  eq(m.log.refs[m.log.refs.length - 1], 'companyProfile/c2', 'the read went to the new tenant');
+  eq(m.win._companyProfileLoaded, false, 'flag');
+  eq(m.win._companyProfileLoadedKey(), null, 'loaded key');
+  eq(cjOf(m.win), '', 'c1\'s jurisdictions are not c2\'s profile');
+});
+atest('claims left over from the previous account never pick the key', async () => {
+  // The dashboard refreshes _userClaims only after its boot awaits; its
+  // profile read runs before that, right after the switch.
+  const userB = { uid: 'uB', getIdTokenResult: async () => ({ claims: { companyId: 'cB', user_id: 'uB' } }) };
+  const m = loadProfileModule({ claims: { companyId: 'cA', user_id: 'uA' }, auth: { currentUser: userB } });
+  eq(await m.win._resolveCompanyKey(), 'cB', 'key with the previous account\'s claims still in window._userClaims');
+  m.win._userClaims = { companyId: 'cB2', user_id: 'uB' };
+  eq(await m.win._resolveCompanyKey(), 'cB2', 'control: this account\'s claims are used');
+  m.win._userClaims = { companyId: 'c9' };
+  eq(await m.win._resolveCompanyKey(), 'c9', 'control: claims without a uid are trusted, as before');
 });
 
 // The My Jurisdictions waiter (dashboard-bootstrap), real code in a vm.
@@ -959,7 +1079,7 @@ function loadSave(state) {
   const raw = BOOT.slice(fnStart, end + 5);
   const src = raw.replace(FS_IMPORT_RE, '__fsImport()');
   if (src === raw) throw new Error('harness: no firestore import was rerouted');
-  const log = { company: [], replace: [], userSettings: 0, collected: 0, repaint: 0, kick: 0, toasts: [], fades: 0 };
+  const log = { company: [], replace: [], userSettings: 0, collected: 0, repaint: 0, kick: 0, toasts: [], fades: 0, resets: 0 };
   const msg = { style: {}, textContent: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } };
   const win = {
     _companyProfileLoaded: state.loaded,
@@ -968,6 +1088,16 @@ function loadSave(state) {
     _resolveCompanyKey: async () => 'c1',
     _saveCompanyProfile: async (o) => { log.company.push(JSON.parse(JSON.stringify(o))); },
   };
+  // state.loadedKey: which tenant's server copy company-profile.js says is in
+  // memory (absent: the older file without _companyProfileLoadedKey).
+  if ('loadedKey' in state) {
+    win._companyProfileLoadedKey = () => (win._companyProfileLoaded === true ? state.loadedKey : null);
+    win._resetCompanyProfile = () => { log.resets++; win._companyProfileLoaded = false; };
+  }
+  // state.upgChanges: upgrade-price edits made in that panel since its paint.
+  if (state.upgChanges) {
+    win.NBDUpgradePriceSettings = { collect: () => ({ map: {}, changes: state.upgChanges, errors: [] }), markSaved() {} };
+  }
   const ctx = vm.createContext({
     window: win, console: { warn() {}, log() {} },
     document: { getElementById: (id) => (id === 'v2save-msg' ? msg : null) },
@@ -980,7 +1110,8 @@ function loadSave(state) {
     setTimeout: () => { log.fades++; return 1; }, clearTimeout: () => {},
     __fsImport: async () => ({
       doc: (...a) => a.slice(1).join('/'),
-      setDoc: async () => { log.userSettings++; },
+      // userSettingsHangs: offline — the write is queued, never acked.
+      setDoc: () => { log.userSettings++; return state.userSettingsHangs ? new Promise(() => {}) : Promise.resolve(); },
       updateDoc: async (ref, data) => { log.replace.push({ ref, keys: Object.keys(data).sort() }); },
     }),
   });
@@ -1028,6 +1159,72 @@ atest('control: a panel painted from the hydrated profile DOES publish (the gate
   eq(s.msg.attrs['data-kind'], 'ok', 'message kind');
   eq(s.log.fades, 1, 'a clean save fades');
   eq(s.log.toasts[0].k, 'success', 'toast kind');
+});
+atest('the profile in memory is ANOTHER tenant\'s (account switched in this tab): no company write at all, it is forgotten, and asked for again', async () => {
+  // Painted, resolved and "loaded" — but for cA, while this save resolves c1.
+  const UPG = { fascia_wrap: { cents: 975, enabled: true } };
+  const s = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'cA', upgChanges: UPG });
+  await s.save();
+  eq(s.log.replace.length, 0, 'full-replace (updateDoc) writes');
+  eq(s.log.company.length, 0, 'company-profile merge writes (add-on, county, upgrade prices)');
+  eq(s.log.collected, 0, 'jurisdiction rows collected');
+  eq(s.log.resets, 1, 'the other tenant\'s profile is forgotten');
+  eq(s.log.kick, 1, 'this tenant\'s profile is asked for');
+  eq(s.log.repaint, 0, 'no repaint from the other tenant\'s profile');
+  eq(s.msg.attrs['data-kind'], 'warn', 'message kind');
+  if (!/NOT saved for your company/.test(s.msg.textContent)) throw new Error('message: ' + s.msg.textContent);
+  if (!/upgrade price changes were not saved/.test(s.msg.textContent)) throw new Error('the held-back upgrade edits are not mentioned: ' + s.msg.textContent);
+  eq(s.log.userSettings, 1, 'this device\'s own settings are still saved');
+});
+atest('control: loaded for THIS tenant, the same save publishes, upgrade edits included', async () => {
+  const UPG = { fascia_wrap: { cents: 975, enabled: true } };
+  const s = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'c1', upgChanges: UPG });
+  await s.save();
+  eq(s.log.replace.length, 1, 'full-replace writes');
+  eq(s.log.replace[0].ref, 'companyProfile/c1', 'the full-replace lands on this tenant');
+  eq(s.log.company.length, 1, 'company-profile merge writes');
+  eq(JSON.stringify(s.log.company[0].pricing.upgradePrices), JSON.stringify(UPG), 'upgrade edits in the write');
+  eq(s.log.resets, 0, 'nothing forgotten');
+  eq(s.msg.attrs['data-kind'], 'ok', 'message kind');
+});
+atest('offline: the warning shows at once, not when the per-user settings write is finally acked', async () => {
+  // PR #1774 review: Save All awaited that setDoc, which settles only on the
+  // server's ack, so with no signal the rep saw nothing at all until the
+  // connection came back.
+  const s = loadSave({ loaded: false, county: false, jur: false, userSettingsHangs: true });
+  await within(s.save(), 1000, 'Save All with the per-user write unacked');
+  eq(s.log.userSettings, 1, 'the per-user settings write was still issued');
+  eq(s.msg.attrs['data-kind'], 'warn', 'message kind');
+  eq(s.msg.style.display, 'block', 'the message is shown');
+});
+
+// The dashboard's account-change hook, real code in a vm: _bindCachesToSession
+// and the panel's _forgetEstimatePanelPaint.
+function loadSessionBinder() {
+  const slice = (head) => {
+    const s = BOOT.indexOf(head);
+    const e = BOOT.indexOf('\n  }', s);
+    if (s < 0 || e < 0) throw new Error('not found: ' + head.trim());
+    return BOOT.slice(s, e + 4);
+  };
+  const log = { resets: 0, leads: 0, analytics: 0 };
+  const win = { _resetCompanyProfile: () => { log.resets++; } };
+  const ctx = vm.createContext({ window: win, _clearAnalyticsCardCaches: () => { log.analytics++; }, _resetLeadsCache: () => { log.leads++; } });
+  vm.runInContext('var _sessionUid; var _jurRowsResolved = true; var _countyInputsResolved = true;', ctx);
+  vm.runInContext(slice('  function _bindCachesToSession(uid) {') + '\n' + slice('  function _forgetEstimatePanelPaint() {'), ctx);
+  return { bind: (uid) => ctx._bindCachesToSession(uid), log, flag: (n) => vm.runInContext(n, ctx) };
+}
+atest('an account change in the tab forgets the company profile and the Estimates panel\'s paint', async () => {
+  const b = loadSessionBinder();
+  b.bind('uA'); // the page's first auth tick
+  b.bind('uA'); // a token refresh
+  eq(b.log.resets, 0, 'profile resets without an account change');
+  eq(b.flag('_jurRowsResolved'), true, '_jurRowsResolved without an account change');
+  b.bind('uB'); // login.js signed in over the session in another tab
+  eq(b.log.resets, 1, 'profile resets on the switch');
+  eq(b.log.leads, 1, 'the leads cache is reset too (unchanged)');
+  eq(b.flag('_jurRowsResolved'), false, '_jurRowsResolved after the switch');
+  eq(b.flag('_countyInputsResolved'), false, '_countyInputsResolved after the switch');
 });
 
 // A promise that never settles (e.g. a retry run that is never woken) empties

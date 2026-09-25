@@ -1300,6 +1300,22 @@ async function profileRetryWalk(page, { act, openEstimatesTab, widths }) {
       }).toBe(true);
       expect(await page.evaluate(() => window._companyProfileLoaded === true), 'a local-copy snapshot never marks the profile loaded').toBe(false);
       await expect(page.locator(JUR)).toHaveAttribute('data-jur-wait', /^(loading|failed)$/);
+      // Save All with no signal (PR #1774 second review): it awaited the
+      // per-user settings write, which settles only on the server's ack, so
+      // the rep saw nothing at all — not even this warning — until the
+      // connection came back. Cleared first: the last step's warning stays up.
+      await page.evaluate(() => {
+        const m = document.getElementById('v2save-msg');
+        m.style.display = 'none';
+        m.textContent = '';
+        m.removeAttribute('data-kind');
+      });
+      await safeEvaluate(page, (sel) => document.querySelector(sel).scrollIntoView({ block: 'center' }), SAVE_ALL);
+      await act(page.locator(SAVE_ALL));
+      const offMsg = page.locator('#v2save-msg');
+      await expect(offMsg, 'offline, the warning shows straight away').toBeVisible({ timeout: 3_000 });
+      await expect(offMsg).toHaveAttribute('data-kind', 'warn', { timeout: 1_000 });
+      await expect(offMsg).toContainText('NOT saved for your company', { timeout: 1_000 });
       // Back online with reads still refused, so the write is acked before
       // any read can land.
       await page.evaluate(() => { window.__e2eProfileOffline = true; });
@@ -1361,6 +1377,50 @@ async function profileRetryWalk(page, { act, openEstimatesTab, widths }) {
         const p = await serverPricing(page);
         return p.customJurisdictions && p.customJurisdictions[E2E_JUR.slug] && p.customJurisdictions[E2E_JUR.slug].cost;
       }, { message: 'the edited cost on the server', timeout: 10_000 }).toBe(180);
+    });
+
+    // PR #1774 second review: every re-read reset the in-memory profile to
+    // defaults + this tenant's cache before its getDoc. A re-read that then
+    // failed left that copy under a flag still saying "loaded" — bare
+    // defaults when the cache was gone and could not be written (storage
+    // blocked, quota full) — and Save All full-replaced the company's
+    // jurisdictions with nothing, under "✓ saved" (reproduced on the rig).
+    await test.step('loaded, then a re-read fails with this tenant\'s cache gone and unwritable: the jurisdictions stay, and Save All keeps them', async () => {
+      await page.evaluate(() => {
+        Object.keys(localStorage).filter((k) => k.indexOf('nbd_company_profile_v1:') === 0).forEach((k) => localStorage.removeItem(k));
+        window.__e2eRealSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (name, v) {
+          if (String(name).indexOf('nbd_company_profile_v1') === 0) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError');
+          return window.__e2eRealSetItem.call(this, name, v);
+        };
+        window.__e2eProfileOffline = true; // the re-read fails
+      });
+      try {
+        const r = await safeEvaluate(page, async () => {
+          await window._loadCompanyProfile(); // Settings > Company Profile, a document generator…
+          const cj = (window._companyProfile.pricing && window._companyProfile.pricing.customJurisdictions) || {};
+          return { loaded: window._companyProfileLoaded === true, slugs: Object.keys(cj) };
+        });
+        expect(r.loaded, 'still loaded').toBe(true);
+        expect(r.slugs, 'the server copy is still what is in memory').toContain(E2E_JUR.slug);
+        await openEstimatesTab();
+        await expect(page.locator(`${JUR} [data-jur-name][value="${E2E_JUR.name}"]`), 'the tab paints the company\'s jurisdiction').toHaveCount(1);
+        // The last save left data-kind="ok": clear it so the check below
+        // waits for THIS save.
+        await page.evaluate(() => document.getElementById('v2save-msg').removeAttribute('data-kind'));
+        await safeEvaluate(page, (sel) => document.querySelector(sel).scrollIntoView({ block: 'center' }), SAVE_ALL);
+        await act(page.locator(SAVE_ALL));
+        await expect(page.locator('#v2save-msg')).toHaveAttribute('data-kind', 'ok');
+        await expect.poll(async () => {
+          const p = await serverPricing(page);
+          return p.customJurisdictions && p.customJurisdictions[E2E_JUR.slug] && p.customJurisdictions[E2E_JUR.slug].cost;
+        }, { message: 'the company\'s jurisdiction is still on the server after Save All', timeout: 10_000 }).toBe(180);
+      } finally {
+        await page.evaluate(() => {
+          if (window.__e2eRealSetItem) Storage.prototype.setItem = window.__e2eRealSetItem;
+          window.__e2eProfileOffline = false;
+        }).catch(() => {});
+      }
     });
   } finally {
     // Back online first: a step that failed mid-offline would otherwise leave

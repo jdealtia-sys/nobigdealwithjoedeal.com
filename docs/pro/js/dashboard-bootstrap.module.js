@@ -1532,6 +1532,15 @@
     // instead of being argued from the current bodies.
     _clearAnalyticsCardCaches();
     try { _resetLeadsCache(); } catch (_) { /* best-effort */ }
+    // The company profile too (2026-09-25, PR #1774 review). Nothing reset
+    // it: _companyProfileLoaded stayed true with the previous account's
+    // profile (or, after purgeAccountStorage, bare defaults) in memory, and
+    // the Estimates panel still counted as painted from it — so Save All
+    // could full-replace the NEW account's company jurisdictions and county
+    // rates with the old account's rows, or with nothing. The boot below
+    // reads this account's profile afresh.
+    try { if (typeof window._resetCompanyProfile === 'function') window._resetCompanyProfile(); } catch (_) { /* best-effort */ }
+    try { _forgetEstimatePanelPaint(); } catch (_) { /* best-effort */ }
   }
 
   onAuthStateChanged(auth, async user => {
@@ -4824,6 +4833,15 @@
   // profile landing a moment later has not repainted yet.
   let _jurRowsResolved = false;
   let _jurWaiting = false;
+
+  // The signed-in account changed (_bindCachesToSession): whatever this
+  // panel shows was painted from the PREVIOUS account's company profile, so
+  // none of it may be published for this one. Save All then skips the company
+  // write, says so, and asks for this account's profile.
+  function _forgetEstimatePanelPaint() {
+    _jurRowsResolved = false;
+    _countyInputsResolved = false;
+  }
   // The panel message's fade timer (#v2save-msg, one per page): Save All and
   // the late-landing notice below share it, so an earlier clean save's fade
   // can never blank a newer warning.
@@ -5012,6 +5030,10 @@
     let pricingSaveDenied = false;
     let countySaveSkipped = false;
     let upgradeSaveSkipped = false;
+    // Upgrade-price edits left out because the profile in memory is not this
+    // tenant's; and whether that is why the company write was skipped.
+    let upgradeHeldBack = false;
+    let tenantMismatch = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -5075,15 +5097,21 @@
     // Apply locally (flows through EstimateBuilderV2.updateSettings → localStorage)
     _v2WriteSettings(patch);
 
-    // Sync to Firestore for cross-device
+    // Sync to Firestore for cross-device. NOT awaited (2026-09-25, PR #1774
+    // review): a Firestore write settles only when the server acks it, so on
+    // a phone with no signal this await held back everything below — the
+    // rep pressed Save All and saw nothing at all, not even the "NOT saved
+    // for your company" warning, until the connection came back. The SDK
+    // queues the write and sends it on reconnect; nothing below reads it, and
+    // a failure was only ever logged.
     try {
       if (window._db && window._user) {
         const { setDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-        await setDoc(
+        Promise.resolve(setDoc(
           doc(window._db, 'userSettings', window._user.uid),
           { estimateSettingsV2: patch, updatedAt: new Date().toISOString() },
           { merge: true }
-        );
+        )).catch((e) => { console.warn('Firestore sync failed:', e); });
       }
     } catch (e) { console.warn('Firestore sync failed:', e); }
 
@@ -5115,7 +5143,22 @@
         // rows container holds only a placeholder, and persisting that empty
         // collection would FULL-REPLACE the field below — wiping every
         // jurisdiction for the whole tenant from one stale device.
-        const profileReady = window._companyProfileLoaded === true;
+        // And the profile in memory must be the SERVER copy of the tenant
+        // this save lands on (2026-09-25, PR #1774 review): the key is
+        // resolved ONCE here for every company write below, and it must be
+        // the key that copy was loaded for. After an account switch in this
+        // tab the flag said "loaded" over the previous account's profile, and
+        // the full-replace below landed that account's rows (or none) on the
+        // new account's company.
+        const companyKey = (typeof window._resolveCompanyKey === 'function')
+          ? await window._resolveCompanyKey()
+          : ((window._userClaims && window._userClaims.companyId) || (window._user && window._user.uid) || null);
+        const loadedKey = (typeof window._companyProfileLoadedKey === 'function') ? window._companyProfileLoadedKey() : undefined;
+        const profileLoaded = window._companyProfileLoaded === true;
+        // (No key at all — auth not ready — writes nothing: _saveCompanyProfile
+        // skips a keyless save too, and so does the full-replace below.)
+        tenantMismatch = profileLoaded && companyKey != null && loadedKey !== undefined && loadedKey !== String(companyKey);
+        const profileReady = profileLoaded && companyKey != null && !tenantMismatch;
         // The rows must also have been PAINTED from that profile (2026-09-25,
         // lane profretry): between a profile landing and the panel repainting,
         // #jurRows can still hold the loading line — collecting it would
@@ -5156,7 +5199,11 @@
         const upg = (window.NBDUpgradePriceSettings && typeof window.NBDUpgradePriceSettings.collect === 'function')
           ? window.NBDUpgradePriceSettings.collect() : null;
         if (upg && upg.errors && upg.errors.length) upgradeSaveSkipped = true;
-        else if (upg && upg.changes && Object.keys(upg.changes).length) pricing.upgradePrices = upg.changes;
+        else if (upg && upg.changes && Object.keys(upg.changes).length) {
+          // Never onto a company whose profile is not the one in memory.
+          if (profileReady) pricing.upgradePrices = upg.changes;
+          else upgradeHeldBack = true;
+        }
         // County policy is per-TENANT (migrated off per-device localStorage
         // 2026-07-29). patch.permits / patch.countyTax were just built from the
         // 14 inputs above; the same values go to companyProfile so every rep and
@@ -5184,12 +5231,10 @@
         if (customJurisdictions && window._db && window._user) {
           const removed = prevJurSlugs.filter(k => !(k in customJurisdictions));
           const { updateDoc, doc } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
-          // Resolve via the SAME helper _saveCompanyProfile uses — a
-          // divergent key would land the merge-write and the full-replace on
-          // different docs (deleted rows resurrect, save reads as success).
-          const companyKey = (typeof window._resolveCompanyKey === 'function')
-            ? await window._resolveCompanyKey()
-            : ((window._userClaims && window._userClaims.companyId) || window._user.uid);
+          // companyKey (above) comes from the SAME helper _saveCompanyProfile
+          // uses — a divergent key would land the merge-write and the
+          // full-replace on different docs (deleted rows resurrect, save
+          // reads as success).
           if (companyKey) {
             // The canonical county maps get the same full-replace treatment so
             // a later reset (which writes {}) actually CLEARS them instead of
@@ -5231,6 +5276,10 @@
     const companySkipped = !pricingSaveFailed && (jurSaveSkipped || countySaveSkipped);
     let companyShownNow = false;
     if (companySkipped) {
+      // The profile in memory belongs to another tenant (the account changed
+      // under this tab): forget it rather than repaint from it, and ask for
+      // this tenant's — the panel repaints when it lands.
+      if (tenantMismatch && typeof window._resetCompanyProfile === 'function') window._resetCompanyProfile();
       if (window._companyProfileLoaded === true) { _loadEstimateDefaultsV2(); companyShownNow = true; }
       else _renderJurisdictionRows();
     }
@@ -5245,7 +5294,8 @@
           ? (companyShownNow
               ? '⚠ Saved on this device only. County rates, jurisdictions and add-on rates were NOT saved for your company: this tab was showing them from before your company settings loaded. It now shows the company\'s saved values — make those changes again and press Save.'
               : '⚠ Saved on this device only. Your company\'s county rates, jurisdictions and add-on rates have not loaded, so they were NOT saved for your company. Loading them again now — once they appear, make those changes again and press Save.')
-            + (upgradeSaveSkipped ? ' Upgrade prices were not saved either — fix the highlighted price.' : '')
+            + (upgradeSaveSkipped ? ' Upgrade prices were not saved either — fix the highlighted price.'
+              : upgradeHeldBack ? ' Your upgrade price changes were not saved either.' : '')
           : upgradeSaveSkipped
             ? '⚠ Estimate settings saved, but NOT the upgrade prices — fix the highlighted upgrade price and save again.'
             : '✓ Estimate settings saved. Every linked estimate will use these rates.';

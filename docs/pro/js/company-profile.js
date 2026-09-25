@@ -18,6 +18,10 @@
  *   window._ensureCompanyProfile(opts)  — retry that read with backoff until it
  *                                          lands (Promise<boolean>; 2026-09-25)
  *   window._saveCompanyProfile(profile) — write to Firestore + localStorage cache
+ *   window._companyProfileLoadedKey()   — the tenant key whose SERVER copy is
+ *                                          in memory, or null (2026-09-25)
+ *   window._resetCompanyProfile()       — forget the in-memory profile and
+ *                                          the loaded flag (account switch)
  */
 (function () {
   'use strict';
@@ -312,8 +316,19 @@
   // so we never issue a guaranteed-denied read against a bad key.
   async function _resolveCompanyKey() {
     try {
-      const cid = window._userClaims && window._userClaims.companyId;
-      if (cid) return String(cid);
+      const claims = window._userClaims;
+      const cid = claims && claims.companyId;
+      // Claims read for a DIFFERENT account never pick the key (2026-09-25,
+      // PR #1774 review). After an account switch in this tab the dashboard
+      // refreshes window._userClaims only once its boot awaits finish, but it
+      // reads the company profile before that — with the previous account's
+      // companyId, so Save All could later land on a different tenant than
+      // the one in memory. A decoded ID token carries its uid (user_id / sub);
+      // claims without one (older callers, tests) are trusted as before.
+      const claimUid = claims && (claims.user_id || claims.sub);
+      const cur = (window.auth && window.auth.currentUser) || window._user || null;
+      const stale = !!(claimUid && cur && cur.uid && String(claimUid) !== String(cur.uid));
+      if (cid && !stale) return String(cid);
     } catch (_) { /* ignore */ }
     try {
       const u = (window.auth && window.auth.currentUser) || window._user || null;
@@ -348,24 +363,72 @@
   // substitute for _companyProfileLoaded, which stays the one hydration gate.
   let _lastLoadOutcome = null;
 
+  // WHOSE server copy is in memory (2026-09-25, PR #1774 review). The flag
+  // alone said "a server read landed at some point"; it could not say the
+  // profile in memory still IS that copy, or which tenant it belongs to:
+  //   - every re-read reset the profile to defaults + this tenant's cache
+  //     before its getDoc, so a re-read that then failed left that copy in
+  //     memory under a true flag — bare defaults when the cache was missing
+  //     or could not be written (storage blocked, quota full). The Estimates
+  //     tab painted zero jurisdictions as resolved, and Save All
+  //     full-replaced the company's list with nothing (reproduced);
+  //   - an account switch in the same tab changed the tenant under it.
+  // _loadedKey is set only beside the flag, by a server read. A re-read of
+  // the SAME tenant now leaves the in-memory copy alone until a new server
+  // copy replaces it; a different tenant, or _resetCompanyProfile, clears
+  // both. _profileEpoch lets a read that was already out when the account
+  // changed land nowhere.
+  let _loadedKey = null;
+  let _profileEpoch = 0;
+
+  window._companyProfileLoadedKey = function () {
+    return window._companyProfileLoaded === true ? _loadedKey : null;
+  };
+
+  // Forget the in-memory profile and the loaded flag: the signed-in account
+  // changed (dashboard _bindCachesToSession), or a read resolved another
+  // tenant's key. Writes the flag only to take it back to false — only a
+  // server read ever sets it true.
+  window._resetCompanyProfile = function () {
+    _profileEpoch++;
+    _loadedKey = null;
+    _brandOverrideRaw = null;
+    window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
+    if (window._companyProfileLoaded === true) window._companyProfileLoaded = false;
+  };
+
   window._loadCompanyProfile = async function () {
+    let epoch = _profileEpoch;
     try {
       if (!window.db) { _lastLoadOutcome = 'no-db'; return window._companyProfile; }
       const key = await _resolveCompanyKey();
       if (!key) { _lastLoadOutcome = 'no-key'; return window._companyProfile; } // not signed in yet — defaults stand
-      // Reset to defaults, then hydrate THIS tenant's cache (instant render)
-      // before the network read — so a prior tenant's in-memory or cached
-      // overrides can't survive into this tenant's session.
-      window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
-      _brandOverrideRaw = null;
-      try {
-        const cachedRaw = localStorage.getItem(_cacheKeyFor(key));
-        if (cachedRaw) {
-          const cached = JSON.parse(cachedRaw) || {};
-          window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, cached);
-          _brandOverrideRaw = cached.brand || null;
-        }
-      } catch (_) { /* ignore */ }
+      // The account changed while the key was resolving: that key may be
+      // the previous account's. Ask again (retryable) rather than read it.
+      if (epoch !== _profileEpoch) { _lastLoadOutcome = 'stale'; return window._companyProfile; }
+      // A different tenant than the one whose server copy is in memory
+      // (claims changed under this tab): that copy is not this tenant's.
+      if (_loadedKey !== null && _loadedKey !== key) { window._resetCompanyProfile(); epoch = _profileEpoch; }
+      // Re-reading the tenant whose server copy is already in memory: keep
+      // it until the new copy lands. A failed re-read must not put the cache
+      // (possibly stale, missing or unwritable) or bare defaults in its place
+      // under a flag that still says "loaded".
+      const keepServerCopy = window._companyProfileLoaded === true && _loadedKey === key;
+      if (!keepServerCopy) {
+        // Reset to defaults, then hydrate THIS tenant's cache (instant render)
+        // before the network read — so a prior tenant's in-memory or cached
+        // overrides can't survive into this tenant's session.
+        window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
+        _brandOverrideRaw = null;
+        try {
+          const cachedRaw = localStorage.getItem(_cacheKeyFor(key));
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw) || {};
+            window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, cached);
+            _brandOverrideRaw = cached.brand || null;
+          }
+        } catch (_) { /* ignore */ }
+      }
       const { getDoc, doc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
       // QA 2026-06-21 #1: on a cold boot the Firestore WebChannel can still be
       // establishing, so this first getDoc throws "client is offline" and the
@@ -405,17 +468,28 @@
         }
         return s;
       });
+      // The account changed while this read was out: the copy it fetched
+      // belongs to the previous one. Land nothing; the caller asks again.
+      if (epoch !== _profileEpoch) { _lastLoadOutcome = 'stale'; return window._companyProfile; }
       if (snap && snap.exists()) {
         const remote = snap.data() || {};
         window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, remote);
         _brandOverrideRaw = (remote && remote.brand) || null;
         try { localStorage.setItem(_cacheKeyFor(key), JSON.stringify(remote)); } catch (_) {}
+      } else {
+        // The server has no doc for this tenant: the defaults ARE its
+        // profile. Whatever the cache (or a kept copy) held is not the
+        // server's — a write the rules refused, or a doc since deleted.
+        window._companyProfile = deepMerge({}, NBD_COMPANY_PROFILE_DEFAULTS);
+        _brandOverrideRaw = null;
+        try { localStorage.removeItem(_cacheKeyFor(key)); } catch (_) {}
       }
       // Hydration is DEFINITIVE only once the doc read succeeded (exists or
       // not) FROM THE SERVER. Destructive per-tenant writes (the custom-jurisdictions
       // full-replace) gate on this flag so a pre-hydration empty render can
       // never be saved as a tenant-wide wipe. A failed read leaves it unset.
       const firstLanding = window._companyProfileLoaded !== true;
+      _loadedKey = key;
       window._companyProfileLoaded = true;
       _lastLoadOutcome = 'ok';
       // Tell every panel still showing "Loading…" that it can paint now,
@@ -566,7 +640,15 @@
     let prevRemote = {};
     if (key) { try { prevRemote = JSON.parse(localStorage.getItem(_cacheKeyFor(key)) || '{}') || {}; } catch (_) {} }
     const mergedRemote = deepMerge(prevRemote, overridesObj);
-    window._companyProfile = deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, mergedRemote);
+    // Once this tenant's SERVER copy is in memory, build on it — never on the
+    // cache, which can be missing, unwritable (storage blocked, quota full)
+    // or older than it (2026-09-25, PR #1774 review). Rebuilding from a
+    // missing cache dropped every field this save did not carry — the saved
+    // jurisdictions among them — under a flag that still said "loaded".
+    const onServerCopy = !!key && window._companyProfileLoaded === true && _loadedKey === key;
+    window._companyProfile = onServerCopy
+      ? deepMerge(window._companyProfile, overridesObj)
+      : deepMerge(NBD_COMPANY_PROFILE_DEFAULTS, mergedRemote);
     if ('brand' in overridesObj) _brandOverrideRaw = overridesObj.brand || null;
     if (key) { try { localStorage.setItem(_cacheKeyFor(key), JSON.stringify(mergedRemote)); } catch (_) {} }
     if (!window.db) return window._companyProfile;

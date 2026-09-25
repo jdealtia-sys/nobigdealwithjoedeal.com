@@ -514,6 +514,7 @@
     // What this device is showing as saved: the baseline changedEntries
     // compares against, so a save sends only what was edited here.
     _painted = entries;
+    _paintedKey = loadedKey();
     var editable = canEdit(root._userClaims, root._user && root._user.uid);
     var L = LIB();
 
@@ -560,6 +561,24 @@
   // markSaved after a write lands. null until the first render.
   var _painted = null;
 
+  // WHICH tenant's server copy the rows were painted from (2026-09-25, PR
+  // #1774 review). After an account switch in the same tab the panel still
+  // reads "ready" with the previous account's rows and edits, while the
+  // company profile has been reset under it — its own Save, or Save All,
+  // would then write those edits to the new account's company. A panel
+  // painted for any other tenant than the one now loaded is not saveable.
+  // (Without company-profile.js's _companyProfileLoadedKey there is nothing
+  // to compare, and the panel's own state decides, as before.)
+  var _paintedKey = null;
+  function loadedKey() {
+    return typeof root._companyProfileLoadedKey === 'function' ? root._companyProfileLoadedKey() : null;
+  }
+  function paintedForLoadedProfile() {
+    if (typeof root._companyProfileLoadedKey !== 'function') return true;
+    var k = root._companyProfileLoadedKey();
+    return k != null && k === _paintedKey;
+  }
+
   /**
    * collect() → null when the panel must not be saved (not painted from a
    * hydrated profile, or read-only for this user); otherwise
@@ -572,6 +591,7 @@
   function collect() {
     var host = document.getElementById(HOST_ID);
     if (!host || host.getAttribute('data-state') !== 'ready' || host.getAttribute('data-editable') !== '1') return null;
+    if (!paintedForLoadedProfile()) return null;
     var forms = {};
     host.querySelectorAll('[data-upg-id]').forEach(function (row) {
       forms[row.getAttribute('data-upg-id')] = formOfRow(row);
@@ -617,6 +637,13 @@
     if (host.getAttribute('data-editable') !== '1') {
       setMessage('Only an owner or company admin can change upgrade prices.', 'error');
       return { ok: false, reason: 'readonly' };
+    }
+    // Painted for another account's company (see _paintedKey): repaint for
+    // this one — the loading line until its profile lands — and send nothing.
+    if (!paintedForLoadedProfile()) {
+      render();
+      setMessage('Your saved upgrade prices are still loading. Nothing was saved — make your change again once they appear.', 'error');
+      return { ok: false, reason: 'loading' };
     }
     var c = collect();
     if (!c || c.errors.length) {
