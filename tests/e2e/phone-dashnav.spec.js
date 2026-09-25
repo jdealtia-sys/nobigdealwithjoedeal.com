@@ -111,8 +111,11 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
   let lead = null; // { id, name } — this file's own customer, deleted at the end
   const stamp = Date.now();
 
-  test.beforeAll(async ({ browser }) => {
+  test.beforeAll(async ({ browser }, testInfo) => {
     if (!creds) return;
+    // Login + a lead save + waiting for it to reach _leads: 30s is too tight
+    // when the emulator is busy (CI shards, a shared local rig).
+    testInfo.setTimeout(90_000);
     ({ context, page } = await bootPhone(browser));
     // Our own lead, so the task picker and New Report never touch shared data
     // (a fresh CI emulator has no leads at all).
@@ -271,6 +274,18 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     expect(m.first, 'Today is the first panel in the view').toBe(true);
     expect(m.top, 'Today starts above the bottom nav with the page unscrolled').toBeLessThan(m.navTop - 100);
     expect(m.embed, 'an unconfigured calendar box takes no space').toBe(0);
+
+    // The 500px floor now comes from updateCalEmbed, only while an iframe is
+    // there to fill it — both directions, typed like a rep (input events
+    // drive updateCalEmbed; nothing is saved, so no localStorage write).
+    await page.route('**/cal.com/**', (r) => r.fulfill({ contentType: 'text/html', body: '<!doctype html><title>cal</title>' }));
+    const embedH = () => safeEvaluate(page, () => Math.round(document.getElementById('calEmbed').getBoundingClientRect().height));
+    await page.locator('#calUsername').fill('e2e-rep');
+    await page.locator('#calEventSlug').fill('roof-inspection');
+    await expect.poll(embedH, { message: 'configured calendar box height' }).toBeGreaterThanOrEqual(500);
+    await page.locator('#calUsername').fill('');
+    await expect.poll(embedH, { message: 'calendar box after clearing the username' }).toBe(0);
+    await page.locator('#calEventSlug').fill('');
   });
 
   test('draw: the Drawing Tool map has real height and its controls are tappable', async () => {
@@ -299,6 +314,7 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
       await dismissToasts(page);
       await page.locator('#mni-more').tap();
       const item = `#mobile-more-menu .mm-item[data-target="${target}"]`;
+      await expect(page.locator(item), `More drawer has ${target}`).toHaveCount(1);
       await page.locator(item).scrollIntoViewIfNeeded();
       await expectTappable(page, item, `More > ${target}`);
       await page.locator(item).tap();
@@ -363,8 +379,9 @@ test.describe.serial('desktop dashboard nav @shard2', () => {
   /** @type {import('@playwright/test').BrowserContext} */ let context;
   /** @type {import('@playwright/test').Page} */ let page;
 
-  test.beforeAll(async ({ browser }) => {
+  test.beforeAll(async ({ browser }, testInfo) => {
     if (!creds) return;
+    testInfo.setTimeout(60_000);
     context = await browser.newContext({ viewport: { width: 1280, height: 860 }, serviceWorkers: 'block' });
     page = await context.newPage();
     await stubNetwork(page);
