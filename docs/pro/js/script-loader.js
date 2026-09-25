@@ -317,7 +317,13 @@
     // Drawing-tool surface (172 KiB) — see the mapvendor comment above.
     // Requires mapvendor (Leaflet) to already be present; VIEW_BUNDLES lists
     // both for the 'draw' route so ScriptLoader resolves them in order.
+    // draw-geom.js (2026-09-25, draw lane L1) is the pure geometry/totals
+    // module the phone Draw rebuild moves maps-routing.js onto. It rides
+    // FIRST so window.NBDDrawGeom exists before maps-routing.js runs; in
+    // L1 nothing calls it yet. This registry edit re-bumps script-loader.js's
+    // own ?v in dashboard.html + customer.html (the #1712 sweep convention).
     drawtool: [
+      'js/draw-geom.js?v=1',
       'js/maps-routing.js?v=4'
     ],
     // Talk Tank inbox (2026-09-14, boot-weight containment) — a single-view

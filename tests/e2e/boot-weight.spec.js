@@ -281,6 +281,10 @@ test.describe('boot weight — maps-routing.js (drawtool) is lazy on the dashboa
     // 1. not on the boot path
     expect(hits(urls, 'maps-routing.js'), 'maps-routing.js must not be fetched at boot').toBe(0);
     expect(await safeEvaluate(page, () => typeof window.initDrawMap)).toBe('undefined');
+    // draw-geom.js (2026-09-25, draw lane L1) rides the same bundle, ahead of
+    // maps-routing.js — lazy with it, never on the boot path.
+    expect(hits(urls, 'draw-geom.js'), 'draw-geom.js must not be fetched at boot').toBe(0);
+    expect(await safeEvaluate(page, () => typeof window.NBDDrawGeom)).toBe('undefined');
     // drawMap is a bare sibling-scope `let`, never a window property (see
     // maps-routing.js's header) — confirm the ReferenceError class of bug
     // this PR fixed doesn't exist at boot, i.e. the drawSearch callback
@@ -309,6 +313,9 @@ test.describe('boot weight — maps-routing.js (drawtool) is lazy on the dashboa
     );
 
     expect(hits(urls, 'maps-routing.js'), 'fetched once the draw view opens').toBeGreaterThan(0);
+    expect(hits(urls, 'draw-geom.js'), 'draw-geom.js fetched with the drawtool bundle').toBeGreaterThan(0);
+    expect(await safeEvaluate(page, () => typeof (window.NBDDrawGeom && window.NBDDrawGeom.computeTotals)),
+      'window.NBDDrawGeom is live once the draw view opens').toBe('function');
     const panes = await safeEvaluate(page, () =>
       document.getElementById('drawMap').querySelectorAll('.leaflet-pane').length);
     expect(panes, 'the draw map actually constructed Leaflet panes').toBeGreaterThan(0);
