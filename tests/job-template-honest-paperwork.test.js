@@ -34,6 +34,9 @@
  *   9. BUILD SCREEN  the real job-templates-ui.js on a fake DOM: no tier row,
  *                    the repair box only on a repair job, off by default,
  *                    persisted by Create estimate; the preview's warranty line.
+ *  10. CLOSE BOARD   the real close-board.js: no tier card (or homeowner deal
+ *                    page) promises gutters / full deck / ice & water, and
+ *                    every tier carries the same scope lines.
  *
  * Run: node tests/job-template-honest-paperwork.test.js
  */
@@ -548,6 +551,59 @@ function throughPreflight(env, type, est) {
     click('go-preview');
     ok('gutter preview: the 5-year warranty line and no tier line',
       /jt-prop-warranty[\s\S]*5-year workmanship warranty\./.test(body()) && !/ tier</.test(body()));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('10. CLOSE BOARD — tier cards promise no scope the price lacks');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    // The real close-board.js; its dynamic Firestore import() is routed to a
+    // stub (vm cannot run import()), the same way close-board-per-uid-storage
+    // does it.
+    const raw = read(path.join(PRO_JS, 'close-board.js'));
+    const src = raw.replace(/\bimport\(/g, '__testImport(');
+    const els = {};
+    const mk = () => ({ innerHTML: '', textContent: '', style: {}, dataset: {}, querySelector: () => null, querySelectorAll: () => [],
+      addEventListener() {}, classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} } });
+    const store = {};
+    const sb = {
+      console: { log() {}, info() {}, warn() {}, error() {} }, JSON, Math, Date, Number, String, Array, Object, RegExp,
+      Boolean, Error, Promise, Set, Map, isNaN, parseFloat, parseInt, encodeURIComponent,
+      setTimeout: () => 0, clearTimeout: () => {},
+      localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } },
+      document: { getElementById: (id) => (els[id] = els[id] || mk()), createElement: mk, querySelector: () => null, querySelectorAll: () => [], addEventListener() {} },
+      navigator: {},
+      __testImport: async () => ({ doc: () => ({}), collection: () => ({}), where: () => ({}), query: () => ({}),
+        setDoc: () => Promise.resolve(), deleteDoc: () => Promise.resolve(), getDocs: () => Promise.resolve({ empty: true, size: 0, forEach() {} }) }),
+    };
+    sb.window = sb; sb.addEventListener = () => {}; sb.showToast = () => {}; sb.open = () => null;
+    sb._db = null; sb._user = { uid: 'u1' }; sb._userClaims = { companyId: 'c1' };
+    const ITEMS = [{ code: 'RFG 240-GAF-HDZ', name: 'Shingles' }, { code: 'RFG I&WS', name: 'Ice & water' },
+      { code: 'RFG DECK', name: 'Decking' }, { code: 'GTR GUT-5K', name: 'Gutters' }];
+    sb.getLineItems = () => ITEMS.slice();
+    let deal = null, pageHtml = '';
+    try {
+      vm.runInContext(src, vm.createContext(sb), { filename: 'close-board.js' });
+      deal = sb.CloseBoard.createFromEstimate({ prices: { good: 10000, better: 11000, best: 12500 } }, { name: 'Pat Doe', address: '1 Elm St' });
+      pageHtml = sb.CloseBoard.generatePageHTML(deal) || '';
+    } catch (e) { ok('close-board.js ran', false, String(e && e.message)); }
+    ok('a deal was created from an estimate', !!(deal && deal.tiers));
+    if (deal && deal.tiers) {
+      const descs = ['good', 'better', 'best'].map((k) => deal.tiers[k].description);
+      ok('no tier card promises gutters, decking or ice & water', descs.every((d) => !/gutter|deck|ice/i.test(d)), descs.join(' | '));
+      ok('the Best card no longer promises a full deck or gutters', !/full deck|gutters/i.test(deal.tiers.best.description));
+      ok('every tier carries the same scope lines (a tier changes no scope)',
+        ['good', 'better', 'best'].every((k) => JSON.stringify(deal.tiers[k].lineItems) === JSON.stringify(ITEMS)),
+        ['good', 'better', 'best'].map((k) => (deal.tiers[k].lineItems || []).length).join('/'));
+      const cards = (pageHtml.match(/class="tier-desc">[^<]*</g) || []).join(' ');
+      ok('the homeowner deal page renders three tier cards', (pageHtml.match(/class="tier-desc"/g) || []).length === 3);
+      ok('the homeowner deal page promises no gutters / deck / ice & water on any card', cards && !/gutter|deck|ice/i.test(cards), cards);
+    }
+    // The other two builders of tier cards (a hand-made deal, the default
+    // shape) must use the same honest copy — no old promise left in code.
+    const code = raw.replace(/\r\n/g, '\n').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+    ok('no tier description literal in close-board.js promises gutters or a full deck',
+      !/description:\s*'[^']*(gutter|full deck|ice shield|ice & water)/i.test(code));
   }
 
   // ══════════════════════════════════════════════════════════════════
