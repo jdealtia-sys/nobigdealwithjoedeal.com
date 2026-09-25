@@ -690,6 +690,35 @@
    ============================================ */
 
 @media (max-width: 768px) {
+  /* Top bar on a phone (2026-09-25, phone audit). This block restyled the
+     toolbar, panel and propbar but never the top bar, so at 412px its right
+     group ran out to x=806 inside the overflow:hidden overlay: Save Tags,
+     Save Copy, Save, Guided Inspection and Toggle Panel were all off-screen,
+     where no tap or swipe could reach them. Save had no phone path at all
+     (Ctrl+S needs a keyboard) and Toggle Panel is the only way into the
+     damage-tag drawer. Now the decorative title gives up its space, the
+     right group becomes a one-row swipe strip, and Save leads it so the
+     primary action is on screen without a swipe. The mask fade is the
+     "there's more" cue, the same idiom as customer.html's jump-nav; it
+     fades into the bar's own opaque background, never the photo. */
+  .nbd-topbar { padding: 0 8px; gap: 6px; }
+  .nbd-topbar-center { display: none; }
+  .nbd-topbar-right {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* lets the last button scroll clear of the fade */
+    padding-right: 24px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+    mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent 100%);
+  }
+  .nbd-topbar-right::-webkit-scrollbar { display: none; }
+  .nbd-topbar-right > * { flex-shrink: 0; }
+  .nbd-topbar-right [data-act="save-over"] { order: -1; }
+
   .nbd-toolbar {
     width: auto;
     height: 52px;

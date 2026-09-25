@@ -76,9 +76,22 @@
     // then lifts the FAB stack by exactly that much. Nothing here needs to
     // know how tall the bar renders or where any FAB currently sits.
     bar.setAttribute('data-nbd-bottom-strip', '');
+    // z-index sits on the page's ladder at --z-fab (customer.html :root,
+    // "always UNDER overlays"), not the 99985 it shipped with (2026-09-25,
+    // phone audit). This bar is page chrome, not an overlay, and at 99985 it
+    // painted over EVERY overlay on the page, all of which sit at
+    // --z-overlay (10000) or just above it: the document viewer's
+    // Save / Email / Print / Download PDF footer, the photo editor's tool
+    // strip, the estimate preview's Edit / Archive / Close, the upload and
+    // edit modals' footers, and every toast. Worse than hidden: a tap on
+    // "Save to Customer" landed on this bar's Call link and dialled the
+    // homeowner, and "Edit" on the estimate sheet did the same. On the
+    // ladder, any overlay covers the bar with no per-overlay bookkeeping,
+    // so overlays added later are covered too. Toasts ride above it via
+    // --nbd-bottom-chrome (customer-tasks-ui.js showToast).
     bar.style.cssText = `
       position:fixed; left:0; right:0; bottom:0;
-      z-index:99985;
+      z-index:var(--z-fab, 9900);
       background:rgba(15,18,25,0.96);
       backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
       border-top:1px solid rgba(255,255,255,0.08);
