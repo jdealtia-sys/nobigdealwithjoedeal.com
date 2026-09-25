@@ -548,6 +548,9 @@ test.describe('phone views: Products and Sales Training @audit', () => {
     await test.step('Sales Training: the Objection Obliterator drill opens from a tap', async () => {
       await openMore(page, 'training');
       const banner = page.locator('.rapid-banner');
+      // Sales Training is a ~150KB lazy bundle (script-loader.js `training`);
+      // on a loaded runner it outlasts the 15s action timeout.
+      await expect(banner).toBeVisible({ timeout: 45_000 });
       await banner.scrollIntoViewIfNeeded();
       await banner.tap();
       await expect(page.locator('.rapid-objection')).toBeVisible();
@@ -641,6 +644,7 @@ test.describe('phone views: light mode stays readable @audit', () => {
     await test.step('views#3 Objection Obliterator banner and drill', async () => {
       await openMore(page, 'training');
       const banner = page.locator('.rapid-banner');
+      await expect(banner).toBeVisible({ timeout: 45_000 }); // lazy `training` bundle, see above
       await banner.scrollIntoViewIfNeeded();
       expect(await page.evaluate(() => window.__pvContrast(document.querySelector('.rb-title'))), 'banner title').toBeGreaterThanOrEqual(4.5);
       await banner.tap();
