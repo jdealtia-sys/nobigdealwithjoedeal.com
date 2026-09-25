@@ -121,6 +121,13 @@
         ]
       },
       {
+        "_comment": "The signature pad script must be loadable cross-origin for the same reason as the images above. document-generator.js _injectSignatureAssets bakes <script src=\"<origin>/pro/js/signature-widget.js\"> into every document that carries signers, and both places a document is signed show it in an <iframe srcdoc> sandboxed WITHOUT allow-same-origin: /pro/sign.html (the homeowner's remote-signing link) and the rep's in-person signing in the doc viewer. That frame has an opaque origin, so the global Cross-Origin-Resource-Policy: same-origin makes Chrome refuse the script (net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin): no pad initialises, no Clear/Undo, and the signing page cannot finalise. Found 2026-09-25 by the Linux hosting emulator in CI (phone-signing.spec.js); the Windows emulator sends no firebase.json headers at all, so it passed locally. The file is a public static script, so cross-origin embedding exposes nothing. Exact path, not /pro/js/**, so every other script keeps the stricter default. Placed AFTER the ** rule so last-match-wins lets it stick; tests/smoke/photo.test.js resolves the effective header.",
+        "source": "/pro/js/signature-widget.js",
+        "headers": [
+          { "key": "Cross-Origin-Resource-Policy", "value": "cross-origin" }
+        ]
+      },
+      {
         "_comment": "Wave 127 P0: the actual Service Worker lives at /pro/sw.js (registered with scope /pro/), but the rule above only matches /sw.js. Result: prod was serving the SW with the default max-age=300 — meaning Cloudflare + browser cached the SW for 5 minutes, blocking SW updates from reaching users for that window. Previous deploys' SW updates (W124, etc.) were stuck in cache. This rule fixes the SW path explicitly. The SW itself MUST never be cached for any meaningful duration — its job is to detect updates, and if the update-detection path is cached, every fix to the SW takes 5+ minutes to propagate per CDN edge.",
         "source": "/pro/sw.js",
         "headers": [

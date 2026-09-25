@@ -27,8 +27,34 @@
 // Cloud Functions (getSignDocument / submitSignature / getEsignEnvelope /
 // submitEsignEnvelope) are mocked with page.route. Tagged @audit so the
 // authed emulator job's audit shard runs it.
+const fs = require('fs');
+const path = require('path');
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
+
+const REPO = path.join(__dirname, '..', '..');
+const WIDGET = '/pro/js/signature-widget.js';
+const CORP = 'Cross-Origin-Resource-Policy';
+
+// The header Firebase Hosting sends for `pathname`, from firebase.json: every
+// matching `headers` rule in order, a later rule overriding an earlier one for
+// the same key, matched with superstatic's own configMatcher (the engine the
+// hosting emulator runs). Sources are slashed with POSIX rules on purpose:
+// superstatic's glob-slasher uses path.join, which on Windows turns '/**' into
+// a backslash glob that matches nothing - the reason the Windows hosting
+// emulator sends NO firebase.json headers, and why this spec once passed
+// locally while production blocked the signature pad.
+function firebaseHeader(pathname, key) {
+  const { configMatcher } = require('superstatic/lib/utils/patterns');
+  const norm = (g) => path.posix.normalize(path.posix.join('/', g));
+  const rules = JSON.parse(fs.readFileSync(path.join(REPO, 'firebase.json'), 'utf8')).hosting.headers || [];
+  let value;
+  for (const r of rules) {
+    if (!configMatcher(pathname, r.source ? { ...r, source: norm(r.source) } : r)) continue;
+    for (const h of r.headers || []) if (h.key.toLowerCase() === key.toLowerCase()) value = h.value;
+  }
+  return value;
+}
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL || 'https://nobigdealwithjoedeal.com';
 const LOCAL = /^https?:\/\/(127\.0\.0\.1|localhost)([:/]|$)/.test(BASE);
@@ -59,6 +85,28 @@ function probeFn(sel) {
 
 // ── homeowner#2 / #3: remote contract on sign.html ─────────────────────
 test.describe('phone signing: remote contract on sign.html @audit', () => {
+  // sign.html (and the doc viewer's in-person signing) show the document in
+  // an <iframe srcdoc> sandboxed WITHOUT allow-same-origin, so everything the
+  // document fetches from our own origin is a request from an OPAQUE origin.
+  // firebase.json's global CORP same-origin blocks those
+  // (net::ERR_BLOCKED_BY_RESPONSE.NotSameOrigin): until 2026-09-25 production
+  // refused signature-widget.js there, so no pad worked on any signing link.
+  // The Linux hosting emulator in CI applies the headers and caught it; the
+  // Windows one sends none, so this is also asserted from firebase.json itself.
+  test('everything a generated document loads from our origin may load into the opaque-origin frame', async ({ request }) => {
+    const gen = fs.readFileSync(path.join(REPO, 'docs/pro/js/document-generator.js'), 'utf8');
+    const baked = [...gen.matchAll(/_assetOrigin\(\)\s*\+\s*'(\/[^']+)'/g)].map((m) => m[1]);
+    expect(baked, 'document-generator bakes the pad script by absolute URL').toContain(WIDGET);
+    for (const p of baked) {
+      expect(firebaseHeader(p, CORP), `firebase.json ${CORP} for ${p}`).toBe('cross-origin');
+      const served = (await request.get(p)).headers()[CORP.toLowerCase()];
+      // A server that applies firebase.json (CI's Linux emulator, production)
+      // must agree; one that sends no CORP at all (Windows emulator) is
+      // covered by the firebase.json assertion above.
+      if (served !== undefined) expect(served, `${CORP} the server sent for ${p}`).toBe('cross-origin');
+    }
+  });
+
   test('contract reads at phone size, pads have finger-sized controls, the record is unchanged', async ({ page, browser }) => {
     test.setTimeout(150_000);
     let creds;
@@ -76,9 +124,12 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
         homeownerName: 'Pat Phone', address: '118 Maple Ridge Ct, Loveland, OH 45140',
         phone: '(513) 555-0142', email: 'pat@example.com', contractPrice: '$18,430.00', startDate: '2026-10-05',
         signers: [{ role: 'homeowner', label: 'Homeowner', required: true }, { role: 'contractor', label: 'Contractor', required: true }],
+        // "counterflashing" is the long word that once set the description
+        // column's minimum width and pushed Total past the table edge at 360.
         lineItems: [
-          { description: 'Tear-off and replace architectural shingles', qty: 32, unit: 'SQ', unitPrice: 485 },
+          { description: 'Tear-off and replace architectural shingles, including starter strip and drip edge', qty: 32, unit: 'SQ', unitPrice: 485 },
           { description: 'Ice and water shield, eaves and valleys', qty: 6, unit: 'RL', unitPrice: 95 },
+          { description: 'Chimney reflash with counterflashing', qty: 1, unit: 'EA', unitPrice: 1550 },
         ],
       };
       return window.NBDDocGen._injectSignatureAssets(window.NBDDocGen.getHTML('contract', data));
@@ -93,6 +144,8 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
         const ctx = await browser.newContext(ctxOpts(width));
         try {
           const p = await ctx.newPage();
+          const widgetFailures = [];
+          p.on('requestfailed', (r) => { if (r.url().includes(WIDGET)) widgetFailures.push(r.failure() ? r.failure().errorText : 'failed'); });
           let signed = null;
           await p.route('**/getSignDocument', (r) => fulfillJson(r, { html: contract, docTypeName: 'Roofing Contract' }));
           await p.route('**/submitSignature', (r) => {
@@ -103,7 +156,11 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
           await expect(p.locator('#spFoot')).toBeVisible({ timeout: 20_000 });
           const frameEl = await p.$('#spFrame');
           const f = await frameEl.contentFrame();
-          await f.waitForFunction(() => window.__NBD_LOADED && window.__NBD_LOADED['signature-widget'], null, { timeout: 15_000 });
+          // Name the cause when the pad script never runs: a CORP block
+          // (ERR_BLOCKED_BY_RESPONSE.NotSameOrigin) otherwise surfaces only as
+          // a 15s timeout, which is how it read in CI on 2026-09-25.
+          await f.waitForFunction(() => window.__NBD_LOADED && window.__NBD_LOADED['signature-widget'], null, { timeout: 15_000 })
+            .catch((e) => { throw new Error(`${WIDGET} never ran in the sandboxed signing frame (request failures: ${widgetFailures.join(', ') || 'none'}): ${e.message}`); });
 
           const m = await f.evaluate(() => {
             const title = [...document.querySelectorAll('.section-title')].find((e) => /Cancellation/i.test(e.textContent));
@@ -122,12 +179,18 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
               if (c.display === 'none' || c.visibility === 'hidden' || (!b.width && !b.height)) continue;
               minFont = Math.min(minFont, parseFloat(c.fontSize));
             }
+            const table = document.querySelector('.document-container table');
+            const tr = table.getBoundingClientRect();
             return {
               clauseFont: parseFloat(getComputedStyle(clause).fontSize),
               column: sec.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - parseFloat(cs.borderLeftWidth),
               headerTop: document.querySelector('.document-header').getBoundingClientRect().top + scrollY,
               overflow: document.documentElement.scrollWidth - innerWidth,
               minFont,
+              // The line-item table's own sideways scroll, and any cell whose
+              // right edge sits past the table's (a clipped figure).
+              tableSideways: table.scrollWidth - table.clientWidth,
+              clippedCells: [...table.querySelectorAll('th,td')].filter((c) => c.getBoundingClientRect().right > tr.right + 0.5).map((c) => c.textContent.trim()),
             };
           });
           if (phone) {
@@ -135,6 +198,8 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
             expect(m.minFont, 'smallest visible text in the contract').toBeGreaterThanOrEqual(12);
             expect(m.column, 'contract text column width').toBeGreaterThanOrEqual(width * 0.8);
             expect(m.headerTop, 'blank band above the contract header').toBeLessThanOrEqual(1);
+            expect(m.clippedCells, 'line-item cells cut off at the table edge').toEqual([]);
+            expect(m.tableSideways, 'line-item table scrolls sideways').toBeLessThanOrEqual(0);
           } else {
             // Desktop keeps the paper layout exactly as it was.
             expect(m.clauseFont, 'desktop clause text unchanged').toBe(9);
@@ -224,7 +289,9 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
 // ── homeowner#6: esign "Next field" ────────────────────────────────────
 // A one-page PDF built by hand (no pdf-lib in tests/): a heading, a 16pt
 // box with the acknowledgement beside it in 10pt Helvetica — the size the
-// audit measured at 5.5-6.3px on a phone at fit scale.
+// audit measured at 5.5-6.3px on a phone at fit scale — and a second box at
+// the RIGHT margin whose statement runs to its left.
+const CLAIM_TEXT_X = 60;
 function tinyPdf() {
   const esc = (s) => s.replace(/[()\\]/g, (c) => '\\' + c);
   const text = (x, y, size, s) => `BT /F1 ${size} Tf ${x} ${y} Td (${esc(s)}) Tj ET`;
@@ -233,6 +300,8 @@ function tinyPdf() {
     '1 w 60 500 16 16 re S',
     text(84, 504, 10, 'I have read and agree to the Terms & Conditions and the 3-day right to cancel.'),
     text(60, 440, 10, 'Initials: ________'),
+    text(CLAIM_TEXT_X, 380, 10, 'Owner confirms the insurance claim number provided is accurate and current:'),
+    '1 w 530 376 16 16 re S',
     text(60, 300, 10, 'Signature: ______________________      Date: ____________'),
   ].join('\n');
   const objs = [
@@ -261,6 +330,7 @@ test.describe('phone signing: esign Next field never ticks a box @audit', () => 
       fields: [
         { id: 'ini', type: 'initials', page: 0, x: 110, y: 436, w: 64, h: 40, required: true, label: '' },
         { id: 'ack', type: 'checkbox', page: 0, x: 60, y: 500, w: 16, h: 16, required: true, label: '' },
+        { id: 'claim', type: 'checkbox', page: 0, x: 530, y: 376, w: 16, h: 16, required: true, label: '' },
         { id: 'sig', type: 'signature', page: 0, x: 120, y: 296, w: 190, h: 46, required: true, label: '' },
         { id: 'dt', type: 'date', page: 0, x: 390, y: 296, w: 120, h: 22, required: true, label: '' },
       ],
@@ -278,10 +348,16 @@ test.describe('phone signing: esign Next field never ticks a box @audit', () => 
             return fulfillJson(r, { ok: true });
           });
           const tap = (loc) => (phone ? loc.tap() : loc.click());
-          const ack = p.locator('.es-field[data-field-id="ack"]');
-          const isDone = () => ack.evaluate((n) => n.classList.contains('is-done'));
+          const isDone = (id = 'ack') => p.locator(`.es-field[data-field-id="${id}"]`).evaluate((n) => n.classList.contains('is-done'));
+          const excerptDrawn = () => p.waitForFunction(() => {
+            const c = document.querySelector('#esExcerpt canvas');
+            if (!c) return false;
+            const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+            let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] < 90 && d[i + 1] < 90 && d[i + 2] < 90) dark++;
+            return dark > 400;
+          }, null, { timeout: 10_000 });
           await p.goto('/pro/esign?t=phonesigning000000001');
-          await expect(p.locator('.es-field')).toHaveCount(4, { timeout: 30_000 });
+          await expect(p.locator('.es-field')).toHaveCount(5, { timeout: 30_000 });
 
           await tap(p.locator('#esNext'));                      // -> initials
           await expect(p.locator('#esSheet')).toBeVisible();
@@ -289,21 +365,15 @@ test.describe('phone signing: esign Next field never ticks a box @audit', () => 
           await p.locator('#esTypeInput').fill('PP');
           await tap(p.locator('#esApply'));
           await expect(p.locator('#esSheet')).toBeHidden();
-          await expect(p.locator('#esProgress')).toHaveText('1 of 4');
+          await expect(p.locator('#esProgress')).toHaveText('1 of 5');
 
           await tap(p.locator('#esNext'));                      // -> the checkbox
           await expect(p.locator('#esSheet'), 'Next on a checkbox opens a sheet').toBeVisible();
           expect(await isDone(), 'Next did not tick the box by itself').toBe(false);
-          await expect(p.locator('#esProgress')).toHaveText('1 of 4');
+          await expect(p.locator('#esProgress')).toHaveText('1 of 5');
 
           // The excerpt shows the page's own words, drawn at a readable scale.
-          await p.waitForFunction(() => {
-            const c = document.querySelector('#esExcerpt canvas');
-            if (!c) return false;
-            const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-            let dark = 0; for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] < 90 && d[i + 1] < 90 && d[i + 2] < 90) dark++;
-            return dark > 400;
-          }, null, { timeout: 10_000 });
+          await excerptDrawn();
           const ex = await p.evaluate(() => {
             const c = document.querySelector('#esExcerpt canvas');
             const panel = document.querySelector('#esSheet .es-sheet-panel');
@@ -327,7 +397,35 @@ test.describe('phone signing: esign Next field never ticks a box @audit', () => 
           await tap(p.locator('#esApply'));                     // the signer's own act
           await expect(p.locator('#esSheet')).toBeHidden();
           expect(await isDone(), 'box is checked after the signer checks it').toBe(true);
-          await expect(p.locator('#esProgress')).toHaveText('2 of 4');
+          await expect(p.locator('#esProgress')).toHaveText('2 of 5');
+
+          // A box at the RIGHT margin, its statement running to its left. The
+          // excerpt used to open at the box (clamped to the page's right end),
+          // showing only "...nd current:". It must open at the statement's
+          // first word, say where the box is, and still not tick it.
+          await tap(p.locator('#esNext'));                      // -> the right-margin checkbox
+          await expect(p.locator('#esSheet')).toBeVisible();
+          expect(await isDone('claim'), 'Next did not tick the right-margin box').toBe(false);
+          await expect(p.locator('#esApply')).toHaveText(/Check this box/);
+          await excerptDrawn();
+          const cl = await p.evaluate(() => {
+            const exd = document.getElementById('esExcerpt');
+            const mark = exd.querySelector('.es-excerpt-box');
+            return {
+              scrollLeft: exd.scrollLeft, view: exd.clientWidth,
+              pxPerPt: exd.querySelector('canvas').getBoundingClientRect().width / 612,
+              boxRight: mark.offsetLeft + mark.offsetWidth,
+              hint: document.getElementById('esCheckHint').textContent,
+            };
+          });
+          const firstWord = CLAIM_TEXT_X * cl.pxPerPt;
+          expect(firstWord, 'statement starts inside the opening view (left edge)').toBeGreaterThanOrEqual(cl.scrollLeft);
+          expect(firstWord + 60, 'statement starts inside the opening view (right edge)').toBeLessThanOrEqual(cl.scrollLeft + cl.view);
+          if (cl.boxRight > cl.scrollLeft + cl.view) expect(cl.hint, 'hint says where the off-screen box is').toMatch(/box is at the end of this line/);
+          await tap(p.locator('#esApply'));
+          await expect(p.locator('#esSheet')).toBeHidden();
+          expect(await isDone('claim'), 'right-margin box is checked after the signer checks it').toBe(true);
+          await expect(p.locator('#esProgress')).toHaveText('3 of 5');
 
           await tap(p.locator('#esNext'));                      // -> signature
           await expect(p.locator('#esSheet')).toBeVisible();
@@ -339,12 +437,13 @@ test.describe('phone signing: esign Next field never ticks a box @audit', () => 
           await tap(p.locator('#esNext'));                      // -> date (prefilled)
           await expect(p.locator('#esSheet')).toBeVisible();
           await tap(p.locator('#esApply'));
-          await expect(p.locator('#esProgress')).toHaveText('4 of 4');
+          await expect(p.locator('#esProgress')).toHaveText('5 of 5');
           await tap(p.locator('#esFinish'));
           await tap(p.locator('#esConsent'));
           await tap(p.locator('#esSubmit'));
           await expect(p.locator('#esMsgTitle')).toHaveText(/All done/, { timeout: 15_000 });
           expect(submitted && submitted.values && submitted.values.ack, 'posted checkbox value').toEqual({ checked: true });
+          expect(submitted.values.claim, 'posted right-margin checkbox value').toEqual({ checked: true });
         } finally {
           await ctx.close();
         }
@@ -356,12 +455,10 @@ test.describe('phone signing: esign Next field never ticks a box @audit', () => 
 // ── homeowner#9: Photo Review chips / counter / bulk bar ───────────────
 test.describe('phone signing: photo review controls @audit', () => {
   test('chips, filters and bulk actions are finger-sized and the reviewed count shows', async ({ browser }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(150_000);
     let creds;
     try { creds = requireTestUser(); } catch (e) { test.skip(true, e.message); return; }
-    const ctx = await browser.newContext(ctxOpts(412));
-    try {
-      const page = await ctx.newPage();
+    const openReview = async (page) => {
       // Expose the module's state + render so photos can be shown without
       // Storage uploads. Nothing is written: only EMPTY chips are tapped
       // (they open the picker), never a value.
@@ -402,71 +499,82 @@ test.describe('phone signing: photo review controls @audit', () => {
         window.__prPhoneTest.render();
       });
       await expect(page.locator('.pr-chip').first()).toBeVisible();
+    };
 
-      for (const width of [...PHONES, DESKTOP]) {
-        await test.step(`${width}px`, async () => {
-          const phone = width < 1000;
-          await page.setViewportSize({ width, height: 860 });
-          await page.evaluate(() => window.scrollTo(0, 0));
-          const m = await page.evaluate(() => {
-            const vw = document.documentElement.clientWidth;
-            const hs = (sel) => [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect().height);
-            const counter = document.getElementById('prCounter');
-            const cr = counter.getBoundingClientRect();
-            const hit = document.elementFromPoint(cr.left + cr.width / 2, cr.top + cr.height / 2);
-            return {
-              chipH: Math.min(...hs('.pr-chip')), maxChipH: Math.max(...hs('.pr-chip')),
-              filterH: Math.min(...hs('.pr-filter')),
-              counter: { shown: cr.width > 0 && cr.height > 0 && cr.left >= 0 && cr.right <= vw, reach: !!hit && counter.contains(hit), text: counter.textContent },
-              overflow: document.documentElement.scrollWidth - vw,
-            };
-          });
-          expect(m.counter.shown, 'the "x/y reviewed" counter is on screen').toBe(true);
-          expect(m.counter.reach, 'the counter is not covered').toBe(true);
-          expect(m.counter.text).toMatch(/\d+\/8 reviewed/);
-          expect(m.overflow, 'page scrolls sideways').toBeLessThanOrEqual(0);
-          if (!phone) {
-            expect(m.maxChipH, 'desktop chips keep the dense layout').toBeLessThanOrEqual(24);
-            return;
-          }
-          expect(m.chipH, 'shortest chip').toBeGreaterThanOrEqual(36);
-          expect(m.filterH, 'shortest filter pill').toBeGreaterThanOrEqual(38);
-
-          // A real tap on an empty chip opens its picker.
-          const chip = page.locator('.pr-chip[data-state="empty"]').first();
-          await chip.scrollIntoViewIfNeeded();
-          const cb = await chip.evaluate((el) => { const r = el.getBoundingClientRect(); const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === el || el.contains(h); });
-          expect(cb, 'empty chip is the element under its own centre').toBe(true);
-          await chip.tap();
-          await expect(page.locator('#prPicker')).toHaveAttribute('data-open', 'true');
-          await page.keyboard.press('Escape');
-          await expect(page.locator('#prPicker')).toHaveAttribute('data-open', 'false');
-
-          // Select a tile: every bulk action must be on screen and tappable.
-          const img = page.locator('[data-tile-img]').first();
-          await img.scrollIntoViewIfNeeded();
-          await img.tap();
-          await expect(page.locator('#prBulkBar')).toHaveAttribute('data-open', 'true');
-          await page.waitForTimeout(300); // the bar slides up (.22s)
-          const btns = await page.evaluate(() => {
-            const vw = document.documentElement.clientWidth;
-            return [...document.querySelectorAll('#prBulkBar .pr-bulk-btn')].map((b) => {
-              const r = b.getBoundingClientRect();
-              const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-              return { t: b.textContent.trim(), h: r.height, inView: r.left >= 0 && r.right <= vw, reach: !!h && (h === b || b.contains(h)) };
+    // The phones share one touch context (412, then resized to 360). The
+    // desktop guard gets its OWN non-touch 1280 context: resizing the phone
+    // context would keep its mobile UA and touch emulation, which is not
+    // what a desktop reviewer has.
+    for (const [ctxWidth, widths] of [[PHONES[0], PHONES], [DESKTOP, [DESKTOP]]]) {
+      const ctx = await browser.newContext(ctxOpts(ctxWidth));
+      try {
+        const page = await ctx.newPage();
+        await openReview(page);
+        for (const width of widths) {
+          await test.step(`${width}px`, async () => {
+            const phone = width < 1000;
+            if (width !== ctxWidth) await page.setViewportSize({ width, height: 860 });
+            await page.evaluate(() => window.scrollTo(0, 0));
+            const m = await page.evaluate(() => {
+              const vw = document.documentElement.clientWidth;
+              const hs = (sel) => [...document.querySelectorAll(sel)].map((e) => e.getBoundingClientRect().height);
+              const counter = document.getElementById('prCounter');
+              const cr = counter.getBoundingClientRect();
+              const hit = document.elementFromPoint(cr.left + cr.width / 2, cr.top + cr.height / 2);
+              return {
+                chipH: Math.min(...hs('.pr-chip')), maxChipH: Math.max(...hs('.pr-chip')),
+                filterH: Math.min(...hs('.pr-filter')),
+                counter: { shown: cr.width > 0 && cr.height > 0 && cr.left >= 0 && cr.right <= vw, reach: !!hit && counter.contains(hit), text: counter.textContent },
+                overflow: document.documentElement.scrollWidth - vw,
+              };
             });
+            expect(m.counter.shown, 'the "x/y reviewed" counter is on screen').toBe(true);
+            expect(m.counter.reach, 'the counter is not covered').toBe(true);
+            expect(m.counter.text).toMatch(/\d+\/8 reviewed/);
+            expect(m.overflow, 'page scrolls sideways').toBeLessThanOrEqual(0);
+            if (!phone) {
+              expect(m.maxChipH, 'desktop chips keep the dense layout').toBeLessThanOrEqual(24);
+              return;
+            }
+            expect(m.chipH, 'shortest chip').toBeGreaterThanOrEqual(36);
+            expect(m.filterH, 'shortest filter pill').toBeGreaterThanOrEqual(38);
+
+            // A real tap on an empty chip opens its picker.
+            const chip = page.locator('.pr-chip[data-state="empty"]').first();
+            await chip.scrollIntoViewIfNeeded();
+            const cb = await chip.evaluate((el) => { const r = el.getBoundingClientRect(); const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return h === el || el.contains(h); });
+            expect(cb, 'empty chip is the element under its own centre').toBe(true);
+            await chip.tap();
+            await expect(page.locator('#prPicker')).toHaveAttribute('data-open', 'true');
+            await page.keyboard.press('Escape');
+            await expect(page.locator('#prPicker')).toHaveAttribute('data-open', 'false');
+
+            // Select a tile: every bulk action must be on screen and tappable.
+            const img = page.locator('[data-tile-img]').first();
+            await img.scrollIntoViewIfNeeded();
+            await img.tap();
+            await expect(page.locator('#prBulkBar')).toHaveAttribute('data-open', 'true');
+            await page.waitForTimeout(300); // the bar slides up (.22s)
+            const btns = await page.evaluate(() => {
+              const vw = document.documentElement.clientWidth;
+              return [...document.querySelectorAll('#prBulkBar .pr-bulk-btn')].map((b) => {
+                const r = b.getBoundingClientRect();
+                const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+                return { t: b.textContent.trim(), h: r.height, inView: r.left >= 0 && r.right <= vw, reach: !!h && (h === b || b.contains(h)) };
+              });
+            });
+            for (const b of btns) {
+              expect(b.inView, `bulk "${b.t}" fully on screen`).toBe(true);
+              expect(b.reach, `bulk "${b.t}" reachable`).toBe(true);
+              expect(b.h, `bulk "${b.t}" height`).toBeGreaterThanOrEqual(38);
+            }
+            await page.locator('#prBulkClear').tap();
+            await expect(page.locator('#prBulkBar')).toHaveAttribute('data-open', 'false');
           });
-          for (const b of btns) {
-            expect(b.inView, `bulk "${b.t}" fully on screen`).toBe(true);
-            expect(b.reach, `bulk "${b.t}" reachable`).toBe(true);
-            expect(b.h, `bulk "${b.t}" height`).toBeGreaterThanOrEqual(38);
-          }
-          await page.locator('#prBulkClear').tap();
-          await expect(page.locator('#prBulkBar')).toHaveAttribute('data-open', 'false');
-        });
+        }
+      } finally {
+        await ctx.close();
       }
-    } finally {
-      await ctx.close();
     }
   });
 });

@@ -87,10 +87,21 @@
     '.document-container [style*="font-size: 11px"],.document-container [style*="font-size:11px"]{font-size:inherit!important;}',
     // Line-item tables: 13px keeps a five-column scope table (with money
     // like $15,520.00, which must never break mid-figure) inside a 360px
-    // column; display:block + overflow-x is the net for a wider one, so it
-    // scrolls inside its section instead of spilling past the page edge.
+    // column. The DESCRIPTION column absorbs the squeeze: a long word in it
+    // ("counterflashing") otherwise sets the column's minimum width, and at
+    // 360 that pushed the Total column 13px past the table's edge, clipped
+    // mid-figure. overflow-wrap:anywhere lowers that minimum, so the table
+    // fits and only the description cells wrap harder (hyphens:auto makes
+    // that "counter-flashing" where the phone has a dictionary; documents are
+    // lang="en"). Only body cells: the "Description" header stays whole, and
+    // the 3px side padding is what leaves room for it at 360 (4px was 2px
+    // short). It is NOT applied to the other columns: that would let the layout
+    // squeeze a figure until it broke. display:block + overflow-x stays as
+    // the net for a table that still cannot fit, so it scrolls inside its
+    // section instead of past the page edge.
     '.document-container table,.document-container table[style]{font-size:13px!important;display:block;max-width:100%;overflow-x:auto;}',
-    '.document-container th,.document-container td{padding:5px 4px!important;}',
+    '.document-container th,.document-container td{padding:5px 3px!important;}',
+    '.document-container td:first-child{overflow-wrap:anywhere;hyphens:auto;}',
     '.section{padding:12px 12px 12px 14px;margin-bottom:18px;border-left-width:3px;}',
     '.section-title{font-size:15px!important;letter-spacing:.06em!important;}',
     '.summary-text,.scope-list,.warranty-details{font-size:16px!important;}',

@@ -526,15 +526,51 @@ function openCheckSheet(f) {
 }
 
 /**
+ * Which side of the box its statement is on, from pdf.js's text layer: the
+ * text on the box's own line (the text's mid-height inside the box's height)
+ * nearest the box. `start` is where the left-hand run begins, so the reader
+ * can open at the first word. null when the line has no text layer.
+ */
+async function statementSide(page, vp, r) {
+  let tc;
+  try { tc = await page.getTextContent(); } catch (_) { return null; }
+  let left = null;
+  let right = null;
+  for (const it of (tc && tc.items) || []) {
+    if (!it.str || !it.str.trim() || !it.transform) continue;
+    const [a, b, c, d, e, f] = it.transform;
+    const n = Math.hypot(a, b) || 1;
+    const p0 = vp.convertToViewportPoint(e, f);
+    const p1 = vp.convertToViewportPoint(e + ((it.width || 0) * a) / n, f + ((it.width || 0) * b) / n);
+    if (Math.abs(p1[1] - p0[1]) > 1) continue;              // not a horizontal run on screen
+    const mid = p0[1] - 0.35 * Math.hypot(c, d) * vp.scale;  // baseline up to mid x-height
+    if (mid < r.top || mid > r.top + r.height) continue;    // another line
+    const x0 = Math.min(p0[0], p1[0]);
+    const x1 = Math.max(p0[0], p1[0]);
+    if (x0 >= r.left + r.width - 2) {
+      const gap = x0 - (r.left + r.width);
+      if (!right || gap < right.gap) right = { gap };
+    } else if (x1 <= r.left + 2) {
+      const gap = r.left - x1;
+      left = left ? { gap: Math.min(left.gap, gap), start: Math.min(left.start, x0) } : { gap, start: x0 };
+    }
+  }
+  if (left && (!right || left.gap < right.gap)) return { side: 'left', start: left.start };
+  return right ? { side: 'right' } : null;
+}
+
+/**
  * Draw the band of the page around a checkbox at a READABLE scale, the box
  * outlined. The whole page width is kept (the statement can sit on either
- * side of the box) and the excerpt scrolls sideways, starting at the box.
+ * side of the box) and the excerpt scrolls sideways, opening where the
+ * statement starts (statementSide).
  * Rendered by pdf.js at the excerpt scale — not cropped from the page canvas,
  * which at phone fit-scale holds 5-6px text that would only enlarge to blur.
  */
 const EXCERPT_SCALE = 1.5;     // 10pt body text -> 15 CSS px
 const EXCERPT_BAND_PT = 46;    // ~3 lines of 10-12pt text above and below
 let excerptSeq = 0;
+
 async function renderExcerpt(f) {
   const seq = ++excerptSeq;
   el.excerpt.textContent = '';
@@ -543,6 +579,8 @@ async function renderExcerpt(f) {
   if (seq !== excerptSeq) return;
   const vp = page.getViewport({ scale: EXCERPT_SCALE });
   const r = boxToViewRect(vp, f);
+  const side = await statementSide(page, vp, r);
+  if (seq !== excerptSeq) return;
   const band = EXCERPT_BAND_PT * EXCERPT_SCALE;
   const top = Math.max(0, Math.floor(r.top - band));
   const bottom = Math.min(Math.floor(vp.height), Math.ceil(r.top + r.height + band));
@@ -568,9 +606,17 @@ async function renderExcerpt(f) {
   inner.appendChild(canvas);
   inner.appendChild(mark);
   el.excerpt.appendChild(inner);
-  // Start the reader just left of the box: the statement usually runs to
-  // its right, and anything before it is one swipe back.
-  el.excerpt.scrollLeft = Math.max(0, r.left - 24);
+  // Open where the statement STARTS. A box at the left of its line has the
+  // words to its right: start just left of the box. A box at the right
+  // margin ("…is accurate and current: [ ]") has them to its LEFT, and
+  // starting at the box showed only the last word or two. The page's text
+  // layer says which side the nearest words are on; with no text there (a
+  // scanned page) the box-first start stands.
+  el.excerpt.scrollLeft = Math.max(0, (side && side.side === 'left' ? side.start : r.left) - 24);
+  // Opening at the first word can leave the box itself past the right edge.
+  if (r.left + r.width > el.excerpt.scrollLeft + el.excerpt.clientWidth) {
+    el.checkHint.textContent = 'Scroll the excerpt sideways: the box is at the end of this line.';
+  }
 
   await page.render({
     canvasContext: canvas.getContext('2d'),
