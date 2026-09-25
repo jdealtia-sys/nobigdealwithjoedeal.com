@@ -60,10 +60,28 @@
     const l = document.getElementById('crmViewListBtn');
     if (b) b.classList.toggle('active', !active);
     if (l) l.classList.toggle('active', active);
+    // Settings > Pipeline Preferences > Default Pipeline View: light the
+    // saved choice, or Auto when nothing is saved.
+    let saved = null;
+    try { saved = localStorage.getItem(LS_KEY); } catch (_) {}
+    const pref = saved === 'list' || saved === 'board' ? saved : 'auto';
+    // Same inline active styling as the Card Density picker beside it
+    // (dashboard-ui.js setKanbanDensity).
+    document.querySelectorAll('.cview-default-btn').forEach((btn) => {
+      const on = btn.getAttribute('data-view-default') === pref;
+      btn.style.background = on ? 'var(--orange)' : 'var(--s)';
+      btn.style.color = on ? 'var(--accent-fg,#fff)' : 'var(--m)';
+      btn.style.borderColor = on ? 'var(--orange)' : 'var(--br)';
+    });
   }
 
   function _setMode(mode) {
-    try { localStorage.setItem(LS_KEY, mode); } catch (_) {}
+    try {
+      // null = Auto: forget the saved choice so the device decides
+      // (List on a phone, Board elsewhere).
+      if (mode == null) localStorage.removeItem(LS_KEY);
+      else localStorage.setItem(LS_KEY, mode);
+    } catch (_) {}
     _applyMode();
     // Re-render so the newly-visible surface is fresh. renderLeads
     // re-runs the whole narrowing pipeline and calls back into
@@ -76,6 +94,7 @@
   // data-action="call" entry points (allowlisted in dashboard-state.js)
   window.crmViewBoard = function () { _setMode('board'); };
   window.crmViewList  = function () { _setMode('list'); };
+  window.crmViewAuto  = function () { _setMode(null); };
 
   // ── Row data helpers ─────────────────────────────────────
   function _toDate(v) {
@@ -212,4 +231,9 @@
     if (document.getElementById('crmViewBoardBtn')) { _applyMode(); clearInterval(_t); }
   }, 500);
   setTimeout(() => clearInterval(_t), 30000);
+  // The Settings panel hydrates lazily too: light the Default Pipeline View
+  // choice the first time its buttons exist (checked on any click, cheap).
+  document.addEventListener('click', () => {
+    if (document.querySelector('.cview-default-btn')) setTimeout(_applyMode, 50);
+  }, true);
 })();
