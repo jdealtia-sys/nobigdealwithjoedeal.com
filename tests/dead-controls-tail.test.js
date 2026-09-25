@@ -102,11 +102,26 @@ console.log('DEAD CONTROLS — palette globals, lazy bundles, maps redraw, toast
   const mr = decomment(read('maps-routing.js'));
   ok('no call to the non-existent redrawAll()', !/redrawAll\(\)/.test(mr));
   ok('no call to the non-existent clearAll()', !/\bclearAll\(\)/.test(mr));
+  // 2026-09-25 (draw lane L2): Load, the autosave restore and Undo/Redo share
+  // ONE restore path, _applyPayload(), which paints through the same line and
+  // facet factories live drawing uses. The pins follow the paint, not the old
+  // inline loop.
+  // Bounded to the load function's own body (the next `function ` ends it):
+  // an unbounded lazy match found tryRestoreDrawing's call further down and
+  // stayed green with Load's call deleted (break-tested).
+  const loadFn = (() => {
+    const a = mr.indexOf('async function loadDrawingFromCustomer');
+    const b = a >= 0 ? mr.indexOf('function ', a + 40) : -1;
+    return a >= 0 ? mr.slice(a, b > a ? b : undefined) : '';
+  })();
+  ok('Load goes through the one restore path', /_applyPayload\(data/.test(loadFn));
   ok('rehydrated lines are added to the map',
-    /L\.polyline\(\[p1, p2\][\s\S]{0,200}\.addTo\(drawMap\)/.test(mr),
+    /function _addLine\([\s\S]{0,600}L\.polyline\(\[rec\.p1, rec\.p2\][\s\S]{0,120}\.addTo\(drawMap\)/.test(mr)
+      && /function _applyPayload\([\s\S]*?_addLine\(\{/.test(mr),
     'the loop used to push plain objects with no Leaflet layers');
   ok('rehydrated facets are added to the map',
-    /rec\.polygon = L\.polygon\(points/.test(mr));
+    /function _addFacet\([\s\S]*?f\.polygon = L\.polygon\(f\.points[\s\S]{0,140}\.addTo\(drawMap\)/.test(mr)
+      && /function _applyPayload\([\s\S]*?_addFacet\(\{/.test(mr));
   ok('the sidebars are repainted after a load',
     /renderLineList\(\);/.test(mr) && /renderFacetList\(\);/.test(mr));
   ok('the previous drawing is actually removed from the map',

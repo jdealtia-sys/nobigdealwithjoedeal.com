@@ -22,6 +22,9 @@ const ROOT = path.join(__dirname, '..');
 const GEOM_PATH = path.join(ROOT, 'docs', 'pro', 'js', 'draw-geom.js');
 const G = require(GEOM_PATH);
 const { WING } = require('./e2e/fixtures/draw-touch.js');
+// The captured pre-L2 autosave (moved to a fixture by draw lane L2 so the E2E
+// restore test reads the same copy).
+const { legacyAutosave } = require('./e2e/fixtures/draw-legacy-autosave.js');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const CORE = read('docs/pro/js/maps-core.js');
 const ROUTING = read('docs/pro/js/maps-routing.js');
@@ -99,8 +102,72 @@ const liveShoelace = new Function('hav', liftFunction(ROUTING, 'shoelaceArea') +
 
 // recalc() / recalcGutters() run against a stub document: the #cr-* / #gr-*
 // text they write is compared with computeTotals().text.
-const liveRecalcSrc = liftFunction(ROUTING, 'recalc');
-const liveGutterSrc = liftFunction(ROUTING, 'recalcGutters');
+//
+// 2026-09-25 (draw lane L2): maps-routing.js's recalc() now CALLS
+// computeTotals() (through structureTotals), so comparing the two would be
+// circular. The pre-L2 functions are frozen below, verbatim from
+// maps-routing.js at 122682f9, as the ORACLE: computeTotals() must still
+// equal them wherever L2 did not deliberately change the rules, and the two
+// deliberate changes (per-run downspouts, open-outline edges) are pinned on
+// their own further down.
+const PRE_L2_RECALC = [
+  'function recalc() {',
+  '  const globalPitch = parseFloat(document.getElementById(\'pitchSel\')?.value || 1.202);',
+  '  const waste = parseFloat(document.getElementById(\'wasteSel\')?.value || 1.17);',
+  '  const eave  = drawnLines.filter(l => l.type === 5);',
+  '  const rake  = drawnLines.filter(l => l.type === 4);',
+  '  let base = 0, pitched = 0;',
+  '  if(facets.length > 0) {',
+  '    facets.forEach(f => {',
+  '      if(f.closed && f.baseArea > 0) {',
+  '        base += f.baseArea;',
+  '        pitched += f.baseArea * f.pitch;',
+  '      }',
+  '    });',
+  '    if(perimClosed && perimBaseArea > 0 && !facets.find(f => f.baseArea === perimBaseArea)) {',
+  '      base += perimBaseArea;',
+  '      pitched += perimBaseArea * globalPitch;',
+  '    }',
+  '  }',
+  '  else if(perimClosed && perimBaseArea > 0) {',
+  '    base = perimBaseArea;',
+  '    pitched = base * globalPitch;',
+  '  }',
+  '  else if(eave.length && rake.length) {',
+  '    base = eave.reduce((s,l) => s+l.dist, 0) * (rake.reduce((s,l) => s+l.dist, 0) / rake.length);',
+  '    pitched = base * globalPitch;',
+  '  }',
+  '  else if(drawnLines.filter(l=>l.type!==10).length) {',
+  '    const tot = drawnLines.filter(l=>l.type!==10).reduce((s,l) => s+l.dist, 0);',
+  '    base = (tot/4) * (tot/4);',
+  '    pitched = base * globalPitch;',
+  '  }',
+  '  const w = pitched * waste, sq = w / 100;',
+  '  const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };',
+  '  setTxt(\'cr-base\',    base.toFixed(0) + \' sf\');',
+  '  setTxt(\'cr-pitched\', pitched.toFixed(0) + \' sf\');',
+  '  setTxt(\'cr-waste\',   w.toFixed(0) + \' sf\');',
+  '  setTxt(\'cr-sq\',      sq.toFixed(2) + \' sq\');',
+  '}',
+  'function recalcGutters() {',
+  '  const gutterLines = drawnLines.filter(l => l.type === 10);',
+  '  const total = gutterLines.reduce((s, l) => s + l.dist, 0);',
+  '  const ds = Math.ceil(total / 40);',
+  '  const totalEl = document.getElementById(\'gr-total\');',
+  '  const dsEl    = document.getElementById(\'gr-ds\');',
+  '  if (totalEl) totalEl.textContent = total.toFixed(1) + \' ft\';',
+  '  if (dsEl)    dsEl.textContent = ds;',
+  '}',
+].join('\n');
+const liveRecalcSrc = liftFunction(PRE_L2_RECALC, 'recalc');
+const liveGutterSrc = liftFunction(PRE_L2_RECALC, 'recalcGutters');
+{
+  // The frozen oracle and the live file must still share the readout
+  // writes (the text contract): the live recalc() writes the same four ids.
+  const live = liftFunction(ROUTING, 'recalc');
+  ok('live recalc() still writes #cr-base / #cr-pitched / #cr-waste / #cr-sq, from structureTotals()',
+    ['cr-base', 'cr-pitched', 'cr-waste', 'cr-sq'].every((id) => live.indexOf("setTxt('" + id + "'") >= 0) && /_totals\(\)/.test(live));
+}
 function stubDoc(pitch, waste) {
   const els = {};
   return {
@@ -157,15 +224,20 @@ function runGeom(sc) {
     return { name: 'random #' + i, lines, facets, perimClosed, perimBaseArea, pitch, waste };
   });
   const LEGACY = legacyAutosave();
-  let mism = [];
+  let mism = [], dsBad = [], dsDiffer = 0;
   for (const sc of fixed.concat(random)) {
     if (sc.legacy) { sc.lines = LEGACY.lines; sc.facets = LEGACY.facets; }
     const live = runLiveRecalc(sc), geo = runGeom(sc);
-    if (JSON.stringify(live) !== JSON.stringify(geo)) mism.push(sc.name + ': live ' + JSON.stringify(live) + ' vs geom ' + JSON.stringify(geo));
+    const liveNoDs = Object.assign({}, live, { ds: null }), geoNoDs = Object.assign({}, geo, { ds: null });
+    if (JSON.stringify(liveNoDs) !== JSON.stringify(geoNoDs)) mism.push(sc.name + ': pre-L2 ' + JSON.stringify(live) + ' vs geom ' + JSON.stringify(geo));
+    // Per-run downspouts (L2) can only ADD: sum(ceil(run/40)) >= ceil(sum/40).
+    if (Number(geo.ds) < Number(live.ds)) dsBad.push(sc.name + ': ' + geo.ds + ' < ' + live.ds);
+    if (geo.ds !== live.ds) dsDiffer++;
   }
-  ok('computeTotals().text === the text recalc()+recalcGutters() write, 11 named + 250 random drawings', mism.length === 0, mism.slice(0, 3).join(' | '));
+  ok('computeTotals().text === the pre-L2 recalc()+recalcGutters() text (area, squares, gutter LF), 11 named + 250 random drawings', mism.length === 0, mism.slice(0, 3).join(' | '));
+  ok('per-run downspouts are never fewer than the old ceil(total/40) (' + dsDiffer + ' drawings gained one or more)', dsBad.length === 0 && dsDiffer > 0, dsBad.slice(0, 3).join(' | '));
   const leg = G.computeTotals(LEGACY.lines, LEGACY.facets, LEGACY.pitch, LEGACY.waste);
-  ok('the legacy duplicate-facet drawing reads 2898 pitched sf today (the B4 double count, 2 x 1449)', leg.text.pitched === '2898 sf' && leg.source === 'facets');
+  ok('the legacy duplicate-facet drawing reads 2898 pitched sf as stored (the B4 double count, 2 x 1449) — normalizeDrawing() repairs it, below', leg.text.pitched === '2898 sf' && leg.source === 'facets');
 }
 
 console.log('\n[the LT table and pitch options match the app]');
@@ -276,7 +348,7 @@ console.log('\n[aggregateForEstimate]');
   const mixed = G.aggregateForEstimate([{ type: 3, dist: 17.1 }, { type: 4, dist: 23.9 }, { type: 1, dist: 6.0 }, { type: 7, dist: 8 }, { type: 6, dist: 4 }], []);
   ok('Valley is valleyLf, never rakeLf (B7)', mixed.valleyLf === 17 && mixed.rakeLf === 24);
   ok('Rake is rakeLf, never wallLf (B7)', mixed.rakeLf === 24 && mixed.wallLf === 12);
-  ok('Ridge Vent is not valleyLf (B7) — its own field until Jo decides', mixed.ridgeVentLf === 6 && mixed.valleyLf === 17 && mixed.ridgeLf === 0);
+  ok('Ridge Vent is not valleyLf (B7) — its own field (Jo decision 6: never ridge cap)', mixed.ridgeVentLf === 6 && mixed.valleyLf === 17 && mixed.ridgeLf === 0);
   ok('Flashing + Step Flash both go to wallLf', mixed.wallLf === 12);
   const rv = G.aggregateForEstimate([{ type: 1, dist: 6 }, { type: 0, dist: 19 }, { type: 9, dist: 5 }, { type: 6, dist: 2 }], [], { ridgeVentInRidge: true, parapetInWall: true });
   ok('opts.ridgeVentInRidge moves Ridge Vent into ridgeLf (and out of ridgeVentLf)', rv.ridgeLf === 25 && rv.ridgeVentLf === 0);
@@ -381,6 +453,170 @@ console.log('\n[legacy autosave: corners and ids]');
   ok('a Save doc built from legacy facets (name: undefined, code-map #4) comes out clean', findUndef(legacyDoc, 'doc') !== null && findUndef(fixed, 'doc') === null);
 }
 
+// ── 8. Draw lane L2 (2026-09-25): the rules maps-routing.js now runs ──
+console.log('\n[L2: gutter runs and downspouts]');
+{
+  const P = (x) => ({ lat: 39.1, lng: -84.1 + x * 1e-5 });
+  const seg = (a, b, dist, extra) => Object.assign({ type: 10, dist, p1: P(a), p2: P(b) }, extra || {});
+  const mixed = G.gutterRuns([seg(0, 1, 33.1, { runId: 7 }), seg(10, 11, 20), seg(11, 12, 5), seg(20, 21, 9)]);
+  ok('id-less legacy segments split by continuity beside an id\'d run (3 runs; L1 lumped them into 2)',
+    mixed.length === 3 && mixed[0].runId === 7 && near(mixed[1].lf, 25, 1e-9) && near(mixed[2].lf, 9, 1e-9));
+  const three = G.computeTotals([seg(0, 1, 10, { runId: 1 }), seg(5, 6, 10, { runId: 2 }), seg(9, 10, 10, { runId: 3 })], [], '1.202', '1.17');
+  ok('three separate 10 ft gutter runs get 3 downspouts, one each (was ceil(30/40) = 1)', three.downspouts === 3 && three.text.ds === '3' && three.text.gutter === '30.0 ft');
+  const audit = G.computeTotals([seg(0, 1, 33.3, { runId: 1 }), seg(1, 2, 33.3, { runId: 1 }), seg(5, 6, 15.2, { runId: 2 })], [], '1.202', '1.17');
+  ok('the audit runs 66.6 + 15.2 ft read 81.8 ft and 2 + 1 = 3 downspouts', audit.text.gutter === '81.8 ft' && audit.text.ds === '3');
+  const long = G.computeTotals([seg(0, 1, 100, { runId: 1 })], [], '1.202', '1.17');
+  ok('one 100 ft run: ceil(100/40) = 3 downspouts', long.text.ds === '3');
+  ok('no gutters: 0 downspouts', G.computeTotals([{ type: 5, dist: 20 }], [], '1.202', '1.17').downspouts === 0);
+}
+console.log('\n[L2: the outline being traced is not area evidence]');
+{
+  const open = [{ type: 5, dist: 40.5, openPerim: true }, { type: 4, dist: 25.6, openPerim: true }, { type: 5, dist: 41.0, openPerim: true }];
+  const mid = G.computeTotals(open, [], '1.202', '1.17');
+  const pre = G.computeTotals(open.map((l) => ({ type: l.type, dist: l.dist })), [], '1.202', '1.17');
+  ok('three edges of an open outline no longer read as eave x rake (2086 sf before; the audit saw 2089 sf mid-trace)', mid.base === 0 && mid.source === 'none' && pre.text.base === '2086 sf');
+  const withLine = G.computeTotals(open.concat([{ type: 0, dist: 20 }]), [], '1.202', '1.17');
+  ok('...a finished line beside them still guesses from itself only ((20/4)^2 = 25 sf)', withLine.source === 'lines' && withLine.text.base === '25 sf');
+}
+console.log('\n[L2: Firestore-safe copies walk arrays by index]');
+{
+  const sparse = [1]; sparse[3] = { a: undefined, b: 2 };
+  const out = G.stripUndefined({ pts: sparse });
+  ok('a sparse array\'s holes become null (map() used to leave them as holes)', out.pts.length === 4 && out.pts[1] === null && out.pts[2] === null && JSON.stringify(out.pts[3]) === '{"b":2}' && Object.keys(out.pts).length === 4);
+}
+console.log('\n[L2: what Generate Estimate sends]');
+{
+  ok('riseForEstimate: Flat -> 3/12 (V2\'s lowest; was 8 via "|| 8"), 4/12 -> 4, 8/12 -> 8, 12/12 -> 12, junk -> 3',
+    G.riseForEstimate(1.0) === 3 && G.riseForEstimate('1.054') === 4 && G.riseForEstimate(1.202) === 8 && G.riseForEstimate(1.414) === 12 && G.riseForEstimate('x') === 3);
+  // The audit's drawn set (B7): Ridge 19.0, Hip 12.2, Valley 17.1, Rake 23.9,
+  // Eave 32.7, Ridge Vent 6.0; plus flashing, step flash, parapet, drip edge,
+  // two gutter runs (66.6 + 15.2) and placed accessories.
+  const P = (x) => ({ lat: 39.1, lng: -84.1 + x * 1e-5 });
+  const L = (type, dist, extra) => Object.assign({ type, dist }, extra || {});
+  const lines = [L(0, 19.0), L(2, 12.2), L(3, 17.1), L(4, 23.9), L(5, 32.7), L(1, 6.0), L(6, 4), L(7, 8), L(9, 5), L(8, 3),
+    L(10, 33.3, { runId: 1, p1: P(0), p2: P(1) }), L(10, 33.3, { runId: 1, p1: P(1), p2: P(2) }), L(10, 15.2, { runId: 2, p1: P(5), p2: P(6) })];
+  const acc = [{ type: 'pipe' }, { type: 'pipe' }, { type: 'chimney' }, { type: 'skylight' }, { type: 'vent' }];
+  const sf = G.slopeFactors(8);
+  const imp = G.estimateImport({ lines, accessories: acc, pitchFactor: '1.202', slope: true, totals: { base: 1075, pitched: 1292.5 } });
+  const v = imp.v2;
+  ok('V2 rawSqft = round(pitched), pitch = 8', v.rawSqft === 1293 && v.pitch === 8);
+  ok('Valley -> valleyLf, Rake -> rakeLf, Hip -> hipLf, slope-corrected at 8/12 (B7 + Jo decision 7)',
+    v.valleyLf === Math.round(17.1 * sf.hipValley) && v.rakeLf === Math.round(23.9 * sf.rake) && v.hipLf === Math.round(12.2 * sf.hipValley)
+    && v.rakeLf === 29 && v.hipLf === 13 && v.valleyLf === 19);
+  ok('Ridge Vent is NOT ridgeLf (Jo decision 6) and is reported, not sent', v.ridgeLf === 19 && imp.notPriced.ridgeVentLf === 6 && !('ridgeVentLf' in v));
+  ok('Flashing + Step Flash + Parapet -> wallLf (Jo decision 6: parapet is wall flashing)', v.wallLf === 17);
+  ok('drawn gutter feet -> guttersLf (82), downspouts per run (3)', v.guttersLf === 82 && imp.downspouts === 3);
+  ok('placed pipes / chimneys / skylights -> pipes 2, chimneys 1, skylights 1 (vents are not a V2 field)', v.pipes === 2 && v.chimneys === 1 && v.skylights === 1 && !('vents' in v));
+  ok('eaveLf is the plan-view eave (eaves are level)', v.eaveLf === 33);
+  ok('V2 gets only keys it knows', Object.keys(v).every((k) => ['rawSqft', 'pitch', 'eaveLf', 'ridgeLf', 'rakeLf', 'hipLf', 'valleyLf', 'wallLf', 'guttersLf', 'pipes', 'chimneys', 'skylights'].indexOf(k) >= 0));
+  const flat = G.estimateImport({ lines, accessories: acc, pitchFactor: '1.202', slope: false, totals: { base: 1075, pitched: 1292.5 } });
+  ok('slope switch OFF sends the flat feet (24 / 12 / 17)', flat.v2.rakeLf === 24 && flat.v2.hipLf === 12 && flat.v2.valleyLf === 17 && flat.sloped.rakeLf === 29);
+  const none = G.estimateImport({ lines: [L(5, 30)], accessories: [], pitchFactor: '1.0', slope: true, totals: { base: 900, pitched: 900 } });
+  // 2026-09-25 (L2 review, blocking): this pin used to say "no guttersLf
+  // key". V2 keeps its state across a close, so the missing key left the
+  // previous drawing's gutter feet priced on this job. 0 = "not measured":
+  // the engine falls back to eave (GUTTER_LF) and per-SQ adds no gutters.
+  ok('no gutters drawn: guttersLf is SENT as 0 (never omitted), and Classic gets 0 too',
+    'guttersLf' in none.v2 && none.v2.guttersLf === 0 && none.classic.gutterLF === 0);
+  ok('nothing placed, no previous import: no pipes / chimneys / skylights key (a typed or prefilled count survives); Flat -> pitch 3',
+    !('pipes' in none.v2) && !('chimneys' in none.v2) && !('skylights' in none.v2) && none.v2.pitch === 3 && none.drawnRise === 0
+    && JSON.stringify(none.sentCounts) === '{}');
+  ok('sentCounts = only the counts this drawing placed', JSON.stringify(imp.sentCounts) === JSON.stringify({ pipes: 2, chimneys: 1, skylights: 1 }));
+  // Job A placed 2 pipes + a skylight; job B places only a chimney.
+  const jobB = G.estimateImport({ lines: [L(5, 30)], accessories: [{ type: 'chimney' }], slope: true, totals: { base: 900, pitched: 900 },
+    previousCounts: { pipes: 2, skylights: 1 } });
+  ok('a count the PREVIOUS drawing import set, with no marker now, is sent as 0 (A\'s skylight left B priced)',
+    jobB.v2.pipes === 0 && jobB.v2.skylights === 0 && jobB.v2.chimneys === 1 && JSON.stringify(jobB.sentCounts) === '{"chimneys":1}');
+  ok('previousCounts of 0 / junk clear nothing', !('pipes' in G.estimateImport({ lines: [L(5, 30)], totals: { base: 1, pitched: 1 }, previousCounts: { pipes: 0, skylights: 'x' } }).v2));
+  const perLine = G.estimateImport({ lines: [L(4, 20, { rise: 4 }), L(4, 20, { rise: 8 })], slope: true, totals: { base: 1, pitched: 1 } });
+  ok('each rake slopes at its own facet\'s pitch (20 ft @4/12 + 20 ft @8/12 = 45 LF)', perLine.v2.rakeLf === Math.round(20 * G.slopeFactors(4).rake + 20 * sf.rake) && perLine.v2.rakeLf === 45);
+  const gutOnly = G.estimateImport({ lines: [L(10, 66.6, { runId: 1 })], slope: true, totals: { base: 0, pitched: 0 } });
+  ok('a gutter-only drawing warns "no-roof" and still sends guttersLf', gutOnly.warning === 'no-roof' && gutOnly.v2.guttersLf === 67 && gutOnly.v2.rawSqft === 0);
+  ok('a guessed area warns "estimated-area"; nothing drawn is "empty"',
+    G.estimateImport({ lines: [L(0, 20)], totals: { base: 25, pitched: 30, estimated: true } }).warning === 'estimated-area'
+    && G.estimateImport({ lines: [], totals: { base: 0, pitched: 0 } }).warning === 'empty');
+  ok('Classic payload: pitched sf, ridge, eave, sloped hip, gutter feet', JSON.stringify(imp.classic) === JSON.stringify({ rawSqft: 1293, ridge: 19, eave: 33, hip: 13, gutterLF: 82 }));
+}
+console.log('\n[L2 review: a Line-mode gutter continues the run whose end it touches]');
+{
+  const P = (x) => ({ lat: 39.1, lng: -84.1 + x * 1e-5 });
+  const seg = (a, b, runId) => ({ type: 10, dist: 10, p1: P(a), p2: P(b), runId });
+  const lines = [seg(0, 1, 1), seg(1, 2, 1), seg(5, 6, 2), { type: 5, dist: 9, p1: P(9), p2: P(10) }];
+  ok('starts on run 1\'s far end -> run 1', G.gutterRunAt(lines, P(2), P(3)) === 1);
+  ok('ends on run 1\'s first end (drawn toward it) -> run 1', G.gutterRunAt(lines, P(-1), P(0)) === 1);
+  ok('touches run 2\'s end -> run 2', G.gutterRunAt(lines, P(6), P(7)) === 2);
+  ok('touches only run 1\'s MIDDLE corner -> a new run (null)', G.gutterRunAt(lines, P(1), P(1.5)) === null);
+  ok('touches only an eave -> a new run (null); no lines -> null', G.gutterRunAt(lines, P(10), P(11)) === null && G.gutterRunAt(null, P(0), P(1)) === null);
+  // Joined at its start, run 1's ends are now -1 and 2 — the end set is by degree, not by array order.
+  const joined = lines.concat([seg(-1, 0, 1)]);
+  ok('after a join at the start, the old start is no longer an end', G.gutterRunAt(joined, P(0), P(0.5)) === null && G.gutterRunAt(joined, P(-2), P(-1)) === 1);
+  const runs = G.gutterRuns(lines.concat([seg(2, 3, G.gutterRunAt(lines, P(2), P(3)))]));
+  ok('two touching Line-mode segments + a run = one run and one downspout', runs.length === 2 && runs[0].segmentCount === 3 && runs[0].downspouts === 1);
+}
+console.log('\n[L2: per-structure totals (Jo decision 3)]');
+{
+  const FT = G.EARTH_R_FT * Math.PI / 180;
+  const at = (o, x, y) => ({ lat: o.lat + y / FT, lng: o.lng + x / (FT * Math.cos(o.lat * Math.PI / 180)) });
+  const wingPts = [WING.A, WING.B, WING.C, WING.D];
+  const g0 = at(WING.D, 2, -12);
+  const garage = [g0, at(g0, 22, 0), at(g0, 22, -20), at(g0, 0, -20)];
+  const facets = [{ closed: true, baseArea: G.shoelace(wingPts), pitch: 1.202, structureId: 1 }, { closed: true, baseArea: G.shoelace(garage), pitch: 1.054, structureId: 2 }];
+  const lines = [{ type: 10, dist: 30, runId: 1, structureId: 1 }, { type: 10, dist: 20, runId: 2, structureId: 2 }, { type: 0, dist: 5 }];
+  const st = G.structureTotals(lines, facets, [{ id: 1, name: 'House' }, { id: 2, name: 'Garage' }], '1.202', '1.17');
+  ok('each structure keeps its own area: House 1075 sf, Garage 440 sf', st.per[0].text.base === '1075 sf' && st.per[1].text.base === '440 sf' && near(G.shoelace(garage), 440, 0.05));
+  ok('the job total is the sum (1515 sf; pitched = each at its own pitch)', st.combined.text.base === '1515 sf' && near(st.combined.pitched, G.shoelace(wingPts) * 1.202 + G.shoelace(garage) * 1.054, 1e-6));
+  ok('gutter feet and downspouts per structure and summed', st.per[0].gutterLf === 30 && st.per[1].gutterLf === 20 && st.combined.downspouts === 2 && st.combined.text.gutter === '50.0 ft');
+  ok('a line with no structureId belongs to the first structure', st.per[0].lineCount === 2 && st.per[1].lineCount === 1);
+  const one = G.structureTotals(lines, facets.slice(0, 1), null, '1.202', '1.17');
+  const flatOne = G.computeTotals(lines, facets.slice(0, 1), '1.202', '1.17');
+  ok('with one structure the job text IS computeTotals() (the readout contract is unchanged)', JSON.stringify(one.combined.text) === JSON.stringify(flatOne.text));
+  const est = G.structureTotals([{ type: 5, dist: 30, structureId: 2 }, { type: 4, dist: 20, structureId: 2 }], facets.slice(0, 1), [{ id: 1, name: 'A' }, { id: 2, name: 'B' }], '1.202', '1.17');
+  ok('a structure with only lines is flagged estimated; the measured one is not', est.combined.estimated && est.combined.measured && est.per[0].source === 'facets' && est.per[1].source === 'eave-rake');
+}
+console.log('\n[L2: one restore path (normalizeDrawing)]');
+{
+  const raw = legacyAutosave();
+  const before = JSON.stringify(raw);
+  const n = G.normalizeDrawing(raw);
+  ok('the input is never modified', JSON.stringify(raw) === before);
+  ok('legacy decimal ids -> integers 1..9; seq.line continues at 10', JSON.stringify(n.lines.map((l) => l.id)) === JSON.stringify([1, 2, 3, 4, 5, 6, 7, 8, 9]) && n.seq.line === 10);
+  ok('names come from the type (Eave, Rake, ... Gutters)', n.lines.map((l) => l.name).join() === 'Eave,Rake,Eave,Rake,Valley,Ridge Vent,Ridge,Gutters,Gutters');
+  ok('the B4 duplicate facet is dropped: 1 facet, labelled "Facet 1", repaired.dupFacets 1', n.facets.length === 1 && n.facets[0].label === 'Facet 1' && n.repaired.dupFacets === 1);
+  ok('baseArea is recomputed from the points (1205 sf)', near(n.facets[0].baseArea, 1205.3647868582223, 1e-6));
+  const t = G.computeTotals(n.lines, n.facets, n.pitch, n.waste);
+  ok('restored totals read 1449 pitched sf, not the stored 2898', t.text.pitched === '1449 sf');
+  ok('the 4 perimeter edges learn their facet', n.lines.slice(0, 4).every((l) => l.isPerim && l.facetId === n.facets[0].id) && n.lines.slice(4).every((l) => !l.facetId));
+  ok('the 2 gutter segments share one run id (continuity)', n.lines[7].runId && n.lines[7].runId === n.lines[8].runId && n.lines.slice(0, 7).every((l) => l.runId === null));
+  ok('the legacy gutterPoints chain is NOT reopened (the B5 bridge); flagged', n.gutterRun === null && n.repaired.legacyGutterChainDropped === true);
+  ok('the open outline\'s one point is kept', n.perimPoints.length === 1 && n.perimSegIds.length === 0);
+  ok('one default structure, everything on it', n.structures.length === 1 && n.structures[0].name === 'Structure 1' && n.lines.every((l) => l.structureId === 1) && n.facets.every((f) => f.structureId === 1));
+  const again = G.normalizeDrawing(JSON.parse(JSON.stringify(n)));
+  const strip = (x) => JSON.stringify(Object.assign({}, x, { repaired: null }));
+  ok('normalizing a normalized drawing changes nothing (Undo/Redo snapshots are stable)', strip(again) === strip(n));
+}
+{
+  const ring = [WING.A, WING.B, WING.C, WING.D];
+  const edges = ring.map((p, i) => ({ type: i % 2 ? 4 : 5, dist: G.hav(p, ring[(i + 1) % 4]), p1: p, p2: ring[(i + 1) % 4], subtype: i % 2 ? 'rake' : 'eave' }));
+  const same = G.normalizeDrawing({ lines: edges, facets: [{ pitch: 1.202, closed: true, points: ring }], perimPoints: ring, perimClosed: true });
+  ok('a legacy closed perimeter that IS a facet is dropped, not counted twice', same.facets.length === 1 && same.repaired.closedPerim === 'was-a-facet' && same.perimPoints.length === 0);
+  const only = G.normalizeDrawing({ lines: edges, facets: [], perimPoints: ring, perimClosed: true, pitch: '1.118' });
+  ok('a legacy closed perimeter with no facet becomes one (at the drawing pitch)', only.facets.length === 1 && only.repaired.closedPerim === 'became-a-facet' && only.facets[0].pitch === 1.118 && only.lines.every((l) => l.facetId === only.facets[0].id));
+  const openTrace = G.normalizeDrawing({ lines: edges.slice(0, 2), facets: [], perimPoints: ring.slice(0, 3), perimClosed: false });
+  ok('a legacy OPEN outline finds its committed edges', JSON.stringify(openTrace.perimSegIds) === JSON.stringify(openTrace.lines.map((l) => l.id)));
+  const v1doc = G.normalizeDrawing({ lines: [{ type: 3, name: 'Valley', dist: 12, p1: WING.A, p2: WING.B }], facets: [{ name: undefined, pitch: 1.202, closed: true, baseArea: 1, points: ring }], version: 2 });
+  ok('a v1 Firestore doc (no ids, facet name undefined) loads: id 1, "Facet 1"', v1doc.lines[0].id === 1 && v1doc.facets[0].label === 'Facet 1');
+  const junk = G.normalizeDrawing({ lines: [null, { type: 12, p1: WING.A, p2: WING.B }, { type: 2, p1: { lat: NaN, lng: 1 }, p2: WING.B }, { type: '2', dist: 'x', p1: WING.A, p2: WING.B }], facets: [{ points: [WING.A] }, null], structures: [{ id: 0 }, { id: 3, name: '' }, { id: 3, name: 'dup' }] });
+  ok('garbage lines/facets/structures are dropped or defaulted, never thrown', junk.lines.length === 1 && junk.lines[0].type === 2 && near(junk.lines[0].dist, G.hav(WING.A, WING.B), 1e-9)
+    && junk.facets.length === 0 && junk.structures.length === 1 && junk.structures[0].id === 3 && junk.structures[0].name === 'Structure 1' && junk.lines[0].structureId === 3);
+  ok('null / non-object input gives an empty drawing', G.normalizeDrawing(null).lines.length === 0 && G.normalizeDrawing('x').structures.length === 1);
+  const v2 = G.normalizeDrawing({ v: 2, lines: [{ id: 4, type: 10, dist: 10, p1: WING.A, p2: WING.B, runId: 3, structureId: 2 }], facets: [],
+    structures: [{ id: 1, name: 'House' }, { id: 2, name: 'Garage' }], activeStructureId: 2, gutterRun: { runId: 3, points: [WING.B] },
+    accessories: [{ type: 'pipe', lat: 39.1, lng: -84.1, structureId: 2 }, { type: 'bogus', lat: 1, lng: 1 }], seq: { line: 9, run: 5, facet: 2, struct: 3 } });
+  ok('a v2 payload keeps ids, runs, the open run, structures, accessories and sequences',
+    v2.lines[0].id === 4 && v2.lines[0].runId === 3 && v2.lines[0].structureId === 2 && v2.gutterRun.runId === 3 && v2.activeStructureId === 2
+    && v2.accessories.length === 1 && v2.accessories[0].structureId === 2 && v2.seq.line === 9 && v2.seq.run === 5 && v2.seq.struct === 3);
+}
+
 // ── 7. Module shape ────────────────────────────────────────────────
 console.log('\n[module shape]');
 {
@@ -390,38 +626,6 @@ console.log('\n[module shape]');
   ok('in a browser-like context it defines exactly window.NBDDrawGeom', Object.keys(win).join() === 'NBDDrawGeom' && typeof win.NBDDrawGeom.computeTotals === 'function');
   ok('the browser copy computes the same totals as the node copy', win.NBDDrawGeom.shoelace([WING.A, WING.B, WING.C, WING.D]) === G.shoelace([WING.A, WING.B, WING.C, WING.D]));
   ok('the API object is frozen', Object.isFrozen(G) && Object.isFrozen(G.LT_NAMES) && Object.isFrozen(G.FIELD_BY_TYPE));
-}
-
-// A real autosave captured from the rig on 2026-09-25 (maps-routing.js
-// autoSaveDrawing, origin/main f7408d71): a 40x30 ft facet closed, one tap to
-// start facet 2 (duplicating facet 1, B4), a Valley, a Ridge Vent and a
-// Ridge line, and a 2-segment gutter run. Facets carry no name/color keys
-// (JSON.stringify dropped their undefined values); gutterPoints misses the
-// run's last point (autosave runs before the push). Re-anchored off the
-// demo address the same way WING is.
-function legacyAutosave() {
-  return JSON.parse(JSON.stringify({
-    address: '',
-    lines: [
-      { id: 1790347279719.1355, type: 5, name: 'Eave', color: '#BE185D', dist: 40.08931340324379, p1: { lat: 39.167670860328165, lng: -84.17000010609627 }, p2: { lat: 39.167670860328165, lng: -84.16985836745332 }, subtype: 'eave' },
-      { id: 1790347279720.51, type: 4, name: 'Rake', color: '#EC4899', dist: 30.0669850524477, p1: { lat: 39.167670860328165, lng: -84.16985836745332 }, p2: { lat: 39.167753277910585, lng: -84.16985836745332 }, subtype: 'rake' },
-      { id: 1790347279721.5767, type: 5, name: 'Eave', color: '#BE185D', dist: 40.08926642546462, p1: { lat: 39.167753277910585, lng: -84.16985836745332 }, p2: { lat: 39.167753277910585, lng: -84.17000010609627 }, subtype: 'eave' },
-      { id: 1790347279722.097, type: 4, name: 'Rake', color: '#EC4899', dist: 30.0669850524477, p1: { lat: 39.167753277910585, lng: -84.17000010609627 }, p2: { lat: 39.167670860328165, lng: -84.17000010609627 }, subtype: 'rake' },
-      { id: 1790347279725.4807, type: 3, name: 'Valley', color: '#3B82F6', dist: 25.055820876175698, p1: { lat: 39.167670860328165, lng: -84.1702127140607 }, p2: { lat: 39.167739541646846, lng: -84.1702127140607 }, subtype: 'line' },
-      { id: 1790347279726.565, type: 1, name: 'Ridge Vent', color: '#86EFAC', dist: 10.022328349951849, p1: { lat: 39.167670860328165, lng: -84.17028358338217 }, p2: { lat: 39.167698332855636, lng: -84.17028358338217 }, subtype: 'line' },
-      { id: 1790347279727.9907, type: 0, name: 'Ridge', color: '#22C55E', dist: 17.03795819621422, p1: { lat: 39.167670860328165, lng: -84.17035445270365 }, p2: { lat: 39.16771756362487, lng: -84.17035445270365 }, subtype: 'line' },
-      { id: 1790347279728.621, type: 10, name: 'Gutters', color: '#06B6D4', dist: 33.073735231319105, p1: { lat: 39.167560970218275, lng: -84.17000010609627 }, p2: { lat: 39.167560970218275, lng: -84.16988317171584 }, subtype: 'gutter' },
-      { id: 1790347279729.2104, type: 10, name: 'Gutters', color: '#06B6D4', dist: 20.044656702495846, p1: { lat: 39.167560970218275, lng: -84.16988317171584 }, p2: { lat: 39.16750602516333, lng: -84.16988317171584 }, subtype: 'gutter' },
-    ],
-    facets: [
-      { pitch: 1.202, closed: true, baseArea: 1205.3647868582223, points: [{ lat: 39.167670860328165, lng: -84.17000010609627 }, { lat: 39.167670860328165, lng: -84.16985836745332 }, { lat: 39.167753277910585, lng: -84.16985836745332 }, { lat: 39.167753277910585, lng: -84.17000010609627 }] },
-      { pitch: 1.202, closed: true, baseArea: 1205.3647868582223, points: [{ lat: 39.167670860328165, lng: -84.17000010609627 }, { lat: 39.167670860328165, lng: -84.16985836745332 }, { lat: 39.167753277910585, lng: -84.16985836745332 }, { lat: 39.167753277910585, lng: -84.17000010609627 }] },
-    ],
-    perimPoints: [{ lat: 39.167890640547945, lng: -84.16971662881036 }],
-    perimClosed: false,
-    gutterPoints: [{ lat: 39.167560970218275, lng: -84.17000010609627 }, { lat: 39.167560970218275, lng: -84.16988317171584 }],
-    pitch: '1.202', waste: '1.17', ts: 1790347279730,
-  }));
 }
 
 console.log('\n──────────────────────────────');
