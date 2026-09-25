@@ -637,7 +637,7 @@
       tier:'best', reason:'Ring-shank nails provide 40% more pullout resistance for wind zones.',
       tags:['fasteners','ring-shank','wind-resistant'] });
   A({ code:'RFG NAIL-LUMA', name:'LumaNails Ring-Shank Fasteners', sub:'fasteners', cat:'roofing', unit:'SQ', mat:7.50, lab:0,
-      desc:'LumaNails premium ring-shank roofing nails. Contractor cost $75/box covers 10 SQ of installation.',
+      desc:'LumaNails premium ring-shank roofing nails. One box covers about 10 SQ of installation.',
       tier:'best',
       reason:'LumaNails engineered ring-shank fasteners with enhanced pullout resistance. Joe\'s preferred fastener for Best-tier systems.',
       tags:['fasteners','lumanails','ring-shank','best-tier','premium'],
