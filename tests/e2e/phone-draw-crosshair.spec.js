@@ -14,6 +14,14 @@
 // the pending point; a double tap on Add never commits; landscape (the bar
 // docks right); Shadow Pitch through Add; a no-move Drop; no tile-wiping
 // view reset on Confirm.
+// Release gate (2026-09-25, Jo decision 8): the screen ships OFF behind
+// "Crosshair drawing (beta)" in ☰ Tools (localStorage nbd_draw_crosshair).
+// The stub blocks and the landscape / Tools checks opt in with an init
+// script ('1'); the "beta switch" block and the real-engine block start with
+// NO preference and pin the default (no screen, tap-to-place, no seam call),
+// the switch itself at every phone layout, live on / off, reload, re-entry,
+// and on / off x5 with no leak. The desktop block opts in and still gets
+// nothing.
 //
 // How it measures:
 //   - The engine seam (drawMap.nbdDraw, draw lane L3) is a TEST-ONLY stub
@@ -60,6 +68,82 @@ async function returningUser(context) {
       localStorage.setItem('nbd_draw_crosshair_coached', '1');
     } catch (e) { /* storage blocked */ }
   });
+}
+// The screen is an opt-in beta (off by default): the blocks that test the
+// screen itself switch it on the way a rep's choice is kept — '1' in
+// localStorage — before every load.
+const PREF = 'nbd_draw_crosshair';
+async function crosshairOn(context) {
+  await context.addInitScript((k) => { try { localStorage.setItem(k, '1'); } catch (e) { /* storage blocked */ } }, PREF);
+}
+// Counts what draw-reticle.js has attached to window and document (by the
+// stack at addEventListener time) and the Mutation/ResizeObservers it has
+// observing, so an on / off cycle can be checked for leaks. Test-only.
+function leakProbeInit() {
+  Error.stackTraceLimit = 80;
+  const mine = () => (new Error().stack || '').indexOf('draw-reticle.js') !== -1;
+  const live = { window: new Map(), document: new Map() };
+  const keyOf = (type, opts) => type + '|' + (typeof opts === 'boolean' ? opts : !!(opts && opts.capture));
+  const bucketOf = (t) => (t === window ? live.window : t === document ? live.document : null);
+  const add = EventTarget.prototype.addEventListener;
+  const rem = EventTarget.prototype.removeEventListener;
+  EventTarget.prototype.addEventListener = function (type, fn, opts) {
+    const b = bucketOf(this);
+    if (b && fn && mine()) { const k = keyOf(type, opts); if (!b.has(k)) b.set(k, new Set()); b.get(k).add(fn); }
+    return add.call(this, type, fn, opts);
+  };
+  EventTarget.prototype.removeEventListener = function (type, fn, opts) {
+    const b = bucketOf(this);
+    if (b && fn) { const s = b.get(keyOf(type, opts)); if (s) s.delete(fn); }
+    return rem.call(this, type, fn, opts);
+  };
+  const observers = new Set();
+  for (const C of [window.MutationObserver, window.ResizeObserver]) {
+    if (!C) continue;
+    const obs = C.prototype.observe, disc = C.prototype.disconnect;
+    C.prototype.observe = function () { if (mine()) observers.add(this); return obs.apply(this, arguments); };
+    C.prototype.disconnect = function () { observers.delete(this); return disc.apply(this, arguments); };
+  }
+  const count = (m) => { let n = 0; m.forEach((s) => { n += s.size; }); return n; };
+  Object.defineProperty(window, '__e2eLeaks', { value: () => ({ window: count(live.window), document: count(live.document), observers: observers.size }) });
+}
+// Everything the screen adds to the page outside its own root, and the switch.
+async function screenState(page) {
+  return page.evaluate((k) => {
+    const view = document.getElementById('view-draw');
+    const sw = document.getElementById('drawCrosshairSwitch');
+    const bs = document.body.style;
+    const vars = ['--dr-toast-top', '--dr-toast-left', '--dr-toast-right'].map((v) => bs.getPropertyValue(v))
+      .concat([view.style.getPropertyValue('--dr-floor')]).filter(Boolean);
+    let pref = null;
+    try { pref = localStorage.getItem(k); } catch (e) { pref = 'blocked'; }
+    return {
+      roots: document.querySelectorAll('.dr-root').length,
+      drOn: view.classList.contains('dr-on'),
+      barOn: document.body.classList.contains('dr-bar-on'),
+      vars,
+      pref,
+      sw: sw ? { checked: sw.getAttribute('aria-checked'), role: sw.getAttribute('role'), label: (document.getElementById(sw.getAttribute('aria-labelledby')) || {}).textContent || '' } : null,
+      switches: document.querySelectorAll('#drawCrosshairSwitch').length,
+    };
+  }, PREF);
+}
+const TOOLS = '[data-action="mapSidebar"][data-target="map-sidebar-draw"]';
+// Scroll ☰ Tools until the switch sits mid-drawer, as a rep would. (With the
+// screen off, a 360x640 phone's drawer runs 66px under the bottom nav, so
+// "scrolled into view" is not the same as "under a thumb".)
+async function revealSwitch(page) {
+  await page.evaluate(() => document.getElementById('drawCrosshairSwitch').scrollIntoView({ block: 'center', inline: 'nearest' }));
+  await page.waitForTimeout(150);
+}
+// Open / close ☰ Tools with a real tap (no-op if it is already that way).
+async function setTools(page, open) {
+  const isOpen = await page.evaluate(() => document.getElementById('map-sidebar-draw').classList.contains('open'));
+  if (isOpen === open) return;
+  await page.locator(TOOLS).tap();
+  if (open) await expect(page.locator('#map-sidebar-draw')).toHaveClass(/\bopen\b/);
+  else await expect(page.locator('#map-sidebar-draw')).not.toHaveClass(/\bopen\b/);
+  await page.waitForTimeout(400); // max-height transition
 }
 const nextFrames = (page) => page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
 const fmtSq = (base) => (base * PITCH * WASTE / 100).toFixed(2);
@@ -224,6 +308,7 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       testInfo.setTimeout(90_000);
       context = await browser.newContext(T.phoneContextOptions(width, height));
       await returningUser(context);
+      await crosshairOn(context);
       await installSeamStub(context);
       page = await context.newPage();
       page.on('request', (r) => urls.push(r.url()));
@@ -258,6 +343,8 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       expect(hits(urls, 'draw-reticle.css'), 'draw-reticle.css with the Draw view').toBeGreaterThan(0);
       const calls = await page.evaluate(() => drawMap.nbdDraw.__calls.map((c) => c.fn));
       expect(calls, 'the screen switched the engine into crosshair mode').toContain('setCrosshair');
+      const s = await screenState(page);
+      expect(s.sw && s.sw.checked, 'opted in: the beta switch in ☰ Tools reads on').toBe('true');
     });
 
     test('layout: the crosshair is the map centre with the map under it, above a bar clear of the nav and attribution', async () => {
@@ -835,12 +922,283 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
   });
 }
 
+// 2026-09-25 (release gate, Jo decision 8): the screen ships OFF. This block
+// starts with NO preference, on the stub seam at 412x860, and pins the gate:
+// off is the phone as it was before the screen (no .dr-root, no body classes
+// or CSS vars, no seam call, tap-to-place); the switch builds and tears the
+// screen down live, survives a reload, is re-read on coming back to Draw,
+// cycles on / off with nothing left behind, and is under a thumb at every
+// phone layout. (The real-engine block below repeats default / on / off on
+// L3's seam.)
+test.describe.serial('crosshair beta switch, off by default 412x860 @shard2', () => {
+  /** @type {import('@playwright/test').BrowserContext} */ let context;
+  /** @type {import('@playwright/test').Page} */ let page;
+  let touch = null;
+  const pageErrors = [];
+  const SW = '#drawCrosshairSwitch';
+  const crosshairCalls = () => page.evaluate(() => drawMap.nbdDraw.__calls.filter((c) => c.fn === 'setCrosshair').map((c) => c.args[0]));
+  async function tapSel(sel) {
+    await page.evaluate((s) => { const e = document.querySelector(s); e.dataset.e2eClicked = '0'; e.addEventListener('click', () => { e.dataset.e2eClicked = '1'; }, { once: true, capture: true }); }, sel);
+    await page.locator(sel).tap();
+    await expect.poll(() => page.evaluate((s) => document.querySelector(s).dataset.e2eClicked, sel), { message: `a tap on ${sel} clicks it`, timeout: 3_000 }).toBe('1');
+    await nextFrames(page);
+  }
+  async function openDrawView() {
+    await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user, { timeout: 30_000 });
+    await T.openDraw(page);
+    await page.waitForFunction(() => !!(drawMap && drawMap.nbdDraw && drawMap.nbdDraw.__calls) && !!document.getElementById('drawCrosshairSwitch'), null, { timeout: 10_000 });
+  }
+  // Two real finger taps on the map with Lines armed on the engine: tap-to-
+  // place, the path a phone has with the screen off.
+  async function tapToPlace() {
+    await T.resetDrawing(page);
+    await T.setView(page, WING.view, WING.zoom);
+    await T.arm(page, 'line');
+    const a = await T.ll2client(page, WING.A), b = await T.ll2client(page, WING.B);
+    expect((await T.hitAt(page, a)).ok, `a finger at corner A reaches the map (${(await T.hitAt(page, a)).what})`).toBe(true);
+    await touch.tap(a);
+    await touch.tap(b);
+    const st = await T.drawState(page);
+    await T.resetDrawing(page);
+    return st;
+  }
+  const leaks = () => page.evaluate(() => Object.assign({
+    roots: document.querySelectorAll('.dr-root').length,
+    leaflets: document.querySelectorAll('.leaflet-container').length,
+    mapListeners: Object.values(drawMap._events || {}).reduce((n, a) => n + a.length, 0),
+    seamListeners: drawMap.nbdDraw.__listenerCount(),
+    barOn: document.body.classList.contains('dr-bar-on'),
+    drOn: document.getElementById('view-draw').classList.contains('dr-on'),
+  }, window.__e2eLeaks()));
+
+  test.beforeAll(async ({ browser }, testInfo) => {
+    if (!creds) return;
+    testInfo.setTimeout(90_000);
+    context = await browser.newContext(T.phoneContextOptions(412, 860));
+    await returningUser(context);
+    await installSeamStub(context);
+    await context.addInitScript(leakProbeInit);
+    page = await context.newPage();
+    page.on('pageerror', (e) => pageErrors.push(String((e && e.message) || e)));
+    T.acceptDialogs(page);
+    await T.stubTiles(page);
+    await stubNetwork(page);
+    await loginAs(page, creds);
+    await openDrawView();
+    touch = await T.touchSession(page);
+    await T.quietToasts(page);
+    await T.setView(page, WING.view, WING.zoom);
+  });
+  test.afterAll(async () => {
+    if (touch) await touch.detach();
+    if (context) await context.close();
+  });
+  test.beforeEach(async ({}, testInfo) => {
+    if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+
+  test('default (no preference): no screen, no seam call, tap-to-place — and the switch in ☰ Tools reads off', async () => {
+    const s = await screenState(page);
+    expect(s.pref, 'no preference stored').toBeNull();
+    expect(s.roots, 'no crosshair screen (.dr-root)').toBe(0);
+    expect(s.drOn, '#view-draw.dr-on').toBe(false);
+    expect(s.barOn, 'body.dr-bar-on (the toast move)').toBe(false);
+    expect(s.vars, 'no --dr-* CSS vars on body or #view-draw').toEqual([]);
+    expect(await crosshairCalls(), 'the screen never called setCrosshair').toEqual([]);
+    expect(s.switches, 'one switch').toBe(1);
+    expect(s.sw.role, 'a real switch').toBe('switch');
+    expect(s.sw.label, 'its label').toBe('Crosshair drawing (beta)');
+    expect(s.sw.checked, 'it reads off').toBe('false');
+    await setTools(page, true);
+    await T.quietToasts(page);
+    await revealSwitch(page);
+    await expect(page.locator(SW), 'the switch shows in ☰ Tools').toBeVisible();
+    await expectTappable(page, SW, 'the beta switch');
+    expect((await page.locator(SW).boundingBox()).height, 'switch height').toBeGreaterThanOrEqual(44);
+    await expect(page.locator('#drawCrosshairSwitchHint'), 'with its one-line hint').toHaveText(/crosshair/i);
+    await setTools(page, false);
+    const st = await tapToPlace();
+    expect(st.saved && st.saved.lines.length, 'two taps on the map drew one line (tap-to-place, the engine path)').toBe(1);
+    expect(Math.abs(st.saved.lines[0].dist - G.hav(WING.A, WING.B)), 'its length').toBeLessThanOrEqual(0.5);
+    expect(await crosshairCalls(), 'still no setCrosshair').toEqual([]);
+  });
+
+  test('switch on: the screen builds at once, with no reload, and turns crosshair mode on', async () => {
+    await setTools(page, true);
+    await tapSel(SW);
+    let s = await screenState(page);
+    expect(s.sw.checked, 'the switch reads on').toBe('true');
+    expect(s.pref, 'the choice is kept').toBe('1');
+    expect(s.roots, 'one crosshair screen, built live').toBe(1);
+    expect(s.drOn, '#view-draw.dr-on').toBe(true);
+    expect(await crosshairCalls(), 'setCrosshair(true), once').toEqual([true]);
+    await setTools(page, false);
+    await expect(page.locator('#view-draw.dr-on .dr-root .dr-bar'), 'the bar is up').toBeVisible();
+    await nextFrames(page);
+    s = await screenState(page);
+    expect(s.barOn, 'body.dr-bar-on').toBe(true);
+    // The drawer sat in the page (off) and now overlays the map (on): the
+    // map was re-measured, so the crosshair is Leaflet's centre.
+    const off = await page.evaluate(() => {
+      const c = document.querySelector('.dr-cross').getBoundingClientRect();
+      const m = drawMap.getContainer().getBoundingClientRect();
+      const z = drawMap.getSize();
+      return { dx: c.left + c.width / 2 - (m.left + z.x / 2), dy: c.top + c.height / 2 - (m.top + z.y / 2), h: m.height, lh: z.y };
+    });
+    expect(Math.abs(off.lh - off.h), 'Leaflet knows the map\'s new height').toBeLessThanOrEqual(1);
+    expect(Math.hypot(off.dx, off.dy), 'crosshair = the map centre').toBeLessThanOrEqual(1);
+  });
+
+  test('reload: the choice is kept, and the screen builds on the next visit to Draw', async () => {
+    if (touch) { await touch.detach(); touch = null; }
+    await page.reload();
+    await openDrawView();
+    touch = await T.touchSession(page);
+    await expect(page.locator('#view-draw.dr-on .dr-root .dr-bar'), 'the bar is up after a reload').toBeVisible({ timeout: 10_000 });
+    const s = await screenState(page);
+    expect(s.roots, 'one screen').toBe(1);
+    expect(s.sw.checked, 'the switch reads on').toBe('true');
+    expect(await crosshairCalls(), 'the new page turned crosshair mode on').toEqual([true]);
+    await T.quietToasts(page);
+    await T.setView(page, WING.view, WING.zoom);
+  });
+
+  test('coming back to Draw re-reads the choice: off, on, and cleared (what sign-out does) = the default, off', async () => {
+    const away = async (value) => {
+      await page.evaluate(() => window.goTo('crm'));
+      await page.waitForTimeout(300);
+      await page.evaluate(([k, v]) => { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); }, [PREF, value]);
+      await page.evaluate(() => window.goTo('draw'));
+      await page.waitForTimeout(800);
+      return screenState(page);
+    };
+    let s = await away('0');
+    expect(s.roots, "'0' on the way back: no screen").toBe(0);
+    expect(s.sw.checked, 'the switch follows').toBe('false');
+    expect((await crosshairCalls()).slice(-1), 'crosshair mode off').toEqual([false]);
+    s = await away('1');
+    expect(s.roots, "'1' on the way back: the screen").toBe(1);
+    expect(s.sw.checked).toBe('true');
+    // NBDAuth.purgeAccountStorage() removes every nbd_ key on sign-out.
+    s = await away(null);
+    expect(s.roots, 'no preference: the default (off)').toBe(0);
+    expect(s.barOn, 'body.dr-bar-on').toBe(false);
+    expect(s.sw.checked).toBe('false');
+    s = await away('1');
+    expect(s.roots, 'on again for the next test').toBe(1);
+    await expect(page.locator('#view-draw.dr-on .dr-root .dr-bar')).toBeVisible();
+    await T.quietToasts(page);
+  });
+
+  test('switch off: the whole screen goes, live — DOM, body classes, CSS vars — the engine leaves crosshair mode, and tap-to-place is back', async () => {
+    await page.evaluate(() => { drawMap.nbdDraw.__seed({}); });
+    await T.setView(page, WING.view, WING.zoom);
+    await tapSel('.dr-mode[data-dr-mode="perim"]');
+    await tapSel('[data-dr-act="add"]');
+    await expect(page.locator('.dr-loupe'), 'a point pending, the magnifier up').toBeVisible();
+    const before = await screenState(page);
+    expect(before.barOn && before.drOn && before.vars.length > 0, `on: classes and vars are there to clear ${JSON.stringify(before)}`).toBe(true);
+    await setTools(page, true);
+    await tapSel(SW);
+    const s = await screenState(page);
+    expect(s.sw.checked, 'the switch reads off').toBe('false');
+    expect(s.pref, 'the choice is kept').toBe('0');
+    expect(s.roots, '.dr-root gone').toBe(0);
+    expect(s.drOn, '#view-draw.dr-on cleared').toBe(false);
+    expect(s.barOn, 'body.dr-bar-on cleared (toasts back where they were)').toBe(false);
+    expect(s.vars, '--dr-* CSS vars cleared').toEqual([]);
+    expect(await page.evaluate(() => document.querySelectorAll('.dr-loupe, .dr-bar, .dr-cross').length), 'bar, crosshair and magnifier gone').toBe(0);
+    expect((await crosshairCalls()).slice(-1), 'setCrosshair(false)').toEqual([false]);
+    await setTools(page, false);
+    const st = await tapToPlace();
+    expect(st.saved && st.saved.lines.length, 'two taps on the map drew one line again').toBe(1);
+  });
+
+  test('on / off x5: one screen when on, none when off, and no listener, observer or map left behind', async () => {
+    await page.evaluate(() => { drawMap.nbdDraw.__seed({}); });
+    const off0 = await leaks();
+    expect(off0.roots, 'starts off').toBe(0);
+    let on1 = null;
+    for (let i = 1; i <= 5; i++) {
+      await page.evaluate(() => document.getElementById('drawCrosshairSwitch').click());
+      await nextFrames(page);
+      // Outline, then Add: a pending point, so the magnifier's own map is
+      // built too and has to go at off.
+      await page.evaluate(() => document.querySelector('.dr-mode[data-dr-mode="perim"]').click());
+      await nextFrames(page);
+      await page.evaluate(() => document.querySelector('[data-dr-act="add"]').click());
+      await nextFrames(page);
+      const on = await leaks();
+      expect(on.roots, `cycle ${i}: exactly one screen`).toBe(1);
+      expect(on.leaflets, `cycle ${i}: the map + the magnifier's map`).toBe(off0.leaflets + 1);
+      if (!on1) on1 = on;
+      else expect(on, `cycle ${i}: on, the same listeners / observers / maps as cycle 1`).toEqual(on1);
+      await page.evaluate(() => document.getElementById('drawCrosshairSwitch').click());
+      await nextFrames(page);
+      expect(await leaks(), `cycle ${i}: off leaves the page as it found it`).toEqual(off0);
+    }
+    expect(on1.window + on1.document + on1.observers, 'the probe saw the screen\'s own listeners').toBeGreaterThan(off0.window + off0.document + off0.observers);
+    expect(on1.mapListeners, 'and its map listeners').toBeGreaterThan(off0.mapListeners);
+    expect(on1.seamListeners, 'and its seam listeners').toBeGreaterThan(off0.seamListeners);
+  });
+
+  test('the switch is under a thumb: 412x860, 360x640 and landscape, browser and installed app, off and on', async () => {
+    try {
+      for (const [w, h] of [[412, 860], [360, 640], [852, 393], [740, 360]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(500);
+        for (const installed of [false, true]) {
+          if (installed) expect(await forceStandalone(page), 'found the standalone rules to force').toBeGreaterThan(200);
+          try {
+            for (const on of [false, true]) {
+              const tag = `${w}x${h}${installed ? ' installed' : ''}, ${on ? 'on' : 'off'}`;
+              if (((await screenState(page)).sw.checked === 'true') !== on) await page.evaluate(() => document.getElementById('drawCrosshairSwitch').click());
+              await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+              await page.waitForTimeout(450);
+              // ☰ Tools is the way in wherever it shows; a desktop-width
+              // column (a phone on its side, screen off) is always open.
+              const viaTools = await page.evaluate((s) => { const b = document.querySelector(s); return !!b && getComputedStyle(b).display !== 'none' && b.getBoundingClientRect().width > 0; }, TOOLS);
+              if (viaTools) await setTools(page, true);
+              await T.quietToasts(page);
+              await revealSwitch(page);
+              const box = await page.locator(SW).boundingBox();
+              expect(box && box.height, `${tag}: switch height`).toBeGreaterThanOrEqual(44);
+              expect(box.x >= 0 && box.x + box.width <= w + 0.5, `${tag}: switch inside the screen ${JSON.stringify(box)}`).toBe(true);
+              await expectTappable(page, SW, `${tag}: the beta switch`);
+              if (w === 360 && installed && !on) {
+                // ...and a real tap there works it.
+                await tapSel(SW);
+                expect((await screenState(page)).sw.checked, `${tag}: a tap turns it on`).toBe('true');
+                expect((await screenState(page)).roots, `${tag}: the screen is built`).toBe(1);
+              }
+              if (viaTools) await setTools(page, false);
+            }
+          } finally {
+            if (installed) await page.evaluate(() => { const st = document.getElementById('e2e-force-standalone'); if (st) st.remove(); });
+          }
+        }
+      }
+    } finally {
+      if (await page.locator('#map-sidebar-draw.open').count()) await page.locator(TOOLS).tap().catch(() => {});
+      await page.setViewportSize({ width: 412, height: 860 });
+      await page.waitForTimeout(500);
+    }
+  });
+
+  test('no page errors through the switching', async () => {
+    expect(pageErrors, 'uncaught page errors').toEqual([]);
+  });
+});
+
 // 2026-09-25: L3 (#1768) is on main, so the screen also runs here on the
 // REAL engine seam — no stub. The stub blocks above pin the screen's own
 // behaviour call by call; this block pins that the two fit: crosshair mode
 // on, a map tap only aims, an outline traced by Add / Confirm closes at the
 // wing's area with its edges typed by the chips, the engine's own close toast
 // stays off the crosshair, and Shadow Pitch runs start to finish.
+// Release gate (same day): it starts with NO preference — the engine keeps
+// tap-to-place and crosshair mode off — then the beta switch turns the
+// screen on live, and at the end off again, back to tap-to-place.
 test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shard2', () => {
   /** @type {import('@playwright/test').BrowserContext} */ let context;
   /** @type {import('@playwright/test').Page} */ let page;
@@ -880,7 +1238,7 @@ test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shar
     await loginAs(page, creds);
     await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user, { timeout: 30_000 });
     await T.openDraw(page);
-    await page.waitForSelector('#view-draw.dr-on .dr-root .dr-bar', { timeout: 10_000 });
+    await page.waitForFunction(() => !!(drawMap && drawMap.nbdDraw) && !!document.getElementById('drawCrosshairSwitch'), null, { timeout: 10_000 });
     page.on('pageerror', (e) => pageErrors.push(String((e && e.message) || e)));
     touch = await T.touchSession(page);
     await T.resetDrawing(page);
@@ -893,6 +1251,55 @@ test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shar
   });
   test.beforeEach(async ({}, testInfo) => {
     if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
+  });
+  // Lines armed on the engine, two real taps on the map: tap-to-place.
+  async function tapToPlace() {
+    await T.resetDrawing(page);
+    await T.setView(page, WING.view, WING.zoom);
+    await T.arm(page, 'line');
+    const a = await T.ll2client(page, WING.A), b = await T.ll2client(page, WING.B);
+    await touch.tap(a);
+    await touch.tap(b);
+    const st = await T.drawState(page);
+    await T.resetDrawing(page);
+    return st;
+  }
+  const leafletOpts = () => page.evaluate(() => ({
+    inertia: drawMap.options.inertia, touchZoom: drawMap.options.touchZoom, doubleClickZoom: drawMap.options.doubleClickZoom,
+    crosshairClass: drawMap.getContainer().classList.contains('nbd-crosshair'),
+  }));
+
+  test('default (no preference): no screen, crosshair mode off, a tap places a point; the switch reads off', async () => {
+    expect(typeof (await page.evaluate(() => drawMap.nbdDraw.__calls)), 'the real seam, not the test stub').toBe('undefined');
+    const s = await screenState(page);
+    expect(s.pref, 'no preference stored').toBeNull();
+    expect(s.roots, 'no crosshair screen (.dr-root)').toBe(0);
+    expect([s.drOn, s.barOn], '#view-draw.dr-on, body.dr-bar-on').toEqual([false, false]);
+    expect(s.vars, 'no --dr-* CSS vars').toEqual([]);
+    expect((await api('state')).crosshair, 'the engine is not in crosshair mode').toBe(false);
+    expect(await leafletOpts(), 'Leaflet options untouched').toEqual({ inertia: true, touchZoom: true, doubleClickZoom: true, crosshairClass: false });
+    expect(s.sw && s.sw.checked, 'the switch reads off').toBe('false');
+    await setTools(page, true);
+    await revealSwitch(page);
+    await expectTappable(page, '#drawCrosshairSwitch', 'the beta switch in ☰ Tools');
+    await setTools(page, false);
+    const st = await tapToPlace();
+    expect(st.saved && st.saved.lines.length, 'two taps drew one line (tap-to-place)').toBe(1);
+    expect(Math.abs(st.saved.lines[0].dist - G.hav(WING.A, WING.B)), 'its length').toBeLessThanOrEqual(0.5);
+  });
+
+  test('switch on: the screen builds live and the engine goes into crosshair mode', async () => {
+    await setTools(page, true);
+    await tapSel('#drawCrosshairSwitch');
+    const s = await screenState(page);
+    expect(s.sw.checked, 'the switch reads on').toBe('true');
+    expect(s.roots, 'one screen, no reload').toBe(1);
+    expect((await api('state')).crosshair, 'crosshair mode').toBe(true);
+    expect((await leafletOpts()).crosshairClass, 'the map container is in crosshair mode').toBe(true);
+    await setTools(page, false);
+    await expect(page.locator('#view-draw.dr-on .dr-root .dr-bar')).toBeVisible();
+    await T.quietToasts(page);
+    await T.setView(page, WING.view, WING.zoom);
   });
 
   test('the screen turns crosshair mode on, and a tap on the map only aims', async () => {
@@ -980,6 +1387,57 @@ test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shar
     expect((await api('state')).counts.facets, 'the outline was not touched').toBe(1);
   });
 
+  // #1768's note for L4: the engine snaps a crosshair point within 16 px but
+  // never more than 3 ft of ground (~8 px at z20). The ring is the engine's
+  // own snap() answer (no radius of the screen's), and Confirm places
+  // {snap:false} when no ring shows — so what the ring says is what commits.
+  test('the snap ring is the engine\'s rule: none 12 px off a corner at z20 (3 ft cap), one 4 px off, and Confirm lands as it showed', async () => {
+    const pxBetween = (a, b) => page.evaluate(([a1, b1]) => drawMap.latLngToContainerPoint(a1).distanceTo(drawMap.latLngToContainerPoint(b1)), [a, b]);
+    await T.quietToasts(page);
+    await tapSel('.dr-mode[data-dr-mode="line"]');
+    await T.setView(page, WING.B, 20);
+    const r = (await api('state')).snapRadiusPx;
+    expect(r, `the engine's snap radius at z20 (${r} px) is under 12`).toBeLessThan(12);
+    expect(r, 'and snapping is on').toBeGreaterThanOrEqual(4);
+    const onB = (await api('pick', WING.B, 3)).count;
+    await aimOff(WING.B, 12, 0);
+    expect(await box('.dr-snap:not(.dr-pickring)'), '12 px off B at z20: no ring').toBeNull();
+    expect((await api('snap')).snapped, '...and the engine would not snap there').toBe(false);
+    const aim = await page.evaluate(() => { const c = drawMap.getCenter(); return { lat: c.lat, lng: c.lng }; });
+    await tapSel('[data-dr-act="add"]');
+    await tapSel('[data-dr-act="confirm"]');
+    const start = (await api('state')).anchor;
+    expect(start, 'the line is started').not.toBeNull();
+    expect(await pxBetween(start, aim), 'it starts where the crosshair was (px)').toBeLessThanOrEqual(0.75);
+    expect(await pxBetween(start, WING.B), '...not on B (px)').toBeGreaterThan(10);
+    expect((await api('pick', WING.B, 3)).count, 'B has no new edge').toBe(onB);
+    const onC = (await api('pick', WING.C, 3)).count;
+    await aimOff(WING.C, 4, 0);
+    expect(await box('.dr-snap:not(.dr-pickring)'), '4 px off C: the ring').not.toBeNull();
+    await tapSel('[data-dr-act="add"]');
+    await tapSel('[data-dr-act="confirm"]');
+    expect((await api('pick', WING.C, 3)).count, 'the line ends ON corner C (one more edge there)').toBe(onC + 1);
+    await T.setView(page, WING.view, WING.zoom);
+  });
+
+  test('switch off: the screen comes down whole, crosshair mode off, Leaflet\'s options back, and a tap places a point again', async () => {
+    await T.quietToasts(page);
+    await tapSel('[data-dr-act="add"]'); // a point pending, so there is a magnifier to take down too
+    await setTools(page, true);
+    await tapSel('#drawCrosshairSwitch');
+    const s = await screenState(page);
+    expect(s.sw.checked, 'the switch reads off').toBe('false');
+    expect(s.roots, '.dr-root gone').toBe(0);
+    expect([s.drOn, s.barOn], '#view-draw.dr-on, body.dr-bar-on cleared').toEqual([false, false]);
+    expect(s.vars, '--dr-* CSS vars cleared').toEqual([]);
+    expect((await api('state')).crosshair, 'crosshair mode off').toBe(false);
+    expect(await leafletOpts(), 'Leaflet options back').toEqual({ inertia: true, touchZoom: true, doubleClickZoom: true, crosshairClass: false });
+    await setTools(page, false);
+    const st = await tapToPlace();
+    expect(st.saved && st.saved.lines.length, 'two taps drew one line again (tap-to-place)').toBe(1);
+    expect(Math.abs(st.saved.lines[0].dist - G.hav(WING.A, WING.B)), 'its length').toBeLessThanOrEqual(0.5);
+  });
+
   test('no page errors on the real engine', async () => {
     expect(pageErrors, 'uncaught page errors').toEqual([]);
   });
@@ -995,6 +1453,8 @@ test.describe.serial('desktop draw (1280, mouse) has no crosshair screen @shard2
     testInfo.setTimeout(90_000);
     context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
     await returningUser(context);
+    // Opted in, even: a mouse still gets no switch and no screen.
+    await crosshairOn(context);
     await installSeamStub(context);
     page = await context.newPage();
     page.on('request', (r) => urls.push(r.url()));
@@ -1012,9 +1472,11 @@ test.describe.serial('desktop draw (1280, mouse) has no crosshair screen @shard2
     if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
   });
 
-  test('pointer: fine — the files arrive with the bundle but build nothing, and click-to-place still works', async () => {
+  test('pointer: fine — the files arrive with the bundle but build nothing (not even the beta switch, opted in), and click-to-place still works', async () => {
     const d = await page.evaluate(() => ({
       coarse: matchMedia('(pointer: coarse)').matches,
+      pref: localStorage.getItem('nbd_draw_crosshair'),
+      switches: document.querySelectorAll('#drawCrosshairSwitch, [data-nbd="draw-crosshair-switch"]').length,
       root: document.querySelectorAll('.dr-root').length,
       on: document.getElementById('view-draw').classList.contains('dr-on'),
       barOn: document.body.classList.contains('dr-bar-on'),
@@ -1023,6 +1485,8 @@ test.describe.serial('desktop draw (1280, mouse) has no crosshair screen @shard2
       sidebarW: Math.round(document.getElementById('map-sidebar-draw').getBoundingClientRect().width),
     }));
     expect(d.coarse, 'a mouse desktop').toBe(false);
+    expect(d.pref, 'the crosshair preference is on').toBe('1');
+    expect(d.switches, 'no beta switch in the Tools column').toBe(0);
     expect(urls.some((u) => u.includes('draw-reticle.js')), 'draw-reticle.js rides the drawtool bundle').toBe(true);
     expect(d.root, 'no crosshair screen').toBe(0);
     expect(d.on, '#view-draw.dr-on').toBe(false);

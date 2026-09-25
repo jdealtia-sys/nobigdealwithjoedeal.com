@@ -21,6 +21,22 @@
 // Desktop keeps click-to-place: this file returns before touching anything
 // unless (pointer: coarse) matches.
 //
+// RELEASE GATE — OFF BY DEFAULT (2026-09-25, Jo decision 8)
+// The screen changes how every phone draws, so it ships as an opt-in beta:
+// Jo turns it on for himself (Draw -> ☰ Tools -> "Crosshair drawing (beta)")
+// and does a 30-minute daylight test on his iPhone's installed app before it
+// goes live for anyone. Off — the default — a phone behaves exactly as it
+// did before this file: the only thing added is that switch (inside ☰
+// Tools, coarse pointers only). No screen, no body classes or CSS vars, no
+// toast move, no setCrosshair call, so the engine keeps tap-to-place.
+// Switching on builds the screen live; switching off tears ALL of it down
+// live (DOM, map / document / window listeners, observers, rAF, timers, the
+// magnifier's map, body classes and CSS vars) and calls setCrosshair(false),
+// which puts the engine back on tap-to-place. Same shape as the D2D "map
+// rotation (beta)" switch (d2d-tracker-core-2026b.js ROTATE_PREF).
+// Going live later is ONE line: CROSSHAIR_DEFAULT_ON = true. A rep who
+// explicitly switched it off ('0') stays off.
+//
 // ENGINE SEAM — every read and write goes through drawMap.nbdDraw (seam v1,
 // added to maps-routing.js by draw lane L3). This file never touches the
 // engine's arrays, layers or globals. Calls used (keep in step with L3):
@@ -33,18 +49,24 @@
 //               structures[{id,name}]}
 //   totals()   NBDDrawGeom.structureTotals shape {per[], combined{..., text}}
 //   setMode(mode|null, {lineType})   arm Outline/Lines/Gutters, or disarm
-//   setCrosshair(true)  snap(ll, px)  preview(ll|null)
-//   placeAtReticle({edgeType} | {snap:false})  closeShape({edgeType})
-//   finishRun()  undo()  redo()  pick(ll, px)
+//   setCrosshair(true|false)  snap(ll)  preview(ll|null)
+//   placeAtReticle({edgeType, snap:false} | {edgeType} | {snap:false})
+//   closeShape({edgeType})  finishRun()  undo()  redo()  pick(ll, px)
 //   moveVertex(from, to) -> {ok} | {ok:false, reason:'no-move'|'collapse'|...}
-//   retype(id, lt)  flip(id)  remove(id)  on('change', fn)
+//   retype(id, lt)  flip(id)  remove(id)  on('change', fn) -> unsubscribe
 // Shadow Pitch (2026-09-25, L4 review): a real tap only aims in crosshair
 // mode, so the drawer's Shadow Pitch clicks come through here too — Add
 // places each of its four points, unsnapped, while state().shadow is set.
+// Snap ring (2026-09-25, gate lane): the ring is the engine's own answer —
+// api.snap(ll) with no radius of ours, so it follows L3's rule (16 px, capped
+// at 3 ft of ground, off under 4 px: ~8 px at z20) — and Confirm places
+// {snap:false} whenever no ring is showing, so the engine never snaps where
+// the rep saw no ring (an accessory or a point just outside the radius).
 //
 // INVARIANTS: no new window globals; no inline handlers (addEventListener
-// only); the DOM is built here, inside #view-draw .map-area (no template
-// edits). Layer / Fit / My Location / Tools proxy the drawer's own controls.
+// only); the DOM is built here, inside #view-draw .map-area and the Tools
+// drawer (no template edits). Layer / Fit / My Location / Tools proxy the
+// drawer's own controls.
 (function () {
   'use strict';
 
@@ -52,7 +74,27 @@
   try { coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e) { coarse = false; }
   if (!coarse) return;
 
-  var SNAP_PX = 16;        // the engine's snap radius (L3); the ring shows only when it would snap
+  // ── The beta switch's preference ──
+  // '1' on, '0' off, absent -> CROSSHAIR_DEFAULT_ON. nbd_-prefixed, so
+  // NBDAuth.purgeAccountStorage() clears it on every sign-out, like the D2D
+  // rotation beta: after signing back in the rep is on the default again.
+  // Acceptable for a beta (Jo re-flips one switch); a per-account setting
+  // belongs on userSettings/{uid} if it outlives the beta.
+  var PREF_KEY = 'nbd_draw_crosshair';
+  var CROSSHAIR_DEFAULT_ON = false;
+  var chosen = null;   // the switch's choice, held here only if storage refused it
+  function prefOn() {
+    var v = chosen;
+    if (v === null) { try { v = window.localStorage.getItem(PREF_KEY); } catch (e) { v = null; } }
+    if (v === '1') return true;
+    if (v === '0') return false;
+    return CROSSHAIR_DEFAULT_ON;
+  }
+  function savePref(on) {
+    var v = on ? '1' : '0';
+    try { window.localStorage.setItem(PREF_KEY, v); chosen = null; } catch (e) { chosen = v; /* private mode: this visit only */ }
+  }
+
   var SAME_SPOT_PX = 6;    // the engine refuses a point this close to the last one
   var PICK_PX = 22;        // Edit mode: how far the crosshair may be from a corner / edge
   var LOUPE_UP = 2;        // magnifier zoom = map zoom + 2 (4x; upscaling past native is fine)
@@ -69,6 +111,20 @@
   var DRAW_MODES = { perim: 1, line: 1, gutter: 1 };
   var MODE_CHIPS = [['perim', 'Outline'], ['line', 'Lines'], ['gutter', 'Gutters'], ['edit', 'Edit']];
 
+  function warn(e) { if (window.console && console.warn) console.warn('[draw-reticle]', e); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  }
+  function btn(cls, text, label) {
+    var b = el('button', cls, text);
+    b.type = 'button';
+    if (label) b.setAttribute('aria-label', label);
+    return b;
+  }
+
   // drawMap is maps-routing.js's bare sibling-scope `let`. Before that file
   // runs, the same identifier resolves to the #drawMap ELEMENT (named access
   // on window), so test for a Leaflet map, not for truthiness.
@@ -80,16 +136,29 @@
     return null;
   }
 
+  // ── Host: the switch, and the screen it builds and tears down ──
+  var host = null;   // {map, api, area, view, sw, screen}
+
   function start(map) {
-    if (!map || map._nbdReticleUi || !window.L) return;
+    if (!map || !window.L || host) return;
     var api = map.nbdDraw;
     if (!api || typeof api.state !== 'function' || typeof api.placeAtReticle !== 'function') return;
     var container = map.getContainer();
     var area = container && container.closest ? container.closest('.map-area') : null;
     var view = document.getElementById('view-draw');
     if (!area || !view || !view.contains(area)) return;
-    map._nbdReticleUi = true;
-    buildUi(map, api, area, view);
+    host = { map: map, api: api, area: area, view: view, sw: null, screen: null };
+    mountSwitch();
+    // Coming back to Draw re-reads the preference (a sign-out clears it).
+    var shown = view.classList.contains('active');
+    if (window.MutationObserver) {
+      new MutationObserver(function () {
+        var active = view.classList.contains('active');
+        if (active && !shown) setScreen(prefOn());
+        shown = active;
+      }).observe(view, { attributes: true, attributeFilter: ['class'] });
+    }
+    setScreen(prefOn());
   }
 
   document.addEventListener('nbd:drawmap-ready', function (e) {
@@ -97,9 +166,82 @@
   });
   start(findMap());
 
+  function setScreen(on) {
+    if (!host) return;
+    if (on && !host.screen) {
+      // buildUi hands over its teardown before it builds anything, so a
+      // screen that fails half-way is still taken down whole.
+      var built = {};
+      try { buildUi(host.map, host.api, host.area, host.view, built); host.screen = built; } catch (e) {
+        if (built.destroy) built.destroy();
+        host.screen = null;
+        warn(e);
+      }
+    } else if (!on && host.screen) {
+      var s = host.screen;
+      host.screen = null;
+      s.destroy();
+    }
+    if (host.sw) host.sw.setAttribute('aria-checked', String(!!host.screen));
+  }
+
+  // "Crosshair drawing (beta)" in ☰ Tools, under Draw Mode (where the rep
+  // picks how to draw). A real switch: role="switch" + aria-checked, 48px.
+  function mountSwitch() {
+    var sheet = document.getElementById('map-sidebar-draw');
+    if (!sheet || sheet.querySelector('[data-nbd="draw-crosshair-switch"]')) return;
+    var wrap = el('div', 'dr-switch-row');
+    wrap.setAttribute('data-nbd', 'draw-crosshair-switch');
+    var sw = btn('dr-switch', null);
+    sw.id = 'drawCrosshairSwitch';
+    sw.setAttribute('role', 'switch');
+    sw.setAttribute('aria-checked', 'false');
+    sw.setAttribute('aria-labelledby', 'drawCrosshairSwitchLabel');
+    sw.setAttribute('aria-describedby', 'drawCrosshairSwitchHint');
+    var text = el('span', 'dr-switch-text');
+    var label = el('span', 'dr-switch-label', 'Crosshair drawing (beta)');
+    label.id = 'drawCrosshairSwitchLabel';
+    var hint = el('span', 'dr-switch-hint', 'Aim with a fixed crosshair and a magnifier. Off: tap to place.');
+    hint.id = 'drawCrosshairSwitchHint';
+    text.appendChild(label); text.appendChild(hint);
+    var track = el('span', 'dr-switch-track');
+    track.setAttribute('aria-hidden', 'true');
+    track.appendChild(el('span', 'dr-switch-knob'));
+    sw.appendChild(text); sw.appendChild(track);
+    wrap.appendChild(sw);
+    var row = sheet.querySelector('.draw-mode-row');
+    if (row && row.parentNode) row.parentNode.insertBefore(wrap, row.nextSibling);
+    else sheet.appendChild(wrap);
+    sw.addEventListener('click', function () {
+      var on = !(host && host.screen);
+      savePref(on);
+      setScreen(on);
+      relayout();
+    });
+    host.sw = sw;
+  }
+
+  // On a phone the drawer sits in the page with the screen off and over the
+  // map with it on, so a switch changes the map's box: Leaflet re-measures
+  // (at once, and once the drawer's .3s transition has settled, as
+  // toggleMapSidebar does).
+  function relayout() {
+    var m = host && host.map;
+    if (!m) return;
+    var fit = function () { try { m.invalidateSize(); } catch (e) { warn(e); } };
+    window.requestAnimationFrame(fit);
+    window.setTimeout(fit, 350);
+  }
+
   // ── The screen ───────────────────────────────────────────────────────
-  function buildUi(map, api, area, view) {
+  // Sets out.destroy first. Everything the screen adds to the page, the
+  // map, the seam, document or window is registered with own() / later() as
+  // it is added, and destroy() undoes all of it (newest first).
+  function buildUi(map, api, area, view, out) {
     var L = window.L;
+    var dead = false;
+    var cleanups = [];
+    var timers = [];
     var st = null;        // cached api.state(), refreshed on 'change'
     var tot = null;       // cached api.totals()
     var uiMode = null;    // 'perim' | 'line' | 'gutter' | 'edit' | null
@@ -119,23 +261,62 @@
     var raf = 0;
     var loupe = null, loupeLayers = [], loupeBand = null, loupeDirty = true;
 
+    // ── Lifecycle ──
+    function own(fn) { cleanups.push(fn); }
+    function later(fn, ms) {
+      var id = window.setTimeout(function () {
+        var i = timers.indexOf(id);
+        if (i >= 0) timers.splice(i, 1);
+        if (!dead) fn();
+      }, ms);
+      timers.push(id);
+      return id;
+    }
+    function cancel(id) {
+      if (!id) return;
+      window.clearTimeout(id);
+      var i = timers.indexOf(id);
+      if (i >= 0) timers.splice(i, 1);
+    }
+    function listen(target, type, fn, opts) {
+      target.addEventListener(type, fn, opts);
+      own(function () { target.removeEventListener(type, fn, opts); });
+    }
+    function onMap(types, fn) {
+      map.on(types, fn);
+      own(function () { map.off(types, fn); });
+    }
+    function onApi(evt, fn) {
+      if (typeof api.on !== 'function') return;
+      var off = api.on(evt, fn);
+      own(function () {
+        if (typeof off === 'function') off();
+        else if (typeof api.off === 'function') api.off(evt, fn);
+      });
+    }
+    function watch(Ctor, cb, target, opts) {
+      if (!Ctor) return;
+      var o = new Ctor(cb);
+      o.observe(target, opts);
+      own(function () { o.disconnect(); });
+    }
+    function destroy() {
+      if (dead) return;
+      dead = true;
+      if (raf) { window.cancelAnimationFrame(raf); raf = 0; }
+      timers.splice(0).forEach(function (id) { window.clearTimeout(id); });
+      for (var i = cleanups.length - 1; i >= 0; i--) {
+        try { cleanups[i](); } catch (e) { warn(e); }
+      }
+      cleanups.length = 0;
+    }
+    out.destroy = destroy;
+
     function safe(fn, fallback) {
       try { var r = fn(); return r === undefined ? fallback : r; } catch (e) {
-        if (window.console && console.warn) console.warn('[draw-reticle]', e);
+        warn(e);
         return fallback;
       }
-    }
-    function el(tag, cls, text) {
-      var n = document.createElement(tag);
-      if (cls) n.className = cls;
-      if (text != null) n.textContent = text;
-      return n;
-    }
-    function btn(cls, text, label) {
-      var b = el('button', cls, text);
-      b.type = 'button';
-      if (label) b.setAttribute('aria-label', label);
-      return b;
     }
     function show(n, on) { if (n) n.hidden = !on; }
     function readState() {
@@ -225,6 +406,23 @@
     [cross, ring, pickRing, handle, loupeEl, coach, zoomHint, side, bar, live].forEach(function (n) { root.appendChild(n); });
     area.appendChild(root);
     view.classList.add('dr-on');
+    // Undone last (registered first): the page as it was before the screen.
+    own(function () {
+      root.remove();
+      view.classList.remove('dr-on');
+      view.style.removeProperty('--dr-floor');
+    });
+    own(function () {
+      document.body.classList.remove('dr-bar-on');
+      var bs = document.body.style;
+      bs.removeProperty('--dr-toast-top');
+      bs.removeProperty('--dr-toast-left');
+      bs.removeProperty('--dr-toast-right');
+    });
+    own(function () {
+      if (loupe) { loupe.remove(); loupe = null; }
+      loupeLayers = []; loupeBand = null;
+    });
 
     // ── Helpers on the map ──
     function centrePt() { var s = map.getSize(); return L.point(s.x / 2, s.y / 2); }
@@ -252,10 +450,17 @@
     function note(text) {
       notice = { text: text, until: now() + NOTICE_MS };
       say(text);
-      window.setTimeout(schedule, NOTICE_MS + 20);
+      later(schedule, NOTICE_MS + 20);
       schedule();
     }
     function sameLL(a, b) { return !!a && !!b && Math.abs(a.lat - b.lat) < 1e-10 && Math.abs(a.lng - b.lng) < 1e-10; }
+    // Where the ENGINE would put a point at `ll`: its own snap rule, with
+    // no radius of ours (L3: 16 px capped at 3 ft, none under 4 px). The
+    // ring shows this, and Confirm places exactly this.
+    function snapAt(ll) {
+      var s = safe(function () { return api.snap(ll); }, null);
+      return s && s.snapped && s.latlng ? L.latLng(s.latlng.lat, s.latlng.lng) : null;
+    }
     function ftPerPx() {
       var c = centrePt();
       var a = map.containerPointToLatLng(c), b = map.containerPointToLatLng(c.add([100, 0]));
@@ -299,7 +504,7 @@
         loupeLayers.push(c);
       });
     }
-    map.on('layeradd layerremove', function (e) { if (e && e.layer instanceof L.TileLayer) loupeDirty = true; });
+    onMap('layeradd layerremove', function (e) { if (e && e.layer instanceof L.TileLayer) loupeDirty = true; });
 
     function placeLoupe(p, finger) {
       // Shown before the map is built or resized: Leaflet measures its box.
@@ -342,9 +547,10 @@
     }
 
     // ── One frame: follow the finger / the map, snap, preview, paint ──
-    function schedule() { if (!raf) raf = window.requestAnimationFrame(frame); }
+    function schedule() { if (!raf && !dead) raf = window.requestAnimationFrame(frame); }
     function frame() {
       raf = 0;
+      if (dead) return;
       if (!st) readState();
       var c = centrePt();
       var fingerPt = null;
@@ -363,11 +569,7 @@
       }
       var target = pending ? pending.latlng : map.containerPointToLatLng(c);
       var drawing = isDrawing() && !(pending && pending.purpose === 'move');
-      snapHit = null;
-      if (drawing && !special()) {
-        var s = safe(function () { return api.snap(target, SNAP_PX); }, null);
-        if (s && s.snapped && s.latlng) snapHit = L.latLng(s.latlng.lat, s.latlng.lng);
-      }
+      snapHit = drawing && !special() ? snapAt(target) : null;
       if (snapHit && !wasSnapped) vibrate();
       wasSnapped = !!snapHit;
       if (drawing) { pv = safe(function () { return api.preview(snapHit || target); }, null); previewOn = true; }
@@ -435,6 +637,7 @@
     function ltColor(i) { var t = (st.lineTypes || [])[i]; return t ? t.color : '#888'; }
 
     function render() {
+      if (dead) return;
       if (!st) readState();
       var drawing = isDrawing();
       var sp = special();
@@ -498,7 +701,7 @@
       confirmBtn.textContent = '✓ ' + confirmLabel;
       var guard = guarding();
       confirmBtn.disabled = !pending || blocked || guard || (pending.purpose === 'place' && sameSpot);
-      if (guard && !guardTimer) guardTimer = window.setTimeout(function () { guardTimer = 0; schedule(); }, Math.max(16, CONFIRM_GUARD_MS - (now() - pending.at)) + 16);
+      if (guard && !guardTimer) guardTimer = later(function () { guardTimer = 0; schedule(); }, Math.max(16, CONFIRM_GUARD_MS - (now() - pending.at)) + 16);
       var aux = '';
       if (!pending && !sp && uiMode === 'perim' && st.canClose) aux = 'Close shape';
       else if (!pending && !sp && uiMode === 'gutter' && st.canFinishRun) aux = 'Finish run';
@@ -560,14 +763,19 @@
         return;
       }
       var sp = special();
-      var target = snapHit || pending.latlng;
+      // The ring, asked afresh: the engine's own snap at the pending point.
+      // A Shadow Pitch point marks a shadow on the ground and an accessory
+      // goes where the crosshair is: neither is ever pulled onto a corner.
+      var hit = sp ? null : snapAt(pending.latlng);
+      var target = hit || pending.latlng;
       // Jo's flow: the engine places only at the crosshair. A point the rep
       // dragged is brought there first, without animation, so nothing is
       // gliding when it commits.
       if (px(target).distanceTo(centrePt()) > 0.5) centreOn(target);
-      // A Shadow Pitch point marks a shadow on the ground: never pulled onto
-      // a roof corner.
-      var opts = sp === 'shadow' ? { snap: false } : { edgeType: edgeType };
+      // With a ring, the engine snaps onto that corner (<=0.5px away now).
+      // Without one it must not snap at all: {snap:false}, so a corner just
+      // outside what the rep saw never catches the point.
+      var opts = sp ? { snap: false } : (hit ? { edgeType: edgeType } : { edgeType: edgeType, snap: false });
       var res = safe(function () { return api.placeAtReticle(opts); }, { ok: true });
       if (res && res.ok === false) {
         note(res.reason === 'same-spot' ? 'Same spot as the last point — slide or zoom in'
@@ -623,7 +831,8 @@
       schedule();
     }
 
-    // ── Wiring (addEventListener only — strict CSP) ──
+    // ── Wiring (addEventListener only — strict CSP). Listeners on the
+    // screen's own elements go with them; everything else is own()ed. ──
     modes.addEventListener('click', function (e) {
       var b = e.target.closest('[data-dr-mode]');
       if (b) setUiMode(b.getAttribute('data-dr-mode'));
@@ -694,15 +903,16 @@
     handle.addEventListener('touchmove', eat, { passive: false });
 
     // ── The map ──
-    map.on('movestart zoomstart', function () { moving = true; schedule(); });
-    map.on('moveend zoomend', function () { moving = false; schedule(); });
-    map.on('move zoom viewreset resize', schedule);
-    if (typeof api.on === 'function') api.on('change', function () { readState(); schedule(); });
+    onMap('movestart zoomstart', function () { moving = true; schedule(); });
+    onMap('moveend zoomend', function () { moving = false; schedule(); });
+    onMap('move zoom viewreset resize', schedule);
+    onApi('change', function () { if (dead) return; readState(); schedule(); });
 
     // ── Tools sheet: Add waits while it is open; the readout opens it on
     // the results ──
     var sheet = document.getElementById('map-sidebar-draw');
     function syncSheet() {
+      if (dead) return;
       var open = !!(sheet && sheet.classList.contains('open'));
       if (open === sheetOpen) return;
       sheetOpen = open;
@@ -713,12 +923,12 @@
       readState();
       schedule();
     }
-    if (sheet && window.MutationObserver) new MutationObserver(syncSheet).observe(sheet, { attributes: true, attributeFilter: ['class'] });
+    if (sheet) watch(window.MutationObserver, syncSheet, sheet, { attributes: true, attributeFilter: ['class'] });
     function openResults() {
       var toolsBtn = area.querySelector('.map-toggle-btn');
       if (sheet && !sheet.classList.contains('open') && toolsBtn) toolsBtn.click();
       var res = sheet && sheet.querySelector('.calc-result');
-      if (res) window.setTimeout(function () { sheet.scrollTop = Math.max(0, res.offsetTop - 60); }, 320);
+      if (res) later(function () { sheet.scrollTop = Math.max(0, res.offsetTop - 60); }, 320);
     }
 
     // ── Where the bar may sit: above the app's bottom nav and Leaflet's
@@ -729,6 +939,7 @@
     // point for the toast's 5 s life (L4 review, 2026-09-25). At the top it
     // clears the crosshair, the 56px handle and the magnifier above it. ──
     function measure() {
+      if (dead) return;
       var a = area.getBoundingClientRect();
       var floor = 0;
       var nav = document.getElementById('mobile-nav');
@@ -746,7 +957,7 @@
       // so ResizeObserver stays quiet): measured once, the floor kept the
       // mid-slide gap and the bar sat 2-7px high. Measure again once it has
       // settled (L4 fix, 2026-09-25).
-      if (active && !wasActive) { window.setTimeout(measure, 400); window.setTimeout(measure, 1000); }
+      if (active && !wasActive) { later(measure, 400); later(measure, 1000); }
       wasActive = active;
       document.body.classList.toggle('dr-bar-on', active);
       if (active) {
@@ -767,40 +978,50 @@
       if (!probe) { probe = el('div', 'dr-safe-probe'); root.appendChild(probe); }
       return probe.offsetHeight || 0;
     }
-    window.addEventListener('resize', measure);
-    window.addEventListener('orientationchange', measure);
-    if (window.ResizeObserver) new window.ResizeObserver(measure).observe(area);
-    if (window.MutationObserver) new MutationObserver(measure).observe(view, { attributes: true, attributeFilter: ['class'] });
+    listen(window, 'resize', measure);
+    listen(window, 'orientationchange', measure);
+    watch(window.ResizeObserver, measure, area);
+    watch(window.MutationObserver, measure, view, { attributes: true, attributeFilter: ['class'] });
     // A bottom strip (fab-stack-coordinator's --nbd-bottom-chrome) lifts the
     // bottom nav by margin, which need not resize the map, so the observers
     // above can miss it: a strip arriving after the last measure would slide
     // the nav up under the bar (L4 fix, 2026-09-25).
     var chrome = null;
-    if (window.MutationObserver) new MutationObserver(function () {
+    watch(window.MutationObserver, function () {
       var v = document.documentElement.style.getPropertyValue('--nbd-bottom-chrome');
       if (v !== chrome) { chrome = v; measure(); }
-    }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
+    }, document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
     // ── First use: one line of help ──
     var coached = false;
     try { coached = !!window.localStorage.getItem(COACH_KEY); } catch (e) { coached = false; }
     var coachTimer = 0;
-    if (!coached) { coach.hidden = false; coachTimer = window.setTimeout(coachDone, 12000); }
+    if (!coached) { coach.hidden = false; coachTimer = later(coachDone, 12000); }
     function coachDone() {
       if (coach.hidden) return;
       coach.hidden = true;
-      window.clearTimeout(coachTimer);
+      cancel(coachTimer);
       try { window.localStorage.setItem(COACH_KEY, '1'); } catch (e) { /* private mode: shows again next time */ }
     }
 
     // ── Go ──
+    // Off again = tap-to-place again: the band this screen painted goes,
+    // then the engine leaves crosshair mode (L3 restores Leaflet's options).
+    // Undone FIRST at teardown (registered last).
     safe(function () { api.setCrosshair(true); });
+    own(function () { safe(function () { api.setCrosshair(false); }); });
+    own(function () { if (previewOn) { previewOn = false; safe(function () { api.preview(null); }); } });
     readState();
-    if (st.armed && DRAW_MODES[st.mode]) uiMode = st.mode;
-    if (typeof api.on === 'function') api.on('change', function () {
-      // The drawer (inside Tools) can arm a mode too: follow it.
+    // The drawer (inside Tools) can arm a mode too: follow it. Its Eave/Rake
+    // mode ('er') flips the edge a TAP picks, and here a tap only aims: that
+    // job is Edit's Flip, so the bar shows Edit (and the drawer hides its
+    // Eave/Rake button while the screen is up, css).
+    function followEngine() {
+      if (st.mode === 'er') { if (uiMode !== 'edit') { if (pending) cancelPending(); uiMode = 'edit'; } return; }
       if (uiMode !== 'edit') uiMode = st.armed && DRAW_MODES[st.mode] ? st.mode : (st.armed ? uiMode : null);
-    });
+    }
+    followEngine();
+    onApi('change', function () { if (!dead) followEngine(); });
     measure();
     syncSheet();
     schedule();

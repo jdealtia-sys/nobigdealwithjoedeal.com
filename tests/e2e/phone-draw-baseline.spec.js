@@ -110,9 +110,6 @@ for (const width of [412, 360]) {
       page = await context.newPage();
       T.acceptDialogs(page);
       await T.stubTiles(page);
-      // Tap-to-place is the engine path this baseline pins; the crosshair
-      // screen (L4) would turn taps into aiming (2026-09-25).
-      await T.withoutCrosshairScreen(page);
       await stubNetwork(page);
       await loginAs(page, creds);
       await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user, { timeout: 30_000 });

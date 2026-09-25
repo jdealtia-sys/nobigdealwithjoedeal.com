@@ -209,9 +209,6 @@ function suite(label, ctxOpts, opts) {
       page = await context.newPage();
       dialogs(page);
       await T.stubTiles(page);
-      // These drive the engine's money paths by tap; the crosshair screen
-      // (L4) would turn phone taps into aiming (2026-09-25).
-      await T.withoutCrosshairScreen(page);
       await stubNetwork(page);
       await loginAs(page, creds);
       await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user, { timeout: 30_000 });

@@ -3,9 +3,12 @@
    lazy `drawtool` bundle, so nothing here is on the boot path.
 
    Every rule is scoped to #view-draw.dr-on (or body.dr-bar-on), classes that
-   draw-reticle.js adds ONLY on a coarse pointer once the engine seam is up.
-   A mouse-driven desktop — even a narrow window — never gets them, so its
-   layout and click-to-place are untouched.
+   draw-reticle.js adds ONLY on a coarse pointer, and only while the rep has
+   the "Crosshair drawing (beta)" switch on (off by default, 2026-09-25 —
+   Jo's release gate). A mouse-driven desktop — even a narrow window — and a
+   phone with the switch off never get them, so their layout and tap/click-
+   to-place are untouched. The one exception is the switch itself (last
+   section), styled by its own classes wherever the JS adds it.
 
    Colours: theme tokens (--s, --s2, --t, --m, --br, --orange, --accent-fg)
    so light and dark both work. The two exceptions are deliberate: the
@@ -159,6 +162,9 @@
    drawing canvas: hidden on phones until each works (plan, L4). */
 #view-draw.dr-on #map-sidebar-draw [data-fn="screenshotMap"],
 #view-draw.dr-on #map-sidebar-draw [data-fn="startAutoDetect"]{display:none!important;}
+/* The drawer's Eave/Rake mode flips the edge a TAP picks, and on this screen
+   a tap only aims: Edit's Flip does that job here (gate lane, 2026-09-25). */
+#view-draw.dr-on #modeERBtn{display:none!important;}
 
 /* Toasts float 134px up on phones — right through the bar — and lifted to
    just above the bar they still sat ON the crosshair on any phone under
@@ -256,4 +262,28 @@ body.dr-bar-on .toast-container .toast .toast-close{pointer-events:auto;}
   body.dr-bar-on{padding-bottom:env(safe-area-inset-bottom, 0px)!important;}
   #view-draw.dr-on.active{height:auto!important;}
   #view-draw.dr-on .map-area{min-height:0!important;}
+}
+
+/* ── The beta switch (release gate, 2026-09-25): "Crosshair drawing (beta)"
+   in ☰ Tools, under Draw Mode. js/draw-reticle.js adds it on coarse pointers
+   only, and it shows with the screen OFF too, so these rules are scoped to
+   the switch, not to .dr-on. A real switch (role="switch"), 48px tall. ── */
+#map-sidebar-draw .dr-switch-row{margin:0 0 10px;}
+#map-sidebar-draw .dr-switch{
+  width:100%;min-height:48px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 10px;border-radius:10px;border:1px solid var(--br);background:var(--s2);color:var(--t);
+  font-family:'Barlow Condensed',sans-serif;text-align:left;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+#map-sidebar-draw .dr-switch[aria-checked="true"]{border-color:var(--orange);}
+#map-sidebar-draw .dr-switch:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
+#map-sidebar-draw .dr-switch-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#map-sidebar-draw .dr-switch-label{font-size:14px;font-weight:700;letter-spacing:.02em;line-height:1.2;}
+#map-sidebar-draw .dr-switch-hint{font-size:12px;font-weight:500;line-height:1.25;color:var(--m);}
+#map-sidebar-draw .dr-switch-track{position:relative;flex:0 0 44px;width:44px;height:26px;border-radius:13px;background:var(--br);transition:background .15s;}
+#map-sidebar-draw .dr-switch-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.45);transition:transform .15s;}
+#map-sidebar-draw .dr-switch[aria-checked="true"] .dr-switch-track{background:var(--orange);}
+#map-sidebar-draw .dr-switch[aria-checked="true"] .dr-switch-knob{transform:translateX(18px);}
+@media (prefers-reduced-motion: reduce){
+  #map-sidebar-draw .dr-switch-track,#map-sidebar-draw .dr-switch-knob{transition:none;}
 }

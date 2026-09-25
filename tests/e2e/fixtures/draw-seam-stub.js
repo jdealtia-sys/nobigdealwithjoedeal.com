@@ -24,7 +24,8 @@
 // Test hooks (stub only, never part of the contract): api.__calls (every
 // seam call, with the map centre / zoom at the time for placements),
 // api.__model() (a JSON copy of the model), api.__seed(model) (replace the
-// model and fire 'change'), api.__previewCount.
+// model and fire 'change'), api.__previewCount, api.__listenerCount() (live
+// 'change' subscribers — the beta switch's on/off leak check, 2026-09-25).
 'use strict';
 
 // Runs IN THE PAGE (serialised by addInitScript) — keep it self-contained.
@@ -70,6 +71,7 @@ function seamStubInit() {
     var m = fresh();
     var undoStack = [], redoStack = [], listeners = [], calls = [];
     var moving = false;
+    var saved = null; // Leaflet options setCrosshair(true) replaced
     var paint = L.layerGroup().addTo(map);
     var band = null;
     map.on('movestart zoomstart', function () { moving = true; });
@@ -197,10 +199,19 @@ function seamStubInit() {
         if (opts && opts.lineType != null) m.lineType = Number(opts.lineType);
         changed();
       },
+      // Like L3: on switches the map to centre zooms, off puts Leaflet's
+      // own options back (the crosshair screen's beta switch turns it off).
       setCrosshair: function (on) {
         rec('setCrosshair', [!!on]);
+        if (!!on === m.crosshair) return m.crosshair;
         m.crosshair = !!on;
-        if (on) { map.dragging.enable(); map.options.touchZoom = 'center'; map.options.doubleClickZoom = 'center'; }
+        if (on) {
+          saved = { touchZoom: map.options.touchZoom, doubleClickZoom: map.options.doubleClickZoom };
+          map.dragging.enable(); map.options.touchZoom = 'center'; map.options.doubleClickZoom = 'center';
+        } else if (saved) {
+          map.options.touchZoom = saved.touchZoom; map.options.doubleClickZoom = saved.doubleClickZoom; saved = null;
+        }
+        return m.crosshair;
       },
       snap: function (latlng, radius) { return snapLL(latlng, radius); },
       preview: function (latlng) {
@@ -320,6 +331,7 @@ function seamStubInit() {
       // ── stub-only test hooks ──
       __calls: calls,
       __previewCount: 0,
+      __listenerCount: function () { return listeners.length; },
       __model: function () { return clone(m); },
       __seed: function (next) { m = Object.assign(fresh(), clone(next)); m.armed = !!m.mode; undoStack.length = 0; redoStack.length = 0; changed(); },
     };
