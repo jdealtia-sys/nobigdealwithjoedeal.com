@@ -1450,6 +1450,20 @@
     return _docModal;
   }
 
+  // Phone audit (2026-09-25), the sibling of estimate-view.js errorStateFor:
+  // getPortalDocumentHtml's error strings are written for logs ("Not
+  // shared", "Document path is not readable", "Invalid token") and the
+  // viewer showed them to the homeowner verbatim. Keyed on status instead;
+  // the network-failure line in the catch below was already homeowner copy.
+  function _docErrorCopy(status) {
+    if (status === 400) return 'This link looks incomplete. Ask your rep to send it again.';
+    if (status === 403 || status === 404) return 'This document isn’t available here anymore. Ask your rep to share it again.';
+    if (status === 410) return 'This link has expired. Ask your rep for a new one.';
+    if (status === 413) return 'This document is too large to open here. Ask your rep for a copy.';
+    if (status === 429) return 'Too many requests right now. Give it a minute and try again.';
+    return 'Could not open this document. Try again in a moment — if it keeps happening, contact your rep.';
+  }
+
   function wirePortalDocumentsCard() {
     const list = document.querySelector('.doc-list');
     if (!list) return;
@@ -1469,7 +1483,7 @@
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || typeof data.html !== 'string') {
-          modal.querySelector('.doc-modal-status').textContent = (data && data.error) || 'Could not load this document.';
+          modal.querySelector('.doc-modal-status').textContent = _docErrorCopy(res.ok ? 0 : res.status);
           return;
         }
         const iframe = modal.querySelector('.doc-modal-iframe');

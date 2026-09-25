@@ -102,7 +102,7 @@ const EST_PAYLOAD = {
 // rep dashboard's callables, in the preview test) falls through untouched.
 const HOMEOWNER_FNS = new Set(['getHomeownerPortalView', 'getEstimateForView', 'getPortalMessages',
   'getPortalDocumentHtml', 'recordCustomerEvent']);
-async function mockBackend(context, { kind = 'estimate', estimate } = {}) {
+async function mockBackend(context, { kind = 'estimate', estimate, doc } = {}) {
   await context.route(FN_RE, async (route) => {
     const req = route.request();
     const fn = FN_RE.exec(req.url())[1];
@@ -113,6 +113,7 @@ async function mockBackend(context, { kind = 'estimate', estimate } = {}) {
     if (fn === 'getEstimateForView') return estimate ? estimate(route) : json(EST_PAYLOAD);
     if (fn === 'getPortalMessages') return json({ messages: [] });
     if (fn === 'getPortalDocumentHtml') {
+      if (doc) return doc(route);
       return json({ html: '<!doctype html><html><body style="font:16px sans-serif;padding:16px">'
         + '<p>Contract text.</p>'.repeat(60) + '</body></html>' });
     }
@@ -124,8 +125,8 @@ async function mockBackend(context, { kind = 'estimate', estimate } = {}) {
   await context.route(/^https:\/\/app\.boldsign\.com\//, (r) => r.fulfill({ status: 200, contentType: 'text/html', body: stub('Signer') }));
 }
 
-async function openPortal(page, kind, { mocked = false } = {}) {
-  if (!mocked) await mockBackend(page.context(), { kind });
+async function openPortal(page, kind, { mocked = false, doc } = {}) {
+  if (!mocked) await mockBackend(page.context(), { kind, doc });
   await page.goto('/pro/portal.html?token=' + TOKEN);
   await page.waitForSelector('#mainWrap .card', { timeout: 15_000 });
 }
@@ -432,6 +433,19 @@ test.describe('phone portal: the project page @shard2 @phoneportal', () => {
       return hit && hit.closest('#livePill') ? 'pill' : 'viewer';
     });
     expect(onTop, 'the open document viewer covers the pill').toBe('viewer');
+  });
+
+  // homeowner#7's sibling on this page: the document viewer printed the
+  // server's log-style error string ("Not shared") to the homeowner.
+  test('the document viewer explains a refused document in homeowner words', async ({ page }) => {
+    await openPortal(page, 'complete', {
+      doc: (route) => route.fulfill({ status: 403, headers: CORS, contentType: 'application/json', body: '{"error":"Not shared"}' }),
+    });
+    await page.locator('.portal-doc-view').first().tap();
+    const status = page.locator('.doc-modal-status');
+    await expect(status).toContainText(/ask your rep/i, { timeout: 10_000 });
+    await expect(status).not.toContainText('Not shared');
+    expect(await hitsItself(page, '.doc-modal-close'), 'the viewer can still be closed').toBe('ok');
   });
 });
 
