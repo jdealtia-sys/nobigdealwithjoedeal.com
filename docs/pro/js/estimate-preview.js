@@ -80,7 +80,9 @@
       addr: est.addr || est.address || '',
       owner: est.owner || '',
       builder: (est.builder === 'v2' || est.estimateVersion === 'v2') ? 'V2' : 'CLASSIC',
-      tier: est.tier || est.tierName || '',
+      // No tier chip when no tier applies (Job Template estimate, 2026-09-25).
+      tier: (window.NBDCustomerEstimateRows && typeof window.NBDCustomerEstimateRows.tierApplies === 'function'
+        && window.NBDCustomerEstimateRows.tierApplies(est) === false) ? '' : (est.tier || est.tierName || ''),
       sq: est.sq != null ? Number(est.sq).toFixed(2) : null,
       status: est.status || '',
       signatureStatus: est.signatureStatus || '',

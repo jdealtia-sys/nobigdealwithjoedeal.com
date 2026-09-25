@@ -69,6 +69,20 @@
     return ({ good: 'Non-transferable', better: 'Transferable to 1 subsequent owner', best: 'Fully transferable + annual inspection' })[key] || '';
   }
 
+  // Per-tier card copy (2026-09-25). The cards promised scope no tier price
+  // buys: Best was "Complete roof system with full deck replacement and
+  // gutters", Better "adds ice & water shield, hip caps, pipe boots, partial
+  // deck repair". A tier price changes the shingle line, never the scope,
+  // and a homeowner signs from this page — so the cards say only that, and
+  // the scope is whatever the estimate says. Upgrades (gutters, ice & water,
+  // decking) get their own priced lines, never a tier card
+  // (documentation/projects/UPGRADES-ADDONS-DESIGN-2026-09-25.md).
+  const TIER_DESCRIPTIONS = Object.freeze({
+    good:   'Standard shingle line. Scope exactly as written in your estimate.',
+    better: 'Upgraded shingle line. Scope exactly as written in your estimate.',
+    best:   'Top shingle line. Scope exactly as written in your estimate.'
+  });
+
   // ============================================================================
   // STATE
   // ============================================================================
@@ -380,9 +394,9 @@
 
       // Pricing tiers
       tiers: opts.tiers || {
-        good: { label: tierDisplayLabel('good'), price: 0, lineItems: [], description: 'Standard reroof with quality materials' },
-        better: { label: tierDisplayLabel('better'), price: 0, lineItems: [], description: 'Enhanced reroof with premium underlayment and ice shield' },
-        best: { label: tierDisplayLabel('best'), price: 0, lineItems: [], description: 'Complete roof system with full deck replacement and gutters' }
+        good: { label: tierDisplayLabel('good'), price: 0, lineItems: [], description: TIER_DESCRIPTIONS.good },
+        better: { label: tierDisplayLabel('better'), price: 0, lineItems: [], description: TIER_DESCRIPTIONS.better },
+        best: { label: tierDisplayLabel('best'), price: 0, lineItems: [], description: TIER_DESCRIPTIONS.best }
       },
 
       // Product details
@@ -532,19 +546,19 @@
       good: {
         label: tierDisplayLabel('good'),
         price: estimateData?.prices?.good || 0,
-        description: 'Standard reroof — quality architectural shingles, synthetic underlayment, proper ventilation',
+        description: TIER_DESCRIPTIONS.good,
         lineItems: []
       },
       better: {
         label: tierDisplayLabel('better'),
         price: estimateData?.prices?.better || 0,
-        description: 'Enhanced — adds ice & water shield, hip caps, pipe boots, partial deck repair',
+        description: TIER_DESCRIPTIONS.better,
         lineItems: []
       },
       best: {
         label: tierDisplayLabel('best'),
         price: estimateData?.prices?.best || 0,
-        description: 'Complete system — full deck replacement, seamless gutters, maximum protection',
+        description: TIER_DESCRIPTIONS.best,
         lineItems: []
       }
     };
@@ -552,9 +566,13 @@
     // Pull line items if available
     if (typeof window.getLineItems === 'function') {
       const items = window.getLineItems();
-      tiers.good.lineItems = items.filter(i => !i.code?.includes('I&WS') && !i.code?.includes('HIPC') && !i.code?.includes('PIPE') && !i.code?.includes('DECK') && !i.code?.includes('GUT'));
-      tiers.better.lineItems = items.filter(i => !i.code?.includes('GUT'));
-      tiers.best.lineItems = items;
+      // One scope for every tier (2026-09-25). These filters used to drop
+      // ice & water, hip caps, pipe boots, decking and gutters from the lower
+      // tiers — the data twin of the card copy TIER_DESCRIPTIONS replaced. The
+      // tier price never removed that scope, so no tier's list may either.
+      tiers.good.lineItems = items.slice();
+      tiers.better.lineItems = items.slice();
+      tiers.best.lineItems = items.slice();
     }
 
     // Get product names from library
@@ -1341,9 +1359,9 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
       customerEmail: email,
       address: addr,
       tiers: {
-        good: { label: tierDisplayLabel('good'), price: good, description: 'Standard reroof with quality materials', lineItems: [] },
-        better: { label: tierDisplayLabel('better'), price: better, description: 'Enhanced reroof with premium underlayment and ice shield', lineItems: [] },
-        best: { label: tierDisplayLabel('best'), price: best, description: 'Complete roof system with full deck replacement and gutters', lineItems: [] }
+        good: { label: tierDisplayLabel('good'), price: good, description: TIER_DESCRIPTIONS.good, lineItems: [] },
+        better: { label: tierDisplayLabel('better'), price: better, description: TIER_DESCRIPTIONS.better, lineItems: [] },
+        best: { label: tierDisplayLabel('best'), price: best, description: TIER_DESCRIPTIONS.best, lineItems: [] }
       },
       insuranceClaim: isInsurance,
       insuranceCarrier: carrier,

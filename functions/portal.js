@@ -56,7 +56,7 @@ const { applyRepReplyEffects } = require('./portal-reply-effects');
 // a smoke drift guard in tests/customer-estimate-rows.test.js asserts the two
 // stay identical). NEVER emit est.rows raw — pre-sweep V2 rows carry the
 // contractor's COST basis.
-const { buildDisplayRows, buildDocLineItems } = require('./customer-estimate-rows');
+const { buildDisplayRows, buildDocLineItems, tierApplies } = require('./customer-estimate-rows');
 // Single authority check for portal-link mint/revoke: platform admin, owning
 // rep, or a company_admin of the lead's tenant. Pure module — decision is
 // unit-tested there, not here.
@@ -994,9 +994,16 @@ exports.getHomeownerPortalView = onRequest(
         // cert, estimate PDF) no longer uses. functions/ has no server-side
         // mirror of estimate-config.js's TIER_DISPLAY, so this literal map is
         // kept in sync by hand — it must match TIER_DISPLAY's labels exactly.
-        tierName:        latest.tierName
-          || ({ good: 'Standard', better: 'Preferred', best: 'Elite' }[latest.tier])
-          || null,
+        // 2026-09-25: nothing at all when no tier applies. A Job Template
+        // estimate's tier priced nothing and was a silent 'better' default,
+        // so this line told gutter and repair customers they bought
+        // "Preferred". tierApplies() is the shared rule (it also covers
+        // template estimates saved before the fix — see its comment).
+        tierName:        tierApplies(latest)
+          ? (latest.tierName
+            || ({ good: 'Standard', better: 'Preferred', best: 'Elite' }[latest.tier])
+            || null)
+          : null,
         signatureStatus: latest.signatureStatus || 'none',
         signedAt:        latest.signedAt?.toDate?.()?.toISOString() || null,
         signedDocumentUrl: latest.signedDocumentUrl || null,
@@ -2499,7 +2506,8 @@ exports.getEstimateForView = onRequest(
     }
     const safeEstimate = {
       id: estSnap.id,
-      tier:        est.tier || null,
+      // null when no tier applies (a Job Template estimate — see tierApplies).
+      tier:        tierApplies(est) ? (est.tier || null) : null,
       mode:        est.mode || null,
       grandTotal:  est.grandTotal || est.total || null,
       total:       est.total || est.grandTotal || null,

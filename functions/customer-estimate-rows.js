@@ -235,12 +235,158 @@
     return est.title || est.name || est.addr || 'Estimate';
   }
 
+  // ── Tier + workmanship warranty of a SAVED estimate (2026-09-25) ────
+  // Job Templates showed a Good/Better/Best row that priced nothing: all 107
+  // templates resolve to identical totals at every tier. The saved tier was a
+  // silent default ('better'), and the paperwork turned it into "Preferred"
+  // plus a LIFETIME workmanship warranty on gutter jobs, repairs and
+  // inspections. Template estimates now save `tierApplies: false` and a
+  // job-type `warrantyKind` (job-templates.js buildEstimatePayload), and every
+  // customer-facing reader asks these two helpers instead of printing est.tier.
+  // documentation/projects/UPGRADES-ADDONS-DESIGN-2026-09-25.md
+  //
+  // They live here because this file already reaches all three runtimes that
+  // print an estimate: dashboard.html, customer.html and functions/ (the
+  // portal). customer.html does NOT load estimate-config.js, so the kind→years
+  // table below is a copy of NBD_ESTIMATE_CONFIG.WORKMANSHIP_WARRANTY, used
+  // only when that global is absent; tests/job-template-honest-paperwork.test.js
+  // fails if the two ever differ.
+  const WORKMANSHIP_WARRANTY_FALLBACK = {
+    gutter_system:   { years: 5 },
+    guard_only:      { years: 2 },
+    install_default: { years: 2 },
+    repair:          { years: 1, optIn: true },
+    none:            { years: 0 },
+    roof:            { tierWording: true },
+  };
+
+  // ESTIMATES SAVED BEFORE 2026-09-25 carry no tierApplies/warrantyKind, only
+  // the silent tier and `sourceTemplates`. The rule for them: a Job Template
+  // estimate whose sources include no ROOFING template gets no tier and no
+  // workmanship claim. Provable because (a) tiers priced nothing on any Job
+  // Template, so the saved tier never recorded a choice the homeowner paid for,
+  // and (b) the ids below are exactly the default templates whose warrantyKind
+  // is 'roof' — the test pins this pattern against job-templates-data.js both
+  // ways. Roofing keeps its tier and wording untouched, which is Jo's call for
+  // roofing. A template the rep made with Duplicate (jt_custom_*) cannot be
+  // classified from its id and falls on the no-claim side: printing nothing is
+  // honest for a roof, printing "lifetime" is not for a gutter.
+  const ROOFING_TEMPLATE_ID_RE = /^jt_fr_|^jt_sp_(standing_seam_full|exposed_fastener_metal|designer_shingle_full|cedar_shake_replacement|tpo_flat_full|modbit_lowslope)$/;
+
+  function warrantyTable() {
+    const cfg = (typeof window !== 'undefined') && window.NBD_ESTIMATE_CONFIG;
+    return (cfg && cfg.WORKMANSHIP_WARRANTY) || WORKMANSHIP_WARRANTY_FALLBACK;
+  }
+
+  // Per-SQ is the one pricing model where Good/Better/Best changes the price
+  // (V2's 545/595/660 per SQ). A template estimate re-saved from V2 in per-SQ
+  // mode is a roofing quote with a real tier, whatever it started as.
+  function isPerSqEstimate(est) {
+    return !!est && (est.priceMode === 'per-sq' || est.prices != null);
+  }
+
+  function isJobTemplateEstimate(est) {
+    return !!est && (est.builder === 'template'
+      || (Array.isArray(est.sourceTemplates) && est.sourceTemplates.length > 0));
+  }
+
+  function hasRoofingSource(est) {
+    return Array.isArray(est.sourceTemplates)
+      && est.sourceTemplates.some(function (id) { return ROOFING_TEMPLATE_ID_RE.test(String(id)); });
+  }
+
+  /**
+   * Does a Good/Better/Best tier apply to this saved estimate?
+   * false → print nothing tier-related (no "Preferred", no "Better tier").
+   * true for anything that is not a Job Template estimate, so every other
+   * builder's output is untouched; true for null (nothing to suppress).
+   */
+  function tierApplies(est) {
+    if (!est) return true;
+    if (isPerSqEstimate(est)) return true;
+    if (est.tierApplies === true) return true;
+    if (est.tierApplies === false) return false;
+    if (isJobTemplateEstimate(est)) return hasRoofingSource(est);
+    return true;
+  }
+
+  function warrantyYears(kind, repairWarranty) {
+    const entry = warrantyTable()[kind];
+    if (!entry || entry.tierWording) return 0;
+    if (entry.optIn && repairWarranty !== true) return 0;
+    const y = Number(entry.years);
+    return Number.isFinite(y) && y > 0 ? y : 0;
+  }
+
+  function joinNames(names) {
+    if (names.length <= 1) return names[0] || '';
+    return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  }
+
+  /**
+   * The workmanship warranty a saved estimate carries.
+   *
+   *   null — not a Job Template estimate (or per-SQ, or a pre-2026-09-25
+   *          roofing one). The caller keeps its existing tier wording.
+   *   { kind:'roof', wordingTier, text:null } — roofing: print the caller's
+   *          existing tier wording for `wordingTier`. A new roofing template
+   *          estimate has no tier, so this is 'better', the value that flow
+   *          always saved; the printed sentence is unchanged.
+   *   { kind, wordingTier:'', years, text } — any other job type. `text` is
+   *          the plain-text sentence to print ('' = no workmanship warranty:
+   *          an unticked repair, an inspection, a pre-2026-09-25 non-roofing
+   *          template estimate). `years` is set when one duration covers the
+   *          whole job, else null. Plain text: HTML renderers escape it.
+   */
+  function estimateWarranty(est) {
+    if (!est || isPerSqEstimate(est) || !isJobTemplateEstimate(est)) return null;
+    const kind = est.warrantyKind || null;
+    if (!kind) {
+      if (est.tierApplies === undefined && hasRoofingSource(est)) return null;
+      return { kind: null, wordingTier: '', years: null, text: '' };
+    }
+    if (kind === 'roof') {
+      const t = tierApplies(est) ? String(est.tier || est.selectedTier || '').toLowerCase() : '';
+      return { kind: 'roof', wordingTier: t || 'better', years: null, text: null };
+    }
+    const parts = (Array.isArray(est.warrantyParts) && est.warrantyParts.length)
+      ? est.warrantyParts : [{ name: '', kind: kind }];
+    const covered = [];
+    parts.forEach(function (p) {
+      const y = warrantyYears(p && p.kind, est.repairWarranty);
+      if (y > 0) covered.push({ name: String((p && p.name) || '').trim(), years: y });
+    });
+    if (!covered.length) return { kind: kind, wordingTier: '', years: null, text: '' };
+    const uniform = covered.every(function (c) { return c.years === covered[0].years; });
+    if (uniform && covered.length === parts.length) {
+      return { kind: kind, wordingTier: '', years: covered[0].years,
+        text: covered[0].years + '-year workmanship warranty.' };
+    }
+    // Part of the job is warranted and part is not, or durations differ: name
+    // each warranted part, so the sentence cannot be read as covering the rest.
+    const byYears = {};
+    const order = [];
+    covered.forEach(function (c) {
+      if (!byYears[c.years]) { byYears[c.years] = []; order.push(c.years); }
+      if (c.name) byYears[c.years].push(c.name);
+    });
+    const text = order.map(function (y) {
+      const names = byYears[y];
+      return y + '-year workmanship warranty' + (names.length ? ' on ' + joinNames(names) : '') + '.';
+    }).join(' ');
+    return { kind: kind, wordingTier: '', years: null, text: text };
+  }
+
   const _api = {
     buildDocLineItems: buildDocLineItems,
     buildDisplayRows: buildDisplayRows,
     numFrom: numFrom,
     estimateValue: estimateValue,
     estimateName: estimateName,
+    tierApplies: tierApplies,
+    estimateWarranty: estimateWarranty,
+    WORKMANSHIP_WARRANTY_FALLBACK: WORKMANSHIP_WARRANTY_FALLBACK,
+    ROOFING_TEMPLATE_ID_RE: ROOFING_TEMPLATE_ID_RE,
   };
   if (typeof window !== 'undefined') {
     window.NBDCustomerEstimateRows = _api;

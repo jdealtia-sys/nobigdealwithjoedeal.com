@@ -793,6 +793,10 @@
     const estimates = (window._estimates || []).filter(e => e && (e.leadId === leadId || e.customerId === leadId));
     const photoBag = (window._photoCache && window._photoCache[leadId]) || [];
     const est = estimates.length > 0 ? estimates[0] : null;
+    // Job Template estimates (2026-09-25) carry a job-type warranty and no
+    // tier; null for every other estimate, which keeps its tier wording.
+    const _rowsApi = window.NBDCustomerEstimateRows;
+    const _jw = (_rowsApi && typeof _rowsApi.estimateWarranty === 'function' && _rowsApi.estimateWarranty(est)) || null;
     const before = photoBag.filter(p => (p.phase || '').toLowerCase() === 'before');
     const after  = photoBag.filter(p => (p.phase || '').toLowerCase() === 'after');
     const during = photoBag.filter(p => (p.phase || '').toLowerCase() === 'during');
@@ -838,7 +842,9 @@
       totalPrice:     jobVal ? '$' + Number(jobVal).toLocaleString() : '',
       estimateAmount: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
       contractPrice:  jobVal ? '$' + Number(jobVal).toLocaleString() : '',
-      warrantyTier:   (est && (est.tier || est.tierName)) || lead.warrantyTier || '',
+      warrantyTier:   _jw ? _jw.wordingTier : ((est && (est.tier || est.tierName)) || lead.warrantyTier || ''),
+      workmanshipWarranty: (_jw && _jw.text !== null) ? _jw.text : null,
+      workmanshipWarrantyYears: _jw ? _jw.years : null,
       // See the twin in customer-tasks-ui.js: `est.lineItems` is always empty
       // for a V2 estimate (V2 writes `rows`), which made resolveDocManufacturer
       // fall back to its hardcoded GAF default on every job.
