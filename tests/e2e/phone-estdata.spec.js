@@ -100,6 +100,15 @@ test.describe.serial('phone estimate data @audit', () => {
         : {}),
     });
     page = await ctx.newPage();
+    // A fresh emulator user gets the onboarding tour overlay (and the push
+    // opt-in card) over the whole screen; retire both the way
+    // dashboard-actions-audit.spec.js does, before any page script runs.
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem('nbd-onboarding-complete', '1');
+        localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+      } catch (e) { /* storage blocked: the Skip-tour tap below still covers it */ }
+    });
     // Cloud Functions (payment link, server PDF render): answer "unavailable"
     // so every path takes its documented fallback, with or without the
     // functions emulator.

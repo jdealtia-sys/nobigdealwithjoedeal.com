@@ -413,7 +413,12 @@
       html.nbd-est-doc th, html.nbd-est-doc td { padding:6px 3px; }
       html.nbd-est-doc th { font-size:8px; letter-spacing:.02em; width:auto !important; }
       html.nbd-est-doc td { font-size:11px; }
-      html.nbd-est-doc td.code { font-size:10px; overflow-wrap:anywhere; }
+      /* Money cells never wrap, so the text cells must be able to: a five-
+         figure line total on a 97-SQ job would otherwise push the 7-column
+         Internal table past a 360px screen by a few px. Breaks mid-word only
+         when the numbers leave no other way to fit. */
+      html.nbd-est-doc td:not(.num) { overflow-wrap:anywhere; }
+      html.nbd-est-doc td.code { font-size:10px; }
       html.nbd-est-doc .grand-row td { font-size:13px; padding:10px 4px; }
     }
     @page { margin:1.5cm; size:letter; }
