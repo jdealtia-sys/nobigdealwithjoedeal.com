@@ -388,6 +388,61 @@ const proseLeaks = scanProse(PRODUCTS);
 ok('no product\'s prose fields carry a price or supplier account (' +
    (proseLeaks.slice(0, 2).join(' | ') || 'clean') + ')', proseLeaks.length === 0);
 
+// 2026-09-25: layer 5 only ever read NBD_PRODUCTS, so the Xactimate catalog
+// shipped "Contractor cost $75/box" in RFG NAIL-LUMA's desc — found by a design
+// agent reading the file, not by this suite. Its prose, and the job templates'
+// (description / scopeNotes / custom line names), are swept here too. Only the
+// stated-cost and supplier-account shapes: a bare "$" figure is not flagged in
+// these two, because the templates legitimately say "delete the $0 lines" (7
+// scopeNotes, measured) and a retail figure in prose is allowed anyway.
+const PROSE_RES_CATALOG = PROSE_RES.filter(([, what]) => what !== 'a dollar figure in prose');
+function scanProseStrings(items) {
+  const out = [];
+  items.forEach(([where, v]) => {
+    if (typeof v !== 'string') return;
+    PROSE_RES_CATALOG.forEach(([re, what]) => {
+      const m = v.match(re);
+      if (m) out.push(where + ': ' + what + ' — "' + v.slice(Math.max(0, m.index - 20), m.index + 40) + '"');
+    });
+  });
+  return out;
+}
+const catalogProse = (() => {
+  const w = {};
+  w.window = w;
+  const store = {};
+  const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  w.localStorage = ls;
+  const sb = { window: w, localStorage: ls, Date, Math, JSON, Set, Map, Object,
+    console: { log() {}, warn() {}, error() {}, info() {} },
+    document: { addEventListener() {}, getElementById: () => null, querySelector: () => null, querySelectorAll: () => [] },
+    navigator: {}, setTimeout, clearTimeout };
+  vm.createContext(sb);
+  ['estimate-config.js', 'product-data.js', 'roofivent-catalog.js', 'estimate-labor-catalog.js',
+   'estimate-builder-v2.js', 'estimate-catalog-xactimate.js', 'estimate-logic-engine.js',
+   'job-templates-data.js', 'job-templates.js'].forEach((f) => {
+    const p = path.join(HOSTING_ROOT, 'pro', 'js', f);
+    if (!fs.existsSync(p)) return;
+    try { vm.runInContext(fs.readFileSync(p, 'utf8'), sb, { filename: f }); } catch (e) { /* counted by the non-vacuity checks below */ }
+  });
+  const xc = w.NBD_XACT_CATALOG;
+  const entries = xc && xc.byCode ? Object.values(xc.byCode).filter(Boolean) : [];
+  const templates = Array.isArray(w.NBD_JOB_TEMPLATES) ? w.NBD_JOB_TEMPLATES : [];
+  const strings = [];
+  entries.forEach((e) => ['name', 'desc', 'reason', 'notes'].forEach((k) => strings.push(['xact ' + e.code + '.' + k, e[k]])));
+  templates.forEach((t) => {
+    ['name', 'description', 'scopeNotes'].forEach((k) => strings.push(['template ' + t.id + '.' + k, t[k]]));
+    (t.items || []).forEach((it) => { if (it && it.custom) ['name', 'desc'].forEach((k) => strings.push(['template ' + t.id + ' custom.' + k, it.custom[k]])); });
+  });
+  return { entries: entries.length, templates: templates.length, leaks: scanProseStrings(strings) };
+})();
+ok('Xactimate catalog loaded for the prose sweep (' + catalogProse.entries + ' codes) — not vacuous',
+   catalogProse.entries >= 300);
+ok('job templates loaded for the prose sweep (' + catalogProse.templates + ') — not vacuous',
+   catalogProse.templates >= 100);
+ok('no catalog/template prose states a cost or supplier account (' +
+   (catalogProse.leaks.slice(0, 2).join(' | ') || 'clean') + ')', catalogProse.leaks.length === 0);
+
 /* ── 2. signature scan across the whole published tree ─────────────────── */
 
 console.log('\ncatalog cost privacy — published tree');
@@ -951,6 +1006,13 @@ console.log('──────────────────────�
      scanProse(mut('Includes a photo report to the customer portal.')).length === 0);
   ok('control: ordinary product prose is not flagged',
      scanProse(mut('Required for the 160 mph wind warranty. 33.3 LF per bundle.')).length === 0);
+
+  // The catalog/template sweep (2026-09-25): the real RFG NAIL-LUMA string, and
+  // the benign template shape it must keep passing.
+  ok('MUTANT killed: the real catalog desc leak ("Contractor cost $75/box")',
+     scanProseStrings([['xact RFG NAIL-LUMA.desc', 'LumaNails premium ring-shank roofing nails. Contractor cost $75/box covers 10 SQ of installation.']]).length > 0);
+  ok('control: a template note about deleting $0 lines is not flagged',
+     scanProseStrings([['template x.scopeNotes', 'Dumpster trio is sq-gated (delete the $0 lines).']]).length === 0);
 }
 
 // 4f. per-SQ cost basis stays out of the published tree (2026-08-10).
