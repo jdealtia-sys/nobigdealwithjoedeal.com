@@ -51,6 +51,10 @@ async function signIn(page) {
     r.fulfill({ contentType: 'application/json', body: '[]' }));
   await page.route('**/renderPdf**', (r) =>
     r.fulfill({ status: 500, contentType: 'application/json', body: '{"error":{"status":"INTERNAL","message":"mocked in phone-estbuilder.spec"}}' }));
+  // The first-run tour mounts 1.5s after the dashboard and its overlay eats
+  // taps; a one-shot "Skip tour" check races it. Mark it done up front
+  // (onboarding-tour.js STORAGE_KEY).
+  await page.addInitScript(() => { try { localStorage.setItem('nbd-onboarding-complete', '1'); } catch (e) { /* private mode */ } });
   await loginAs(page, creds);
   await safeWaitForFunction(page, () => !!(window._user && window._user.uid), { timeout: 20_000 });
   const skip = page.getByText('Skip tour', { exact: true });
@@ -71,7 +75,15 @@ async function openBuilder(page, arg) {
 }
 
 // The control's centre, hit-tested: what a thumb landing there would touch.
+// Host-page toasts are cleared first: they are transient, sit above every
+// overlay by design (--z-toast), and the seeding here raises its own
+// ("Address not found" from the stubbed geocoder) plus the dashboard's
+// timers ("8 overdue follow-ups"). A toast over a control is not what these
+// steps measure; the builder's own layers (step bar, undo bar) still count.
 async function reachable(locator) {
+  await locator.page().evaluate(() => {
+    document.querySelectorAll('.toast-container .toast, #toast.toast').forEach((t) => t.remove());
+  });
   return locator.evaluate((el) => {
     const r = el.getBoundingClientRect();
     const h = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
