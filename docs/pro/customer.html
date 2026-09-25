@@ -1232,7 +1232,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
    reach it (body clips overflow-x), and the fixed bottom bar and FABs
    were laid out against the wider viewport, i.e. partly off-screen.
    Three causes: #fullPortalUrl was flex:1 with the default min-width:auto
-   while the phone font floor (16px, below and mobile-polish.css §5) gave
+   while the phone font floor (16px: this page's ≤640 block and
+   mobile-polish.css §5) gave
    it a ~197px intrinsic width; nbd-mobile.css's .btn-ghost !important
    padding fattened 📋/👁 to ~60px; and the .quick-actions .btn rules
    (now `>`) stretched Close to 226px. The input now shrinks (min-width:0
