@@ -415,6 +415,20 @@
   var _poll = null;
   function waitForProfile() {
     if (_poll) return;
+    // Ask for the read, don't only wait for it (2026-09-25, found probing
+    // desktop 1280 for the PR #1762 review). The boot read can give up on a
+    // cold Firestore channel ("client is offline" after nbdRetryOffline's
+    // three tries) and nothing retries it, so a desktop that opened this tab
+    // showed "Loading…" and then "did not load" for good, while a manual
+    // _loadCompanyProfile() landed in ~15ms. One read per wait: it sets
+    // _companyProfileLoaded only when the doc read succeeds, so the guard
+    // below is unchanged, and "open this tab again" really does retry.
+    if (typeof root._loadCompanyProfile === 'function') {
+      try {
+        var p = root._loadCompanyProfile();
+        if (p && typeof p.catch === 'function') p.catch(function () { /* the 30s message covers it */ });
+      } catch (_) { /* the 30s message covers it */ }
+    }
     _poll = setInterval(function () {
       if (root._companyProfileLoaded !== true) return;
       clearInterval(_poll); _poll = null;

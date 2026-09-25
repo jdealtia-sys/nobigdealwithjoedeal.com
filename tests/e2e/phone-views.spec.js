@@ -810,6 +810,32 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
         expect(r.neverCame, 'a bundle that never delivers the module says so, and Save is off').toEqual({ state: 'unavailable', text: 'Upgrade prices could not load. Reload the page to try again.', rows: 0, saveDisabled: true });
         await expect(page.locator(ROWS), 'the panel is back to normal').toHaveAttribute('data-state', 'ready');
       });
+
+      await test.step('a company-profile read that gave up at boot is retried by the panel', async () => {
+        // Desktop 1280 on this rig: the boot read gave up ("client is
+        // offline") and nothing retried it, so the panel sat on "Loading…"
+        // and then "did not load". The panel now asks for the read itself.
+        const r = await safeEvaluate(page, async () => {
+          const host = document.getElementById('upgPriceRows');
+          const real = window._loadCompanyProfile;
+          let calls = 0;
+          window._loadCompanyProfile = function () { calls++; return real.apply(this, arguments); };
+          window._companyProfileLoaded = false; // the boot read gave up
+          try {
+            window.NBDUpgradePriceSettings.render();
+            const during = host.getAttribute('data-state');
+            for (let i = 0; i < 40 && host.getAttribute('data-state') !== 'ready'; i++) await new Promise((res) => setTimeout(res, 250));
+            return { during, calls, after: host.getAttribute('data-state'), loaded: window._companyProfileLoaded === true };
+          } finally {
+            window._loadCompanyProfile = real;
+            window._companyProfileLoaded = true;
+          }
+        });
+        expect(r.during, 'unhydrated: the loading line, Save off').toBe('loading');
+        expect(r.calls, 'the panel asked for the profile read').toBe(1);
+        expect(r.loaded, 'the read landed').toBe(true);
+        expect(r.after, 'and the rows painted without reopening the tab').toBe('ready');
+      });
     } finally {
       await unforceStandalone(page).catch(() => {});
       await safeEvaluate(page, async (o) => {
