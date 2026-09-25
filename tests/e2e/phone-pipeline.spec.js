@@ -29,6 +29,15 @@
 //   - The FAB stack painted over the menu's right edge on a landscape phone.
 //   - Deleted leads and Prospects left their menu open behind them.
 //
+// Phone nav polish (2026-09-25, after those landed):
+//   - The header ⋮ kebab had the old menu lifecycle: a touch beside it with
+//     no click left it open on the iPhone, every close from the button leaked
+//     a listener, and an item left it open over what it opened.
+//   - The list chose phone cards or the desktop table (and Auto chose List
+//     or Board) when it rendered, never on a rotate: a refresh that landed
+//     while the phone was sideways brought it back upright to a blank list.
+//   - Card density closed Tools after every step of its three-way cycle.
+//
 // So every assertion here is behavioural: elementFromPoint at a control's
 // centre must return that control, and taps are real touch events
 // (touchscreen.tap / CDP touch sequences) at on-screen coordinates, never
@@ -464,13 +473,84 @@ test.describe('phone pipeline @audit', () => {
       await closeAll();
     }
     await page.setViewportSize({ width: 412, height: 860 });
-    // The list and the follow-up block choose their phone or desktop layout
-    // when they render, not on resize. A live refresh that lands while the
-    // phone is sideways leaves the desktop layout behind in portrait (a
-    // separate, older issue). Re-render in portrait, as the next refresh
-    // would, so the tests after this one start from the phone layout.
-    await safeEvaluate(page, () => { if (window.renderLeads) window.renderLeads(window._leads); });
+    // No re-render here any more: the list and the follow-up block follow a
+    // rotate on their own now (2026-09-25 phone nav polish; pinned by the
+    // "a rotate re-renders the list" test below), so the tests after this
+    // one start from the phone layout because the app put it back.
     await settle(page);
+  });
+
+  // Runs before the follow-up test on purpose: that one taps "+ N more",
+  // which keeps every row for the session, and the row count is how this
+  // test sees the follow-up block re-fit.
+  test('a rotate re-renders the list and the follow-up rows for the new width; the pipeline never comes back blank (nav polish #2)', async () => {
+    test.setTimeout(120_000);
+    const saved = await safeEvaluate(page, () => { try { return localStorage.getItem('nbd-crm-view-mode'); } catch (_) { return null; } });
+    const state = () => safeEvaluate(page, () => {
+      const shown = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).length;
+      const label = (document.getElementById('followUpAlertsLabel') || {}).textContent || '';
+      return { listMode: document.body.classList.contains('crm-list-mode'),
+        cards: shown('#crmListWrap .cl-card'), rows: shown('#crmListWrap tr.crm-list-row'), board: shown('#kanbanBoard .k-card'),
+        fu: shown('#followUpAlerts .follow-up-alert'), due: parseInt(label, 10) || 0 };
+    });
+    // What lands while the phone is sideways: a live refresh (snapshot →
+    // renderLeads). Without one the old layout just sat there.
+    const refresh = () => safeEvaluate(page, () => window.renderLeads(window._leads));
+    const turn = async (width, height) => { await page.setViewportSize({ width, height }); await page.waitForTimeout(400); };
+    try {
+      // Auto (no saved choice): List on a phone, Board on anything wider.
+      await safeEvaluate(page, () => { try { localStorage.removeItem('nbd_crm_followup_hidden'); } catch (_) {} window.crmViewAuto(); });
+      for (const [w, h] of [[412, 860], [360, 780]]) {
+        await turn(w, h);
+        await waitWith(page, () => document.querySelectorAll('#crmListWrap .cl-card').length > 0, null, 10_000);
+        const up = await state();
+        expect(up.listMode, `Auto on a ${w}px phone is the list`).toBe(true);
+        expect(up.due, 'precondition: more follow-ups due than a phone shows').toBeGreaterThanOrEqual(4);
+        expect(up.fu, `a ${w}px phone shows three follow-up rows`).toBe(3);
+        await turn(h, w);
+        await refresh();
+        const side = await state();
+        expect(side.cards + side.rows + side.board, `sideways (${h}x${w}) after a refresh: the pipeline is not blank`).toBeGreaterThan(0);
+        expect(side.listMode, `sideways (${h}x${w}), Auto shows the board, as a fresh load at that width does`).toBe(false);
+        expect(side.fu, `sideways (${h}x${w}): the wider screen's five follow-up rows`).toBe(Math.min(5, side.due));
+        await turn(w, h);
+        const back = await state();
+        expect(back.cards, `upright again (${w}x${h}): every list card is back`).toBe(up.cards);
+        expect(back.listMode, `upright again (${w}x${h}): the list`).toBe(true);
+        expect(back.fu, `upright again (${w}x${h}): three follow-up rows`).toBe(3);
+      }
+
+      // Saved List: phone cards upright, the desktop table sideways, cards again.
+      await turn(412, 860);
+      await safeEvaluate(page, () => window.crmViewList());
+      await waitWith(page, () => document.querySelectorAll('#crmListWrap .cl-card').length > 0, null, 10_000);
+      const n = (await state()).cards;
+      await turn(860, 412);
+      const tbl = await state();
+      expect({ listMode: tbl.listMode, cards: tbl.cards, table: tbl.rows === n }, 'saved List sideways: the table, one row per lead').toEqual({ listMode: true, cards: 0, table: true });
+      await turn(412, 860);
+      const cards = await state();
+      expect({ cards: cards.cards, rows: cards.rows }, 'saved List upright again: the cards').toEqual({ cards: n, rows: 0 });
+
+      // Saved Board: the board both ways; only the follow-up rows re-fit
+      // (no refresh in between — the rows follow the rotate by themselves).
+      await safeEvaluate(page, () => window.crmViewBoard());
+      await waitWith(page, () => !document.body.classList.contains('crm-list-mode'), null, 10_000);
+      await turn(860, 412);
+      const bSide = await state();
+      expect({ listMode: bSide.listMode, board: bSide.board > 0, fu: bSide.fu }, 'saved Board sideways: the board, five follow-up rows')
+        .toEqual({ listMode: false, board: true, fu: Math.min(5, bSide.due) });
+      await turn(412, 860);
+      const bUp = await state();
+      expect({ listMode: bUp.listMode, board: bUp.board > 0, fu: bUp.fu }, 'saved Board upright: the board, three follow-up rows')
+        .toEqual({ listMode: false, board: true, fu: 3 });
+    } finally {
+      await page.setViewportSize({ width: 412, height: 860 });
+      await safeEvaluate(page, (s) => {
+        if (s === 'list') window.crmViewList(); else if (s === 'board') window.crmViewBoard(); else window.crmViewAuto();
+      }, saved);
+      await settle(page);
+    }
   });
 
   test('list cards show the real stage; swipe advances it; a cancelled swipe snaps back (pipeline#1, #11)', async () => {
@@ -708,6 +788,142 @@ test.describe('phone pipeline @audit', () => {
     expect(lost.ok, `after a finger drag, Lost is on screen and tappable (${lost.diag})`).toBe(true);
     await safeEvaluate(page, () => { window.KanbanContextMenu.close(); if (window.closeMobileJobDetail) window.closeMobileJobDetail(); });
     await page.setViewportSize({ width: 412, height: 860 });
+  });
+
+  // The header's ⋮ kebab (Theme & Font / Settings / Theme Guide) had the
+  // same lifecycle bugs the pipeline menus were fixed for (2026-09-25 phone
+  // nav polish): click-only outside closing, which WebKit never triggers for
+  // a tap on plain page; one leaked listener per close from the button; and
+  // an item left it open over what it opened.
+  test('header kebab: a touch beside closes it with no click, an item closes it, no close leaves a listener behind (nav polish #1)', async () => {
+    test.setTimeout(90_000);
+    // Count the kebab's document capture listeners as they are added and
+    // removed. Own properties on document sit in front of whatever wraps
+    // addEventListener further up (Sentry does), and only listeners whose
+    // source names #hdrMobileBtn count, so other modules can't move the tally.
+    await safeEvaluate(page, () => {
+      const live = window.__ppKebabLive = new Set();
+      const ids = new WeakMap(); let n = 0;
+      const key = (t, f) => { if (!ids.has(f)) ids.set(f, ++n); return t + ':' + ids.get(f); };
+      const mine = (t, f, o) => (t === 'click' || t === 'pointerdown') && typeof f === 'function'
+        && (o === true || !!(o && o.capture)) && String(f).indexOf('#hdrMobileBtn') !== -1;
+      const add = document.addEventListener, rem = document.removeEventListener;
+      document.addEventListener = function (t, f, o) { if (mine(t, f, o)) live.add(key(t, f)); return add.call(this, t, f, o); };
+      document.removeEventListener = function (t, f, o) { if (mine(t, f, o)) live.delete(key(t, f)); return rem.call(this, t, f, o); };
+    });
+    const settles = async (want) => {
+      await waitWith(page, (w) => document.getElementById('hdrMobileMenu').classList.contains('open') === w, want, 1_500).catch(() => {});
+      return safeEvaluate(page, () => document.getElementById('hdrMobileMenu').classList.contains('open'));
+    };
+    // toTop() lines the pipeline header up with the top of the screen, which
+    // can scroll the app header (and ⋮) off it. Bring the app header in, then
+    // the pipeline title only if it isn't already on screen.
+    const headerInView = async () => {
+      await safeEvaluate(page, () => {
+        document.getElementById('hdrMobileBtn').scrollIntoView({ block: 'start' });
+        document.querySelector('#view-crm .crm-hdr-title').scrollIntoView({ block: 'nearest' });
+      });
+      await page.waitForTimeout(150);
+      expect(await safeEvaluate(page, () => window.__ppHit(document.getElementById('hdrMobileBtn'))
+        && window.__ppHit(document.querySelector('#view-crm .crm-hdr-title'))), 'precondition: ⋮ and the pipeline title are both on screen').toBe(true);
+    };
+    // The previous test ends on a CDP finger drag, and the first tap after one
+    // can be swallowed as a fling-stop (see the header menus test above). A
+    // touch that fires no click stops any fling first.
+    await headerInView();
+    const t0 = await centre(page, '#view-crm .crm-hdr-title');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: t0.x, y: t0.y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await page.waitForTimeout(200);
+    try {
+      for (const width of [412, 360]) {
+        await page.setViewportSize({ width, height: 860 });
+        await headerInView();
+        await quietToasts(page);
+        const k = await centre(page, '#hdrMobileBtn');
+        await page.touchscreen.tap(k.x, k.y);
+        expect(await settles(true), `a tap on ⋮ opens the kebab (${width}px)`).toBe(true);
+        // A touch beside it that arrives with NO click, which is what WebKit
+        // sends for a tap on the pipeline title (touchStart + touchCancel
+        // gives Chromium the same shape: pointerdown, no click).
+        const t = await centre(page, '#view-crm .crm-hdr-title');
+        expect(await safeEvaluate(page, ([x, y]) => !document.getElementById('hdrMobileMenu').contains(document.elementFromPoint(x, y)), [t.x, t.y]),
+          'the title is beside the kebab menu, not under it').toBe(true);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: t.x, y: t.y }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+        expect(await settles(false), `a touch beside the kebab closes it with no click (${width}px)`).toBe(false);
+        await page.touchscreen.tap(k.x, k.y);
+        expect(await settles(true), `⋮ reopens it (${width}px)`).toBe(true);
+        await page.touchscreen.tap(k.x, k.y);
+        expect(await settles(false), `a second tap on ⋮ closes it (${width}px)`).toBe(false);
+      }
+      // An item that acts closes the kebab: Theme Guide opens its sheet over
+      // the pipeline, with the kebab gone from behind it.
+      await page.setViewportSize({ width: 412, height: 860 });
+      await headerInView();
+      const k = await centre(page, '#hdrMobileBtn');
+      await page.touchscreen.tap(k.x, k.y);
+      expect(await settles(true), 'the kebab opens for the item tap').toBe(true);
+      const g = await centre(page, '#hdrMobileMenu [data-fn="nbdHowtoOpen"]');
+      await page.touchscreen.tap(g.x, g.y);
+      await waitWith(page, () => document.getElementById('nbd-howto-modal').classList.contains('open'), null, 5_000);
+      expect(await settles(false), 'Theme Guide closes the kebab').toBe(false);
+      expect(await safeEvaluate(page, () => document.getElementById('hdrMobileBtn').getAttribute('aria-expanded')), 'aria-expanded follows the close').toBe('false');
+      expect(await safeEvaluate(page, () => window.__ppKebabLive.size), 'kebab outside-tap listeners still attached after every close').toBe(0);
+    } finally {
+      await safeEvaluate(page, () => {
+        delete document.addEventListener; delete document.removeEventListener;
+        if (typeof window.nbdHowtoClose === 'function') window.nbdHowtoClose();
+        document.getElementById('hdrMobileMenu').classList.remove('open');
+      });
+      await page.setViewportSize({ width: 412, height: 860 });
+    }
+  });
+
+  // Card density opens nothing, and a rep steps it Compact → Comfortable →
+  // Spacious looking at the board. The "an item that acts closes its menu"
+  // rule closed Tools after every step (2026-09-25 phone nav polish).
+  test('Card density steps through its sizes with Tools left open; other Tools items still close it (nav polish #4)', async () => {
+    test.setTimeout(90_000);
+    await page.setViewportSize({ width: 412, height: 860 });
+    await toTop(page);
+    const density = () => safeEvaluate(page, () => { try { return localStorage.getItem('nbd-kanban-density') || 'comfortable'; } catch (_) { return 'comfortable'; } });
+    const start = await density();
+    const ORDER = ['compact', 'comfortable', 'spacious'];
+    try {
+      await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', true);
+      let cur = start;
+      for (let i = 0; i < 3; i++) {
+        await quietToasts(page); // each step toasts its new size
+        const d = await safeEvaluate(page, () => {
+          const b = document.getElementById('kanbanDensityToggleBtn');
+          b.scrollIntoView({ block: 'nearest' });
+          const r = b.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2, hit: window.__ppHit(b) };
+        });
+        expect(d.hit, `Card density is reachable in the open Tools menu (step ${i + 1})`).toBe(true);
+        await page.touchscreen.tap(d.x, d.y);
+        const want = ORDER[(ORDER.indexOf(cur) + 1) % ORDER.length];
+        await waitWith(page, (w) => (localStorage.getItem('nbd-kanban-density') || 'comfortable') === w, want, 5_000);
+        cur = want;
+        await page.waitForTimeout(400); // past the delegate's 220ms toggle close, had it applied
+        expect(await safeEvaluate(page, () => document.getElementById('crmToolsMenu').classList.contains('open')),
+          `Tools stays open after stepping density to ${want}`).toBe(true);
+      }
+      expect(cur, 'three taps come back round to where the rep started').toBe(start);
+      // The exemption is density's alone: Find duplicates still closes Tools.
+      await quietToasts(page);
+      const dup = await centre(page, '#crmToolsMenu button[data-fn="openDupReview"]');
+      await page.touchscreen.tap(dup.x, dup.y);
+      await safeWaitForFunction(page, () => !!document.getElementById('dupReviewOverlay'), { timeout: 5_000 });
+      expect(await menuSettles(page, 'crmToolsMenu', false), 'Find duplicates still closes Tools').toBe(false);
+    } finally {
+      await safeEvaluate(page, (s) => {
+        const o = document.getElementById('dupReviewOverlay'); if (o) o.remove();
+        if (typeof window.setKanbanDensity === 'function') window.setKanbanDensity(s);
+        window.closeCrmToolsMenu();
+      }, start);
+    }
   });
 });
 

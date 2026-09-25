@@ -53,6 +53,9 @@
   // both copies drove one panel: the first wired the edit handlers, the second
   // re-rendered the saved config over the edits. window.PipelineBuilder is set
   // at the end of the first run, so the second stops here.
+  // Update 2026-09-25 (phone nav polish): _hydrateViewTemplate now runs each
+  // template script once, at the source. This guard stays as a second line:
+  // it costs nothing, and a second copy of this file would corrupt edits.
   if (window.PipelineBuilder) return;
 
   var ROOT_ID = 'pipelineBuilderRoot';
@@ -664,6 +667,10 @@
           if (location.hash.indexOf('#/settings') !== 0 && history.replaceState) {
             try { history.replaceState(history.state, '', '#/settings'); } catch (_) { /* hash stays as-is */ }
           }
+          // ...and tell the bottom nav, which lit the Back target on that
+          // hashchange (mobile-nav-customizer.js re-syncs to the hash on
+          // this event; 2026-09-25 phone nav polish).
+          try { window.dispatchEvent(new CustomEvent('nbd:route-restored')); } catch (_) { /* no nav to re-sync */ }
         });
         return;
       }

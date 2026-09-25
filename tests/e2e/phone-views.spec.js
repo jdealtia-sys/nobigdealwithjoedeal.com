@@ -33,6 +33,9 @@
 //     npx playwright test --config=playwright.config.js phone-views.spec.js --workers=1
 const { test, expect } = require('@playwright/test');
 const zlib = require('zlib');
+const fs = require('fs');
+const path = require('path');
+const { devices } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
 
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36';
@@ -561,6 +564,126 @@ test.describe('phone views: Settings panels @audit', () => {
     }
   });
 });
+
+// ── Lazy view templates run each of their scripts once ─────────────────────
+//
+// 2026-09-25 phone nav polish. _hydrateViewTemplate (dashboard-ui.js) appended
+// a view's cloned <template>, then swapped every cloned <script> for a fresh
+// one on the premise that a clone is inert. It is not, so every template
+// script ran TWICE: each Settings shard wrapped switchSettingsTab twice,
+// opening Billing fired loadSubscription twice, opening Team loaded the plan
+// and roster twice, and pipeline-builder.js needed a guard of its own (#1767).
+// Each script's response gets a one-line run counter prepended (the file is
+// otherwise served as is), so a run is counted however the page inserts it.
+// Checked at phone width and at 1280 (the desktop header's Settings button).
+
+// The template scripts, read from the page source so the list can't drift.
+function templateScripts() {
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'pro', 'dashboard.html'), 'utf8');
+  const out = {};
+  for (const m of html.matchAll(/<template id="(tpl-view-[\w-]+)">([\s\S]*?)<\/template>/g)) {
+    const names = [...m[2].matchAll(/<script\b[^>]*\bsrc="js\/([\w.-]+)\.js/g)].map((s) => s[1]);
+    if (names.length) out[m[1]] = names;
+  }
+  return out;
+}
+
+async function countScriptRuns(page, names) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await page.route(new RegExp('/pro/js/(' + names.map(esc).join('|') + ')\\.js(\\?|$)'), async (route) => {
+    const name = route.request().url().match(/\/pro\/js\/([\w.-]+)\.js/)[1];
+    const resp = await route.fetch();
+    const body = await resp.text();
+    await route.fulfill({ response: resp, body: '(window.__pvRuns = window.__pvRuns || []).push(' + JSON.stringify(name) + ');\n' + body });
+  });
+}
+
+// What each Settings tab renders once its script has run. A tab missing here
+// is only checked for opening.
+const SETTINGS_RENDERS = {
+  pipelines: '#pipelineBuilderRoot .pb-stage-row',
+  'ai-texting': '#aiPersonaMount > *',
+  appearance: '#sidebarCustomizerGrid > *',
+  help: '#hotkeyTogglesGrid > *',
+  billing: '#billingPlanCards > *',
+};
+
+const templateSuite = (label, use, touch) => test.describe(`phone views: lazy view templates run each script once (${label}) @audit`, () => {
+  test.use(use);
+
+  test('every template script runs once, in page order, and every Settings tab still works', async ({ page }) => {
+    test.setTimeout(180_000);
+    const TPL = templateScripts();
+    const settingsNames = TPL['tpl-view-settings'] || [];
+    expect(settingsNames.length, 'the Settings template carries its scripts').toBeGreaterThanOrEqual(5);
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String((e && e.message) || e).slice(0, 200)));
+    await countScriptRuns(page, [].concat(...Object.values(TPL)));
+    await boot(page);
+    await installProbes(page);
+    const runs = (names) => page.evaluate((n) => (window.__pvRuns || []).filter((x) => n.includes(x)), names);
+    const press = (loc) => (touch ? loc.tap() : loc.click());
+
+    // Settings, opened the way a rep opens it.
+    if (touch) await openMore(page, 'settings');
+    else await press(page.locator('.hdr-tool[data-target="settings"]'));
+    await expect(page.locator('#stab-panel-profile')).toBeVisible({ timeout: 15_000 });
+    await expect.poll(async () => { const r = await runs(settingsNames); return settingsNames.every((n) => r.includes(n)); },
+      { message: 'every Settings template script ran', timeout: 20_000 }).toBe(true);
+    await page.waitForTimeout(1500); // room for a second run to land
+    expect(await runs(settingsNames), `each Settings template script ran exactly once, in page order (${label})`).toEqual(settingsNames);
+
+    // Count plan loads per tab open. Billing's and Team's hooks both load
+    // the plan, and each hook ran once per copy of its script.
+    await page.evaluate(() => {
+      const B = window.NBDBilling;
+      window.__pvSubs = 0;
+      if (B && typeof B.loadSubscription === 'function' && !B.__pvWrapped) {
+        const orig = B.loadSubscription;
+        B.loadSubscription = function () { window.__pvSubs++; return orig.apply(this, arguments); };
+        B.__pvWrapped = true;
+      }
+    });
+    expect(await page.evaluate(() => !!(window.NBDBilling && window.NBDBilling.__pvWrapped)), 'precondition: the plan loader is counted').toBe(true);
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('#stab-bar .stab-btn')]
+      .filter((b) => b.getClientRects().length && getComputedStyle(b).display !== 'none').map((b) => b.dataset.target));
+    expect(tabs.length, 'Settings tabs to walk').toBeGreaterThanOrEqual(10);
+    for (const tab of tabs) {
+      await page.evaluate(() => { window.__pvSubs = 0; });
+      const btn = page.locator(`#stab-${tab}`);
+      await btn.scrollIntoViewIfNeeded();
+      await press(btn);
+      await expect(page.locator(`#stab-panel-${tab}`), `Settings → ${tab} opens (${label})`).toBeVisible();
+      if (SETTINGS_RENDERS[tab]) {
+        await expect.poll(() => page.evaluate((s) => document.querySelectorAll(s).length, SETTINGS_RENDERS[tab]),
+          { message: `Settings → ${tab} renders ${SETTINGS_RENDERS[tab]} (${label})`, timeout: 15_000 }).toBeGreaterThan(0);
+      }
+      if (tab === 'billing' || tab === 'team') {
+        await expect.poll(() => page.evaluate(() => window.__pvSubs), { message: `Settings → ${tab} loads the plan` }).toBeGreaterThanOrEqual(1);
+        await page.waitForTimeout(800);
+        expect(await page.evaluate(() => window.__pvSubs), `opening Settings → ${tab} loads the plan once (${label})`).toBe(1);
+      }
+      if (tab === 'team') {
+        await expect.poll(() => page.evaluate(() => (document.getElementById('teamOwnerName') || {}).textContent || ''),
+          { message: 'Team renders its owner card', timeout: 15_000 }).not.toMatch(/^\s*(Loading|\.\.\.)/i);
+      }
+    }
+
+    // The other templated views that carry scripts.
+    for (const [tpl, names] of Object.entries(TPL)) {
+      if (tpl === 'tpl-view-settings') continue;
+      const view = tpl.replace(/^tpl-view-/, '');
+      await page.evaluate((v) => window.goTo(v), view);
+      await expect.poll(async () => { const r = await runs(names); return names.every((n) => r.includes(n)); },
+        { message: `${view}: its template scripts ran`, timeout: 20_000 }).toBe(true);
+      await page.waitForTimeout(1000);
+      expect(await runs(names), `${view}: each template script ran exactly once (${label})`).toEqual(names);
+    }
+    expect(errors, `page errors (${label})`).toEqual([]);
+  });
+});
+templateSuite('phone 412', {}, true);
+templateSuite('desktop 1280', { viewport: { width: 1280, height: 860 }, isMobile: false, hasTouch: false, userAgent: devices['Desktop Chrome'].userAgent }, false);
 
 // ── Settings → Estimates → Upgrade prices ──────────────────────────────────
 //

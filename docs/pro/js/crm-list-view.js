@@ -401,6 +401,33 @@
 
   window.CrmListView = { isActive, render, clear };
 
+  // Rotate (2026-09-25 phone nav polish). Two choices here are made against
+  // the phone query at render time: Auto's List-or-Board (isActive) and
+  // cards-or-table (render). Nothing re-made them when the query flipped, so
+  // a phone that rotated and got a live refresh while sideways (860px wide:
+  // Auto says Board, so the refresh cleared the list) came back upright to
+  // body.crm-list-mode over an empty list: a blank pipeline until the next
+  // refresh. On a flip, re-apply the mode and, if the list is showing on
+  // either side of it, re-render through renderLeads (the list renders the
+  // narrowed set renderLeads builds, never a list of its own). Only once the
+  // CRM view is mounted: before its template hydrates there is no list to
+  // redo, and the first render does it. A saved Board choice is left alone
+  // (its follow-up rows re-fit in crm-pipeline.js), and so is a desktop
+  // that never crosses 768px.
+  function _onPhoneQueryFlip() {
+    const was = document.body.classList.contains('crm-list-mode');
+    _applyMode();
+    if (!was && !isActive()) return;
+    if (!document.getElementById('crmListWrap')) return;
+    if (typeof window.renderLeads !== 'function' || !Array.isArray(window._leads)) return;
+    try { window.renderLeads(window._leads, window._filteredLeads); } catch (_) {}
+  }
+  try {
+    const mq = window.matchMedia && window.matchMedia('(max-width: 768px)');
+    if (mq && mq.addEventListener) mq.addEventListener('change', _onPhoneQueryFlip);
+    else if (mq && mq.addListener) mq.addListener(_onPhoneQueryFlip);
+  } catch (_) {}
+
   // Apply the persisted mode on boot — the toggle buttons live in the
   // lazily-hydrated CRM view template, so re-apply when they appear.
   _applyMode();

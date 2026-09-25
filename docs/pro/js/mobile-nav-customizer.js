@@ -346,21 +346,17 @@ function renderBottomNav() {
   }
 
   // Override mobileNav() so active-state logic uses the custom tab list
-  // (the original uses const MOBILE_NAV_TABS which we can't modify)
+  // (the original uses const MOBILE_NAV_TABS which we can't modify).
+  // The lit tab is the view the rep is ON after goTo, read from the hash
+  // goTo writes (setActiveTab), not the tab that was tapped (2026-09-25
+  // phone nav polish). goTo can decline to leave: Settings → Pipelines with
+  // unsaved edits asks first, and on Cancel the rep stays in Settings — but
+  // this lit the tapped Home or CRM tab anyway. The Lite plan gate declines
+  // the same way. When the leave does go ahead later (OK on the prompt), goTo
+  // writes the hash then and the hashchange listener below lights the tab.
   window.mobileNav = function(view) {
     if (typeof window.goTo === 'function') window.goTo(view);
-    const customTabs = loadTabs();
-    customTabs.forEach(t => {
-      const el = document.getElementById('mni-' + t);
-      if (el) el.classList.toggle('active', t === view);
-    });
-    // If navigating to a view not in the bar, deactivate all bar tabs
-    if (!customTabs.includes(view)) {
-      customTabs.forEach(t => {
-        const el = document.getElementById('mni-' + t);
-        if (el) el.classList.remove('active');
-      });
-    }
+    setActiveTab();
     // Deactivate MORE button unless it was tapped
     const moreBtn = document.getElementById('mni-more');
     if (moreBtn) moreBtn.classList.remove('active');
@@ -397,6 +393,13 @@ function setActiveTab() {
 // highlight in place.
 if (typeof window !== 'undefined') {
   window.addEventListener('hashchange', setActiveTab);
+  // A cancelled Back (2026-09-25 phone nav polish). Back moves the hash first,
+  // so the hashchange above lights the tab being left for; then the Pipelines
+  // leave guard asks, and in the installed app (nbdConfirm, an async modal)
+  // the answer comes later. On Cancel the guard puts the hash back with
+  // replaceState, which fires no hashchange, and the Back target stayed lit
+  // over Settings. The guard announces the restore with this event.
+  window.addEventListener('nbd:route-restored', setActiveTab);
 }
 
 
