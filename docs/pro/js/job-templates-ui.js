@@ -707,16 +707,23 @@
       '.jt-stickybar{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:900;background:var(--s,#111418);border:1px solid var(--orange,#BD5728);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.5);padding:10px 14px;display:flex;gap:12px;align-items:center;max-width:calc(100vw - 24px);flex-wrap:wrap;justify-content:center;}',
       '.jt-stickybar .n{font-size:13px;font-weight:700;color:var(--t,#e8eaf0);white-space:nowrap;}',
       // ── Modal shell ──
+      // Phone audit 2026-09-25 (estimate#12): the body had no background, so
+      // the full-screen modal was the .96 overlay over the live dashboard —
+      // the library intro drew on top of a ghosted "WELCOME BACK" and
+      // "+ NEW ESTIMATE", and in the light theme the navy h1 sat on the near-
+      // black overlay (1.02:1). The title was hard-coded #fff on a header that
+      // is var(--s) — cream in the light theme — so "JOB" vanished (1.06:1).
+      // Both now follow the theme tokens, like V2's own .v2-title does.
       '#jtModal{position:fixed;inset:0;z-index:10500;background:rgba(10,12,15,.96);display:none;font-family:"Barlow","Helvetica Neue",sans-serif;padding-top:env(safe-area-inset-top,0);padding-bottom:env(safe-area-inset-bottom,0);}',
       '#jtModal.open{display:flex;flex-direction:column;}',
       '.jt-m-hdr{background:var(--s,#111418);border-bottom:2px solid var(--orange,#BD5728);padding:12px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-shrink:0;}',
-      '.jt-m-title{font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:800;color:#fff;text-transform:uppercase;letter-spacing:.06em;}',
+      '.jt-m-title{font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:800;color:var(--t,#fff);text-transform:uppercase;letter-spacing:.06em;}',
       '.jt-m-title .pro{color:var(--orange,#BD5728);}',
       '.jt-m-step{font-size:11px;color:var(--m,#9aa3ad);letter-spacing:.12em;text-transform:uppercase;font-weight:700;}',
       '.jt-m-step b{color:var(--orange,#BD5728);}',
       '.jt-m-close{background:var(--orange,#BD5728);border:1px solid var(--orange,#BD5728);color:#fff;padding:10px 18px;cursor:pointer;font-weight:700;border-radius:6px;font-size:13px;min-height:44px;min-width:44px;font-family:inherit;-webkit-tap-highlight-color:transparent;touch-action:manipulation;}',
       '.jt-m-close:hover{background:#ff8420;}',
-      '.jt-m-body{flex:1;overflow-y:auto;min-height:0;padding:18px;color:var(--t,#e8eaf0);}',
+      '.jt-m-body{flex:1;overflow-y:auto;min-height:0;padding:18px;color:var(--t,#e8eaf0);background:var(--bg,#0a0c0f);}',
       '.jt-m-body>.jt-col{max-width:960px;margin:0 auto;}',
       '.jt-m-foot{flex-shrink:0;background:var(--s,#111418);border-top:1px solid var(--br,#2a2f35);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;}',
       '.jt-run{font-size:13px;color:var(--m,#9aa3ad);}',
