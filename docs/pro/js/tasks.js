@@ -4,7 +4,9 @@
 // Extracted from dashboard.html
 // ============================================================
 let _NBD_TK_DELEGATE; // module-local (globals Tranche 1 — was window.*)
-function _escTask(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML;}
+// textContent→innerHTML escapes & < > but not quotes, and several callers
+// drop the result into a double-quoted data-tk-id="…" attribute.
+function _escTask(s){const d=document.createElement('div');d.textContent=s;return d.innerHTML.replace(/"/g,'&quot;');}
 
 // ══ Module State ══════════════════════════════════════════
 // Use var to avoid redeclaration collision with dashboard.html inline script
@@ -178,18 +180,75 @@ async function toggleTodayTask(leadId,taskId,done){
 }
 async function openTaskModal(leadId,event){
   if(event)event.stopPropagation();
-  _taskModalLeadId=leadId;
-  const lead=(window._leads||[]).find(l=>l.id===leadId);
-  document.getElementById('taskModalName').textContent=lead?(((lead.firstName||'')+' '+(lead.lastName||'')).trim()||lead.address):leadId;
-  document.getElementById('taskModalAddr').textContent=lead?(lead.address||'').split(',').slice(0,2).join(','):'';
   document.getElementById('taskInput').value='';
   document.getElementById('taskDue').value='';
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
   // pages without nbd-modal.js (none since the legacy twin retired 2026-09-02). onClose runs the lead-id reset + list re-render.
   if(window.nbdModal){window.nbdModal.open('taskModal',{onClose:_taskModalReset});}else{var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.add("open");}
+  // No lead = the phone "+" sheet's Task row (and any other lead-less
+  // caller). That path used to open this modal with a blank name and then
+  // refuse every "+ Add" with "Open a lead to add a task" — the typed task
+  // just sat there (phone audit 2026-09-25, pipeline#3). Ask which customer
+  // first; picking one drops straight into the normal per-lead modal.
+  if(!leadId){_taskShowLeadPicker();return;}
+  await _taskBindLead(leadId,'lead');
+}
+// Point the open modal at one lead: header, mode, and that lead's task list.
+// mode 'picked' = chosen from the picker, so the "Change customer" link shows.
+async function _taskBindLead(leadId,mode){
+  _taskModalLeadId=leadId;
+  _taskSetMode(mode||'lead');
+  const lead=(window._leads||[]).find(l=>l.id===leadId);
+  document.getElementById('taskModalName').textContent=lead?(((lead.firstName||'')+' '+(lead.lastName||'')).trim()||lead.address):leadId;
+  document.getElementById('taskModalAddr').textContent=lead?(lead.address||'').split(',').slice(0,2).join(','):'';
   renderTaskList(await _loadTasks(leadId));
 }
-function _taskModalReset(){_taskModalLeadId=null;renderLeads(window._leads,window._filteredLeads);renderTodayTasks();}
+function _taskSetMode(mode){const m=document.getElementById('taskModal');if(m)m.setAttribute('data-task-mode',mode);}
+function _taskShowLeadPicker(){
+  _taskModalLeadId=null;
+  _taskSetMode('pick');
+  document.getElementById('taskModalName').textContent='New task';
+  document.getElementById('taskModalAddr').textContent='Pick the customer it belongs to';
+  const s=document.getElementById('taskLeadSearch');
+  if(s)s.value='';
+  _taskRenderLeadResults('');
+}
+// Newest-first ordering for the empty-search list. Leads carry Firestore
+// Timestamps, {seconds} objects, ISO strings or nothing, depending on writer.
+function _taskLeadTime(l){
+  const v=l&&(l.updatedAt||l.createdAt);
+  if(!v)return 0;
+  if(typeof v.toMillis==='function')return v.toMillis();
+  if(typeof v.seconds==='number')return v.seconds*1000;
+  const t=new Date(v).getTime();
+  return isNaN(t)?0:t;
+}
+function _taskRenderLeadResults(q){
+  const el=document.getElementById('taskLeadResults');if(!el)return;
+  const leads=(window._leads||[]).filter(l=>l&&l.id&&!l.deleted);
+  const query=String(q||'').trim();
+  let hits;
+  if(!query){
+    hits=leads.slice().sort((a,b)=>_taskLeadTime(b)-_taskLeadTime(a));
+  }else if(window.NbdGlobalSearch&&typeof window.NbdGlobalSearch.searchLeads==='function'){
+    // Same scoring as the header search (name, phone digits, address, email).
+    hits=window.NbdGlobalSearch.searchLeads(query).map(h=>h.lead).filter(l=>l&&l.id);
+  }else{
+    const ql=query.toLowerCase();
+    hits=leads.filter(l=>(((l.firstName||'')+' '+(l.lastName||'')+' '+(l.address||'')).toLowerCase().indexOf(ql)!==-1));
+  }
+  hits=hits.slice(0,8);
+  if(!hits.length){
+    el.innerHTML='<div class="task-empty">'+(leads.length?'No customers match that search.':'No customers yet. Add a lead first.')+'</div>';
+    return;
+  }
+  el.innerHTML=hits.map(l=>{
+    const name=((l.firstName||'')+' '+(l.lastName||'')).trim()||l.name||l.address||'Customer';
+    const sub=(l.address||'').split(',').slice(0,2).join(',');
+    return `<button type="button" class="task-lead-row" data-tk-action="pickLead" data-tk-id="${_escTask(l.id)}"><span class="task-lead-row-name">${_escTask(name)}</span>${sub?`<span class="task-lead-row-sub">${_escTask(sub)}</span>`:''}</button>`;
+  }).join('');
+}
+function _taskModalReset(){_taskModalLeadId=null;_taskSetMode('lead');renderLeads(window._leads,window._filteredLeads);renderTodayTasks();}
 function closeTaskModal(){if(window.nbdModal){window.nbdModal.close('taskModal');}else{var _tm=document.getElementById("taskModal");if(_tm)_tm.classList.remove("open");_taskModalReset();}}
 function _taskDueLabel(ds){const d=new Date(ds+'T12:00:00'),t=new Date(),tm=new Date(t);t.setHours(0,0,0,0);tm.setDate(tm.getDate()+1);tm.setHours(0,0,0,0);const dd=new Date(d);dd.setHours(0,0,0,0);if(dd.getTime()===t.getTime())return'Today';if(dd.getTime()===tm.getTime())return'Tomorrow';if(dd<t)return'Overdue';return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});}
 function renderTaskList(tasks){
@@ -223,6 +282,19 @@ async function addTask(){
     if (!inp || inp.dataset.taskEnterBound) return;
     inp.dataset.taskEnterBound = '1';
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
+    // Customer-picker search (2026-09-25): filter as the rep types; Enter
+    // takes the top match, the same as tapping it.
+    const s = document.getElementById('taskLeadSearch');
+    if (s && !s.dataset.taskSearchBound) {
+      s.dataset.taskSearchBound = '1';
+      s.addEventListener('input', () => _taskRenderLeadResults(s.value));
+      s.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        const first = document.querySelector('#taskLeadResults [data-tk-action="pickLead"]');
+        if (first) _taskBindLead(first.dataset.tkId, 'picked');
+      });
+    }
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
   else bind();
@@ -295,4 +367,4 @@ window.createNotification = createNotification;
 // Checkbox-driven actions act on `change` only (it carries .checked and
 // fires once per state change); everything else acts on `click`.
 const _TK_CHECKBOX_ACTIONS = { toggleToday: 1, checkTask: 1 };
-(function(){if(_NBD_TK_DELEGATE)return;_NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var wantChange=!!_TK_CHECKBOX_ACTIONS[a];if(wantChange!==(ev.type==='change'))return;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();
+(function(){if(_NBD_TK_DELEGATE)return;_NBD_TK_DELEGATE=true;function dispatch(ev){var t=ev.target.closest&&ev.target.closest('[data-tk-action]');if(!t)return;var a=t.dataset.tkAction;var wantChange=!!_TK_CHECKBOX_ACTIONS[a];if(wantChange!==(ev.type==='change'))return;var id=t.dataset.tkId;var leadId=t.dataset.tkLead;try{if(a==='toggleToday'&&typeof toggleTodayTask==='function')toggleTodayTask(leadId,id,ev.target.checked);else if(a==='openModal'&&typeof openTaskModal==='function')openTaskModal(id,null);else if(a==='goToCrm'&&typeof goTo==='function')goTo('crm');else if(a==='checkTask'&&typeof checkTask==='function')checkTask(id,ev.target.checked);else if(a==='removeTask'&&typeof removeTask==='function')removeTask(id);else if(a==='pickLead')_taskBindLead(id,'picked');else if(a==='changeLead')_taskShowLeadPicker();}catch(e){console.error('[tasks]',e);}}document.addEventListener('click',dispatch);document.addEventListener('change',dispatch);})();

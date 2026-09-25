@@ -167,7 +167,21 @@
         'cursor:pointer;padding:6px 8px;position:relative;' +
         '-webkit-tap-highlight-color:transparent;';
       bell.innerHTML = '🎁<span id="nbd-whats-new-dot" style="display:none;position:absolute;top:6px;right:6px;width:8px;height:8px;border-radius:50%;background:var(--orange, #A14A22);box-shadow:0 0 0 2px var(--bg, #0a0c0f);animation:nbd-pulse 1.5s ease-in-out infinite;"></span>';
-      anchor.parentNode.insertBefore(bell, anchor);
+      // Park the bell BESIDE whatever clickable container holds the avatar,
+      // never inside it. On the dashboard the avatar sits in .upill, which is
+      // itself a data-action="goTo" → settings link, and a bell nested there
+      // inherited that click: every tap opened What's New AND navigated to
+      // Settings behind it, so closing the panel left the rep on Settings
+      // instead of where they were (phone audit 2026-09-25, views#10). A
+      // stopPropagation would also hide the tap from every other document
+      // delegate (menu outside-click closers), and a button inside a clickable
+      // pill is a nested-interactive control either way — so move it out.
+      const host = (anchor.closest && anchor.closest('[data-action]')) || anchor;
+      // Outside the pill the bell sits in .hright's 10px gap instead of the
+      // pill's 7px one; pull it back 3px so the header is exactly as wide as
+      // before — at 360px the logo lockup is already clipped.
+      if (host !== anchor) bell.style.marginRight = '-3px';
+      host.parentNode.insertBefore(bell, host);
       // Pulse keyframes
       if (!document.getElementById('nbd-whats-new-css')) {
         const css = document.createElement('style');

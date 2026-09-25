@@ -70,6 +70,7 @@ __NBD_LOADED['dashboard-ui'] = true;
 // re-export form in this file.
 window.updateBreadcrumb = updateBreadcrumb;             // dashboard-actions.js goTo(), bare
 window._hydrateViewTemplate = _hydrateViewTemplate;     // dashboard-actions.js goTo(), bare
+window._paintUserGreetings = _paintUserGreetings;       // dashboard-bootstrap.module.js auth + profile save, window.X
 window.loadCalSettings = loadCalSettings;               // dashboard-main.js DOMContentLoaded, bare
 window.renderAcDrop = renderAcDrop;                     // dashboard-api.js fetchAcSuggestions, bare
 window.hideAcDrop = hideAcDrop;                         // crm-leads.js + this file's Enter delegate read it off window; maps-overlays.js, bare
@@ -157,7 +158,29 @@ function _hydrateViewTemplate(name) {
     newScript.text = oldScript.textContent;
     oldScript.parentNode.replaceChild(newScript, oldScript);
   });
+  _paintUserGreetings(view);
   return true;
+}
+
+// Greeting slots (phone audit 2026-09-25, pipeline#13 / views#12).
+// #homeGreeting and the Dashboard title both live inside lazily-hydrated
+// <template>s, but their only writer ran ONCE, at auth time
+// (dashboard-bootstrap.module.js) — so a view cloned in after auth kept its
+// template default. The Dashboard's default was a hard-coded owner's first
+// name, and the app boots into Home, so every tenant who tapped the bottom-nav
+// Home tab (which routes to 'dash') was welcomed as someone else. Every
+// [data-user-greeting] element is now painted from window._user in BOTH places:
+// here on every template clone, and by the auth-time writer via the window
+// export above. Before auth resolves there is no user, so the neutral template
+// text ("Welcome Back") stands.
+function _paintUserGreetings(root) {
+  const u = window._user;
+  if (!u) return;
+  const name = String(u.displayName || String(u.email || '').split('@')[0] || '').trim();
+  const first = name.split(/\s+/)[0] || '';
+  (root || document).querySelectorAll('[data-user-greeting]').forEach(function (el) {
+    el.textContent = first ? 'Welcome Back, ' + first : 'Welcome Back';
+  });
 }
 
 // Phase C.1 — eager-hydrate any .view.active (i.e. the default-active
@@ -836,12 +859,18 @@ const updateCalEmbed = function() {
   const embed = document.getElementById('calEmbed');
   const placeholder = document.getElementById('calPlaceholder');
   if (!username || !eventSlug) {
-    if (embed) embed.innerHTML = '';
+    // Collapse the box with its content. The 500px floor used to be inline in
+    // the template, so an unconfigured calendar left 500px of nothing above
+    // the "Set Up Your Calendar" card (phone audit 2026-09-25, pipeline#10).
+    if (embed) { embed.innerHTML = ''; embed.style.minHeight = ''; }
     if (placeholder) placeholder.style.display = '';
     return;
   }
   if (placeholder) placeholder.style.display = 'none';
   if (embed) {
+    // The iframe below is position:absolute;inset:0, so the box needs a real
+    // height of its own to hold it.
+    embed.style.minHeight = '500px';
     const src = 'https://cal.com/' + username + '/' + eventSlug + '?embed=true&theme=dark';
     // Brave Shields (and Firefox ETP strict) blocks cross-origin
     // iframes by injecting a same-origin "blocked" page INTO the

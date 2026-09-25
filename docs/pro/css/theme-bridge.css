@@ -414,8 +414,12 @@ body.theme-frosted {
 .d2d-addr-alt { padding:6px 10px; border:1px solid var(--br); border-radius:16px; background:var(--s2); color:var(--t); font-size:11px; cursor:pointer; transition:all .15s; }
 .d2d-addr-alt:hover { border-color:var(--orange); background:color-mix(in srgb, var(--orange) 12%, var(--s2)); }
 .d2d-addr-alt b { color:var(--orange); }
-.d2d-addr-confirm { margin-top:8px; padding:10px 12px; background:color-mix(in srgb, var(--gold) 12%, var(--s2)); border:1px solid color-mix(in srgb, var(--gold) 35%, var(--br)); border-radius:8px; }
-.d2d-addr-confirm-lbl { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:600; color:var(--t); cursor:pointer; }
+/* The padding lives on the LABEL, not the box (phone audit 2026-09-25,
+   pipeline#5): with it on the box only the 18px-tall text row toggled the
+   checkbox and a tap on the gold padding did nothing. Now the whole box is
+   the tap target, at least 44px tall. Same look. */
+.d2d-addr-confirm { margin-top:8px; padding:0; background:color-mix(in srgb, var(--gold) 12%, var(--s2)); border:1px solid color-mix(in srgb, var(--gold) 35%, var(--br)); border-radius:8px; }
+.d2d-addr-confirm-lbl { display:flex; align-items:center; gap:8px; min-height:44px; padding:10px 12px; box-sizing:border-box; font-size:12px; font-weight:600; color:var(--t); cursor:pointer; }
 .d2d-addr-confirm-lbl input { width:18px; height:18px; accent-color:var(--gold); flex-shrink:0; cursor:pointer; }
 @keyframes d2dAddrFlash { 0%,100%{ box-shadow:0 0 0 0 transparent; } 30%{ box-shadow:0 0 0 3px color-mix(in srgb, var(--gold) 55%, transparent); } }
 .d2d-addr-confirm-flash { animation:d2dAddrFlash .6s ease 2; }

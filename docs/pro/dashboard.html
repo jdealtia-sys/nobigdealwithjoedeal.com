@@ -377,7 +377,7 @@
     </div>
   </div>
     <div class="upill" data-action="goTo" data-target="settings">
-      <div class="av" id="userAvatar">J</div>
+      <div class="av" id="userAvatar"></div>
       <span class="uname" id="userName">...</span>
     </div>
     <button class="so" data-action="signOut">Sign Out →</button>
@@ -792,7 +792,7 @@
     <div class="view-scroll">
       <div class="page-hdr">
         <div>
-          <div class="page-title" id="homeGreeting">Welcome Back</div>
+          <div class="page-title" id="homeGreeting" data-user-greeting>Welcome Back</div>
           <div class="page-sub">Your personalized command center</div>
         </div>
         <div style="display:flex;gap:6px;">
@@ -809,7 +809,14 @@
   <template id="tpl-view-dash">
     <div class="view-scroll">
       <div class="page-hdr">
-        <div><div class="page-title">Welcome Back, <span id="dashName">Jonathan</span></div><div class="page-sub">Roofing operations overview</div></div>
+        <!-- data-user-greeting: painted from window._user by
+             _paintUserGreetings (dashboard-ui.js) at auth time AND whenever
+             this template is cloned in. It used to be a <span id="dashName">
+             holding a hard-coded owner's first name, filled only at auth time
+             — before this template exists when the app boots into Home — so
+             every tenant who tapped the bottom-nav Home tab was greeted by
+             someone else's name (phone audit 2026-09-25). -->
+        <div><div class="page-title" id="dashGreeting" data-user-greeting>Welcome Back</div><div class="page-sub">Roofing operations overview</div></div>
         <button class="btn btn-orange" data-action="newEstimate">＋ New Estimate</button>
       </div>
       
@@ -2934,7 +2941,7 @@
           <div class="panel-hdr"><div><div class="panel-label">Account</div><div class="panel-title">Your Profile</div></div></div>
           <div class="panel-body">
             <div class="sf-row">
-              <div class="sf"><label>Display Name</label><input type="text" id="settingsName" placeholder="Jonathan"></div>
+              <div class="sf"><label>Display Name</label><input type="text" id="settingsName" placeholder="Your name"></div>
               <div class="sf"><label>Email</label><input type="text" id="settingsEmail" placeholder="you@email.com" disabled style="opacity:.5;"></div>
             </div>
             <div class="sf-row">
@@ -4813,6 +4820,34 @@
         </div>
       </div>
 
+      <!-- TODAY'S SCHEDULE — populated by smart-calendar.js. The module
+           reads /appointments for the current rep, cross-refs with
+           window._leads for jobValue + lat/lng, then renders a vertical
+           timeline with travel-time, conflict, and priority warnings.
+           FIRST on purpose (phone audit 2026-09-25, pipeline#10): it is the
+           panel this view exists for — the palette's "Today's Schedule" and
+           the scheduling chips both land here — but it used to sit LAST,
+           under three setup cards and an empty 500px calendar box, ~2,100px
+           down a phone (and still last on desktop). -->
+      <div class="panel">
+        <div class="panel-hdr">
+          <div>
+            <div class="panel-label">Today</div>
+            <div class="panel-title">Your Schedule</div>
+          </div>
+          <button type="button" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;"
+            data-action="call" data-fn="loadSmartCalendar">
+            ↻ Refresh
+          </button>
+        </div>
+        <div class="panel-body">
+          <div id="calUpcoming" style="text-align:center;padding:20px;color:var(--m);font-size:12px;">
+            <div style="font-size:24px;margin-bottom:6px;">⏳</div>
+            Loading today's schedule…
+          </div>
+        </div>
+      </div>
+
       <!-- BOOKING LINK SHARE -->
       <div class="panel">
         <div class="panel-hdr"><div><div class="panel-label">Your Booking Link</div><div class="panel-title">Share With Homeowners</div></div></div>
@@ -4874,35 +4909,15 @@
       <div class="panel">
         <div class="panel-hdr"><div><div class="panel-label">Live Calendar</div><div class="panel-title">Appointment Availability</div></div></div>
         <div class="panel-body" style="padding:0;overflow:hidden;border-radius:0 0 10px 10px;">
-          <div id="calEmbed" style="min-height:500px;width:100%;"></div>
+          <!-- No min-height here: updateCalEmbed (dashboard-ui.js) gives the box
+               its 500px only when it has an iframe to hold. The inline 500px
+               used to stay on an EMPTY box when Cal.com isn't set up. -->
+          <div id="calEmbed" style="width:100%;"></div>
           <div id="calPlaceholder" style="text-align:center;padding:40px 20px;color:var(--m);">
             <div style="font-size:36px;margin-bottom:12px;">📅</div>
             <div style="font-size:14px;font-weight:700;color:var(--t);margin-bottom:6px;">Set Up Your Calendar</div>
             <div style="font-size:12px;margin-bottom:16px;">Enter your Cal.com username above to embed your live booking calendar here.</div>
             <a href="https://cal.com/signup" target="_blank" rel="noopener noreferrer" class="btn btn-orange" style="display:inline-flex;font-size:12px;padding:10px 20px;">Create Free Cal.com Account →</a>
-          </div>
-        </div>
-      </div>
-
-      <!-- TODAY'S SCHEDULE — populated by smart-calendar.js. The module
-           reads /appointments for the current rep, cross-refs with
-           window._leads for jobValue + lat/lng, then renders a vertical
-           timeline with travel-time, conflict, and priority warnings. -->
-      <div class="panel">
-        <div class="panel-hdr">
-          <div>
-            <div class="panel-label">Today</div>
-            <div class="panel-title">Your Schedule</div>
-          </div>
-          <button type="button" class="btn btn-ghost" style="font-size:11px;padding:6px 12px;"
-            data-action="call" data-fn="loadSmartCalendar">
-            ↻ Refresh
-          </button>
-        </div>
-        <div class="panel-body">
-          <div id="calUpcoming" style="text-align:center;padding:20px;color:var(--m);font-size:12px;">
-            <div style="font-size:24px;margin-bottom:6px;">⏳</div>
-            Loading today's schedule…
           </div>
         </div>
       </div>
@@ -5539,6 +5554,17 @@
     <div class="task-modal-header">
       <div class="task-lead-name" id="taskModalName">—</div>
       <div class="task-lead-addr" id="taskModalAddr">—</div>
+      <button type="button" class="task-lead-change" id="taskLeadChange" data-tk-action="changeLead">Change customer</button>
+    </div>
+    <!-- Customer picker (phone audit 2026-09-25, pipeline#3). openTaskModal()
+         with no lead — the phone "+" sheet's Task row — used to open this
+         modal nameless and then refuse every "+ Add" with "Open a lead to add
+         a task". tasks.js now shows this step first when there is no lead;
+         data-task-mode on #taskModal switches it in (CSS in dashboard-app.css). -->
+    <div class="task-lead-pick" id="taskLeadPick">
+      <label class="task-lead-pick-lbl" for="taskLeadSearch">Which customer is this task for?</label>
+      <input type="search" id="taskLeadSearch" placeholder="Search name, address or phone…" autocomplete="off" enterkeyhint="search">
+      <div class="task-lead-results" id="taskLeadResults"></div>
     </div>
     <div class="task-add-row">
       <input type="text" id="taskInput" placeholder="Add a task..." data-task-input>
@@ -5710,8 +5736,11 @@
      Bottom-sheet that slides up when the orange "+" FAB in the bottom
      nav is tapped. Each row opens an existing flow without leaving
      the popover loop — Lead opens openLeadModal(), Task opens
-     openTaskModal(), Knock fires the D2D capture flow. The Knock entry
-     is NBD-only — JobNimbus / CompanyCam have nothing equivalent. -->
+     openTaskModal() (which asks for the customer first), Knock opens the
+     D2D quick-knock form via openD2DOrGo, Note opens Quick Capture. The
+     Knock entry is NBD-only — JobNimbus / CompanyCam have nothing
+     equivalent. (Task/Knock/Note were dead ends until the 2026-09-25
+     phone audit; see _mCreate in dashboard-actions.js.) -->
 <div class="m-create-backdrop" id="mCreateBackdrop" data-action="closeModal" data-target="mobileCreatePopover" hidden></div>
 <div class="m-create-popover" id="mCreatePopover" role="dialog" aria-modal="true" aria-label="Create new" hidden>
   <div class="m-create-handle" aria-hidden="true"></div>
@@ -5747,8 +5776,8 @@
   <button class="m-create-row" data-action="call" data-fn="_mCreate" data-arg="note">
     <span class="m-create-row-ico"><svg class="nbd-icon" aria-hidden="true"><use href="#nbd-icon-chat"/></svg></span>
     <span class="m-create-row-text">
-      <span class="m-create-row-lbl">Quick Note</span>
-      <span class="m-create-row-hint">Voice or text note for the day log</span>
+      <span class="m-create-row-lbl">Voice Note</span>
+      <span class="m-create-row-hint">Talk it out — save to Talk Tank or a lead</span>
     </span>
   </button>
   <button class="m-create-cancel" data-action="closeModal" data-target="mobileCreatePopover">Cancel</button>
@@ -5824,14 +5853,29 @@
   <div class="mm-item" data-action="mobileNav" data-target="repos" data-close-more>
     <span class="mm-item-icon">🧠</span>Rep OS
   </div>
+  <!-- Reports, Referrals and Talk Tank (phone audit 2026-09-25, views#1):
+       they were in the desktop sidebar's Insights section only, and the
+       sidebar is display:none at ≤900px — so on a phone they could not be
+       reached at all, and Quick Capture voice notes land in a Talk Tank a
+       phone had no way to open. tests/e2e/phone-dashnav.spec.js pins sidebar
+       parity so the next sidebar-only view fails CI instead. -->
+  <div class="mm-item" data-action="mobileNav" data-target="talk-tank" data-close-more>
+    <span class="mm-item-icon">🎙️</span>Talk Tank
+  </div>
   <div class="mm-item" data-action="mobileNav" data-target="board" data-close-more>
     <span class="mm-item-icon">🏆</span>Leaderboard
+  </div>
+  <div class="mm-item" data-action="mobileNav" data-target="reports" data-close-more>
+    <span class="mm-item-icon">📈</span>Reports
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="expenses" data-close-more>
     <span class="mm-item-icon">🧾</span>Expenses
   </div>
   <div class="mm-item" data-action="mobileNav" data-target="money" data-close-more>
     <span class="mm-item-icon">💵</span>Money
+  </div>
+  <div class="mm-item" data-action="mobileNav" data-target="refrewards" data-close-more>
+    <span class="mm-item-icon">🎁</span>Referrals
   </div>
   <div class="mm-item" data-action="call" data-fn="openDailyProgramFromMore">
     <span class="mm-item-icon">📅</span>Daily Program

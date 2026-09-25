@@ -109,11 +109,29 @@ function openDecisionPicker() {
   }
 };
 function openD2DOrGo() {
-  if (window.D2D && typeof window.D2D.openQuickKnock === 'function') {
-    window.D2D.openQuickKnock();
-  } else if (typeof goTo === 'function') {
-    goTo('d2d');
-  }
+  const ready = function () { return !!(window.D2D && typeof window.D2D.openQuickKnock === 'function'); };
+  if (ready()) { window.D2D.openQuickKnock(); return; }
+  if (typeof goTo !== 'function') return;
+  // The tracker rides the lazy 'd2d' ScriptLoader bundle, so on a cold tap
+  // window.D2D does not exist yet. This used to stop at goTo('d2d') — the
+  // rep asked for a knock form and got the map, then had to find KNOCK and
+  // tap again (phone audit 2026-09-25, pipeline#8; same on Prospects'
+  // "＋ New Knock"). goTo('d2d') loads the bundle and inits the tracker;
+  // wait for the API, then open the form — but only if the rep is still on
+  // D2D, so a slow load can't pop a knock sheet over wherever they went next.
+  // 8s matches goTo's own waitForD2D budget, which shows the failure UI.
+  goTo('d2d');
+  let tries = 0;
+  const iv = setInterval(function () {
+    tries++;
+    if (ready()) {
+      clearInterval(iv);
+      const onD2D = document.getElementById('view-d2d');
+      if (onD2D && onD2D.classList.contains('active')) window.D2D.openQuickKnock();
+    } else if (tries > 80) {
+      clearInterval(iv);
+    }
+  }, 100);
 };
 function clearAccentTheme() {
   if (window.ThemeGX && typeof window.ThemeGX.clearAccentOverride === 'function') {
@@ -161,11 +179,36 @@ function openPhotoEngineCurrentLead() {
   }
 };
 function openInspectionBuilderCurrentLead() {
-  if (window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function') {
-    window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._currentPhotoLeadId || window._leadId || window._currentLeadId || '');
-  } else if (typeof showToast === 'function') {
-    showToast('Report engine loading…', 'error');
+  if (!(window.InspectionReportEngine && typeof window.InspectionReportEngine.openBuilder === 'function')) {
+    if (typeof showToast === 'function') showToast('Report engine loading…', 'error');
+    return;
   }
+  const lid = window._currentPhotoLeadId || window._leadId || window._currentLeadId || '';
+  if (!lid) {
+    // openBuilder('') said "Lead not found", which reads like data loss. The
+    // real problem is that no property has been picked yet — say that, and
+    // put the rep on the picker.
+    if (typeof showToast === 'function') showToast('Pick a property first, then tap New Report.', 'info');
+    const sel = document.getElementById('photoLeadSelect');
+    if (sel) { try { sel.scrollIntoView({ block: 'center' }); } catch (_) {} sel.focus(); }
+    return;
+  }
+  // "📄 New Report" rendered the whole builder into #inspectionBuilderContainer
+  // and never showed the overlay around it — the builder existed, 0x0, and the
+  // tap did nothing visible (phone audit 2026-09-25, views#2; a CSP-extraction
+  // carry-over — the old inline onclick had the same gap). cdaInspectionDeep
+  // below shows the overlay first; this does the same, but only once
+  // openBuilder has actually rendered (it bails with a toast on an unknown
+  // lead, and an empty full-screen overlay would be worse than nothing).
+  const overlay = document.getElementById('inspectionBuilderOverlay');
+  const container = document.getElementById('inspectionBuilderContainer');
+  if (container) container.innerHTML = '';
+  Promise.resolve(window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', lid)).then(function () {
+    if (overlay && container && container.children.length) {
+      overlay.style.display = 'block';
+      overlay.scrollTop = 0;
+    }
+  });
 };
 function closeInspectionBuilder() {
   const overlay = document.getElementById('inspectionBuilderOverlay');
@@ -2318,24 +2361,41 @@ function _mCreate(kind) {
       break;
     }
     case 'task':
+      // Deliberately NO lead argument, even though _cardDetailLeadId may be
+      // set: closeMobileJobDetail() never clears it, and the "+" FAB can't
+      // be tapped while a job detail is open anyway (the overlay covers it),
+      // so any id here is the LAST lead viewed, not the one in front of the
+      // rep. openTaskModal() with no lead now asks which customer first
+      // (tasks.js) instead of opening nameless and refusing to save
+      // (phone audit 2026-09-25, pipeline#3).
       if (typeof openTaskModal === 'function') openTaskModal();
       else if (typeof openLeadModal === 'function') openLeadModal();
       break;
-    case 'knock':
-      // D2D entry. Tracker module exposes openKnock() (no args = new
-      // knock at current GPS). Falls back to navigating to view-d2d
-      // so reps without geolocation still get somewhere usable.
-      if (typeof openKnock === 'function') { openKnock(); break; }
-      if (window.D2D && typeof window.D2D.openNewKnock === 'function') {
-        window.D2D.openNewKnock(); break;
-      }
-      goTo('d2d');
+    case 'knock': {
+      // This used to try openKnock() and D2D.openNewKnock() — neither has
+      // ever existed — and fall through to goTo('d2d'), so the row only
+      // opened the map and the rep had to find KNOCK again (phone audit
+      // 2026-09-25, pipeline#8). openD2DOrGo is the one real entry point:
+      // it opens D2D.openQuickKnock, loading the lazy D2D bundle first.
+      const reg = window.__NBD_CALL_REGISTRY;
+      if (reg && typeof reg.openD2DOrGo === 'function') reg.openD2DOrGo();
+      else goTo('d2d');
       break;
+    }
     case 'note':
-      // No standalone note modal yet — open the lead modal which
-      // surfaces a note field on save. Replaced with a proper quick-
-      // note flow in a follow-up.
-      if (typeof openLeadModal === 'function') openLeadModal();
+      // "Voice note for the day log" used to open the ADD LEAD form — there
+      // was no note flow behind it. Quick Capture (quick-capture.js, loaded
+      // eagerly on this page) IS that flow: record, get a summary, then save
+      // it to Talk Tank or link it to a lead. The row's label now says so.
+      if (window.NBDQuickCapture && typeof window.NBDQuickCapture.open === 'function') {
+        if (typeof window.NBDQuickCapture.isSupported === 'function' && !window.NBDQuickCapture.isSupported()) {
+          if (typeof showToast === 'function') showToast('Voice notes need microphone recording, which this browser does not support.', 'error');
+          break;
+        }
+        window.NBDQuickCapture.open();
+      } else if (typeof showToast === 'function') {
+        showToast('Voice notes are still loading — try again in a moment.', 'info');
+      }
       break;
   }
 }
@@ -2731,6 +2791,12 @@ function editCardDetails() {
       // original inline onclick passed 'inspectionBuilderContainer'; the CSP
       // extraction dropped it, so the builder never rendered (leadId was read as
       // the container id → getElementById miss → silent return).
+      // It also never showed #inspectionBuilderOverlay, so even with the
+      // container fixed the builder rendered invisibly — the same gap as the
+      // Photo Library's "New Report" (phone audit 2026-09-25, views#2). No
+      // markup calls this today; it stays registered, so close the gap anyway.
+      const overlay = document.getElementById('inspectionBuilderOverlay');
+      if (overlay) overlay.style.display = 'block';
       window.InspectionReportEngine.openBuilder('inspectionBuilderContainer', window._cardDetailLeadId);
     } else if (typeof showToast === 'function') {
       showToast('Inspection engine loading...', 'error');
