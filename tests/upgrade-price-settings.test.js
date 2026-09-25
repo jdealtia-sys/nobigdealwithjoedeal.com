@@ -467,7 +467,7 @@ test('a panel painted for another account\'s company is never saved — by Save 
     S.save();
     eq(writes.length, 0, 'company writes');
     eq(attrs['data-state'], 'loading', 'the panel goes back to its loading line');
-    truthy(/Nothing was saved/.test(msg.textContent), 'the rep is told: ' + msg.textContent);
+    truthy(/still loading/.test(msg.textContent) && /Nothing was saved/.test(msg.textContent), 'the rep is told: ' + msg.textContent);
   } finally {
     doc.getElementById = realGet;
     doc.createElement = realCreate;
