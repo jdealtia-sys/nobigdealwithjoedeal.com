@@ -4626,6 +4626,14 @@
     // engine settings; companyProfile is the single store for custom rows).
     _renderJurisdictionRows();
 
+    // Upgrade prices (Upgrades & Add-ons stage 2, 2026-09-25) repaint from
+    // companyProfile.pricing.upgradePrices on every paint, like every other
+    // input here. The module rides the same lazy estimates bundle as
+    // EstimateBuilderV2, and carries its own hydration guard.
+    if (window.NBDUpgradePriceSettings && typeof window.NBDUpgradePriceSettings.render === 'function') {
+      window.NBDUpgradePriceSettings.render();
+    }
+
     // Catalog summary
     if (byId('v2matCount'))  byId('v2matCount').textContent  = (window.NBD_PRODUCTS || []).length;
     if (byId('v2labCount'))  byId('v2labCount').textContent  = (window.NBD_LABOR?.count) || 0;
@@ -4795,6 +4803,7 @@
     let pricingSaveFailed = false;
     let pricingSaveDenied = false;
     let countySaveSkipped = false;
+    let upgradeSaveSkipped = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -4914,6 +4923,15 @@
           && window._companyProfile.pricing.customJurisdictions) || {});
         const pricing = { addonPrices };
         if (customJurisdictions) pricing.customJurisdictions = customJurisdictions;
+        // Upgrade prices ride the same company write (2026-09-25), so Save
+        // All never silently discards an edit made in that panel — the
+        // NEW-D43a class. collect() is null unless the panel was painted
+        // from the hydrated profile by someone who may write it; a bad
+        // price leaves the whole map out and the message below says so.
+        const upg = (window.NBDUpgradePriceSettings && typeof window.NBDUpgradePriceSettings.collect === 'function')
+          ? window.NBDUpgradePriceSettings.collect() : null;
+        if (upg && upg.map) pricing.upgradePrices = upg.map;
+        else if (upg && upg.errors && upg.errors.length) upgradeSaveSkipped = true;
         // County policy is per-TENANT (migrated off per-device localStorage
         // 2026-07-29). patch.permits / patch.countyTax were just built from the
         // 14 inputs above; the same values go to companyProfile so every rep and
@@ -4977,14 +4995,18 @@
         ? (pricingSaveDenied
             ? '⚠ Saved on this device only. County rates and add-on pricing are company-wide — ask an owner or company admin to change them.'
             : '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.')
-        : (jurSaveSkipped || countySaveSkipped)
-          ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
-          : '✓ Estimate settings saved. Every linked estimate will use these rates.';
+        : upgradeSaveSkipped
+          ? '⚠ Estimate settings saved, but NOT the upgrade prices — fix the highlighted upgrade price and save again.'
+          : (jurSaveSkipped || countySaveSkipped)
+            ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
+            : '✓ Estimate settings saved. Every linked estimate will use these rates.';
       setTimeout(() => msg.style.display = 'none', 5000);
     }
     if (typeof showToast === 'function') {
-      showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again' : '✓ Estimate settings saved',
-        pricingSaveFailed ? 'info' : 'success');
+      showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again'
+        : upgradeSaveSkipped ? '⚠ Upgrade prices not saved — fix the highlighted price'
+          : '✓ Estimate settings saved',
+        (pricingSaveFailed || upgradeSaveSkipped) ? 'info' : 'success');
     }
   };
 

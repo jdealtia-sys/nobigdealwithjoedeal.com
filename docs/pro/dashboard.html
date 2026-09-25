@@ -95,7 +95,7 @@
      See docs/pro/js/state-store.js. -->
 <script src="js/state-store.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
-<script src="js/script-loader.js?v=6"></script>
+<script src="js/script-loader.js?v=7"></script>
 <!-- nbdModal — canonical .modal-bg/.modal open/close/confirm helper.
      Eager (like the other small utilities above) so converted subsystems
      can call window.nbdModal from their first render. Contract lives in
@@ -114,7 +114,7 @@
 
 <!-- Centralized Auth Gate -->
 <script type="module" src="js/dashboard-auth-gate.module.js?v=2"></script>
-<script type="module" src="js/dashboard-bootstrap.module.js?v=16"></script>
+<script type="module" src="js/dashboard-bootstrap.module.js?v=17"></script>
 
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
@@ -3494,6 +3494,25 @@
               <div class="sf"><label>Valley Metal ($/LF)</label><input type="number" id="v2addonValleyLf" value="8.50" step="0.25"></div>
               <div class="sf"><label>Gutters ($/LF)</label><input type="number" id="v2addonGuttersLf" value="8.50" step="0.25"></div>
             </div>
+          </div>
+        </div>
+
+        <!-- ▸ Upgrade prices (Upgrades & Add-ons stage 2, 2026-09-25). Rows are
+             JS-rendered into #upgPriceRows by js/upgrade-price-settings.js
+             (estimates bundle) from companyProfile.pricing.upgradePrices;
+             its Save writes that map through _saveCompanyProfile, and Save
+             All below carries it too. Owner / company admin only
+             (firestore.rules companyProfile); everyone else sees it
+             read-only. An upgrade with no price is never offered. -->
+        <div class="panel mb-md" id="upgPricePanel">
+          <div class="panel-hdr"><div><div class="panel-label">Upgrades &amp; Add-ons · Homeowner retail</div><div class="panel-title">Upgrade prices</div></div></div>
+          <div class="panel-body">
+            <p class="meta-12-mb16">What the homeowner pays for each upgrade, per foot or each. It prints on their estimate exactly as entered: no markup, no rounding. An upgrade with no price is never offered, and one switched Off keeps its price.</p>
+            <div id="upgPriceRows" data-state="loading"></div>
+            <div class="upg-save-row">
+              <button class="btn btn-orange" type="button" id="upgPriceSave" disabled data-action="module" data-target="NBDUpgradePriceSettings.save" data-fallback-toast="Upgrade prices are still loading. Try again in a moment.">Save upgrade prices</button>
+            </div>
+            <p id="upgPriceMsg" class="upg-msg" role="status" aria-live="polite" hidden></p>
           </div>
         </div>
 

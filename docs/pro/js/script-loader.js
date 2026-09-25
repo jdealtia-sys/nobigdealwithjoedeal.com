@@ -217,7 +217,16 @@
       'js/job-templates-data.js?v=4',
       'js/job-templates.js?v=4',
       'js/entity-resolver.js?v=2',
-      'js/job-templates-ui.js?v=6'
+      'js/job-templates-ui.js?v=6',
+      // Upgrades & Add-ons (2026-09-25): the retail upgrade library, then the
+      // pure pricing core that reads it, then Settings → Upgrade prices,
+      // which needs both. The Estimates settings tab loads this bundle
+      // before _loadEstimateDefaultsV2 renders the panel. Its stylesheet
+      // rides here too: nothing outside that panel uses it.
+      'css/upgrade-price-settings.css?v=1',
+      'js/upgrade-library.js?v=1',
+      'js/upgrade-pricing.js?v=1',
+      'js/upgrade-price-settings.js?v=1'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the

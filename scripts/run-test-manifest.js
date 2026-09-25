@@ -375,7 +375,13 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-25  185/68/274 -> 186/68/275, tests/draw-geom.test.js (draw lane
 //               L1, the Drawing Tool's pure geometry module), merged fourth.
 //               RE-MEASURED via --check after rebasing onto #1760.
-const FLOORS = { node: 186, smoke: 68, disk: 275 };
+//   2026-09-25  186/68/275 -> 187/68/276, tests/upgrade-price-settings.test.js
+//               (Upgrades stage 2, lane "prices": Settings → Upgrade prices).
+//               First cut from 66b2724a; RE-MEASURED via --check after
+//               rebasing onto 99b84861 (#1761, which followed #1760). The
+//               stage-2 card lane is open the same day — whoever merges last
+//               re-measures rather than adding a delta.
+const FLOORS = { node: 187, smoke: 68, disk: 276 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

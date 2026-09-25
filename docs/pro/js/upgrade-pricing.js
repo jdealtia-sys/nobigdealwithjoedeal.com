@@ -35,8 +35,11 @@
  *                                                     taxRate, priced, errors }
  *   totalsWithUpgrades(base, priced)              → new estimate totals, cents
  *   applyToEstimate(payload, priced, opts)        → NEW payload, rows appended
- *   sanitizeOverrides(raw)                        → { prices, disabled, ignored }
+ *   sanitizeOverrides(raw)                        → { prices, disabled,
+ *                                                     installers, ignored }
  *   installerLine(offerOrItem, tenant)            → homeowner installer sentence
+ *   MAX_UNIT_CENTS                                → the per-unit ceiling a
+ *                                                     saved price must stay under
  *
  * An offer's `qty` is what price() bills when the rep types nothing, so it
  * is only ever a figure the scope itself is priced on. `suggestedQty` is a
@@ -64,10 +67,20 @@
  *   tenant            {certifiedInstallerName}
  *
  * tenantOverrides: { <upgradeId>: <retail cents> } or
- *                  { <upgradeId>: { enabled: false } } — sanitized the way
- *                  EstimateBuilderV2.applyCompanyPricing sanitizes shop
- *                  prices (see sanitizeOverrides for the one deliberate
- *                  difference).
+ *                  { <upgradeId>: { enabled: false } } or the Settings shape
+ *                  { <upgradeId>: { cents, enabled, installerName } } —
+ *                  sanitized the way EstimateBuilderV2.applyCompanyPricing
+ *                  sanitizes shop prices (see sanitizeOverrides for the one
+ *                  deliberate difference).
+ *
+ *                  ABSENT (undefined or null) means "this tenant's saved
+ *                  Settings → Upgrade prices": companyProfile.pricing
+ *                  .upgradePrices, read off window._companyProfile at call
+ *                  time. That is how the builder card sees a price the owner
+ *                  saved without a second channel (2026-09-25, stage 2): a
+ *                  caller with no overrides of its own passes nothing, or
+ *                  null, and still quotes the company's prices. Pass {} to
+ *                  price from the library alone.
  */
 (function (root) {
   'use strict';
@@ -130,23 +143,67 @@
   // per-piece items joins the library.
   var MAX_UNIT_CENTS = 100000;
 
+  function saneCents(v) {
+    var n = num(v);
+    return (n == null || !Number.isInteger(n) || n <= 0 || n > MAX_UNIT_CENTS) ? null : n;
+  }
+
+  // The Settings shape (2026-09-25, stage 2 "prices"). Settings → Upgrade
+  // prices saves ONE entry per library item to companyProfile.pricing
+  // .upgradePrices:
+  //   { cents: <whole cents> | null, enabled: <bool>, installerName: <text> }
+  // so an owner can switch an item off without losing its price, and name
+  // the certified installer per item. The older bare-number and
+  // { enabled:false } forms keep meaning what they meant. Each field is
+  // judged on its own, exactly like a bare value: garbage cents are dropped
+  // (the library price, or needs_price, stands), and an entry that changes
+  // nothing — { enabled:true } with no price and no name — lands in `ignored`.
+  // installerName only counts on a certified_sub item; on a company-installed
+  // one it would print nowhere, so it is not reported as applied.
   function sanitizeOverrides(raw) {
     var L = lib();
-    var out = { prices: {}, disabled: {}, ignored: [] };
+    var out = { prices: {}, disabled: {}, installers: {}, ignored: [] };
     if (!raw || typeof raw !== 'object') return out;
     Object.keys(raw).forEach(function (k) {
-      if (!itemById(L, k)) { out.ignored.push(k); return; }
+      var it = itemById(L, k);
+      if (!it) { out.ignored.push(k); return; }
       var v = raw[k];
       if (v && typeof v === 'object') {
-        if (v.enabled === false) out.disabled[k] = true;
-        else out.ignored.push(k);
+        var used = false;
+        if (v.enabled === false) { out.disabled[k] = true; used = true; }
+        var c = hasOwn(v, 'cents') ? saneCents(v.cents) : null;
+        if (c != null) { out.prices[k] = c; used = true; }
+        var nm = it.installer === 'certified_sub' ? cleanName(v.installerName) : '';
+        if (nm) { out.installers[k] = nm; used = true; }
+        if (!used) out.ignored.push(k);
         return;
       }
-      var n = num(v);
-      if (n == null || !Number.isInteger(n) || n <= 0 || n > MAX_UNIT_CENTS) { out.ignored.push(k); return; }
+      var n = saneCents(v);
+      if (n == null) { out.ignored.push(k); return; }
       out.prices[k] = n;
     });
     return out;
+  }
+
+  // An absent tenantOverrides argument (undefined OR null) means this
+  // tenant's saved Settings. null counts as absent on purpose: "I have no
+  // overrides of my own" is what a caller means by it, and treating it as
+  // "the library alone" would silently hide every price the owner saved
+  // from any caller that defaults its map to null. {} is the explicit
+  // "library alone". Read at call time (the profile hydrates after boot, and
+  // an owner's Save updates it in place), never cached. A saved value that
+  // is not a plain object — a pre-hydration page, a Node test — is no
+  // overrides: the library alone, which can only ever REFUSE a needs_price
+  // item, never guess one.
+  function savedOverrides() {
+    try {
+      var cp = root && root._companyProfile;
+      var up = cp && cp.pricing && cp.pricing.upgradePrices;
+      return (up && typeof up === 'object' && !Array.isArray(up)) ? up : null;
+    } catch (_) { return null; }
+  }
+  function overridesOf(tenantOverrides) {
+    return tenantOverrides == null ? savedOverrides() : tenantOverrides;
   }
 
   // ── Scope scan ────────────────────────────────────────────────────────
@@ -372,7 +429,7 @@
       .filter(Boolean);
     if (!fams.length) return [];
 
-    var ov = sanitizeOverrides(tenantOverrides);
+    var ov = sanitizeOverrides(overridesOf(tenantOverrides));
     var scan = scanLines(ctx);
     var newGutters = (typeof ctx.newGutters === 'boolean')
       ? ctx.newGutters
@@ -427,7 +484,10 @@
         notCovered: v.notCovered || null,
         installerKind: it.installer,
         certification: it.certification || null,
-        installerLine: installerLine(it, ctx.tenant),
+        // The name saved for THIS item in Settings wins over ctx.tenant: it
+        // is the owner's explicit answer to "who installs this one".
+        installerLine: installerLine(it, hasOwn(ov.installers, it.id)
+          ? { certifiedInstallerName: ov.installers[it.id] } : ctx.tenant),
         picked: false,
         recommended: false
       };
@@ -508,7 +568,7 @@
     }
 
     var offers = {};
-    offeredFor(ctx.templateIds, ctx, tenantOverrides).forEach(function (o) { offers[o.id] = o; });
+    offeredFor(ctx.templateIds, ctx, overridesOf(tenantOverrides)).forEach(function (o) { offers[o.id] = o; });
 
     // Duplicates refuse every copy: silently keeping one hides the UI bug
     // that sent two, and silently summing them bills a guard twice.
@@ -797,7 +857,10 @@
     totalsWithUpgrades: totalsWithUpgrades,
     applyToEstimate: applyToEstimate,
     sanitizeOverrides: sanitizeOverrides,
-    installerLine: installerLine
+    installerLine: installerLine,
+    // Exported so Settings → Upgrade prices refuses a typo with a message
+    // instead of saving a figure sanitizeOverrides would silently drop.
+    MAX_UNIT_CENTS: MAX_UNIT_CENTS
   };
   root.NBDUpgrades = Object.freeze(api);
 })(typeof window !== 'undefined' ? window : this);

@@ -102,6 +102,17 @@ Jo's base gutter pricing, for context:
 5. **Added 2026-09-25 (slice 0 review).** Should a roof plus a **new gutter system** on one estimate also print the gutter's own sentence ("5-year workmanship warranty on Seamless K5…")? Today the roofing wording covers the whole estimate, so the gutters read as lifetime. The roofing sentence itself stays byte-identical either way. (A roof plus a **repair** no longer shows the 1-year box, because it changed nothing there.)
 6. **Added 2026-09-25 (slice 0 review, for slice 2).** A new roofing *template* estimate saves no tier. So the portal, the estimate chips and the customer PDF "Tier:" line show none. Its proposal, contract and certificates still print "Preferred: Lifetime Workmanship", because roofing wording stays byte-identical. Nothing false prints, but the two surfaces disagree. The asphalt ladder in slice 2 should settle which label a roof template gets.
 
+## Update 2026-09-25: Settings → Upgrade prices (stage 2, lane "prices")
+
+Built. Owners and company admins price upgrades in **Settings → Estimates → Upgrade prices**.
+
+- **Where prices live.** `companyProfile/{companyId}.pricing.upgradePrices`, next to `addonPrices`. There is one entry per library item: `{ cents, enabled, installerName }`. `installerName` is kept on certified-sub items only. Writes go through `_saveCompanyProfile`, and the existing firestore.rules gate covers them (owner or company_admin), so no rules change was needed.
+- **Dollars to cents.** The panel converts the typed digits, never `parseFloat × 100`. It refuses $0, more than two decimals, a comma used as a decimal point ("6,50") and anything over `NBDUpgrades.MAX_UNIT_CENTS`.
+- **Off keeps the price.** "Set a price" marks a needs_price item. That item is offered only once it has a saved price.
+- **Reaching the builder.** `NBDUpgrades.offeredFor` and `price` read the saved map when `tenantOverrides` is **undefined or null**. Pass `{}` to price from the library alone. A per-item installer name saved here wins over `ctx.tenant.certifiedInstallerName`.
+- **Hydration guard.** Before the company profile loads, the panel shows a loading line and its Save refuses. Save All leaves upgrade prices out until then, and it also carries the map, so an edit is never silently dropped.
+- **Tests.** Unit: `tests/upgrade-price-settings.test.js`. E2E: `tests/e2e/phone-views.spec.js` "Settings upgrade prices". The E2E runs at 412 and 360 plus the forced installed-app cascade, does a real save, reloads, and checks the Firestore doc.
+
 ## Related
 
 - [NEXT_SESSION-2026-09-25](NEXT_SESSION-2026-09-25.md): the session this came from.
