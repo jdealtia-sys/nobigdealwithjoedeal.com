@@ -321,6 +321,7 @@ test.describe('phone views: dashboard lead widgets and the bell @audit', () => {
               name,
               nameProblem: window.__pvTextVisible(headline, name),
               acts: [...row.querySelectorAll('.sfb-action')].map((a) => window.__pvHit(a)).filter(Boolean),
+              minAct: Math.min(...[...row.querySelectorAll('.sfb-action')].map((a) => Math.min(a.getBoundingClientRect().width, a.getBoundingClientRect().height))),
             });
           }
           return out;
@@ -330,6 +331,8 @@ test.describe('phone views: dashboard lead widgets and the bell @audit', () => {
         for (const r of checked) {
           expect(r.nameProblem, `Next Best Actions headline must show "${r.name}"`).toBe('');
           expect(r.acts, `Next Best Actions actions for ${r.name} tappable`).toEqual([]);
+          // Same 36px touch floor as the other lead widgets' actions (Wave 81).
+          expect(r.minAct, `Next Best Actions action size for ${r.name}`).toBeGreaterThanOrEqual(36);
         }
       });
 
@@ -348,7 +351,8 @@ test.describe('phone views: dashboard lead widgets and the bell @audit', () => {
             return { label: b.textContent.trim() || b.title, h: Math.round(r.height), w: Math.round(r.width), hit: window.__pvHit(b) };
           });
           const nav = document.getElementById('mobile-nav').getBoundingClientRect();
-          return { items, controls, ddBottom: dd.getBoundingClientRect().bottom, navTop: nav.top };
+          const list = document.getElementById('notifList');
+          return { items, controls, ddBottom: dd.getBoundingClientRect().bottom, navTop: nav.top, listH: list.clientHeight, listMore: list.scrollHeight > list.clientHeight + 1 };
         });
         expect(bell.items.length, 'bell has rows to measure').toBeGreaterThan(0);
         for (const it of bell.items) {
@@ -360,6 +364,9 @@ test.describe('phone views: dashboard lead widgets and the bell @audit', () => {
           expect(c.hit, `bell control "${c.label}"`).toBe('');
         }
         expect(bell.ddBottom, 'the open bell panel must stop above the bottom nav').toBeLessThanOrEqual(bell.navTop);
+        // With more alerts than fit, the list uses the panel's height rather
+        // than its old inline 300px cap (2-3 of 10 rows visible).
+        if (bell.listMore) expect(bell.listH, 'bell list height when it has more to show').toBeGreaterThan(300);
         await page.locator('#notifBtn').tap();
         await expect(page.locator('#notifDropdown')).toBeHidden();
       });
@@ -566,10 +573,15 @@ test.describe('phone views: light mode stays readable @audit', () => {
     await test.step('views#11 header wordmark, header icons and bottom-nav labels', async () => {
       const c = await page.evaluate(() => ({
         logo: window.__pvContrast(document.querySelector('header .logo')),
+        // The ↻ beside the sync dot (connection-status-btn.js) had no colour of
+        // its own, so it painted the UA's black buttontext on the dark bar.
+        sync: (() => { const g = document.querySelector('#nbd-conn-btn span:last-child'); return g ? window.__pvContrast(g) : null; })(),
         tools: [...document.querySelectorAll('header .hdr-tool')].filter((b) => b.offsetParent !== null).map((b) => window.__pvContrast(b)),
         nav: [...document.querySelectorAll('#mobile-nav .mn-item:not(.active):not(.mn-fab) .mn-lbl')].map((l) => ({ t: l.textContent.trim(), c: window.__pvContrast(l) })),
       }));
       expect(c.logo, '"NBD" wordmark on the dark header').toBeGreaterThanOrEqual(4.5);
+      expect(c.sync, 'the header sync button renders').not.toBeNull();
+      expect(c.sync, '↻ sync glyph on the dark header').toBeGreaterThanOrEqual(4.5);
       for (const t of c.tools) expect(t, 'header icon').toBeGreaterThanOrEqual(3);
       expect(c.nav.length).toBeGreaterThan(0);
       for (const n of c.nav) expect(n.c, `bottom-nav "${n.t}"`).toBeGreaterThanOrEqual(4.5);
@@ -578,13 +590,16 @@ test.describe('phone views: light mode stays readable @audit', () => {
     await test.step('views#11 Engagement Cohort + Next Best Actions labels', async () => {
       await page.locator('#mni-dash').tap();
       await safeEvaluate(page, () => window.dispatchEvent(new Event('nbd:data-refreshed')));
-      await expect(page.locator('#engagement-cohort-body .ec-label').first()).toBeVisible({ timeout: 15_000 });
+      // Tier rows: the grid children of the cohort list (label | bar | count).
+      await safeWaitForFunction(page, () => [...document.querySelectorAll('#engagement-cohort-body > div:first-child > div')].some((r) => getComputedStyle(r).display === 'grid'), { timeout: 15_000 });
       await expect(page.locator('#smart-followup-briefing-body .sfb-row').first()).toBeVisible({ timeout: 15_000 });
       const c = await page.evaluate(() => ({
         // Empty tiers are dimmed to .45 on purpose; judge the live ones.
-        cohort: [...document.querySelectorAll('#engagement-cohort-body .ec-row')].filter((r) => getComputedStyle(r).opacity === '1')
-          .map((r) => ({ t: r.textContent.trim().split('\n')[0].trim(), c: window.__pvContrast(r.querySelector('.ec-label')) })),
-        sfb: [...document.querySelectorAll('#smart-followup-briefing-body .sfb-row [data-sfb-prio]')].map((l) => ({ t: l.textContent.trim(), c: window.__pvContrast(l) })),
+        cohort: [...document.querySelectorAll('#engagement-cohort-body > div:first-child > div')]
+          .filter((r) => getComputedStyle(r).display === 'grid' && getComputedStyle(r).opacity === '1')
+          .map((r) => ({ t: r.firstElementChild.textContent.trim(), c: window.__pvContrast(r.firstElementChild) })),
+        // The TODAY / URGENT label: first span of the row's text column.
+        sfb: [...document.querySelectorAll('#smart-followup-briefing-body .sfb-row > div:nth-child(2) > div:first-child > span:first-child')].map((l) => ({ t: l.textContent.trim(), c: window.__pvContrast(l) })),
       }));
       expect(c.cohort.length, 'at least one populated cohort tier').toBeGreaterThan(0);
       for (const x of c.cohort) expect(x.c, `cohort "${x.t}"`).toBeGreaterThanOrEqual(4.5);
