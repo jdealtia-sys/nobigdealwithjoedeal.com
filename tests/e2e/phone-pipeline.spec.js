@@ -141,6 +141,21 @@ async function deleteLeads(page, ids) {
   ]);
 }
 
+// Seeding fires a burst of live refreshes (snapshot → leadsChanged →
+// renderLeads) that rebuild the board and list for a few seconds; acting
+// during the burst aims at cards that are about to move. Wait for 1.5s with
+// no leadsChanged (bounded — a quiet rig just proceeds).
+async function settle(page) {
+  await safeEvaluate(page, () => {
+    window.__ppLastChange = performance.now();
+    if (!window.__ppSettleHook) {
+      window.__ppSettleHook = true;
+      document.addEventListener('leadsChanged', () => { window.__ppLastChange = performance.now(); });
+    }
+  });
+  await waitWith(page, () => performance.now() - window.__ppLastChange > 1500, null, 20_000).catch(() => {});
+}
+
 async function openCrm(page) {
   await safeWaitForFunction(page, () => typeof window.goTo === 'function', { timeout: 30_000 });
   await safeEvaluate(page, () => window.goTo('crm'));
@@ -219,6 +234,7 @@ test.describe('phone pipeline @audit', () => {
     await skipTour(page);
     ids = await seedLeads(page, TOKEN);
     await openCrm(page);
+    await settle(page);
   });
   test.afterAll(async () => {
     test.setTimeout(60_000);
@@ -460,6 +476,7 @@ test.describe('phone pipeline @audit', () => {
     const jdOpen = () => safeEvaluate(page, () => { const e = document.getElementById('mJobDetail'); return !!e && !e.hidden && e.classList.contains('open'); });
     for (let attempt = 0; attempt < 3 && !(await jdOpen()); attempt++) {
       await quietToasts(page);
+      await waitWith(page, (id) => !!document.querySelector(`#kanbanBoard .k-card[data-id="${id}"] .kc-name`), ids.fu1, 15_000);
       const n = await safeEvaluate(page, (id) => {
         const card = document.querySelector(`#kanbanBoard .k-card[data-id="${id}"]`);
         card.closest('.kanban-board').scrollLeft = 0;
@@ -528,6 +545,7 @@ test.describe('pipeline on desktop @audit', () => {
     await skipTour(page);
     ids = await seedLeads(page, TOKEN);
     await openCrm(page);
+    await settle(page);
   });
   test.afterAll(async () => {
     test.setTimeout(60_000);
