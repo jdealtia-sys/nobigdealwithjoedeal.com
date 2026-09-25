@@ -16,6 +16,12 @@
  *      estimate-finalization.formatInsuranceScope and assert the retail line
  *      totals + O&P ladder reconcile, with a NON-default 40% markup proving the
  *      persisted markup is honored (not the 0.25 fallback).
+ *   4. Server render to the cent — the Retail Quote payload compiled through
+ *      the REAL functions/print/templates/estimate.hbs with the REAL helpers
+ *      out of functions/render-pdf.js: a $6,988.13 quote prints .13 on the
+ *      Project Total, the Estimate tile and Tax (review of #1763). Needs
+ *      functions/ deps (CI installs them before the manifest runner); it
+ *      fails, not skips, without them.
  *
  * Run: node tests/estimate-v2-payload.test.js
  */
@@ -388,6 +394,68 @@ console.log('\nV2 PAYLOAD — minJobApplied persists through save + reopen');
   const legacyReconstructed = T.reconstructEstimateFromSaved(legacyDoc);
   ok('a pre-existing saved doc with no minJobApplied key reconstructs to false (no regression)',
     legacyReconstructed.minJobApplied === false);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Server render to the cent (review of #1763, 2026-09-25). An upgraded Job
+// Template quote adds its upgrades and their exact tax on top of a
+// $25-rounded base, so its total has cents. render-pdf.js's `money` helper
+// rounded every figure to the dollar, so when the server render succeeded
+// the Retail Quote DOWNLOADED as $6,988 (Project Total, Subtotal, Tax) while
+// the screen showed $6,988.13 — and the Estimate tile was rounded client-side
+// in the payload too. Rendered through the real template and real helpers:
+// asserting the printed HTML, not the helper's source.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nV2 PAYLOAD — the server-rendered Retail Quote prints its cents');
+{
+  const ROOT = path.join(__dirname, '..');
+  const Handlebars = require(path.join(ROOT, 'functions/node_modules/handlebars'));
+  const R = require(path.join(ROOT, 'functions/render-pdf.js'));
+  R._registerPartialsOnce();
+  R._registerHelpersOnce();
+  const tpl = Handlebars.compile(fs.readFileSync(path.join(ROOT, 'functions/print/templates/estimate.hbs'), 'utf8'));
+
+  // A cash gutter job with an upgrade line: 4,687.50 + 1,812.50 = 6,500.00
+  // subtotal, + 488.13 tax = 6,988.13.
+  const upgEst = {
+    method: 'line-item', tier: 'better', mode: 'retail', priceMode: 'line-item',
+    lines: [
+      { code: 'GUT K5', name: 'Seamless 5" K-style gutter', category: 'gutters', quantity: 150, unit: 'LF', retailTotal: 4687.50 },
+      { code: 'UPG LG-AR', name: 'Upgrade — Alu-Rex gutter guard', category: 'Upgrades', quantity: 145, unit: 'LF', retailTotal: 1812.50 },
+    ],
+    overhead: 0, profit: 0, subtotal: 6500, tax: 488.13, taxRate: 0.0751, total: 6988.13,
+  };
+  const rqC = T.buildEstimatePayload('retail-quote', upgEst, metaNoTiers);
+  ok('fixture: the Retail Quote payload carries 6988.13 / 6500 / 488.13',
+    rqC.total === 6988.13 && rqC.subtotal === 6500 && rqC.tax === 488.13 && rqC.lines.length === 2);
+  ok('payload: the Estimate tile is pre-formatted to the cent ($6,988.13)',
+    (rqC.stats.find((s) => s.label === 'Estimate') || {}).value === '$6,988.13');
+
+  const html = tpl(Object.assign({ company: { footerName: 'NBD Co', seal: 'Estimate' } }, rqC));
+  const tileM = /<div class="stat-label">Estimate<\/div>\s*<div class="stat-value">([^<]*)</.exec(html);
+  const totalM = /<div class="total-amount">([^<]*)</.exec(html);
+  const subM = /Subtotal<\/td>\s*<td class="num money">([^<]*)</.exec(html);
+  const taxM = /Tax<\/td>\s*<td class="num money">([^<]*)</.exec(html);
+  ok('rendered: Project Total prints $6,988.13 (got ' + (totalM && totalM[1]) + ')', !!totalM && totalM[1] === '$6,988.13');
+  ok('rendered: the Estimate tile prints $6,988.13 (got ' + (tileM && tileM[1]) + ')', !!tileM && tileM[1] === '$6,988.13');
+  ok('rendered: Tax prints $488.13 (got ' + (taxM && taxM[1]) + ')', !!taxM && taxM[1] === '$488.13');
+  ok('rendered: a whole-dollar Subtotal keeps the house style, $6,500 (got ' + (subM && subM[1]) + ')', !!subM && subM[1] === '$6,500');
+  ok('rendered: a per-LF unit price with cents prints them ($12.50, not $13)',
+    /<td class="num money">\$12\.50<\/td>/.test(html) && /<strong>\$1,812\.50<\/strong>/.test(html));
+  ok('rendered: no figure anywhere prints the dollar-rounded $6,988', !/\$6,988(?!\.13)/.test(html));
+
+  // The helper is shared by the contract, invoice, change order, receipt and
+  // inspection templates: same rule, and a non-number still prints a dash.
+  const money = Handlebars.helpers.money;
+  ok('money helper: cents when present, whole dollars when whole, a dash for a non-number',
+    money(6988.13) === '$6,988.13' && money(5241.1) === '$5,241.10' && money(6988) === '$6,988'
+      && money(0) === '$0' && money(0.1 + 0.2) === '$0.30' && money(undefined) === '—' && money('abc') === '—');
+  const contractHtml = Handlebars.compile(fs.readFileSync(path.join(ROOT, 'functions/print/templates/contract.hbs'), 'utf8'))({
+    company: { footerName: 'NBD Co' }, preparedFor: { name: 'Jane' }, preparedBy: { name: 'Joe' },
+    contractPrice: 6988.13, paymentSchedule: [{ label: 'Deposit', amount: 1747.03 }, { label: 'Balance', amount: 5241.10 }],
+  });
+  ok('contract: the price and schedule print to the cent',
+    /<div class="total-amount">\$6,988\.13<\/div>/.test(contractHtml) && /\$1,747\.03/.test(contractHtml) && /\$5,241\.10/.test(contractHtml));
 }
 
 console.log('\n──────────────────────────────────────────────────');

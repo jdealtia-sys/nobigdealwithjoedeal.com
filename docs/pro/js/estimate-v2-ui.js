@@ -3623,7 +3623,9 @@
     const stats = [
       { label: 'Line Items',  value: String(scopeLineCount),  sub: 'in scope' },
       _material ? { label: 'Material', value: _material, sub: '' } : null,
-      { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'incl. tax' },
+      // Pre-formatted here, so the server's money helper never sees it: the
+      // same cents rule as the on-screen total (review of #1763).
+      { label: 'Estimate',    value: _fmtTotal(estimate.total), sub: 'incl. tax' },
     ].filter(Boolean);
 
     // (isSingleQuote defined above, before the tier block.) Zeroing the lines

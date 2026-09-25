@@ -2118,6 +2118,12 @@
       case 'upg-require':
         if (!o || o.state !== 'available') return;
         if (u.required[id]) { delete u.required[id]; break; }
+        // "Make required" on a sibling of the group's required pick ran
+        // upgPickOn, which clears the group's other picks AND their required
+        // flags — the rep's guard was swapped out and the total moved with no
+        // word (second review of #1763, 2026-09-25). Refused like a row tap.
+        reqId = upgGroupRequiredId(o.group);
+        if (reqId && reqId !== id) { notice = upgRequiredNotice(id, reqId, m); break; }
         upgPickOn(o);
         u.required[id] = true;
         break;

@@ -356,6 +356,18 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     && /^Required on this job\./.test(errText(env.card(), 'leafblaster_pro_micromesh') || ''), reqPickSnap());
   env.click('upg-pick', 'leafblaster_pro_micromesh');
   ok('rep card: untapping the required guard itself is refused too', reqPickSnap() === reqHeld);
+  // Second review of #1763: "Make required" on a sibling ran upgPickOn, which
+  // clears the group's other picks AND their required flags, so the guard was
+  // swapped out and the total dropped with no note. Refused like a row tap.
+  const footReq0 = footTotalCents(env.foot());
+  ok('fixture: a sibling still offers "Make required" while the guard is held', pressed(env.card(), 'upg-require', 'amerimax_lockin_mesh') === false
+    && footReq0 != null, String(footReq0));
+  env.click('upg-require', 'amerimax_lockin_mesh');
+  card = env.card();
+  ok('rep card: "Make required" on a sibling does NOT replace the required guard', reqPickSnap() === reqHeld, reqPickSnap());
+  ok('…the total does not move', footTotalCents(env.foot()) === footReq0, footTotalCents(env.foot()) + ' vs ' + footReq0);
+  ok('…it says why on the tapped row', /^LeafBlaster PRO stainless micromesh gutter guard is required on this job\. Tap its “✓ Required” to release it first\.$/.test(errText(card, 'amerimax_lockin_mesh') || ''),
+    errText(card, 'amerimax_lockin_mesh'));
 
   // Only the leaf group is priced by default, and it is now base scope.
   env.click('upg-show-homeowner');
@@ -424,6 +436,14 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   env.click('upg-pick', 'alurex');
   ok('…and then a sibling replaces it as usual', pressed(env.card(), 'upg-pick', 'alurex') === true && pressed(env.card(), 'upg-pick', 'leafblaster_pro_micromesh') === false
     && errText(env.card(), 'alurex') === '');
+  // Release first, then "Make required" on a sibling: the guard moves to it.
+  env.start([K5]);
+  env.click('upg-require', 'leafblaster_pro_micromesh');
+  env.click('upg-require', 'leafblaster_pro_micromesh');
+  env.click('upg-require', 'amerimax_lockin_mesh');
+  ok('…released first, "Make required" on a sibling makes IT the required guard',
+    reqPickSnap() === 'amerimax_lockin_mesh=true/true leafblaster_pro_micromesh=false/false leafblaster_pro_reinforced=false/false alurex=false/false'
+      && errText(env.card(), 'amerimax_lockin_mesh') === '', reqPickSnap());
 
   // ══════════════════════════════════════════════════════════════════
   section('6. SHOW HOMEOWNER — priced and measured only; Add / No thanks; running total with tax');

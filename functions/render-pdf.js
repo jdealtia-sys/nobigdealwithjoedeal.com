@@ -168,10 +168,20 @@ function registerHelpersOnce() {
 
   // Tabular-num money formatter. We do the formatting in the
   // template (not CSS) so cells line up regardless of font fallback.
+  //
+  // Whole dollars print as they always did ("$6,988"); an amount with cents
+  // prints its cents ("$6,988.13") — the same rule as the client's
+  // fmtMoneyBig (estimate-finalization.js). Review of #1763 (2026-09-25):
+  // this rounded every figure to the dollar, so an upgraded Job Template
+  // quote (upgrades + their exact tax on a $25-rounded base) downloaded from
+  // the server render as $6,988 — Project Total, Subtotal and Tax — while
+  // the screen, contract, portal and invoice showed $6,988.13.
   Handlebars.registerHelper('money', (v) => {
     const n = Number(v);
     if (!isFinite(n)) return '—';
-    return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+    const c = Math.round(n * 100);
+    const digits = (c % 100 === 0) ? 0 : 2;
+    return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   });
 
   // Counter for {{photoCount}} and similar.
