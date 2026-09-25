@@ -417,43 +417,56 @@
     host.addEventListener('change', onEdit);
   }
 
-  var _poll = null;
+  // Paint once the profile lands, whichever read it was (2026-09-25, lane
+  // profretry: company-profile.js announces every first landing). Only the
+  // loading line is ever replaced — it stays data-state="loading" under the
+  // "did not load" text too, so a later landing still paints the rows. A
+  // panel already painted from the hydrated profile may hold typing; never
+  // repaint over it from here.
+  function onProfileLanded() {
+    var host = document.getElementById(HOST_ID);
+    if (host && host.getAttribute('data-state') === 'loading' && root._companyProfileLoaded === true) render();
+  }
+  try { root.addEventListener('nbd:company-profile-loaded', onProfileLanded); } catch (_) { /* no event target */ }
+
+  var _waiting = false;
   function waitForProfile() {
-    if (_poll) return;
     // Ask for the read, don't only wait for it (2026-09-25, found probing
     // desktop 1280 for the PR #1762 review). The boot read can give up on a
     // cold Firestore channel ("client is offline" after nbdRetryOffline's
-    // three tries) and nothing retries it, so a desktop that opened this tab
-    // showed "Loading…" and then "did not load" for good, while a manual
-    // _loadCompanyProfile() landed in ~15ms. One read per wait: it sets
-    // _companyProfileLoaded only when the doc read succeeds, so the guard
-    // below is unchanged, and "open this tab again" really does retry.
-    if (typeof root._loadCompanyProfile === 'function') {
-      try {
-        var p = root._loadCompanyProfile();
-        if (p && typeof p.catch === 'function') p.catch(function () { /* the 30s message covers it */ });
-      } catch (_) { /* the 30s message covers it */ }
-    }
-    _poll = setInterval(function () {
-      if (root._companyProfileLoaded !== true) return;
-      clearInterval(_poll); _poll = null;
+    // three tries), so a desktop that opened this tab showed "Loading…" and
+    // then "did not load" for good, while a manual _loadCompanyProfile()
+    // landed in ~15ms.
+    // Through _ensureCompanyProfile (2026-09-25, lane profretry): one read
+    // here, then a 500ms watch that quit after 30s, could still give up
+    // while a retry a few seconds later would have landed. The ensure run
+    // retries with backoff, is shared with the boot and My Jurisdictions,
+    // and every call makes its next read happen now. It sets nothing itself
+    // — _companyProfileLoaded is still set only by a successful doc read —
+    // so the guard in render() is unchanged, and "open this tab again"
+    // really asks again.
+    var ensure = typeof root._ensureCompanyProfile === 'function'
+      ? root._ensureCompanyProfile
+      : function () {
+        return Promise.resolve(typeof root._loadCompanyProfile === 'function' ? root._loadCompanyProfile() : null)
+          .then(function () { return root._companyProfileLoaded === true; });
+      };
+    var p;
+    try { p = ensure(); } catch (_) { p = null; }
+    if (_waiting) return;
+    _waiting = true;
+    var settle = function () {
+      _waiting = false;
       var host = document.getElementById(HOST_ID);
-      // Only replace the loading line. A panel already painted from the
-      // hydrated profile may hold typing; never repaint over it from here.
-      if (host && host.getAttribute('data-state') === 'loading') render();
-    }, 500);
-    setTimeout(function () {
-      if (!_poll) return;
-      clearInterval(_poll); _poll = null;
+      if (!host || host.getAttribute('data-state') !== 'loading') return;
+      if (root._companyProfileLoaded === true) { onProfileLanded(); return; }
       // The profile read failed or never came back (offline, a denied
       // read). Say so rather than leave "Loading…" up forever; Save stays
       // off, because an unhydrated form must never be published.
-      var host = document.getElementById(HOST_ID);
-      if (host && host.getAttribute('data-state') === 'loading') {
-        host.textContent = '';
-        host.appendChild(el('p', { className: 'upg-loading', text: 'Your saved upgrade prices did not load. Check your connection, then open this tab again.' }));
-      }
-    }, 30000);
+      host.textContent = '';
+      host.appendChild(el('p', { className: 'upg-loading', text: 'Your saved upgrade prices did not load. Check your connection, then open this tab again.' }));
+    };
+    Promise.resolve(p).then(settle, settle);
   }
 
   function setSaveEnabled(on) {

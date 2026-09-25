@@ -23,6 +23,9 @@
 //   upgrades Settings > Estimates > Upgrade prices (2026-09-25, Upgrades &
 //            Add-ons stage 2): price a needs_price item, switch one Off,
 //            Save, reload — persisted in Firestore and seen by NBDUpgrades
+//   profretry a companyProfile read that gave up at boot (2026-09-25) is
+//            retried; Settings > Estimates refuses unhydrated saves out loud
+//            and repaints when the read lands (412, 360, and desktop 1280)
 //
 // Every describe logs in ONCE and walks its surfaces in steps, so the whole
 // file stays around two minutes at --workers=1. Tagged @audit so it rides the
@@ -31,7 +34,7 @@
 //     PLAYWRIGHT_TEST_USER_EMAIL=playwright-e2e@nbd.test \
 //     PLAYWRIGHT_TEST_USER_PASSWORD=nbd-e2e-password-1 \
 //     npx playwright test --config=playwright.config.js phone-views.spec.js --workers=1
-const { test, expect } = require('@playwright/test');
+const { test, expect, devices } = require('@playwright/test');
 const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
@@ -1094,6 +1097,239 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
         });
       }, original);
     }
+  });
+});
+
+// ── A company-profile read that gives up at boot (2026-09-25, profretry) ────
+//
+// On a cold Firestore channel the ONE boot read of companyProfile threw
+// "client is offline" three times inside ~2.4s and nothing asked again, so
+// window._companyProfileLoaded stayed unset all session (reproduced on this
+// rig at 1280: unset for 26s while a manual _loadCompanyProfile() landed in
+// ~13ms). Settings > Estimates then said "Loading your saved jurisdictions…"
+// until its poll quit, "+ Add Jurisdiction" took typing that could never be
+// saved, and Save All left county rates and jurisdictions out of the company
+// write under a green "✓ … saved".
+//
+// The cold channel is forced deterministically: while
+// window.__e2eProfileOffline is true, every companyProfile read that goes
+// through nbdRetryOffline throws the SDK's "client is offline" error (the
+// same wrapper company-profile.js defines, installed before the page runs).
+// The spec's own getDoc/updateDoc calls don't go through it, so it can read
+// the server copy the whole time.
+
+async function installProfileOfflineSwitch(page) {
+  await page.addInitScript(() => {
+    window.__e2eProfileOffline = true;
+    window.__e2eProfileReads = 0;
+    const retry = async function (fn, tries, delay) {
+      tries = tries || 3; delay = delay || 800;
+      for (let i = 0; ; i++) {
+        try {
+          if (/companyProfile/.test(String(fn))) {
+            window.__e2eProfileReads++;
+            if (window.__e2eProfileOffline) {
+              throw Object.assign(new Error('Failed to get document because the client is offline.'), { code: 'unavailable' });
+            }
+          }
+          return await fn();
+        } catch (e) {
+          const m = ((e && (e.code || e.message)) || '') + '';
+          if (i >= tries - 1 || !/offline|unavailable|deadline|backend|network/i.test(m)) throw e;
+          await new Promise((r) => setTimeout(r, delay * (i + 1)));
+        }
+      }
+    };
+    Object.defineProperty(window, 'nbdRetryOffline', { configurable: true, get() { return retry; }, set() { /* keep the switch */ } });
+  });
+}
+
+// companyProfile/{key}.pricing as the SERVER holds it (never window._companyProfile).
+async function serverPricing(page) {
+  return safeEvaluate(page, async () => {
+    const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const key = String(await window._resolveCompanyKey());
+    const snap = await fs.getDoc(fs.doc(window.db, 'companyProfile', key));
+    const p = (snap.exists() && snap.data().pricing) || {};
+    const pick = (k) => (p[k] === undefined ? null : p[k]);
+    return {
+      key,
+      customJurisdictions: pick('customJurisdictions'), permits: pick('permits'), countyTax: pick('countyTax'),
+      fallbackTaxRate: pick('fallbackTaxRate'), addonPrices: pick('addonPrices'),
+    };
+  });
+}
+async function restorePricing(page, original) {
+  await safeEvaluate(page, async (o) => {
+    const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const put = (v) => (v == null ? fs.deleteField() : v);
+    await fs.updateDoc(fs.doc(window.db, 'companyProfile', o.key), {
+      'pricing.customJurisdictions': put(o.customJurisdictions),
+      'pricing.permits': put(o.permits),
+      'pricing.countyTax': put(o.countyTax),
+      'pricing.fallbackTaxRate': put(o.fallbackTaxRate),
+      'pricing.addonPrices': put(o.addonPrices),
+    });
+  }, original);
+}
+
+const E2E_JUR = { slug: 'custom-e2e-boot-retry-county', name: 'E2E Boot Retry County', cost: 175, rate: 0.0725 };
+
+// The whole walk, shared by the phone and desktop tests. `act` is how a
+// person presses things there: a tap on the phone, a click at 1280.
+async function profileRetryWalk(page, { act, openEstimatesTab, widths }) {
+  const JUR = '#jurRows';
+  const SAVE_ALL = 'button[data-fn="_saveEstimateDefaultsV2"]';
+
+  await test.step('the boot read gave up, and is asked again without anyone opening a tab', async () => {
+    // Boot 3 tries + the retry run's first attempt (3 more). Before
+    // 2026-09-25 this sat at 3 for good.
+    await expect.poll(() => page.evaluate(() => window.__e2eProfileReads), {
+      message: 'companyProfile read attempts', timeout: 20_000,
+    }).toBeGreaterThanOrEqual(6);
+    expect(await page.evaluate(() => window._companyProfileLoaded === true), 'no read landed, so not loaded').toBe(false);
+  });
+
+  // Put a jurisdiction on the server for this tenant (restored in the
+  // caller's finally), so the landing has a row to paint.
+  const original = await serverPricing(page);
+  await safeEvaluate(page, async ({ key, map }) => {
+    const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    await fs.updateDoc(fs.doc(window.db, 'companyProfile', key), { 'pricing.customJurisdictions': map });
+  }, { key: original.key, map: Object.assign({}, original.customJurisdictions || {}, { [E2E_JUR.slug]: { name: E2E_JUR.name, cost: E2E_JUR.cost, rate: E2E_JUR.rate } }) });
+  const seeded = await serverPricing(page);
+
+  try {
+    await openEstimatesTab();
+
+    await test.step('Estimates tab, profile not loaded: a loading line, and + Add refuses rather than take typing', async () => {
+      await expect(page.locator(JUR)).toHaveAttribute('data-jur-wait', 'loading');
+      await expect(page.locator(JUR)).toHaveText('Loading your saved jurisdictions…');
+      await expect(page.locator('#upgPriceRows')).toHaveAttribute('data-state', 'loading');
+      const add = page.locator('button[data-fn="_addJurisdictionRow"]');
+      await add.scrollIntoViewIfNeeded();
+      await act(add);
+      await expect(page.locator('#toastContainer .toast', { hasText: 'Your saved jurisdictions are still loading' })).toBeVisible();
+      expect(await page.locator(JUR + ' [data-jur-row]').count(), 'no row taken next to the loading line').toBe(0);
+    });
+
+    await test.step('Save All while unloaded: a warning that stays, and NOTHING company-wide written', async () => {
+      const save = page.locator(SAVE_ALL);
+      await expect.poll(() => safeEvaluate(page, (sel) => {
+        const b = document.querySelector(sel);
+        b.scrollIntoView({ block: 'center' });
+        return window.__pvHit(b);
+      }, SAVE_ALL), { message: 'Save All reachable', timeout: 10_000 }).toBe('');
+      await act(save);
+      const msg = page.locator('#v2save-msg');
+      await expect(msg).toBeVisible();
+      await expect(msg).toHaveAttribute('data-kind', 'warn');
+      await expect(msg).toContainText('NOT saved for your company');
+      await expect(page.locator('#toastContainer .toast', { hasText: 'Company rates not saved' })).toBeVisible();
+      // A clean save fades after 5s; the warning must still be up after that.
+      await page.waitForTimeout(5_600);
+      await expect(msg, 'the warning stays until the next save').toBeVisible();
+      expect(await serverPricing(page), 'company pricing on the server is untouched').toEqual(seeded);
+      expect(await page.evaluate(() => window._companyProfileLoaded === true), 'a refused save never marks the profile loaded').toBe(false);
+      for (const w of widths) {
+        await page.setViewportSize({ width: w.width, height: w.height });
+        const m = await safeEvaluate(page, (sel) => {
+          const el = document.getElementById('v2save-msg');
+          el.scrollIntoView({ block: 'center' });
+          const r = el.getBoundingClientRect();
+          // Its last line, not just its box: the phone bottom bar sits over
+          // the end of the page.
+          const at = document.elementFromPoint(r.left + 12, r.bottom - 4);
+          const b = document.querySelector(sel);
+          b.scrollIntoView({ block: 'center' });
+          return {
+            overflow: document.documentElement.scrollWidth - window.innerWidth,
+            left: r.left, right: r.right, vw: window.innerWidth,
+            msgSeen: !!at && (at === el || el.contains(at)),
+            save: window.__pvHit(b),
+          };
+        }, SAVE_ALL);
+        expect(m.overflow, `@${w.width}: no sideways scroll`).toBeLessThanOrEqual(0);
+        expect(m.left >= 0 && m.right <= m.vw, `@${w.width}: the warning fits the screen`).toBe(true);
+        expect(m.msgSeen, `@${w.width}: the warning's last line is not under the bottom bar`).toBe(true);
+        expect(m.save, `@${w.width}: Save All reachable`).toBe('');
+        // Kept with the run's output, for a person to look at.
+        await page.locator('#v2save-msg').screenshot({ path: test.info().outputPath(`profile-warn-${w.width}.png`) });
+      }
+    });
+
+    await test.step('the connection comes back: the retry lands and the tab repaints by itself', async () => {
+      await page.evaluate(() => {
+        window.__e2eProfileOffline = false;
+        window.dispatchEvent(new Event('online'));
+      });
+      await expect.poll(() => page.evaluate(() => window._companyProfileLoaded === true), {
+        message: 'the profile read landed', timeout: 20_000,
+      }).toBe(true);
+      await expect(page.locator(JUR)).not.toHaveAttribute('data-jur-wait', /.*/);
+      await expect(page.locator(`${JUR} [data-jur-name][value="${E2E_JUR.name}"]`), 'the saved jurisdiction painted without reopening the tab').toHaveCount(1);
+      await expect(page.locator('#upgPriceRows')).toHaveAttribute('data-state', 'ready');
+      await page.locator(JUR).screenshot({ path: test.info().outputPath('profile-landed.png') });
+    });
+
+    await test.step('now Save All publishes the jurisdiction edit company-wide', async () => {
+      const row = page.locator(`${JUR} [data-jur-row]`).filter({ has: page.locator(`[data-jur-name][value="${E2E_JUR.name}"]`) });
+      const cost = row.locator('[data-jur-cost]');
+      await cost.scrollIntoViewIfNeeded();
+      await cost.fill('180');
+      await page.locator(SAVE_ALL).scrollIntoViewIfNeeded();
+      await act(page.locator(SAVE_ALL));
+      await expect(page.locator('#v2save-msg')).toHaveAttribute('data-kind', 'ok');
+      await expect.poll(async () => {
+        const p = await serverPricing(page);
+        return p.customJurisdictions && p.customJurisdictions[E2E_JUR.slug] && p.customJurisdictions[E2E_JUR.slug].cost;
+      }, { message: 'the edited cost on the server', timeout: 10_000 }).toBe(180);
+    });
+  } finally {
+    await restorePricing(page, original).catch(() => {});
+  }
+}
+
+test.describe('phone views: a company-profile read that gave up at boot @audit', () => {
+  test('is retried; the Estimates tab refuses unhydrated saves out loud, then repaints when it lands', async ({ page }) => {
+    test.setTimeout(150_000);
+    await installProfileOfflineSwitch(page);
+    await boot(page);
+    await installProbes(page);
+    // Jo prices from the installed iPhone app: its display-mode:standalone
+    // cascade is on for the whole walk.
+    expect(await forceStandalone(page), 'found the standalone rules to force').toBeGreaterThan(200);
+    try {
+      await profileRetryWalk(page, {
+        act: (loc) => loc.tap(),
+        openEstimatesTab: async () => { await openMore(page, 'settings'); await openSettingsTab(page, 'estimates'); },
+        widths: [{ width: 412, height: 860 }, { width: 360, height: 780 }],
+      });
+    } finally {
+      await unforceStandalone(page).catch(() => {});
+    }
+  });
+});
+
+test.describe('desktop 1280: a company-profile read that gave up at boot @audit', () => {
+  test.use({ viewport: { width: 1280, height: 900 }, isMobile: false, hasTouch: false, userAgent: devices['Desktop Chrome'].userAgent });
+  test('is retried; the Estimates tab refuses unhydrated saves out loud, then repaints when it lands', async ({ page }) => {
+    test.setTimeout(150_000);
+    await installProfileOfflineSwitch(page);
+    await boot(page);
+    await installProbes(page);
+    await profileRetryWalk(page, {
+      act: (loc) => loc.click(),
+      openEstimatesTab: async () => {
+        await safeEvaluate(page, () => window.goTo('settings'));
+        const btn = page.locator('#stab-estimates');
+        await btn.scrollIntoViewIfNeeded();
+        await btn.click();
+        await expect(page.locator('#stab-panel-estimates')).toBeVisible();
+        await animationsDone(page);
+      },
+      widths: [{ width: 1280, height: 900 }],
+    });
   });
 });
 

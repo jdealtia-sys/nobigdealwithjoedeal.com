@@ -218,6 +218,12 @@
     }
     if (typeof window.renderLeads === 'function') { try { window.renderLeads(); } catch (_) {} }
   }
+  // The company profile landed (company-profile.js dispatches this once, after
+  // the first successful read): apply the tenant's pipeline config. The boot
+  // read used to be the only thing that applied it, so a read that was
+  // retried — or started late by company-profile.js itself — left the
+  // built-in stages up all session (2026-09-25, lane profretry).
+  window.addEventListener('nbd:company-profile-loaded', () => { applyPipelineConfig(); });
   window.stageOptionsForType = stageOptionsForType;
   window.inferJobType = inferJobType;
   window.JOB_TYPES = JOB_TYPES;
@@ -1752,10 +1758,26 @@
     // session uses the rep's saved legal text / financing / marketing.
     // Fire-and-forget — defaults are already in window._companyProfile,
     // so docs work even if this hangs.
+    // A read that gave up is retried (2026-09-25, lane profretry): on a cold
+    // Firestore channel the first read threw "client is offline" three times
+    // and nothing asked again, so _companyProfileLoaded stayed unset all
+    // session — county rates and jurisdictions could not be saved and the
+    // tenant's pipeline stages never applied. A landing applies the pipeline
+    // config through the 'nbd:company-profile-loaded' listener (module top
+    // level); a read that failed applies this tenant's cache straight away and
+    // hands over to the retry. If company-profile.js has not run yet (it is
+    // deferred far down the page) this guard used to skip the read for good;
+    // now it leaves word, and that file starts the read when it arrives.
     if (typeof window._loadCompanyProfile === 'function') {
       window._loadCompanyProfile()
-        .then(() => { applyPipelineConfig(); })
+        .then(() => {
+          if (window._companyProfileLoaded === true) return;
+          applyPipelineConfig();
+          if (typeof window._ensureCompanyProfile === 'function') return window._ensureCompanyProfile();
+        })
         .catch(() => {});
+    } else {
+      window.__nbdCompanyProfileWanted = true;
     }
     // Pre-warm the notification-settings cache from Firestore so a rep
     // signing in on a new device gets their saved preferences before
@@ -4744,34 +4766,79 @@
     return row;
   }
 
-  let _jurRehydratePoll = null;
+  // Did the rows on screen come FROM the hydrated tenant profile? Same idea as
+  // _countyInputsResolved: the save full-replaces customJurisdictions with
+  // whatever rows are in #jurRows, so it must know those rows are the
+  // company's list and not a loading line (or a failure message) that a
+  // profile landing a moment later has not repainted yet.
+  let _jurRowsResolved = false;
+  let _jurWaiting = false;
+
+  // Ask for the profile read, and repaint the panel when it lands (2026-09-25,
+  // lane profretry). This used to be a 500ms poll that only WATCHED
+  // _companyProfileLoaded for 30s and then quit — but when the boot read gave
+  // up nothing else would ever set the flag, so the tab said "Loading your
+  // saved jurisdictions…" for good. _ensureCompanyProfile retries the read
+  // with backoff (sharing the boot's run), and every call makes the next read
+  // happen now, so opening this tab or pressing Save asks straight away.
+  //
+  // A landing — from this wait or from ANY other read (the online event, a
+  // document generator's own load) — arrives as 'nbd:company-profile-loaded'.
+  // Repaint the WHOLE panel, not just these rows: the 14 canonical county
+  // inputs were also painted pre-hydration (from factory / device values) and
+  // had no other refresh hook, so they stayed stale until the tab was
+  // re-entered — and a Save then published those stale numbers company-wide
+  // as a dot-path full replace. Only a panel still showing the loading line
+  // or the failure message is repainted: anything else was painted from the
+  // hydrated profile already and may hold typing. No recursion risk: this
+  // pass sees _companyProfileLoaded === true, so it starts no new wait.
+  function _jurProfileLanded() {
+    const h = document.getElementById('jurRows');
+    if (!h || !h.hasAttribute('data-jur-wait') || window._companyProfileLoaded !== true) return;
+    _loadEstimateDefaultsV2();
+  }
+  try { window.addEventListener('nbd:company-profile-loaded', _jurProfileLanded); } catch (_) { /* no event target */ }
+
+  function _waitForJurisdictions() {
+    const ensure = (typeof window._ensureCompanyProfile === 'function')
+      ? window._ensureCompanyProfile
+      : () => Promise.resolve(typeof window._loadCompanyProfile === 'function' ? window._loadCompanyProfile() : null)
+        .then(() => window._companyProfileLoaded === true);
+    let p;
+    try { p = ensure(); } catch (_) { p = null; }
+    if (_jurWaiting) return;
+    _jurWaiting = true;
+    // The run gave up (or the landing event never came): say so, and offer
+    // the retry, rather than leave "Loading…" up for good.
+    const settle = () => {
+      _jurWaiting = false;
+      const h = document.getElementById('jurRows');
+      if (!h || h.getAttribute('data-jur-wait') !== 'loading') return;
+      if (window._companyProfileLoaded === true) { _jurProfileLanded(); return; }
+      h.setAttribute('data-jur-wait', 'failed');
+      h.innerHTML = '<div class="fs-11" data-jur-failed style="color:var(--orange,#e8720c);padding:6px 2px;">'
+        + 'Your saved jurisdictions did not load, so they can\'t be changed right now. Check your connection, then try again.</div>'
+        + '<button class="btn btn-ghost fs-11" type="button" data-action="call" data-fn="_loadEstimateDefaultsV2">↻ Try again</button>';
+    };
+    Promise.resolve(p).then(settle, settle);
+  }
+
   function _renderJurisdictionRows() {
     const host = document.getElementById('jurRows');
     if (!host) return;
     if (window._companyProfileLoaded !== true) {
-      // companyProfile still hydrating (fresh device / slow network): render a
-      // placeholder and re-render when it lands. Saving is gated on the same
-      // flag below, so a pre-hydration empty list can never be persisted as a
-      // tenant-wide wipe.
+      // companyProfile still hydrating (fresh device / slow network / a boot
+      // read that gave up): render a placeholder, ask for the read, and
+      // re-render when it lands. Saving is gated on _jurRowsResolved, so a
+      // pre-hydration empty list can never be persisted as a tenant-wide wipe.
+      _jurRowsResolved = false;
+      host.setAttribute('data-jur-wait', 'loading');
       host.innerHTML = '<div class="fs-11" style="color:var(--m);padding:6px 2px;">Loading your saved jurisdictions…</div>';
-      if (!_jurRehydratePoll) {
-        _jurRehydratePoll = setInterval(() => {
-          if (window._companyProfileLoaded === true) {
-            clearInterval(_jurRehydratePoll); _jurRehydratePoll = null;
-            // Repaint the WHOLE panel, not just these rows: the 14 canonical
-            // county inputs were also painted pre-hydration (from factory /
-            // device values) and had no other refresh hook, so they stayed
-            // stale until the tab was re-entered — and a Save then published
-            // those stale numbers company-wide as a dot-path full replace.
-            // No recursion risk: this pass sees _companyProfileLoaded === true,
-            // so the render branch runs and installs no new poll.
-            _loadEstimateDefaultsV2();
-          }
-        }, 500);
-        setTimeout(() => { if (_jurRehydratePoll) { clearInterval(_jurRehydratePoll); _jurRehydratePoll = null; } }, 30000);
-      }
+      _waitForJurisdictions();
       return;
     }
+    host.removeAttribute('data-jur-wait');
+    _jurRowsResolved = true;
     host.innerHTML = '';
     const cj = (window._companyProfile
       && window._companyProfile.pricing
@@ -4790,6 +4857,17 @@
   const _addJurisdictionRow = function() {
     const host = document.getElementById('jurRows');
     if (!host) return;
+    // A row typed next to "Loading…" could never be saved (the save needs the
+    // company's list on screen to replace it with), and the repaint when the
+    // profile lands would wipe it. Say so instead of taking the typing
+    // (2026-09-25, lane profretry).
+    // (Loaded since the tab painted: paint the company's list first, then add.)
+    if (!_jurRowsResolved && window._companyProfileLoaded === true) _loadEstimateDefaultsV2();
+    if (!_jurRowsResolved) {
+      if (typeof showToast === 'function') showToast('Your saved jurisdictions are still loading — add one once they appear.', 'info');
+      _renderJurisdictionRows();
+      return;
+    }
     host.appendChild(_renderJurisdictionRow('', null, null));
     const inp = host.lastElementChild && host.lastElementChild.querySelector('[data-jur-name]');
     if (inp) inp.focus();
@@ -4830,6 +4908,9 @@
     });
     return map;
   }
+
+  // The Save All message's fade timer (one per page, see the message below).
+  let _v2SaveMsgTimer = null;
 
   // Save every v2 engine setting from the Estimates tab form
   window._saveEstimateDefaultsV2 = async function() {
@@ -4944,7 +5025,12 @@
         // collection would FULL-REPLACE the field below — wiping every
         // jurisdiction for the whole tenant from one stale device.
         const profileReady = window._companyProfileLoaded === true;
-        if (!profileReady) jurSaveSkipped = true;
+        // The rows must also have been PAINTED from that profile (2026-09-25,
+        // lane profretry): between a profile landing and the panel repainting,
+        // #jurRows can still hold the loading line — collecting it would
+        // full-replace the company's list with nothing.
+        const jurReady = profileReady && _jurRowsResolved;
+        if (!jurReady) jurSaveSkipped = true;
         // The 14 canonical county inputs may have been PAINTED before the tenant
         // profile landed (fresh device / cleared cache / slow network), and
         // _loadEstimateDefaultsV2 is what records whether they were. Publishing
@@ -4953,11 +5039,18 @@
         // because it only says the profile is hydrated NOW, at save time.
         const countyReady = profileReady && _countyInputsResolved;
         if (!countyReady) countySaveSkipped = true;
-        const customJurisdictions = profileReady ? _collectJurisdictionRows() : null;
+        // The add-on rate inputs are painted in that SAME _loadEstimateDefaultsV2
+        // pass, from window._companyProfile — before hydration that is this
+        // device's cache or the config defaults. Every key goes out through a
+        // merge write, so publishing them un-hydrated overwrote the company's
+        // add-on rates just as surely (2026-09-25, lane profretry). Same gate.
+        const addonReady = countyReady;
+        const customJurisdictions = jurReady ? _collectJurisdictionRows() : null;
         const prevJurSlugs = Object.keys((window._companyProfile
           && window._companyProfile.pricing
           && window._companyProfile.pricing.customJurisdictions) || {});
-        const pricing = { addonPrices };
+        const pricing = {};
+        if (addonReady) pricing.addonPrices = addonPrices;
         if (customJurisdictions) pricing.customJurisdictions = customJurisdictions;
         // Upgrade prices ride the same company write (2026-09-25), so Save
         // All never silently discards an edit made in that panel — the
@@ -4983,7 +5076,9 @@
           pricing.countyTax = patch.countyTax;
           pricing.fallbackTaxRate = patch.fallbackTaxRate;
         }
-        await window._saveCompanyProfile({ pricing });
+        // Nothing hydrated to publish: skip the write rather than send an
+        // empty one (offline, it would only turn the skip into a "sync failed").
+        if (Object.keys(pricing).length) await window._saveCompanyProfile({ pricing });
         // Those upgrade entries are saved: a second press must not resend
         // them over a newer save from another device.
         if (pricing.upgradePrices && typeof window.NBDUpgradePriceSettings?.markSaved === 'function') {
@@ -5034,6 +5129,20 @@
       pricingSaveDenied = _pricingDenied(e);
     }
 
+    // A company write skipped for want of a hydrated panel must be SEEN, and
+    // must not leave the rep stuck (2026-09-25, lane profretry). It used to
+    // read "✓ … saved on this device", in the success green, for five
+    // seconds, under a "✓ Estimate settings saved" toast — easy to take for
+    // a full save. Now it is a warning that stays up, and the tab gets the
+    // company's values in front of the rep: repainted now if the profile has
+    // landed since the paint, otherwise the read is asked for again and the
+    // panel repaints when it lands.
+    const companySkipped = !pricingSaveFailed && (jurSaveSkipped || countySaveSkipped);
+    let companyShownNow = false;
+    if (companySkipped) {
+      if (window._companyProfileLoaded === true) { _loadEstimateDefaultsV2(); companyShownNow = true; }
+      else _renderJurisdictionRows();
+    }
     const msg = document.getElementById('v2save-msg');
     if (msg) {
       msg.style.display = 'block';
@@ -5041,18 +5150,28 @@
         ? (pricingSaveDenied
             ? '⚠ Saved on this device only. County rates and add-on pricing are company-wide — ask an owner or company admin to change them.'
             : '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.')
-        : upgradeSaveSkipped
-          ? '⚠ Estimate settings saved, but NOT the upgrade prices — fix the highlighted upgrade price and save again.'
-          : (jurSaveSkipped || countySaveSkipped)
-            ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
+        : companySkipped
+          ? (companyShownNow
+              ? '⚠ Saved on this device only. County rates, jurisdictions and add-on rates were NOT saved for your company: this tab was showing them from before your company settings loaded. It now shows the company\'s saved values — make those changes again and press Save.'
+              : '⚠ Saved on this device only. Your company\'s county rates, jurisdictions and add-on rates have not loaded, so they were NOT saved for your company. Loading them again now — once they appear, make those changes again and press Save.')
+            + (upgradeSaveSkipped ? ' Upgrade prices were not saved either — fix the highlighted price.' : '')
+          : upgradeSaveSkipped
+            ? '⚠ Estimate settings saved, but NOT the upgrade prices — fix the highlighted upgrade price and save again.'
             : '✓ Estimate settings saved. Every linked estimate will use these rates.';
-      setTimeout(() => msg.style.display = 'none', 5000);
+      const warn = pricingSaveFailed || companySkipped || upgradeSaveSkipped;
+      msg.setAttribute('data-kind', warn ? 'warn' : 'ok');
+      msg.style.color = warn ? 'var(--orange,#e8720c)' : '#4caf82';
+      // A warning stays until the next save; only a clean save fades. One
+      // timer, so an earlier save's fade can't blank a newer warning.
+      clearTimeout(_v2SaveMsgTimer);
+      _v2SaveMsgTimer = warn ? null : setTimeout(() => { msg.style.display = 'none'; }, 5000);
     }
     if (typeof showToast === 'function') {
       showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again'
-        : upgradeSaveSkipped ? '⚠ Upgrade prices not saved — fix the highlighted price'
-          : '✓ Estimate settings saved',
-        (pricingSaveFailed || upgradeSaveSkipped) ? 'info' : 'success');
+        : companySkipped ? '⚠ Company rates not saved — they had not loaded'
+          : upgradeSaveSkipped ? '⚠ Upgrade prices not saved — fix the highlighted price'
+            : '✓ Estimate settings saved',
+        (pricingSaveFailed || companySkipped || upgradeSaveSkipped) ? 'info' : 'success');
     }
   };
 
@@ -5108,14 +5227,23 @@
       }
     }
 
+    // Signed in, but the company profile never loaded: the company rates were
+    // left alone by the gate above. Say so — "Reset to factory defaults" read
+    // as done while every estimate kept pricing from the company's saved
+    // county rates (2026-09-25, lane profretry). The repaint below asks for
+    // the profile read again.
+    const tenantResetSkipped = !tenantResetFailed && window._companyProfileLoaded !== true && !!(window._db && window._user);
+
     _loadEstimateDefaultsV2();
     if (typeof showToast === 'function') {
-      showToast(!tenantResetFailed
-        ? '↺ Reset to factory defaults'
-        : _pricingDenied(tenantResetErr)
-          ? '↺ Reset on this device. Company county rates are owner/admin-only.'
-          : '↺ Reset on this device — company county rates could not be reset. Try again.',
-        tenantResetFailed ? 'info' : 'success');
+      showToast(tenantResetSkipped
+        ? '↺ Reset on this device. Company county rates had not loaded, so they were NOT reset — try again once they appear.'
+        : !tenantResetFailed
+          ? '↺ Reset to factory defaults'
+          : _pricingDenied(tenantResetErr)
+            ? '↺ Reset on this device. Company county rates are owner/admin-only.'
+            : '↺ Reset on this device — company county rates could not be reset. Try again.',
+        (tenantResetFailed || tenantResetSkipped) ? 'info' : 'success');
     }
   };
 

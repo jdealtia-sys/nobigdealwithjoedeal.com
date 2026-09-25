@@ -15,6 +15,8 @@
  *   window.NBD_COMPANY_PROFILE_DEFAULTS — canonical defaults
  *   window._companyProfile              — current merged profile (defaults + remote overrides)
  *   window._loadCompanyProfile()        — fetch from Firestore, set _companyProfile
+ *   window._ensureCompanyProfile(opts)  — retry that read with backoff until it
+ *                                          lands (Promise<boolean>; 2026-09-25)
  *   window._saveCompanyProfile(profile) — write to Firestore + localStorage cache
  */
 (function () {
@@ -340,11 +342,17 @@
   // tenant-keyed cache once the key resolves. Purge any legacy un-keyed cache.
   try { localStorage.removeItem(CACHE_KEY); } catch (_) { /* ignore */ }
 
+  // What the most recent _loadCompanyProfile call ended with: 'ok', 'no-db',
+  // 'no-key', or the error it caught. Read ONLY by _ensureCompanyProfile below
+  // to tell a retryable failure from one a retry cannot fix — never a
+  // substitute for _companyProfileLoaded, which stays the one hydration gate.
+  let _lastLoadOutcome = null;
+
   window._loadCompanyProfile = async function () {
     try {
-      if (!window.db) return window._companyProfile;
+      if (!window.db) { _lastLoadOutcome = 'no-db'; return window._companyProfile; }
       const key = await _resolveCompanyKey();
-      if (!key) return window._companyProfile; // not signed in yet — defaults stand
+      if (!key) { _lastLoadOutcome = 'no-key'; return window._companyProfile; } // not signed in yet — defaults stand
       // Reset to defaults, then hydrate THIS tenant's cache (instant render)
       // before the network read — so a prior tenant's in-memory or cached
       // overrides can't survive into this tenant's session.
@@ -386,12 +394,143 @@
       // not). Destructive per-tenant writes (the custom-jurisdictions
       // full-replace) gate on this flag so a pre-hydration empty render can
       // never be saved as a tenant-wide wipe. A failed read leaves it unset.
+      const firstLanding = window._companyProfileLoaded !== true;
       window._companyProfileLoaded = true;
+      _lastLoadOutcome = 'ok';
+      // Tell every panel still showing "Loading…" that it can paint now,
+      // whichever caller's read it was that landed (2026-09-25, lane
+      // profretry). Dispatched only here, after a successful read.
+      if (firstLanding) {
+        try { window.dispatchEvent(new CustomEvent('nbd:company-profile-loaded')); } catch (_) { /* no event target */ }
+      }
     } catch (e) {
+      _lastLoadOutcome = e || new Error('company profile load failed');
       console.warn('[company-profile] load failed:', e && e.message);
     }
     return window._companyProfile;
   };
+
+  // ── Retry a profile read that gave up (2026-09-25, lane profretry) ──────
+  // WHY: _loadCompanyProfile runs ONCE at boot, un-awaited. On a cold
+  // Firestore channel its getDoc throws "client is offline"; nbdRetryOffline
+  // tries three times inside ~2.4s, gives up, and nothing ever asked again.
+  // _companyProfileLoaded then stayed unset for the whole session while a
+  // manual _loadCompanyProfile() seconds later landed in ~15ms — so My
+  // Jurisdictions sat on "Loading…" until its 30s poll quit, and Save All
+  // left county rates and jurisdictions out of the company write.
+  //
+  // window._ensureCompanyProfile() → Promise<boolean>
+  //   true  once _companyProfileLoaded === true;
+  //   false when the run ends without it: the backoff schedule ran out, or the
+  //         read failed for a reason a retry cannot fix (permission denied, no
+  //         signed-in tenant).
+  // ONE run at a time: the boot, the Estimates tab and Save All share it
+  // instead of stacking reads. A call while the run is waiting out a backoff
+  // delay KICKS it — the next read happens now — so opening the tab, pressing
+  // Save or coming back online asks straight away rather than polling. A call
+  // after a run gave up starts a fresh one, so "Try again" really tries again.
+  // A landing is announced by the 'nbd:company-profile-loaded' event above.
+  //
+  // THE HYDRATION INVARIANT IS UNCHANGED. Every attempt is a plain
+  // window._loadCompanyProfile() call — the only writer of
+  // _companyProfileLoaded, which it sets only after getDoc resolved. A failed,
+  // refused or timed-out attempt leaves the flag unset, so every destructive
+  // full-replace write gated on it stays shut until a real read lands.
+  const _ENSURE_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 15000];
+  // A getDoc that never settles must not stall the run: after this long the
+  // next attempt starts (the stuck one can still land and set the flag).
+  const _ENSURE_ATTEMPT_TIMEOUT_MS = 20000;
+  let _ensureRun = null;
+  let _ensureWake = null; // ends the current backoff delay early (a kick)
+
+  function _ensureDelay(ms) {
+    return new Promise(function (resolve) {
+      let timer = null;
+      const done = function () {
+        clearTimeout(timer);
+        if (_ensureWake === done) _ensureWake = null;
+        resolve();
+      };
+      timer = setTimeout(done, ms);
+      _ensureWake = done;
+    });
+  }
+
+  function _loadFailureIsFinal(outcome) {
+    if (outcome === 'no-db' || outcome === 'no-key') return true;
+    if (!outcome || typeof outcome !== 'object') return false; // unknown: retry
+    const m = String((outcome.code || '') + ' ' + (outcome.message || ''));
+    return /permission|unauthenticated|insufficient/i.test(m);
+  }
+
+  async function _runEnsure() {
+    for (let i = 0; i < _ENSURE_DELAYS_MS.length; i++) {
+      if (window._companyProfileLoaded === true) return true;
+      if (_ENSURE_DELAYS_MS[i]) await _ensureDelay(_ENSURE_DELAYS_MS[i]);
+      if (window._companyProfileLoaded === true) return true;
+      _lastLoadOutcome = null;
+      let timer = null;
+      try {
+        await Promise.race([
+          Promise.resolve().then(function () { return window._loadCompanyProfile(); }),
+          new Promise(function (_, reject) {
+            timer = setTimeout(function () { reject(new Error('company profile read timed out')); }, _ENSURE_ATTEMPT_TIMEOUT_MS);
+          })
+        ]);
+      } catch (e) {
+        if (_lastLoadOutcome == null) _lastLoadOutcome = e;
+      } finally {
+        clearTimeout(timer);
+      }
+      if (window._companyProfileLoaded === true) return true;
+      if (_loadFailureIsFinal(_lastLoadOutcome)) return false;
+    }
+    return window._companyProfileLoaded === true;
+  }
+
+  window._ensureCompanyProfile = function () {
+    if (window._companyProfileLoaded === true) return Promise.resolve(true);
+    if (typeof window._loadCompanyProfile !== 'function') return Promise.resolve(false);
+    if (_ensureRun) {
+      if (_ensureWake) _ensureWake();
+      return _ensureRun;
+    }
+    _ensureRun = _runEnsure()
+      .catch(function () { return false; })
+      .then(function (ok) {
+        _ensureRun = null;
+        _ensureWake = null;
+        return ok === true || window._companyProfileLoaded === true;
+      });
+    return _ensureRun;
+  };
+
+  // A phone that walks back into signal: ask again rather than wait for a tab
+  // to be reopened. Only for a signed-in page whose profile never landed.
+  try {
+    window.addEventListener('online', function () {
+      if (window._companyProfileLoaded === true) return;
+      if (!(window._user || (window.auth && window.auth.currentUser))) return;
+      window._ensureCompanyProfile().catch(function () { /* the next waiter asks again */ });
+    });
+  } catch (_) { /* no event target (unit-test sandbox) */ }
+
+  // Arrived AFTER the page asked: start the read here (2026-09-25, lane
+  // profretry). Both pages load this file deferred, far down the page, and
+  // their auth callback can fire in between deferred scripts. It then found
+  // no window._loadCompanyProfile, its typeof guard skipped the boot read
+  // outright, and nothing ever read the profile — reproduced on the rig at
+  // 1280 against main: never called in 25s, flag unset, a manual read
+  // landing in 16ms. The boot now leaves window.__nbdCompanyProfileWanted
+  // when it skips, so the read starts exactly once, from whichever side runs
+  // second. (Not keyed on window._user: nbd-auth.js sets that earlier, and
+  // the boot's own read would then run twice.)
+  try {
+    if (window.__nbdCompanyProfileWanted === true && window._companyProfileLoaded !== true) {
+      window.__nbdCompanyProfileWanted = false;
+      window._ensureCompanyProfile().catch(function () { /* the waiters ask again */ });
+    }
+  } catch (_) { /* never block the page on this */ }
 
   window._saveCompanyProfile = async function (overrides) {
     const overridesObj = overrides || {};

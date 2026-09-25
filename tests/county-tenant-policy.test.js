@@ -39,6 +39,10 @@ function test(name, fn) {
 function eq(actual, expected, label) {
   if (actual !== expected) throw new Error((label || 'value') + ' = ' + JSON.stringify(actual) + ' (expected ' + JSON.stringify(expected) + ')');
 }
+// Async twins run after every sync section, before the summary.
+const pendingAsync = [];
+function atest(name, fn) { pendingAsync.push([name, fn]); }
+function asection(title) { pendingAsync.push([title, null]); }
 function near(actual, expected, tol, label) {
   if (Math.abs(actual - expected) > tol) throw new Error((label || 'value') + ' = ' + actual + ' (expected ~' + expected + ' ±' + tol + ')');
 }
@@ -424,17 +428,22 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
   test('a skipped county save says so instead of claiming every estimate updated', () => {
     if (!/countySaveSkipped/.test(BOOT)) throw new Error('missing countySaveSkipped flag');
     if (!/\(jurSaveSkipped \|\| countySaveSkipped\)/.test(BOOT)) throw new Error('the skip must reach the message');
-    if (!/Company county rates were still loading/.test(BOOT)) throw new Error('skip copy must explain what was left untouched');
+    // 2026-09-25 (lane profretry): the skip is a WARNING now, not a "✓ saved"
+    // in success green — the behavioural twin below runs the real save.
+    if (!/were NOT saved for your company/.test(BOOT)) throw new Error('skip copy must say the company rates were NOT saved');
   });
-  test('the rehydrate poll repaints the whole panel, not just the jurisdiction rows', () => {
-    const i = BOOT.indexOf('_jurRehydratePoll = setInterval');
-    const block = BOOT.slice(i, i + 900);
+  test('the landing handler repaints the whole panel, not just the jurisdiction rows', () => {
+    // Was the 500ms rehydrate poll; since 2026-09-25 (lane profretry) a
+    // landing arrives as 'nbd:company-profile-loaded'.
+    const i = BOOT.indexOf('function _jurProfileLanded() {');
+    if (i < 0) throw new Error('_jurProfileLanded not found');
+    const block = BOOT.slice(i, BOOT.indexOf('\n  }', i));
     // A DIRECT call (Globals Tranche 3 T3-C, 2026-09-18): the loader is a
     // module-scope declaration now, off window — a window.X() read here would
-    // throw inside the timer and leave the inputs stale. codeOnly(): a
+    // throw inside the handler and leave the inputs stale. codeOnly(): a
     // commented-out call must not satisfy the pin (PR #1662 review).
     if (!/(?:^|[^.\w$])_loadEstimateDefaultsV2\(\)/.test(codeOnly(block))) {
-      throw new Error('the poll must re-run _loadEstimateDefaultsV2 or the 14 county inputs stay stale forever');
+      throw new Error('the landing must re-run _loadEstimateDefaultsV2 or the 14 county inputs stay stale forever');
     }
   });
   test('reset treats NOT_FOUND as success (a tenant with no profile has nothing to clear)', () => {
@@ -494,27 +503,8 @@ console.log('\nGlobals Tranche 3 T3-C: the panel loader is registry-only');
   // vm with stubbed globals, so they also catch shapes no regex can see, e.g.
   // `if (false) { _loadEstimateDefaultsV2(); }` or the call moved into the
   // tenant-only branch.
-  test('the rehydrate poll really repaints the panel once the profile lands', () => {
-    const i = BOOT.indexOf('let _jurRehydratePoll = null;');
-    const end = BOOT.indexOf('\n  }', BOOT.indexOf('function _renderJurisdictionRows() {', i));
-    if (i < 0 || end < 0) throw new Error('_renderJurisdictionRows not found');
-    let tick = null, loads = 0;
-    const ctx = vm.createContext({
-      window: { _companyProfileLoaded: false },
-      document: { getElementById: (id) => (id === 'jurRows' ? { innerHTML: '' } : null) },
-      setInterval: (fn) => { tick = fn; return 1; },
-      clearInterval: () => {},
-      setTimeout: () => 0,
-      _loadEstimateDefaultsV2: () => { loads++; },
-    });
-    vm.runInContext(BOOT.slice(i, end + 4) + '\n_renderJurisdictionRows();', ctx);
-    if (typeof tick !== 'function') throw new Error('no rehydrate poll was installed before hydration');
-    tick();
-    eq(loads, 0, 'loader calls while the profile is still hydrating');
-    ctx.window._companyProfileLoaded = true;
-    tick();
-    eq(loads, 1, 'loader calls once the profile lands');
-  });
+  // (The rehydrate-poll twin that stood here moved to the async "Profile boot
+  // retry" section below with the poll itself, 2026-09-25.)
   test('reset really repaints the panel (device-only reset, profile not hydrated)', () => {
     const i = BOOT.indexOf('const _resetEstimateDefaultsV2');
     const end = BOOT.indexOf('\n  };', i);
@@ -570,6 +560,318 @@ console.log('\nGlobals Tranche 3 T3-C: the panel loader is registry-only');
   });
 }
 
-console.log('\n──────────────────────────────');
-console.log(`${passed} passed, ${failed} failed`);
-if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }
+// ── Profile boot retry (2026-09-25, lane profretry) ─────────────────────────
+// The boot companyProfile read gave up on a cold Firestore channel ("client is
+// offline" three times inside ~2.4s) and nothing asked again, so
+// _companyProfileLoaded stayed unset all session: My Jurisdictions sat on
+// "Loading…", and Save All left county rates and jurisdictions out under a
+// "✓ saved". These run the REAL code — company-profile.js's
+// _ensureCompanyProfile, the My Jurisdictions waiter and _saveEstimateDefaultsV2
+// — in a vm, and pin the invariant that makes a retry safe: only a successful
+// doc read ever sets the flag, and nothing is published company-wide from a
+// panel that was not painted from it.
+const CP_SRC = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/company-profile.js'), 'utf8');
+const FS_IMPORT_RE = /import\((['"])https:\/\/www\.gstatic\.com\/firebasejs\/10\.12\.2\/firebase-firestore\.js\1\)/g;
+const flushTimers = () => new Promise((r) => setTimeout(r, 150));
+// Await p, or fail naming what never settled.
+const within = (p, ms, label) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(label + ' never settled')), ms))]);
+
+// company-profile.js in a vm. getDoc outcomes come from `reads`, one per call
+// ('offline' | 'denied' | 'hang' | 'ok'), then `rest`. Timers run at ms/1000,
+// except delays listed in `park`, which end only when the run is kicked.
+function loadProfileModule(opts) {
+  opts = opts || {};
+  const script = (opts.reads || []).slice();
+  const st = { rest: opts.rest || 'ok' };
+  const park = new Set(opts.park || []);
+  const log = { reads: 0, sets: [], events: 0 };
+  const store = {};
+  const localStorage = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  const listeners = {};
+  const win = {
+    localStorage,
+    addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
+    dispatchEvent(ev) { if (ev.type === 'nbd:company-profile-loaded') log.events++; (listeners[ev.type] || []).forEach((f) => f(ev)); return true; },
+    db: { name: 'db' },
+    _userClaims: opts.noKey ? undefined : { companyId: 'c1' },
+    _user: opts.signedIn ? { uid: 'u1' } : undefined,
+    __nbdCompanyProfileWanted: opts.wanted === true ? true : undefined,
+  };
+  let loaded;
+  // Every write to the flag is recorded: the invariant is about WHO sets it.
+  Object.defineProperty(win, '_companyProfileLoaded', { get() { return loaded; }, set(v) { log.sets.push(v); loaded = v; } });
+  win.window = win;
+  const fail = (m, code) => Promise.reject(Object.assign(new Error(m), { code }));
+  const fsStub = {
+    doc: (...a) => a.slice(1).join('/'),
+    setDoc: () => Promise.resolve(),
+    getDoc: () => {
+      log.reads++;
+      const r = script.length ? script.shift() : st.rest;
+      if (r === 'offline') return fail('Failed to get document because the client is offline.', 'unavailable');
+      if (r === 'denied') return fail('Missing or insufficient permissions.', 'permission-denied');
+      if (r === 'hang') return new Promise(() => {});
+      return Promise.resolve({ exists: () => true, data: () => ({ pricing: { customJurisdictions: { 'custom-x': { name: 'X', cost: 1, rate: 0.01 } } } }) });
+    },
+  };
+  const parked = [];
+  const setT = (fn, ms) => {
+    if (park.has(ms)) { const h = { parked: true }; parked.push(h); return h; }
+    return setTimeout(fn, Math.max(1, Math.round((ms || 0) / 1000)));
+  };
+  const clearT = (h) => { if (h && h.parked !== undefined) h.parked = false; else clearTimeout(h); };
+  const sandbox = {
+    window: win, localStorage, console: { log() {}, warn() {}, error() {} },
+    setTimeout: setT, clearTimeout: clearT, Date, Math, JSON, Promise,
+    CustomEvent: function (type) { this.type = type; },
+    __fsImport: async () => fsStub,
+  };
+  const src = CP_SRC.replace(FS_IMPORT_RE, '__fsImport()');
+  if (src === CP_SRC) throw new Error('harness: no firestore import was rerouted');
+  vm.runInNewContext(src, sandbox, { filename: 'company-profile.js' });
+  return { win, log, st, parkedCount: () => parked.filter((h) => h.parked).length };
+}
+
+asection('\nProfile boot retry: _ensureCompanyProfile (company-profile.js)');
+atest('a boot read that gave up is retried until it lands, and only that read sets the flag', async () => {
+  const m = loadProfileModule({ reads: ['offline', 'offline', 'offline', 'offline', 'offline', 'offline', 'offline'] });
+  await m.win._loadCompanyProfile(); // the boot read
+  eq(m.win._companyProfileLoaded, undefined, 'flag after the boot read gave up');
+  eq(m.log.reads, 3, 'boot read tries');
+  eq(await m.win._ensureCompanyProfile(), true, 'ensure');
+  eq(m.win._companyProfileLoaded, true, 'flag once a read landed');
+  eq(JSON.stringify(m.log.sets), '[true]', 'writes to _companyProfileLoaded');
+  eq(m.log.reads, 8, 'reads (3 boot + 3 in attempt 1 + attempt 2 landing on its 2nd try)');
+  eq(m.log.events, 1, "'nbd:company-profile-loaded' dispatches");
+  eq(m.win._companyProfile.pricing.customJurisdictions['custom-x'].name, 'X', 'the landed doc is the profile');
+});
+atest('a channel that stays offline gives up WITHOUT ever setting the flag; the next call starts a fresh run', async () => {
+  const m = loadProfileModule({ rest: 'offline' });
+  eq(await m.win._ensureCompanyProfile(), false, 'ensure while offline');
+  eq(m.log.sets.length, 0, 'writes to _companyProfileLoaded');
+  eq(m.log.reads, 18, 'reads (six attempts x three tries)');
+  eq(m.log.events, 0, 'landing events');
+  m.st.rest = 'ok';
+  eq(await m.win._ensureCompanyProfile(), true, 'a fresh run once the channel is back');
+  eq(m.log.reads, 19, 'reads after the fresh run');
+  eq(JSON.stringify(m.log.sets), '[true]', 'writes to _companyProfileLoaded');
+});
+atest('permission denied stops after one read (a retry cannot fix it)', async () => {
+  const m = loadProfileModule({ rest: 'denied' });
+  eq(await m.win._ensureCompanyProfile(), false, 'ensure');
+  eq(m.log.reads, 1, 'reads');
+  eq(m.log.sets.length, 0, 'writes to _companyProfileLoaded');
+});
+atest('no signed-in tenant: nothing to read, resolves false at once', async () => {
+  const m = loadProfileModule({ noKey: true });
+  eq(await m.win._ensureCompanyProfile(), false, 'ensure');
+  eq(m.log.reads, 0, 'reads');
+});
+atest('one run at a time, and a call during a backoff delay kicks the next read now', async () => {
+  const m = loadProfileModule({ reads: ['offline', 'offline', 'offline'], park: [1000, 2000, 4000, 8000, 15000] });
+  const first = m.win._ensureCompanyProfile();
+  await flushTimers();
+  eq(m.log.reads, 3, 'attempt 1 ran its three tries');
+  eq(m.parkedCount(), 1, 'runs waiting out a backoff delay');
+  eq(m.win._companyProfileLoaded, undefined, 'flag while waiting');
+  const second = m.win._ensureCompanyProfile(); // opening the tab / pressing Save
+  eq(await within(second, 1000, 'the kicked run'), true, 'the kicked read');
+  eq(await within(first, 1000, 'the first caller'), true, 'the first caller shares the run');
+  eq(m.log.reads, 4, 'reads (one more, no stacked run)');
+});
+atest('company-profile.js arriving AFTER the boot asked starts the read itself (the typeof guard had skipped it)', async () => {
+  // The dashboard's auth callback can run before this deferred file does;
+  // its typeof guard then skipped the boot read and nothing ever read the
+  // profile. Now the boot leaves __nbdCompanyProfileWanted; loaded after:
+  const m = loadProfileModule({ signedIn: true, wanted: true, reads: ['offline', 'offline', 'offline'] });
+  await flushTimers();
+  eq(m.win._companyProfileLoaded, true, 'flag, with nobody calling _loadCompanyProfile');
+  eq(m.log.reads, 4, 'reads (a failed first attempt, then the retry)');
+  eq(m.log.events, 1, 'landing events');
+  eq(m.win.__nbdCompanyProfileWanted, false, 'the request is consumed (started once)');
+  // Signed in (nbd-auth.js sets window._user early) but the boot has not
+  // asked: the boot will make the read itself, so none starts here.
+  const idle = loadProfileModule({ signedIn: true });
+  await flushTimers();
+  eq(idle.log.reads, 0, 'reads when the boot has not asked (it reads itself; no double read)');
+});
+atest('a getDoc that never settles does not stall the run', async () => {
+  const m = loadProfileModule({ reads: ['hang'] });
+  eq(await m.win._ensureCompanyProfile(), true, 'ensure');
+  eq(m.log.reads, 2, 'reads');
+});
+
+// The My Jurisdictions waiter (dashboard-bootstrap), real code in a vm.
+function loadJurWaiter() {
+  const i = BOOT.indexOf('  let _jurRowsResolved = false;');
+  const fnStart = BOOT.indexOf('function _renderJurisdictionRows() {', i);
+  const end = BOOT.indexOf('\n  }', fnStart);
+  if (i < 0 || fnStart < 0 || end < 0) throw new Error('jurisdictions waiter not found');
+  const attrs = {};
+  const host = {
+    innerHTML: '', rows: 0, appendChild() { this.rows++; },
+    setAttribute(k, v) { attrs[k] = String(v); }, getAttribute(k) { return k in attrs ? attrs[k] : null; },
+    hasAttribute(k) { return k in attrs; }, removeAttribute(k) { delete attrs[k]; },
+  };
+  const listeners = {};
+  const log = { ensure: 0, loads: 0 };
+  let run = null, finish = null;
+  const win = {
+    _companyProfileLoaded: false,
+    _companyProfile: { pricing: { customJurisdictions: { 'custom-a': { name: 'A', cost: 5, rate: 0.01 } } } },
+    addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
+    _ensureCompanyProfile() {
+      log.ensure++;
+      if (!run) run = new Promise((r) => { finish = (v) => { run = null; r(v); }; });
+      return run;
+    },
+  };
+  const ctx = vm.createContext({ window: win, document: { getElementById: (id) => (id === 'jurRows' ? host : null) }, _renderJurisdictionRow: () => ({}), Promise });
+  ctx._loadEstimateDefaultsV2 = () => { log.loads++; ctx._renderJurisdictionRows(); };
+  vm.runInContext(BOOT.slice(i, end + 4), ctx);
+  const announce = () => { win._companyProfileLoaded = true; (listeners['nbd:company-profile-loaded'] || []).forEach((f) => f()); };
+  return {
+    ctx, host, log,
+    resolved: () => vm.runInContext('_jurRowsResolved', ctx),
+    land: () => { announce(); if (finish) finish(true); },
+    giveUp: () => { if (finish) finish(false); },
+    announce,
+  };
+}
+
+asection('\nProfile boot retry: My Jurisdictions asks, and says when it cannot');
+atest('the tab asks for the read, and repaints the whole panel when it lands', async () => {
+  const w = loadJurWaiter();
+  w.ctx._renderJurisdictionRows();
+  eq(w.host.getAttribute('data-jur-wait'), 'loading', 'placeholder state');
+  if (!/Loading your saved jurisdictions/.test(w.host.innerHTML)) throw new Error('no loading line');
+  eq(w.log.ensure, 1, 'reads asked for on paint');
+  eq(w.resolved(), false, '_jurRowsResolved on the loading line');
+  w.ctx._renderJurisdictionRows(); // the rep reopens the tab: ask again (a kick)
+  eq(w.log.ensure, 2, 'reads asked for after reopening');
+  await flushTimers();
+  eq(w.log.loads, 0, 'repaints before the profile lands');
+  w.land();
+  await flushTimers();
+  eq(w.log.loads, 1, 'whole-panel repaints once it lands');
+  eq(w.host.hasAttribute('data-jur-wait'), false, 'loading state cleared');
+  eq(w.host.rows, 1, 'saved rows painted');
+  eq(w.resolved(), true, '_jurRowsResolved after the repaint');
+});
+atest('a run that gives up says so and offers Try again; a landing after that still repaints', async () => {
+  const w = loadJurWaiter();
+  w.ctx._renderJurisdictionRows();
+  w.giveUp();
+  await flushTimers();
+  eq(w.host.getAttribute('data-jur-wait'), 'failed', 'state after the run gave up');
+  if (!/did not load/.test(w.host.innerHTML)) throw new Error('the rep is not told the list did not load');
+  if (!/data-action="call" data-fn="_loadEstimateDefaultsV2"/.test(w.host.innerHTML)) throw new Error('no Try again wired to the registry loader');
+  eq(w.resolved(), false, '_jurRowsResolved on the failure message');
+  eq(w.log.loads, 0, 'repaints');
+  w.announce(); // lands later through another read (online event, a document generator)
+  eq(w.log.loads, 1, 'repaints on the later landing');
+  eq(w.host.rows, 1, 'saved rows painted');
+});
+
+// _saveEstimateDefaultsV2, real code in a vm. `_collectJurisdictionRows`
+// returns {} — what the loading line collects to — so a gate that let it
+// through would full-replace the company's list with nothing.
+function loadSave(state) {
+  const start = BOOT.indexOf('  let _v2SaveMsgTimer = null;');
+  const fnStart = BOOT.indexOf('window._saveEstimateDefaultsV2 = async function() {', start);
+  const end = BOOT.indexOf('\n  };', fnStart);
+  if (start < 0 || fnStart < 0 || end < 0) throw new Error('_saveEstimateDefaultsV2 not found');
+  const raw = BOOT.slice(start, end + 5);
+  const src = raw.replace(FS_IMPORT_RE, '__fsImport()');
+  if (src === raw) throw new Error('harness: no firestore import was rerouted');
+  const log = { company: [], replace: [], userSettings: 0, collected: 0, repaint: 0, kick: 0, toasts: [], fades: 0 };
+  const msg = { style: {}, textContent: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } };
+  const win = {
+    _companyProfileLoaded: state.loaded,
+    _companyProfile: { pricing: { customJurisdictions: { 'custom-a': { name: 'A', cost: 5, rate: 0.01 } } } },
+    _db: { name: 'db' }, _user: { uid: 'u1' },
+    _resolveCompanyKey: async () => 'c1',
+    _saveCompanyProfile: async (o) => { log.company.push(JSON.parse(JSON.stringify(o))); },
+  };
+  const ctx = vm.createContext({
+    window: win, console: { warn() {}, log() {} },
+    document: { getElementById: (id) => (id === 'v2save-msg' ? msg : null) },
+    _v2ReadSettings: () => ({}), _v2WriteSettings: () => {},
+    _collectJurisdictionRows: () => { log.collected++; return {}; },
+    _loadEstimateDefaultsV2: () => { log.repaint++; },
+    _renderJurisdictionRows: () => { log.kick++; },
+    _pricingDenied: () => false,
+    showToast: (m, k) => log.toasts.push({ m: String(m), k }),
+    setTimeout: () => { log.fades++; return 1; }, clearTimeout: () => {},
+    __fsImport: async () => ({
+      doc: (...a) => a.slice(1).join('/'),
+      setDoc: async () => { log.userSettings++; },
+      updateDoc: async (ref, data) => { log.replace.push({ ref, keys: Object.keys(data).sort() }); },
+    }),
+  });
+  vm.runInContext('var _countyInputsResolved = ' + !!state.county + '; var _jurRowsResolved = ' + !!state.jur + ';', ctx);
+  vm.runInContext(src, ctx);
+  return { save: () => win._saveEstimateDefaultsV2(), log, msg, win };
+}
+
+asection('\nProfile boot retry: Save All never publishes an unhydrated panel, and says so');
+atest('boot read gave up, tab painted unhydrated: NO company write at all, a warning that stays, and a fresh ask', async () => {
+  const s = loadSave({ loaded: false, county: false, jur: false });
+  await s.save();
+  eq(s.log.replace.length, 0, 'full-replace (updateDoc) writes');
+  eq(s.log.company.length, 0, 'company-profile merge writes');
+  eq(s.log.collected, 0, 'jurisdiction rows collected');
+  eq(s.log.userSettings, 1, 'the per-user settings write still happens');
+  eq(s.win._companyProfileLoaded, false, 'the save never touches the flag');
+  eq(s.msg.attrs['data-kind'], 'warn', 'message kind');
+  if (!/NOT saved for your company/.test(s.msg.textContent) || !/have not loaded/.test(s.msg.textContent)) throw new Error('message: ' + s.msg.textContent);
+  eq(s.log.fades, 0, 'fade timers on a warning');
+  eq(s.log.toasts.length, 1, 'toasts');
+  eq(s.log.toasts[0].k, 'info', 'toast kind');
+  if (/✓/.test(s.log.toasts[0].m)) throw new Error('toast still claims success: ' + s.log.toasts[0].m);
+  eq(s.log.kick, 1, 'asks for the profile again');
+  eq(s.log.repaint, 0, 'repaints');
+});
+atest('profile landed after the tab painted: still no company write; the tab repaints with company values', async () => {
+  const s = loadSave({ loaded: true, county: false, jur: false });
+  await s.save();
+  eq(s.log.replace.length, 0, 'full-replace (updateDoc) writes');
+  eq(s.log.company.length, 0, 'company-profile merge writes');
+  eq(s.log.collected, 0, 'jurisdiction rows collected');
+  eq(s.log.repaint, 1, 'repaints');
+  eq(s.msg.attrs['data-kind'], 'warn', 'message kind');
+  if (!/now shows the company's saved values/.test(s.msg.textContent)) throw new Error('message: ' + s.msg.textContent);
+});
+atest('control: a panel painted from the hydrated profile DOES publish (the gate is not just shut)', async () => {
+  const s = loadSave({ loaded: true, county: true, jur: true });
+  await s.save();
+  eq(s.log.collected, 1, 'jurisdiction rows collected');
+  eq(s.log.replace.length, 1, 'full-replace writes');
+  eq(s.log.replace[0].keys.join(','), 'pricing.countyTax,pricing.customJurisdictions,pricing.permits', 'replaced paths');
+  eq(s.log.company.length, 1, 'company-profile merge writes');
+  eq(Object.keys(s.log.company[0].pricing).sort().join(','), 'addonPrices,countyTax,customJurisdictions,fallbackTaxRate,permits', 'merged pricing keys');
+  eq(s.msg.attrs['data-kind'], 'ok', 'message kind');
+  eq(s.log.fades, 1, 'a clean save fades');
+  eq(s.log.toasts[0].k, 'success', 'toast kind');
+});
+
+// A promise that never settles (e.g. a retry run that is never woken) empties
+// the event loop and Node would exit 0 mid-list, with the summary unprinted:
+// that is a failure, never a pass.
+let asyncDone = false;
+process.on('beforeExit', () => {
+  if (asyncDone) return;
+  console.log('  ✗ an async test never settled (a promise hung) — failing the suite');
+  process.exit(1);
+});
+(async () => {
+  for (const [name, fn] of pendingAsync) {
+    if (!fn) { console.log(name); continue; }
+    try { await fn(); console.log('  ✓ ' + name); passed++; }
+    catch (e) { console.log('  ✗ ' + name + ' — ' + e.message); failed++; fails.push(name); }
+  }
+  asyncDone = true;
+  console.log('\n──────────────────────────────');
+  console.log(`${passed} passed, ${failed} failed`);
+  if (failed) { console.log('\nFailures:'); fails.forEach(f => console.log('  - ' + f)); process.exit(1); }
+})();
