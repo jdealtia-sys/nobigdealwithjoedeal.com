@@ -362,7 +362,11 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-21  SIXTEENTH collision. The SMS outbox lane adds two node suites
 //               (sms-outbox-client, sms-outbox-server). RE-MEASURED after the
 //               nine PRs that landed ahead of it today: 177/68/266.
-const FLOORS = { node: 182, smoke: 68, disk: 271 };
+//   2026-09-25  182/68/271 -> 183/68/272, tests/upgrade-pricing.test.js
+//               (Upgrades & Add-ons pricing core). MEASURED via --check on a
+//               branch cut from origin/main at df8bca1f. Sibling upgrade lanes
+//               are open the same day — whoever merges last re-measures.
+const FLOORS = { node: 183, smoke: 68, disk: 272 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
