@@ -343,8 +343,10 @@
     // phone crosshair screen. They ride AFTER maps-routing.js (the smoke pin
     // only needs draw-geom -> maps-routing first) and stay lazy with it; the
     // JS returns at once unless (pointer: coarse), so desktop gets nothing
-    // but the two small fetches. Stylesheet first, so the bar is styled the
-    // moment the JS builds it. This file's own ?v re-bumped 9 -> 10.
+    // but the two small fetches. On a phone it ships OFF (Jo's release gate):
+    // it adds only a "Crosshair drawing (beta)" switch to ☰ Tools until the
+    // rep turns that on. Stylesheet first, so the bar is styled the moment
+    // the JS builds it. This file's own ?v re-bumped 9 -> 10.
     drawtool: [
       'js/draw-geom.js?v=2',
       'js/maps-routing.js?v=6',
