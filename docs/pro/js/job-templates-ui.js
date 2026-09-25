@@ -485,10 +485,13 @@
   // The "1-year workmanship warranty" box shows only when a selected template
   // is a repair: repairs are warranted case by case (Jo, 2026-09-25 — "some
   // repairs won't get any depending on severity"), so it starts unticked.
+  // Not beside a roofing template: the roofing wording then covers the whole
+  // estimate, so the box would change nothing (review 2026-09-25).
   function selectionHasRepair() {
     var JT = engine();
     if (!JT || typeof JT.warrantyKindOf !== 'function') return false;
-    return state.selected.some(function (tid) { return JT.warrantyKindOf(getTpl(tid)) === 'repair'; });
+    var kinds = state.selected.map(function (tid) { return JT.warrantyKindOf(getTpl(tid)); });
+    return kinds.indexOf('repair') !== -1 && kinds.indexOf('roof') === -1;
   }
 
   // The workmanship-warranty sentence this estimate's paperwork will print.

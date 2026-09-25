@@ -239,8 +239,10 @@
     //   repair          — 1 year, but ONLY when the rep ticks the per-estimate
     //                     "1-year workmanship warranty" box. Off by default:
     //                     some repairs get no warranty, depending on severity.
-    //   none            — inspections, documentation, cleaning and temporary
-    //                     emergency work (a tarp is not warranted work)
+    //                     Temporary emergency work (tarp, stopgap, board-up)
+    //                     is this kind too: none by default, rep's choice.
+    //   none            — inspections, documentation, cleaning, washing and
+    //                     moss treatment (no workmanship to warrant, no box)
     //   roof            — NOT a year count: roofing keeps the tier wording
     //                     above (tierWarrantyText) byte-for-byte.
     // Defaults only — tenant-overridable later. The sentence is built by

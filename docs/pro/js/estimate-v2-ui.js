@@ -156,7 +156,12 @@
     // of re-resolving. _reopenedClean flips false on the first edit, after
     // which we fall back to a live re-resolve.
     _reopenedDoc: null,
-    _reopenedClean: false
+    _reopenedClean: false,
+    // A Job Template estimate's job type, kept from the saved doc it was
+    // reopened from (_jobTypeFieldsOf) — null for every V2-built estimate.
+    // Rides every estimate this builder renders or saves, so its paperwork
+    // prints the JOB TYPE's workmanship warranty, not roofing's lifetime one.
+    jobType: null
   };
 
   // The per-estimate half of `state` as it stands at page load — what "a new
@@ -166,8 +171,28 @@
     mode: state.mode, tier: state.tier, jobMode: state.jobMode, county: state.county,
     measurements: state.measurements, scope: state.scope, photos: state.photos,
     customer: state.customer, claim: state.claim, passThru: state.passThru,
-    minJobCharge: state.minJobCharge,
+    minJobCharge: state.minJobCharge, jobType: state.jobType,
   });
+
+  // ── Job Template estimates reopened here (review 2026-09-25) ───────
+  // "Open in Estimate Builder" is the Job Templates success step's primary
+  // button, so template gutter, repair and inspection estimates get edited
+  // and re-printed HERE — and this builder's Retail / Single Quote and server
+  // PDF printed a LIFETIME workmanship warranty and tier text on all of them,
+  // because the saved job type never reached the formatter. These are the
+  // fields NBDCustomerEstimateRows.estimateWarranty() reads; they are copied
+  // off the saved doc, carried on every estimate this builder produces, and
+  // re-saved with it. null when the doc is not a Job Template estimate.
+  const _JOB_TYPE_KEYS = ['sourceTemplates', 'tierApplies', 'warrantyKind', 'warrantyParts', 'repairWarranty'];
+  function _jobTypeFieldsOf(doc) {
+    if (!doc) return null;
+    const out = {};
+    if (doc.builder === 'template') out.builder = 'template';
+    _JOB_TYPE_KEYS.forEach((k) => {
+      if (doc[k] !== undefined && doc[k] !== null) out[k] = JSON.parse(JSON.stringify(doc[k]));
+    });
+    return Object.keys(out).length ? out : null;
+  }
   // The id of the SAVED estimate `state` holds (set by rehydrateFromSaved),
   // or null while it holds a new, unsaved one.
   let _stateFromSavedDoc = null;
@@ -2408,6 +2433,11 @@
         });
       }
     }
+    // A reopened Job Template estimate stays one after an edit, so its
+    // documents keep the job type's workmanship warranty (see _jobTypeFieldsOf).
+    // Per-SQ still wins downstream: estimateWarranty() treats a per-SQ quote
+    // as roofing with a real tier.
+    if (state.jobType) Object.assign(estimate, JSON.parse(JSON.stringify(state.jobType)));
     return estimate;
   }
 
@@ -3042,6 +3072,9 @@
       passThru: state.passThru,
       photos: state.photos,
       minJobCharge: state.minJobCharge,
+      // An edited Job Template estimate restored from this draft must still
+      // print its job type's warranty, not roofing's (2026-09-25).
+      jobType: state.jobType,
       savedAt: Date.now()
     };
   }
@@ -3371,12 +3404,23 @@
       });
     }
 
-    // Stats card row — surface the headline numbers above the table.
+    // Job-type workmanship warranty (review 2026-09-25): a string for a Job
+    // Template estimate that is not roofing ('' = the job carries none), null
+    // for everything else, which keeps this payload exactly as it was.
+    const _rowsApi = window.NBDCustomerEstimateRows;
+    const _jw = (_rowsApi && typeof _rowsApi.estimateWarranty === 'function')
+      ? _rowsApi.estimateWarranty(estimate) : null;
+    const jobWarranty = (_jw && typeof _jw.text === 'string') ? _jw.text : null;
+
+    // Stats card row — surface the headline numbers above the table. The
+    // 'GAF Timberline' fallback is a roofing default: a gutter or repair job
+    // with no material named gets no Material tile rather than a shingle.
+    const _material = estimate.materialType || meta.materialType || (jobWarranty === null ? 'GAF Timberline' : '');
     const stats = [
       { label: 'Line Items',  value: String(scopeLineCount),  sub: 'in scope' },
-      { label: 'Material',    value: estimate.materialType || meta.materialType || 'GAF Timberline', sub: '' },
+      _material ? { label: 'Material', value: _material, sub: '' } : null,
       { label: 'Estimate',    value: '$' + (Number(estimate.total || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })), sub: 'incl. tax' },
-    ];
+    ].filter(Boolean);
 
     // (isSingleQuote defined above, before the tier block.) Zeroing the lines
     // below makes estimate.hbs suppress the Scope & Pricing section
@@ -3408,9 +3452,12 @@
       preparedBy,
       projectMeta,
       coverTagline: 'Built to last.<br>Priced to fit.',
+      // No "three tiers" line on a job-type estimate: no tier applies to it.
       coverSub:     isSingleQuote
         ? 'A clear, all-in price for the work we discussed — no upsell pressure, no fine-print surprises.'
-        : 'A clear estimate with itemized scope and three tiers to choose from — no upsell pressure, no fine-print surprises.',
+        : jobWarranty !== null
+          ? 'A clear estimate with itemized scope — no upsell pressure, no fine-print surprises.'
+          : 'A clear estimate with itemized scope and three tiers to choose from — no upsell pressure, no fine-print surprises.',
       // The lead's rep-chosen cover photo (RoofLink "Set Cover") fronts the
       // PDF when present — previously hardcoded null so the cover page never
       // carried an image.
@@ -3441,7 +3488,12 @@
         // this same document's own tier-list bullets above (which said 10/15/
         // Lifetime). Every tier is lifetime workmanship now; only transferability
         // varies, and that's already stated per-tier in tierList above.
-        warranty:     'Lifetime workmanship warranty on every tier; transferability varies by tier — see above',
+        // A job-type estimate prints its own sentence instead, or nothing at
+        // all when the job carries no workmanship warranty (estimate.hbs
+        // drops the row on a falsy value) — 2026-09-25.
+        warranty:     jobWarranty === null
+          ? 'Lifetime workmanship warranty on every tier; transferability varies by tier — see above'
+          : (jobWarranty || null),
       },
       notes: null,
     };
@@ -3458,7 +3510,7 @@
       || (state.customer.name ? state.customer.name.trim() + ' estimate' : '')
       || 'V2 Estimate ' + new Date().toLocaleDateString();
     const num = (v) => (v != null && isFinite(Number(v)) ? Number(v) : null);
-    return {
+    return Object.assign({
       // Identity
       name:             existingName || fallbackName,
       builder:          'v2',
@@ -3614,7 +3666,20 @@
       // Internal margin view
       internal:         estimate.internal || null,
       // Timestamp handled by _saveEstimate (serverTimestamp)
-    };
+    }, _savedJobTypeFields(estimate));
+  }
+
+  // The job-type fields a Job Template estimate edited here must keep on
+  // re-save (2026-09-25). An update would merge-keep them anyway, but the
+  // second "Save Again?" of a session creates a NEW doc (_saveEstimate
+  // clears _editingEstimateId after the first), and that copy printed
+  // roofing's lifetime warranty on a gutter job. `builder` stays 'v2' — this
+  // builder did write it; sourceTemplates is what marks it a template job.
+  function _savedJobTypeFields(estimate) {
+    const f = _jobTypeFieldsOf(estimate);
+    if (!f) return {};
+    delete f.builder;
+    return f;
   }
 
   // ─── 3B: reopen a saved V2 estimate ───────────────────────────────
@@ -3642,7 +3707,10 @@
       retailTotal: n(r.retailTotal),
       codeRefs: {},
     }));
-    return {
+    // Job Template estimates: the replay carries the saved job type, so a
+    // clean reopen's regenerated Retail Quote / PDF prints its workmanship
+    // warranty (review 2026-09-25). Nothing is added for a V2/classic doc.
+    return Object.assign({
       method: doc.method || 'line-item',
       mode: doc.mode || 'insurance',
       tier: doc.tier || 'better',
@@ -3686,7 +3754,7 @@
         ? Object.assign({ margin: null, marginPct: 0 }, doc.internal,
             { marginPct: Number((doc.internal || {}).marginPct) || 0 })
         : null,
-    };
+    }, _jobTypeFieldsOf(doc) || {});
   }
 
   // Parse a saved pitch label ("8/12") back to the numeric rise (8).
@@ -3740,6 +3808,9 @@
     state.jobMode = doc.mode || 'insurance';
     state.mode = (doc.priceMode === 'per-sq') ? 'per-sq' : 'line-item';
     state.tier = doc.tier || doc.selectedTier || 'better';
+    // A Job Template estimate keeps its job type (and so its workmanship
+    // warranty) through this builder; null for a V2/classic doc.
+    state.jobType = _jobTypeFieldsOf(doc);
     if (doc.county) state.county = doc.county;
     // Fully reset measurements to defaults + the doc's saved values, so a field
     // a PREVIOUS reopen/session set (stories, accessLevel, chimney flags, …)
@@ -4623,6 +4694,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       reconstructEstimateFromSaved: _reconstructEstimateFromSaved,
       rehydrateFromSaved: rehydrateFromSaved,
       effectiveEstimate: effectiveEstimate,
+      collectDraft: collectDraft,
       getState: () => state,
       // Display helpers. Pure, and the two that decide whether the scope
       // panel tells the rep the truth about quantity and price —

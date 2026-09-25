@@ -1121,8 +1121,11 @@
     const savedTier = tierApplies ? (est.tier || 'better') : null;
     const warrantyParts = Array.isArray(resolved.warrantyParts) ? resolved.warrantyParts : [];
     // The 1-year repair warranty is a per-estimate choice, off unless the rep
-    // ticked it, and meaningless on a job with no repair part.
+    // ticked it, and meaningless on a job with no repair part — or on one with
+    // a roofing template, whose wording covers the whole estimate (the build
+    // screen hides the box there).
     const repairWarranty = meta.repairWarranty === true
+      && resolved.warrantyKind !== 'roof'
       && warrantyParts.some(p => p && p.kind === 'repair');
 
     return {

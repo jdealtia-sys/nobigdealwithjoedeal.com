@@ -1573,7 +1573,12 @@
         '<div class="dpf-warranty-name">From the estimate</div>' +
         '<div class="dpf-warranty-desc">' + (jt
           ? esc(jt)
-          : 'No workmanship warranty — this job type carries none, or the repair was quoted without one.') +
+          // An estimate saved before job-type warranties never had the repair
+          // box, so "quoted without one" would be false for it (review
+          // 2026-09-25) — tell the rep how to attach one instead.
+          : state.jobWarranty.legacy
+            ? 'No workmanship warranty — this estimate predates job-type warranties; re-create it from Job Templates to attach one.'
+            : 'No workmanship warranty — this job type carries none, or the repair was quoted without one.') +
         '</div></div></div>';
     }
     // GBB audit, 2026-09-09: was 5/10/20-year — see WARRANTY_TIER_OPTIONS above.

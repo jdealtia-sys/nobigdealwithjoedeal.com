@@ -24,7 +24,9 @@
  *                    jobs, config table == the customer.html fallback copy,
  *                    server copy (functions/) says the same.
  *   5. OLD ESTIMATES the pre-2026-09-25 rule: template + no roofing source →
- *                    no tier, no claim; roofing, V2, classic, per-SQ untouched.
+ *                    no tier, and the job type's warranty from the legacy id
+ *                    table (repairs none); roofing, V2, classic, per-SQ
+ *                    untouched.
  *   6. PORTAL        functions/portal.js tierName / view tier, lifted + run.
  *   7. PAPERWORK     proposal / contract / certificate through the real
  *                    DocPreflight open→submit→NBDDocGen path, with and
@@ -37,6 +39,11 @@
  *  10. CLOSE BOARD   the real close-board.js: no tier card (or homeowner deal
  *                    page) promises gutters / full deck / ice & water, and
  *                    every tier carries the same scope lines.
+ *  11. V2 BUILDER    a template estimate reopened in the real
+ *                    estimate-v2-ui.js (clean + edited): Retail / Single Quote
+ *                    and the server PDF print the job type's warranty, a
+ *                    re-save and the draft keep it; roofing prints the same
+ *                    bytes as a plain V2 estimate.
  *
  * Run: node tests/job-template-honest-paperwork.test.js
  */
@@ -186,7 +193,24 @@ section('1. DATA — explicit warranty kind per template');
     repairJobs.every((t) => t.warrantyKind === 'repair'), repairJobs.filter((t) => t.warrantyKind !== 'repair').map((t) => t.id).join(','));
   ok('inspections carry no workmanship warranty',
     TPLS.filter((t) => t.jobType === 'inspection').every((t) => t.warrantyKind === 'none'));
-  ok('temporary emergency work (tarp) carries none', byId.jt_se_emergency_tarp && byId.jt_se_emergency_tarp.warrantyKind === 'none');
+  // Review 2026-09-25: temporary emergency work is a repair — none printed by
+  // default, but the rep keeps the per-job 1-year choice ('none' had no box).
+  ok('temporary emergency work (tarp, stopgap, board-up) is repair kind',
+    ['jt_se_emergency_tarp', 'jt_se_leak_stopgap', 'jt_se_board_up_dry_in'].every((id) => byId[id] && byId[id].warrantyKind === 'repair'));
+  ok('…and still prints no warranty unless the box is ticked',
+    ROWS.estimateWarranty(payloadFor(['jt_se_emergency_tarp'])).text === ''
+      && ROWS.estimateWarranty(payloadFor(['jt_se_emergency_tarp'], { repairWarranty: true })).text === '1-year workmanship warranty.');
+
+  // The legacy table (estimates saved before 2026-09-25) is a copy of the
+  // data: every default whose kind grants years without a rep choice, with
+  // its kind and name — and nothing else (no repair, none, roof or unknown id).
+  const want = TPLS.filter((t) => ['gutter_system', 'guard_only', 'install_default'].indexOf(t.warrantyKind) !== -1)
+    .map((t) => t.id + '=' + t.warrantyKind + '|' + t.name).sort();
+  const have = Object.keys(ROWS.LEGACY_WARRANTY_BY_ID)
+    .map((id) => id + '=' + ROWS.LEGACY_WARRANTY_BY_ID[id][0] + '|' + ROWS.LEGACY_WARRANTY_BY_ID[id][1]).sort();
+  const missing = want.filter((x) => have.indexOf(x) === -1), extra = have.filter((x) => want.indexOf(x) === -1);
+  ok('legacy warranty table == the data, both ways (' + want.length + ' templates)', missing.length === 0 && extra.length === 0,
+    'missing: ' + missing.slice(0, 3).join('; ') + ' | extra: ' + extra.slice(0, 3).join('; '));
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -307,10 +331,29 @@ function LEGACY(ids, extra) {
 {
   const g = LEGACY(['jt_gi_k5_seamless_full']);
   ok('legacy gutter template estimate: no tier applies', ROWS.tierApplies(g) === false);
+  // Review 2026-09-25: an in-flight gutter job quoted before the change gets
+  // its job type's 5 years (Jo's term), not lifetime and not nothing.
   const gw = ROWS.estimateWarranty(g);
-  ok('legacy gutter template estimate: no workmanship claim (not lifetime)', gw && gw.text === '' && gw.wordingTier === '', JSON.stringify(gw));
+  ok('legacy gutter template estimate: the job type\'s 5-year warranty, flagged legacy',
+    gw && gw.text === '5-year workmanship warranty.' && gw.years === 5 && gw.kind === 'gutter_system'
+      && gw.wordingTier === '' && gw.legacy === true, JSON.stringify(gw));
+  const legacyTxt = (ids) => { const r = ROWS.estimateWarranty(LEGACY(ids)); return r ? r.text : 'NULL'; };
+  ok('legacy guard-only → 2-year', legacyTxt(['jt_gr_guard_install_50lf']) === '2-year workmanship warranty.');
+  ok('legacy soffit / ventilation install → 2-year', legacyTxt(['jt_sf_soffit_replacement_vented']) === '2-year workmanship warranty.'
+    && legacyTxt(['jt_vt_ridge_vent_retrofit']) === '2-year workmanship warranty.');
+  const lr = ROWS.estimateWarranty(LEGACY(['jt_rr_pipe_boot_1']));
+  ok('legacy repair (the box did not exist) → none, flagged legacy', lr && lr.text === '' && lr.legacy === true, JSON.stringify(lr));
+  ok('legacy inspection → none', legacyTxt(['jt_se_storm_inspection']) === '');
+  ok('legacy Duplicate (jt_custom_*) → no claim', legacyTxt(['jt_custom_my-k5_abc']) === '');
+  ok('legacy gutter + repair → names only the gutter system',
+    legacyTxt(['jt_gi_k5_seamless_full', 'jt_gr_hanger_resecure']) === '5-year workmanship warranty on ' + byId.jt_gi_k5_seamless_full.name + '.',
+    legacyTxt(['jt_gi_k5_seamless_full', 'jt_gr_hanger_resecure']));
+  ok('a NEW estimate carries no legacy flag', !('legacy' in ROWS.estimateWarranty(payloadFor(['jt_gi_k5_seamless_full']))));
+  ok('server copy (functions/) resolves legacy estimates the same',
+    [['jt_gi_k5_seamless_full'], ['jt_rr_pipe_boot_1'], ['jt_gi_k5_seamless_full', 'jt_gr_hanger_resecure']].every((ids) =>
+      JSON.stringify(ROWS.estimateWarranty(LEGACY(ids))) === JSON.stringify(SERVER_ROWS.estimateWarranty(LEGACY(ids)))));
   ok('legacy repair template estimate: no tier', ROWS.tierApplies(LEGACY(['jt_rr_pipe_boot_1'])) === false);
-  ok('legacy Duplicate (jt_custom_*) cannot be proven roofing → no claim', ROWS.tierApplies(LEGACY(['jt_custom_my-k5_abc'])) === false);
+  ok('legacy Duplicate (jt_custom_*) cannot be proven roofing → no tier', ROWS.tierApplies(LEGACY(['jt_custom_my-k5_abc'])) === false);
   const r = LEGACY(['jt_fr_asphalt_better'], { tier: 'best', selectedTier: 'best' });
   ok('legacy roofing template estimate keeps its tier', ROWS.tierApplies(r) === true);
   ok('legacy roofing template estimate: wording untouched (null → caller\'s tier path)', ROWS.estimateWarranty(r) === null);
@@ -459,10 +502,32 @@ function throughPreflight(env, type, est) {
     const certNone = await throughPreflight(env, 'warranty_certificate', repairOff);
     ok(tag + ' certificate: refused for a job with no workmanship warranty', certNone.html === null && /no workmanship warranty/.test(certNone.toast),
       certNone.toast);
-    // Legacy (pre-change) gutter template estimate: no Preferred, no lifetime.
+    // Review 2026-09-25: "1 years from issue date" on a homeowner document.
+    const certR = await throughPreflight(env, 'warranty_certificate', repairOn);
+    ok(tag + ' certificate: ticked repair expires "1 year from issue date" (singular)',
+      certR.html && /1 year from issue date/.test(certR.html) && !/1 years/.test(certR.html), certR.error || certR.toast);
+    // The unticked-repair card explains why there is none.
+    const rOffCard = await throughPreflight(env, 'contract', repairOff);
+    ok(tag + ' unticked repair: the warranty card says the repair was quoted without one',
+      /quoted without one/.test(rOffCard.modalHtml) && !/predates/.test(rOffCard.modalHtml));
+    // Legacy (pre-change) gutter template estimate: no Preferred, no lifetime —
+    // and, since review 2026-09-25, its job type's 5 years.
     const lg = await throughPreflight(env, 'proposal', LEGACY(['jt_gi_k5_seamless_full']));
     ok(tag + ' legacy gutter estimate proposal: no "Preferred", no lifetime claim',
       lg.html && !/Preferred|Lifetime/.test(lg.html), lg.error || lg.toast);
+    ok(tag + ' legacy gutter estimate proposal: prints the 5-year warranty', lg.html && lg.html.indexOf('5-year workmanship warranty.') !== -1
+      && lg.html.indexOf('Warranty Coverage') !== -1);
+    const lgc = await throughPreflight(env, 'contract', LEGACY(['jt_gi_k5_seamless_full']));
+    ok(tag + ' legacy gutter estimate contract: server bridge carries the 5-year sentence', lgc.data && lgc.data.warranty === '5-year workmanship warranty.');
+    const lgCert = await throughPreflight(env, 'warranty_certificate', LEGACY(['jt_gi_k5_seamless_full']));
+    ok(tag + ' legacy gutter estimate certificate: issued for 5 years, not refused',
+      lgCert.html && /5-YEAR WORKMANSHIP WARRANTY/.test(lgCert.html), lgCert.toast);
+    // A legacy repair has none; the card says why (no box existed) instead of
+    // "quoted without one".
+    const lrc = await throughPreflight(env, 'contract', LEGACY(['jt_rr_pipe_boot_1']));
+    ok(tag + ' legacy repair contract: no Warranty Coverage section', lrc.html && lrc.html.indexOf('Warranty Coverage') === -1);
+    ok(tag + ' legacy repair: the warranty card says the estimate predates job-type warranties',
+      /predates job-type warranties/.test(lrc.modalHtml) && !/quoted without one/.test(lrc.modalHtml));
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -523,6 +588,20 @@ function throughPreflight(env, type, est) {
     ok('gutter build screen: no repair warranty box', !/set-repair-warranty/.test(gutterScreen));
     const roofScreen = start('jt_fr_asphalt_better');
     ok('roofing build screen: no tier row either (tiers price nothing there too)', !/data-jt-action="set-tier"/.test(roofScreen));
+    // Review 2026-09-25: beside a roofing template the box changed nothing
+    // (the roofing wording covers the estimate) — so it is not offered.
+    click('clear-selection'); click('close-modal');
+    input({ jtAction: 'toggle-select', id: 'jt_fr_asphalt_better' }, { checked: true, type: 'checkbox' });
+    input({ jtAction: 'toggle-select', id: 'jt_gr_hanger_resecure' }, { checked: true, type: 'checkbox' });
+    click('open-preconfirm');
+    const roofRepair = body();
+    ok('roof + repair build screen: both templates are on it', roofRepair.indexOf(byId.jt_gr_hanger_resecure.name) !== -1
+      && roofRepair.indexOf(byId.jt_fr_asphalt_better.name) !== -1);
+    ok('roof + repair build screen: no repair warranty box', !/set-repair-warranty/.test(roofRepair));
+    ok('roof + repair payload: repairWarranty false even if asked',
+      payloadFor(['jt_fr_asphalt_better', 'jt_gr_hanger_resecure'], { repairWarranty: true }).repairWarranty === false);
+    const tarpScreen = start('jt_se_emergency_tarp');
+    ok('emergency tarp build screen: offers the 1-year box, unticked', /data-jt-action="set-repair-warranty"(?! checked)>/.test(tarpScreen));
     const repairScreen = start('jt_gr_hanger_resecure');
     ok('repair build screen: shows the 1-year workmanship warranty box', /data-jt-action="set-repair-warranty"/.test(repairScreen)
       && /1-year workmanship warranty/.test(repairScreen));
@@ -617,6 +696,104 @@ function throughPreflight(env, type, est) {
     const code = raw.replace(/\r\n/g, '\n').split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
     ok('no tier description literal in close-board.js promises gutters or a full deck',
       !/description:\s*'[^']*(gutter|full deck|ice shield|ice & water)/i.test(code));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('11. V2 BUILDER — a Job Template estimate reopened, edited and printed there');
+  // ══════════════════════════════════════════════════════════════════
+  // Review 2026-09-25 (blocking): "Open in Estimate Builder" sends template
+  // estimates here, and V2's Retail / Single Quote HTML + server PDF payload
+  // printed a LIFETIME workmanship warranty and "Better/Best tier upgrades" on
+  // a gutter, repair or inspection job. The real estimate-v2-ui.js +
+  // estimate-finalization.js on the real engine stack, reopening real saved
+  // payloads the way the Estimates list does (rehydrateFromSaved).
+  {
+    const env = engineStack(null);
+    load(env, 'docs/pro/js/estimate-finalization.js');
+    load(env, 'docs/pro/js/estimate-v2-ui.js');
+    const w = env.win;
+    const V2 = w.EstimateV2UI && w.EstimateV2UI._test;
+    const FIN = w.EstimateFinalization;
+    ok('V2 builder + formatter loaded on the engine stack', !!(V2 && FIN && w.NBDCustomerEstimateRows));
+    const META = { customer: { name: 'Jane Smith', address: '123 Main St' }, estimate: { number: 'EST-1', date: '2026-09-25' } };
+    let seq = 0;
+    // Reopen `doc` in V2 (clean replay), optionally edit it (live re-resolve),
+    // and return everything the builder prints for it.
+    const printed = (doc, opts) => {
+      opts = opts || {};
+      const d = JSON.parse(JSON.stringify(doc)); d.id = 'est_v2_' + (++seq);
+      w._estimates = [d];
+      V2.rehydrateFromSaved(d.id);
+      const st = V2.getState();
+      if (opts.edit) { st._reopenedClean = false; if (opts.edit !== true) opts.edit(st); }
+      const est = V2.effectiveEstimate();
+      const fmt = (f) => FIN.formatEstimate(est, f, META).html;
+      return { est, state: st, retail: fmt('retail-quote'), single: fmt('single-quote'),
+        pdf: V2.buildEstimatePayload('retail-quote', est, META), pdfSingle: V2.buildEstimatePayload('single-quote', est, META) };
+    };
+    const workLine = (html) => { const m = /<strong>Workmanship:<\/strong>([^<]*)/.exec(html || ''); return m ? m[1].trim() : null; };
+    const TIER_TALK = /Lifetime|lifetime|Better\/Best|varies by tier|three tiers/;
+
+    const cases = [
+      ['gutter system', payloadFor(['jt_gi_k5_seamless_full']), '5-year workmanship warranty.'],
+      ['repair, box ticked (the reviewer\'s estimate)', payloadFor(['jt_gr_hanger_resecure'], { repairWarranty: true }), '1-year workmanship warranty.'],
+      ['repair, box unticked', payloadFor(['jt_gr_hanger_resecure']), ''],
+      ['inspection', payloadFor(['jt_se_storm_inspection']), ''],
+      ['legacy gutter estimate (pre-2026-09-25)', LEGACY(['jt_gi_k5_seamless_full']), '5-year workmanship warranty.'],
+    ];
+    for (const [label, doc, want] of cases) {
+      for (const edit of [false, true]) {
+        const tag = label + (edit ? ' — after an edit (live re-resolve)' : ' — clean reopen');
+        let r = null;
+        try { r = printed(doc, { edit }); } catch (e) { ok(tag + ': printed', false, String(e && e.stack || e).slice(0, 300)); continue; }
+        ok(tag + ': Retail Quote workmanship line', want ? workLine(r.retail) === want : workLine(r.retail) === null, JSON.stringify(workLine(r.retail)));
+        ok(tag + ': Single Quote workmanship line', want ? workLine(r.single) === want : workLine(r.single) === null, JSON.stringify(workLine(r.single)));
+        ok(tag + ': no lifetime / tier wording in either quote', !TIER_TALK.test(r.retail) && !TIER_TALK.test(r.single),
+          ((r.retail.match(TIER_TALK) || [])[0] || '') + ' ' + ((r.single.match(TIER_TALK) || [])[0] || ''));
+        ok(tag + ': server PDF terms.warranty', r.pdf.terms.warranty === (want || null) && r.pdfSingle.terms.warranty === (want || null),
+          JSON.stringify(r.pdf.terms.warranty));
+        ok(tag + ': server PDF says nothing about tiers or lifetime', !TIER_TALK.test(JSON.stringify(r.pdf)) && !TIER_TALK.test(JSON.stringify(r.pdfSingle)));
+        ok(tag + ': no "GAF Timberline" material tile on a non-roofing job', !/GAF Timberline/.test(JSON.stringify(r.pdf.stats)));
+      }
+    }
+
+    // Save round trip: a re-save keeps the job type, so the saved doc (or a
+    // second save's NEW doc) still prints the job type's warranty.
+    const gr = printed(payloadFor(['jt_gi_k5_seamless_full']), { edit: true });
+    const saved = V2.buildSavePayload(gr.est, gr.state);
+    ok('V2 re-save keeps warrantyKind / parts / sourceTemplates / tierApplies', saved.warrantyKind === 'gutter_system'
+      && Array.isArray(saved.warrantyParts) && saved.warrantyParts.length === 1 && Array.isArray(saved.sourceTemplates)
+      && saved.sourceTemplates[0] === 'jt_gi_k5_seamless_full' && saved.tierApplies === false,
+      JSON.stringify({ k: saved.warrantyKind, s: saved.sourceTemplates, t: saved.tierApplies }));
+    ok('…records builder v2 (this builder wrote it)', saved.builder === 'v2');
+    ok('…and the saved doc still reads as a 5-year job', (ROWS.estimateWarranty(saved) || {}).text === '5-year workmanship warranty.');
+    const rs = printed(payloadFor(['jt_gr_hanger_resecure'], { repairWarranty: true }), { edit: true });
+    ok('V2 re-save keeps the ticked repair box', V2.buildSavePayload(rs.est, rs.state).repairWarranty === true);
+    ok('the autosave draft carries the job type', (V2.collectDraft().jobType || {}).warrantyKind === 'repair');
+
+    // Roofing and plain V2 estimates print exactly what they printed before.
+    for (const id of ['jt_fr_asphalt_better', 'jt_sp_standing_seam_full']) {
+      const fresh = payloadFor([id]);
+      const pre = Object.assign({}, fresh, { tier: 'better', selectedTier: 'better' });
+      delete pre.tierApplies; delete pre.warrantyKind; delete pre.warrantyParts; delete pre.repairWarranty;
+      delete pre.sourceTemplates; pre.builder = 'v2';   // = what V2 printed for any line-item doc before
+      const a = printed(fresh), b = printed(pre);
+      ok('roofing template ' + id + ': Retail + Single Quote HTML identical to a plain V2 estimate\'s',
+        a.retail === b.retail && a.single === b.single);
+      ok('roofing template ' + id + ': server PDF payload identical', JSON.stringify(a.pdf) === JSON.stringify(b.pdf)
+        && JSON.stringify(a.pdfSingle) === JSON.stringify(b.pdfSingle));
+      ok('roofing template ' + id + ': still the lifetime wording', /Lifetime/.test(workLine(a.retail) || '')
+        && /^Lifetime workmanship warranty on every tier/.test(a.pdf.terms.warranty || ''));
+      ok('plain V2 estimate: save payload gains no job-type keys',
+        !('warrantyKind' in V2.buildSavePayload(b.est, b.state)) && !('sourceTemplates' in V2.buildSavePayload(b.est, b.state)));
+    }
+    // Re-priced per-SQ in V2, a template estimate is a roofing quote with a
+    // real tier — the roofing wording applies (estimateWarranty's rule).
+    const perSq = printed(payloadFor(['jt_gi_k5_seamless_full']), { edit: (st) => {
+      st.mode = 'per-sq'; st.jobMode = 'cash'; st.measurements.rawSqft = st.measurements.rawSqft || 2000;
+    } });
+    ok('per-SQ re-price in V2: roofing wording (the tier is real there)', perSq.est.priceMode === 'per-sq'
+      && /Lifetime/.test(workLine(perSq.retail) || ''), perSq.est.priceMode);
   }
 
   // ══════════════════════════════════════════════════════════════════

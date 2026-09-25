@@ -525,7 +525,8 @@
           ? esc(d.workmanshipWarranty) + ' If a defect in the workmanship it covers appears within that period, it will be repaired at no cost to you.'
           : 'No workmanship warranty applies to this work.',
         coverage: !d.workmanshipWarranty ? 'None' : (hasYears ? yrs + '-Year Workmanship' : 'Workmanship — see above'),
-        expiration: hasYears ? yrs + ' years from issue date' : 'See above'
+        // "1 year", not "1 years" — the opt-in repair warranty is 1 year.
+        expiration: hasYears ? yrs + (yrs === 1 ? ' year' : ' years') + ' from issue date' : 'See above'
       };
     }
 
