@@ -23,6 +23,8 @@
  *                 price / Off keeps the price / invalid)
  *   3. SAVE MAP   one entry per library item, installer name only where it
  *                 prints, nothing saved when any price is bad
+ *   3b. CHANGES   a save writes only the rows edited on this device, so a
+ *                 device painted hours ago can't revert another's save
  *   4. ROUND-TRIP saved map → sanitizeOverrides → offeredFor / price → the
  *                 readers: the typed price is the printed price, to the cent
  *   5. DEFAULT    an omitted tenantOverrides reads the saved Settings;
@@ -75,6 +77,9 @@ function boot() {
     },
     navigator: {}, setTimeout, clearTimeout, setInterval, clearInterval, Date, Math, JSON,
   };
+  // The same document object the modules see, so a test can stand in a
+  // painted panel for collect().
+  win.document = sb.document;
   vm.createContext(sb);
   [
     'estimate-config.js', 'product-data.js', 'roofivent-catalog.js', 'estimate-labor-catalog.js',
@@ -156,6 +161,11 @@ test('each refusal is named, and none of them saves a number', () => {
     '-5': /negative/, '0': /above \$0\.00/, '0.00': /above \$0\.00/, '$0': /above \$0\.00/,
     'abc': /dollars and cents/, '.': /dollars and cents/, '$': /dollars and cents/, '1e3': /dollars and cents/,
     '12.5.5': /dollars and cents/, 'Infinity': /dollars and cents/, 'NaN': /dollars and cents/, '12 $': /dollars and cents/,
+    // A space inside the number is refused, never dropped: dropping it saved
+    // "6 50" as $650.00 a foot (2026-09-25 review of PR #1762).
+    '6 50': /Take out the space/, '1 5': /Take out the space/, '1 000': /Take out the space/,
+    '12 .50': /Take out the space/, '12. 50': /Take out the space/, '$6 50': /Take out the space/,
+    '1, 000': /Take out the space/, '6 50': /Take out the space/, '6\t50': /Take out the space/,
     '1000.01': /Over \$1,000\.00 per foot/, '1,000.01': /Over \$1,000\.00 per foot/,
     '99999999999999999999': /Over \$1,000\.00 per foot/,
   };
@@ -165,6 +175,13 @@ test('each refusal is named, and none of them saves a number', () => {
     truthy(r.error && cases[t].test(r.error), JSON.stringify(t) + ' error "' + r.error + '" should match ' + cases[t]);
   });
   truthy(/Over \$1,000\.00 each/.test(S.parseDollars('1500', 'EA').error), 'counted items say "each"');
+});
+
+test('a space inside a price never inflates it: "6 50" is refused, not $650.00', () => {
+  const r = S.parseDollars('6 50', 'LF');
+  eq(r.cents, null, 'cents'); truthy(/dot for cents, like 12\.50/.test(r.error), r.error);
+  // The ends, and the gap after a leading "$", are still forgiven.
+  eq(S.parseDollars(' $ 6.50 ', 'LF').cents, 650, 'outer and after-$ spaces');
 });
 
 test('no refusal says "free", and no accepted price can be $0', () => {
@@ -259,6 +276,128 @@ test('one bad price anywhere → nothing to save, and the error names the row', 
   f.gutter_apron.priceText = '4.555';
   const r = S.buildSaveMap(f);
   eq(r.map, null, 'map'); eq(r.errors.length, 1, 'errors'); eq(r.errors[0].id, 'gutter_apron', 'row');
+});
+
+// ═════════════════════════════════════════════════════════════════════════
+console.log('\n3b. changes only — a save never reverts another device');
+console.log('──────────────────────────────────────────────────');
+
+// The form a device shows after painting `entries` (render() fills each row
+// from savedEntries exactly like this).
+function formsFrom(entries) {
+  const f = {};
+  LIB.items.forEach((it) => {
+    const e = entries[it.id];
+    f[it.id] = { priceText: S.centsToInput(e.cents), enabled: e.enabled, installerName: e.installerName };
+  });
+  return f;
+}
+// Firestore's setDoc({ merge: true }) on nested maps: object values merge
+// key by key, anything else replaces.
+function mergeWrite(doc, patch) {
+  const out = Object.assign({}, doc);
+  Object.keys(patch).forEach((k) => {
+    const v = patch[k];
+    out[k] = (v && typeof v === 'object' && !Array.isArray(v) && out[k] && typeof out[k] === 'object')
+      ? mergeWrite(out[k], v) : v;
+  });
+  return out;
+}
+
+test('an untouched panel has no changes, whatever the server holds', () => {
+  const saved = savedFrom({ fascia_wrap: { priceText: '9.75' }, flip_up_extension: { priceText: '38', enabled: false }, alurex: { installerName: 'Acme Gutter Co' } });
+  const painted = S.savedEntries({ pricing: { upgradePrices: saved } });
+  const r = S.buildSaveMap(formsFrom(painted));
+  eq(r.errors.length, 0, 'errors');
+  eq(JSON.stringify(S.changedEntries(r.map, painted)), '{}', 'painted from saved, nothing typed');
+  const blank = S.savedEntries(null);
+  eq(JSON.stringify(S.changedEntries(S.buildSaveMap(formsFrom(blank)).map, blank)), '{}', 'a company that never saved');
+});
+
+test('the 9:00 desktop can\'t revert the 10:00 phone save (the review scenario)', () => {
+  // 9:00 — the desktop paints from a company that has priced nothing yet.
+  let server = { pricing: { addonPrices: { guttersLf: 8.5 } } };
+  const desktopPainted = S.savedEntries(server);
+  const desktopForm = formsFrom(desktopPainted);
+  // 10:00 — the phone prices the fascia wrap and raises Alu-Rex.
+  const phonePainted = S.savedEntries(server);
+  const phoneForm = formsFrom(phonePainted);
+  phoneForm.fascia_wrap.priceText = '9.75';
+  phoneForm.alurex.priceText = '19.00';
+  const phoneChanges = S.changedEntries(S.buildSaveMap(phoneForm).map, phonePainted);
+  eq(Object.keys(phoneChanges).sort().join(), 'alurex,fascia_wrap', 'the phone sends only its two edits');
+  server = mergeWrite(server, { pricing: { upgradePrices: phoneChanges } });
+  // 11:00 — the desktop presses Save All to change a county rate: the
+  // upgrade panel is untouched, so NOTHING of it rides that write.
+  const untouched = S.changedEntries(S.buildSaveMap(desktopForm).map, desktopPainted);
+  eq(JSON.stringify(untouched), '{}', 'Save All from the stale desktop carries no upgrade prices');
+  // …and when the desktop DOES edit one row, only that row is sent.
+  desktopForm.gutter_apron.priceText = '4.50';
+  const desktopChanges = S.changedEntries(S.buildSaveMap(desktopForm).map, desktopPainted);
+  eq(JSON.stringify(desktopChanges), '{"gutter_apron":{"cents":450,"enabled":true}}', 'one edit, one entry');
+  server = mergeWrite(server, { pricing: { upgradePrices: desktopChanges } });
+  // The phone's prices survive both desktop saves, and the builder quotes them.
+  const ov = U.sanitizeOverrides(server.pricing.upgradePrices);
+  eq(ov.prices.fascia_wrap, 975, 'fascia kept'); eq(ov.prices.alurex, 1900, 'Alu-Rex kept (not back to the $18 default)');
+  eq(ov.prices.gutter_apron, 450, 'the desktop edit landed');
+  eq(server.pricing.addonPrices.guttersLf, 8.5, 'the rest of pricing untouched');
+  eq(U.price(['alurex'], ctxFor(), server.pricing.upgradePrices).upgradeCents, 137 * 1900, 'the builder quotes the phone\'s Alu-Rex price');
+});
+
+test('what counts as a change: price, Off, and the certified installer name — nothing else', () => {
+  const painted = S.savedEntries({ pricing: { upgradePrices: savedFrom({ fascia_wrap: { priceText: '9.75' }, alurex: { installerName: 'Acme Gutter Co' } }) } });
+  const edit = (fn) => { const f = formsFrom(painted); fn(f); return S.changedEntries(S.buildSaveMap(f).map, painted); };
+  eq(Object.keys(edit((f) => { f.fascia_wrap.priceText = '9.76'; })).join(), 'fascia_wrap', 'a price');
+  eq(Object.keys(edit((f) => { f.fascia_wrap.priceText = ''; })).join(), 'fascia_wrap', 'clearing a price');
+  eq(JSON.stringify(edit((f) => { f.fascia_wrap.priceText = '$ 9.75'; })), '{}', 'the same price typed another way');
+  eq(JSON.stringify(edit((f) => { f.popup_emitter.enabled = false; })), '{"popup_emitter":{"cents":null,"enabled":false}}', 'Off');
+  eq(JSON.stringify(edit((f) => { f.alurex.installerName = 'Acme Gutters LLC'; })), '{"alurex":{"cents":null,"enabled":true,"installerName":"Acme Gutters LLC"}}', 'the installer, sent as the whole entry');
+  eq(JSON.stringify(edit((f) => { f.alurex.installerName = '  Acme   Gutter Co '; })), '{}', 'the same name with stray spaces');
+  eq(JSON.stringify(edit((f) => { f.amerimax_lockin_mesh.installerName = 'Nope'; })), '{}', 'a name on a company-installed item prints nowhere, so it is no change');
+  // No paint to compare against (never happens after render) → everything
+  // counts as changed rather than being silently skipped.
+  eq(Object.keys(S.changedEntries(S.buildSaveMap(formsFrom(painted)).map, null)).length, LIB.items.length, 'no baseline → every entry');
+  eq(JSON.stringify(S.changedEntries(null, painted)), '{}', 'a refused form has nothing to send');
+});
+
+// Just enough of the painted panel for collect(): rows whose inputs hold a
+// form, read by the module's own formOfRow / refreshRow.
+function fakeRow(id, form) {
+  const nodes = {
+    '[data-upg-price]': { value: form.priceText, setAttribute() {}, removeAttribute() {} },
+    '[data-upg-enabled]': { checked: form.enabled },
+    '[data-upg-installer]': byId[id].installer === 'certified_sub' ? { value: form.installerName } : null,
+  };
+  return { nodes, getAttribute: (a) => (a === 'data-upg-id' ? id : null), setAttribute() {}, querySelector: (sel) => (sel in nodes ? nodes[sel] : null) };
+}
+
+test('collect() hands both saves only this device\'s edits, and markSaved stops a resend', () => {
+  const rows = LIB.items.map((it) => fakeRow(it.id, { priceText: '', enabled: true, installerName: '' }));
+  const row = (id) => rows.find((r) => r.getAttribute('data-upg-id') === id);
+  const doc = win.document;
+  const realGet = doc.getElementById;
+  const host = { getAttribute: (a) => ({ 'data-state': 'ready', 'data-editable': '1' })[a], querySelectorAll: () => rows };
+  doc.getElementById = (id) => (id === 'upgPriceRows' ? host : null);
+  try {
+    // render() sets this baseline from the profile it paints; a company
+    // that never saved paints every row blank and On.
+    S.markSaved(S.savedEntries(null));
+    eq(JSON.stringify(S.collect().changes), '{}', 'untouched panel → Save All adds nothing');
+    row('fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    const c1 = S.collect();
+    eq(JSON.stringify(c1.changes), '{"fascia_wrap":{"cents":975,"enabled":true}}', 'one edit → one entry');
+    eq(Object.keys(c1.map).length, LIB.items.length, 'the full map is still built (every row is validated)');
+    S.markSaved(c1.changes);
+    eq(JSON.stringify(S.collect().changes), '{}', 'once that write lands, pressing Save again sends nothing');
+    row('flip_up_extension').nodes['[data-upg-enabled]'].checked = false;
+    eq(JSON.stringify(S.collect().changes), '{"flip_up_extension":{"cents":null,"enabled":false}}', 'only the new edit');
+    row('gutter_apron').nodes['[data-upg-price]'].value = '6,50';
+    const bad = S.collect();
+    eq(bad.map, null, 'a bad price → no map'); eq(bad.changes, null, 'and no changes to write'); eq(bad.errors[0].id, 'gutter_apron', 'named');
+  } finally {
+    doc.getElementById = realGet;
+    S.markSaved(S.savedEntries(null));
+  }
 });
 
 // ═════════════════════════════════════════════════════════════════════════

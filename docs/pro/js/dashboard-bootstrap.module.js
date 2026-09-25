@@ -4630,8 +4630,44 @@
     // companyProfile.pricing.upgradePrices on every paint, like every other
     // input here. The module rides the same lazy estimates bundle as
     // EstimateBuilderV2, and carries its own hydration guard.
-    if (window.NBDUpgradePriceSettings && typeof window.NBDUpgradePriceSettings.render === 'function') {
-      window.NBDUpgradePriceSettings.render();
+    //
+    // The module can be MISSING when this runs (2026-09-25 review of PR
+    // #1762): ui.js paints this tab as soon as EstimateBuilderV2 exists, but
+    // the upgrade files sit at the END of that bundle, so a tab opened while
+    // the bundle is still arriving — or after an upgrade file failed to
+    // load — left an empty box, a dead Save and nothing to repaint it. Wait
+    // for the bundle (loadBundle is deduped, and retries a file that failed)
+    // and paint then; if the module still isn't there, say so.
+    const _upgPaint = () => {
+      const m = window.NBDUpgradePriceSettings;
+      if (!m || typeof m.render !== 'function') return false;
+      m.render();
+      return true;
+    };
+    if (!_upgPaint()) {
+      const _upgUnavailable = () => {
+        const h = byId('upgPriceRows');
+        if (!h || h.getAttribute('data-state') !== 'loading') return;
+        h.setAttribute('data-state', 'unavailable');
+        h.textContent = '';
+        const p = document.createElement('p');
+        p.className = 'upg-loading';
+        p.textContent = 'Upgrade prices could not load. Reload the page to try again.';
+        h.appendChild(p);
+        const b = byId('upgPriceSave');
+        if (b) b.disabled = true;
+      };
+      if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+        window.ScriptLoader.loadBundle('estimates').then(() => {
+          // Only ever replaces the loading line — never rows someone may
+          // already be typing in from a later paint.
+          const h = byId('upgPriceRows');
+          if (!h || h.getAttribute('data-state') !== 'loading') return;
+          if (!_upgPaint()) _upgUnavailable();
+        }, _upgUnavailable);
+      } else {
+        _upgUnavailable();
+      }
     }
 
     // Catalog summary
@@ -4927,11 +4963,16 @@
         // All never silently discards an edit made in that panel — the
         // NEW-D43a class. collect() is null unless the panel was painted
         // from the hydrated profile by someone who may write it; a bad
-        // price leaves the whole map out and the message below says so.
+        // price leaves them all out and the message below says so.
+        // ONLY the entries edited on this device since the paint
+        // (upg.changes) are written: the full map from a device painted
+        // hours ago put back prices another device had saved since
+        // (2026-09-25 review of PR #1762), and an untouched panel now adds
+        // nothing to this write at all.
         const upg = (window.NBDUpgradePriceSettings && typeof window.NBDUpgradePriceSettings.collect === 'function')
           ? window.NBDUpgradePriceSettings.collect() : null;
-        if (upg && upg.map) pricing.upgradePrices = upg.map;
-        else if (upg && upg.errors && upg.errors.length) upgradeSaveSkipped = true;
+        if (upg && upg.errors && upg.errors.length) upgradeSaveSkipped = true;
+        else if (upg && upg.changes && Object.keys(upg.changes).length) pricing.upgradePrices = upg.changes;
         // County policy is per-TENANT (migrated off per-device localStorage
         // 2026-07-29). patch.permits / patch.countyTax were just built from the
         // 14 inputs above; the same values go to companyProfile so every rep and
@@ -4943,6 +4984,11 @@
           pricing.fallbackTaxRate = patch.fallbackTaxRate;
         }
         await window._saveCompanyProfile({ pricing });
+        // Those upgrade entries are saved: a second press must not resend
+        // them over a newer save from another device.
+        if (pricing.upgradePrices && typeof window.NBDUpgradePriceSettings?.markSaved === 'function') {
+          window.NBDUpgradePriceSettings.markSaved(pricing.upgradePrices);
+        }
         // FULL-REPLACE the customJurisdictions field. _saveCompanyProfile
         // deep-merges (cache) and setDoc({merge:true}) merges nested map keys
         // on the server — either would silently RESURRECT deleted rows. An

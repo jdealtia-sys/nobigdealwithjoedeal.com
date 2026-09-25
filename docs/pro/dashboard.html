@@ -3500,15 +3500,17 @@
         <!-- ▸ Upgrade prices (Upgrades & Add-ons stage 2, 2026-09-25). Rows are
              JS-rendered into #upgPriceRows by js/upgrade-price-settings.js
              (estimates bundle) from companyProfile.pricing.upgradePrices;
-             its Save writes that map through _saveCompanyProfile, and Save
-             All below carries it too. Owner / company admin only
-             (firestore.rules companyProfile); everyone else sees it
-             read-only. An upgrade with no price is never offered. -->
+             its Save writes the rows changed on this device through
+             _saveCompanyProfile, and Save All below carries those too.
+             Owner / company admin only (firestore.rules companyProfile);
+             everyone else sees it read-only. An upgrade with no price is
+             never offered. The loading line is static so the box is never
+             blank while the bundle is still arriving. -->
         <div class="panel mb-md" id="upgPricePanel">
           <div class="panel-hdr"><div><div class="panel-label">Upgrades &amp; Add-ons · Homeowner retail</div><div class="panel-title">Upgrade prices</div></div></div>
           <div class="panel-body">
             <p class="meta-12-mb16">What the homeowner pays for each upgrade, per foot or each. It prints on their estimate exactly as entered: no markup, no rounding. An upgrade with no price is never offered, and one switched Off keeps its price.</p>
-            <div id="upgPriceRows" data-state="loading"></div>
+            <div id="upgPriceRows" data-state="loading"><p class="upg-loading">Loading your saved upgrade prices…</p></div>
             <div class="upg-save-row">
               <button class="btn btn-orange" type="button" id="upgPriceSave" disabled data-action="module" data-target="NBDUpgradePriceSettings.save" data-fallback-toast="Upgrade prices are still loading. Try again in a moment.">Save upgrade prices</button>
             </div>

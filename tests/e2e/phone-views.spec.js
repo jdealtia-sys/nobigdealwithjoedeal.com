@@ -622,6 +622,20 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
         await expect(page.locator(APRON + ' [data-upg-badge]')).toBeVisible();
       });
 
+      // ANOTHER device (Jo's desktop, say) saves Alu-Rex at $19.00 after this
+      // one painted the panel. Nothing refreshes this device's profile, so
+      // its row still shows the $18 default: a save from here must not put
+      // that back (2026-09-25 review of PR #1762 — the whole map used to ride
+      // every save).
+      const OTHER_DEVICE = { cents: 1900, enabled: true, installerName: 'Other Device Gutters' };
+      const alurexPainted = await page.locator('[data-upg-id="alurex"] [data-upg-price]').inputValue();
+      expect(alurexPainted, 'the seeded tenant has not priced Alu-Rex (the other device\'s save must be news here)').not.toBe('19.00');
+      await safeEvaluate(page, async ({ key, entry }) => {
+        const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        await fs.setDoc(fs.doc(window.db, 'companyProfile', key), { pricing: { upgradePrices: { alurex: entry } } }, { merge: true });
+      }, { key: original.key, entry: OTHER_DEVICE });
+      await expect(page.locator('[data-upg-id="alurex"] [data-upg-price]'), 'this device still shows its stale paint').toHaveValue(alurexPainted);
+
       await test.step('installed app: price the fascia wrap, switch flip-ups Off, Save', async () => {
         const fascia = page.locator(FASCIA + ' [data-upg-price]');
         await expect(fascia, 'fascia wrap starts unpriced').toHaveValue('');
@@ -640,13 +654,24 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
 
         await page.locator('#upgPriceSave').tap();
         await expect(page.locator('#upgPriceMsg')).toHaveText('✓ Upgrade prices saved for your whole company.', { timeout: 20_000 });
+        // Pressing Save again sends nothing: those two rows are now what this
+        // device shows as saved.
+        const afterSave = (await serverUpgradePrices(page)).map;
+        await page.locator('#upgPriceSave').tap();
+        await expect(page.locator('#upgPriceMsg')).toHaveText('No changes to save.');
+        expect((await serverUpgradePrices(page)).map, 'the second press wrote nothing').toEqual(afterSave);
       });
 
-      await test.step('Firestore holds whole cents, and NBDUpgrades quotes it with no argument', async () => {
+      await test.step('Firestore holds whole cents, only the two edits were written, and NBDUpgrades quotes it with no argument', async () => {
         const saved = (await serverUpgradePrices(page)).map;
-        expect(Object.keys(saved || {}).length, 'one entry per library upgrade').toBe(libCount);
         expect(saved.fascia_wrap).toEqual({ cents: 975, enabled: true });
         expect(saved.flip_up_extension).toEqual({ cents: null, enabled: false });
+        expect(saved.alurex, 'the other device\'s Alu-Rex price survived this device\'s save').toEqual(OTHER_DEVICE);
+        const before = original.map || {};
+        for (const id of Object.keys(saved)) {
+          if (id === 'fascia_wrap' || id === 'flip_up_extension' || id === 'alurex') continue;
+          expect(saved[id], `${id} was not edited here, so the save left it alone`).toEqual(before[id]);
+        }
         const seen = await safeEvaluate(page, () => {
           const m = {};
           // A gutter repair family offers both items; no tenantOverrides
@@ -663,6 +688,52 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
         expect(seen.flip).toBe('hidden');
         expect(seen.quote, '40 ft × $9.75 = $390.00 exactly').toEqual([0, 39000, 390]);
       });
+
+      await test.step('installed app: Save All carries only what changed on this device', async () => {
+        // Capture the company write instead of making it, and park window._db
+        // so Save All's userSettings / county writes are skipped: this step
+        // proves WHAT Save All would write, without touching the shared
+        // tenant beyond the one field the finally restores.
+        await safeEvaluate(page, () => {
+          window.__e2eUpg = { save: window._saveCompanyProfile, db: window._db, writes: [] };
+          window._saveCompanyProfile = async (o) => { window.__e2eUpg.writes.push(JSON.parse(JSON.stringify(o))); return window._companyProfile; };
+          window._db = null;
+        });
+        try {
+          const saveAll = page.locator('button[data-fn="_saveEstimateDefaultsV2"]');
+          const pressSaveAll = async (n) => {
+            // Save All is the last thing on the page, and the previous press's
+            // "saved" toast sits over it until it clears itself (~2.6s) — a
+            // person waits for that too.
+            await expect.poll(() => safeEvaluate(page, () => {
+              const b = document.querySelector('button[data-fn="_saveEstimateDefaultsV2"]');
+              b.scrollIntoView({ block: 'center' });
+              return window.__pvHit(b);
+            }), { message: 'Save All reachable', timeout: 10_000 }).toBe('');
+            await saveAll.tap();
+            await expect.poll(() => page.evaluate(() => window.__e2eUpg.writes.length), { timeout: 15_000 }).toBe(n);
+            return page.evaluate((i) => window.__e2eUpg.writes[i].pricing, n - 1);
+          };
+          // The panel is untouched since its own Save landed.
+          const first = await pressSaveAll(1);
+          expect(first.addonPrices, 'Save All still writes the rest of company pricing').toBeTruthy();
+          expect(first.upgradePrices, 'an untouched upgrade panel adds nothing to Save All').toBeUndefined();
+          // One row edited here → exactly that row rides Save All.
+          const apron = page.locator(APRON + ' [data-upg-price]');
+          await apron.tap();
+          await page.keyboard.type('4.50');
+          const second = await pressSaveAll(2);
+          expect(second.upgradePrices, 'only the row edited here').toEqual({ gutter_apron: { cents: 450, enabled: true } });
+          // …and once that write landed, pressing again does not resend it.
+          const third = await pressSaveAll(3);
+          expect(third.upgradePrices, 'no resend after the save').toBeUndefined();
+        } finally {
+          await safeEvaluate(page, () => {
+            window._saveCompanyProfile = window.__e2eUpg.save;
+            window._db = window.__e2eUpg.db;
+          });
+        }
+      });
       await unforceStandalone(page);
 
       await test.step('reload: the panel paints the saved price and the Off switch back', async () => {
@@ -676,6 +747,68 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
         await expect(page.locator(FASCIA + ' [data-upg-status]')).toHaveText('Offered at $9.75 per foot (your price).');
         await expect(page.locator(FLIP + ' [data-upg-enabled]')).not.toBeChecked();
         await expect(page.locator(FLIP + ' [data-upg-status]')).toHaveText('Off. Reps never see it.');
+        // The other device's save, which this device never showed, is intact.
+        await expect(page.locator('[data-upg-id="alurex"] [data-upg-price]')).toHaveValue('19.00');
+        await expect(page.locator('[data-upg-id="alurex"] [data-upg-installer]')).toHaveValue(OTHER_DEVICE.installerName);
+      });
+
+      await test.step('a tab painted before the upgrade files arrive shows a loading line, then the rows', async () => {
+        // The race the review found: ui.js paints this tab as soon as
+        // EstimateBuilderV2 exists, but the upgrade files are the LAST entries
+        // of that bundle. Put the panel back in its first state, hold the
+        // bundle, paint the tab, then let the bundle land — and once more with
+        // a bundle that never delivers the module.
+        const r = await safeEvaluate(page, async () => {
+          const reg = window.__NBD_CALL_REGISTRY;
+          const host = document.getElementById('upgPriceRows');
+          const mod = window.NBDUpgradePriceSettings;
+          const realLoad = window.ScriptLoader.loadBundle;
+          const tick = () => new Promise((res) => setTimeout(res, 100));
+          const firstState = () => {
+            host.textContent = '';
+            const p = document.createElement('p');
+            p.className = 'upg-loading';
+            p.textContent = 'Loading your saved upgrade prices…';
+            host.appendChild(p);
+            host.setAttribute('data-state', 'loading');
+            host.removeAttribute('data-editable');
+          };
+          const snap = () => ({ state: host.getAttribute('data-state'), text: host.textContent.trim(), rows: host.querySelectorAll('[data-upg-id]').length });
+          let release = null;
+          window.ScriptLoader.loadBundle = (name) => new Promise((res) => { release = () => res(name); });
+          try {
+            firstState();
+            delete window.NBDUpgradePriceSettings;
+            reg._loadEstimateDefaultsV2();
+            await tick();
+            const arriving = snap();
+            const waitedFor = typeof release === 'function';
+            window.NBDUpgradePriceSettings = mod;
+            if (release) release();
+            await tick();
+            const landed = snap();
+
+            firstState();
+            release = null;
+            delete window.NBDUpgradePriceSettings;
+            reg._loadEstimateDefaultsV2();
+            if (release) release();
+            await tick();
+            const neverCame = Object.assign(snap(), { saveDisabled: document.getElementById('upgPriceSave').disabled });
+            return { arriving, waitedFor, landed, neverCame };
+          } finally {
+            window.ScriptLoader.loadBundle = realLoad;
+            window.NBDUpgradePriceSettings = mod;
+            firstState();
+            reg._loadEstimateDefaultsV2();
+          }
+        });
+        expect(r.waitedFor, 'the paint waited for the estimates bundle').toBe(true);
+        expect(r.arriving, 'while the bundle is arriving: a loading line, never an empty box').toEqual({ state: 'loading', text: 'Loading your saved upgrade prices…', rows: 0 });
+        expect(r.landed.state, 'the rows paint once the bundle lands, with no second tab open').toBe('ready');
+        expect(r.landed.rows).toBe(libCount);
+        expect(r.neverCame, 'a bundle that never delivers the module says so, and Save is off').toEqual({ state: 'unavailable', text: 'Upgrade prices could not load. Reload the page to try again.', rows: 0, saveDisabled: true });
+        await expect(page.locator(ROWS), 'the panel is back to normal').toHaveAttribute('data-state', 'ready');
       });
     } finally {
       await unforceStandalone(page).catch(() => {});

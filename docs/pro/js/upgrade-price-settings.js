@@ -20,12 +20,21 @@
  * STORAGE. companyProfile/{companyId}.pricing.upgradePrices, the same doc and
  * merge-save path the Add-on Rates editor writes (window._saveCompanyProfile)
  * and the same firestore.rules gate: owner / company_admin write, the tenant
- * reads. One entry per library item, every save:
+ * reads. One entry per library item:
  *   { <upgradeId>: { cents: <whole cents>|null, enabled: <bool>,
  *                    installerName: <text> (certified-sub items only) } }
- * Every key is a fixed library id and every field is written every time, so
- * the merge write IS the replace (unlike My Jurisdictions, whose free-form
- * slugs need the dot-path full replace to make a deletion stick).
+ * A save writes ONLY the entries this device changed since it painted the
+ * panel (changedEntries), each entry whole, through the merge write. Every
+ * key is a fixed library id, so there is nothing to delete and no dot-path
+ * replace is needed (unlike My Jurisdictions' free-form slugs).
+ *
+ * WHY ONLY THE CHANGED ENTRIES (2026-09-25 review of PR #1762). The panel is
+ * painted from window._companyProfile, which loads once at boot and has no
+ * live listener. Writing the whole map from a device that loaded at 9:00
+ * put back, at 11:00, a price another device saved at 10:00 — Jo prices
+ * from the installed iPhone app AND a desktop, and Save All carried the map
+ * on every press even when nobody touched this panel. An entry nobody
+ * changed here is now never sent, so it can't revert anyone's save.
  *
  * HOW THE BUILDER SEES IT. NBDUpgrades.offeredFor / price read this map
  * through their existing tenantOverrides argument: absent (undefined or
@@ -95,6 +104,10 @@
    *   - more than two decimal places (12.345 is not a price);
    *   - a comma that is not a thousands separator ("6,50" is how half the
    *     world writes $6.50; dropping the comma would save $650);
+   *   - a space inside the number ("6 50" or "1 000"). Dropping the space
+   *     saved "6 50" as $650.00 a foot — the same trap as the comma. Only
+   *     the ends, and a gap after a leading "$", are trimmed (2026-09-25
+   *     review of PR #1762);
    *   - $0 (it would print as a no-charge item on a homeowner's paper — switch
    *     the item Off instead) and anything over NBDUpgrades.MAX_UNIT_CENTS,
    *     which sanitizeOverrides would otherwise drop without a word.
@@ -102,7 +115,10 @@
   function parseDollars(text, unit) {
     var s = String(text == null ? '' : text).trim();
     if (!s) return { cents: null, error: null };
-    s = s.replace(/^\$\s*/, '').replace(/\s+/g, '');
+    s = s.replace(/^\$\s*/, '');
+    if (/[\d.,]\s+[\d.,]/.test(s)) {
+      return { cents: null, error: 'Take out the space. Use a dot for cents, like 12.50.' };
+    }
     if (/^-/.test(s)) return { cents: null, error: 'A price can\'t be negative.' };
     if (s.indexOf(',') !== -1) {
       if (!/^\d{1,3}(,\d{3})+(\.\d*)?$/.test(s)) {
@@ -210,6 +226,30 @@
       map[it.id] = entry;
     });
     return { map: errors.length ? null : map, errors: errors };
+  }
+
+  /**
+   * changedEntries(map, painted) → { <upgradeId>: entry } — the entries of a
+   * buildSaveMap map whose value differs from `painted` (savedEntries of the
+   * profile the panel was painted from, or last saved). Only these are ever
+   * written: an entry this device did not change can't overwrite a newer
+   * save from another device. An item missing from `painted` counts as
+   * changed (nothing to compare against, so never silently skipped).
+   */
+  function changedEntries(map, painted) {
+    var out = {};
+    if (!map) return out;
+    LIB().items.forEach(function (it) {
+      var m = map[it.id];
+      if (!m) return;
+      var p = painted && painted[it.id];
+      var same = !!p
+        && m.cents === (p.cents == null ? null : p.cents)
+        && m.enabled === (p.enabled !== false)
+        && (it.installer !== 'certified_sub' || (m.installerName || '') === (p.installerName || ''));
+      if (!same) out[it.id] = m;
+    });
+    return out;
   }
 
   // The homeowner sentence for a certified-sub item, via the pricing core so
@@ -425,7 +465,8 @@
     if (!host) return;
     if (!LIB() || !U() || typeof U().sanitizeOverrides !== 'function') {
       host.setAttribute('data-state', 'unavailable');
-      host.textContent = 'Upgrade prices could not load. Reload the page to try again.';
+      host.textContent = '';
+      host.appendChild(el('p', { className: 'upg-loading', text: 'Upgrade prices could not load. Reload the page to try again.' }));
       setSaveEnabled(false);
       return;
     }
@@ -438,6 +479,9 @@
       return;
     }
     var entries = savedEntries(root._companyProfile);
+    // What this device is showing as saved: the baseline changedEntries
+    // compares against, so a save sends only what was edited here.
+    _painted = entries;
     var editable = canEdit(root._userClaims, root._user && root._user.uid);
     var L = LIB();
 
@@ -480,11 +524,18 @@
     if (b && !editable) b.hidden = true;
   }
 
+  // savedEntries of the profile the rows were last painted from, updated by
+  // markSaved after a write lands. null until the first render.
+  var _painted = null;
+
   /**
    * collect() → null when the panel must not be saved (not painted from a
    * hydrated profile, or read-only for this user); otherwise
-   * { map, errors } from buildSaveMap. Save All (_saveEstimateDefaultsV2)
-   * uses this too, so an edit here is never silently discarded by it.
+   * { map, changes, errors }: map from buildSaveMap (every row), changes =
+   * only the entries edited on this device since the paint (changedEntries)
+   * — the ONLY part either save writes. Save All (_saveEstimateDefaultsV2)
+   * uses this too, so an edit here is never silently discarded by it, and an
+   * untouched panel adds nothing to its write.
    */
   function collect() {
     var host = document.getElementById(HOST_ID);
@@ -494,8 +545,27 @@
       forms[row.getAttribute('data-upg-id')] = formOfRow(row);
     });
     var out = buildSaveMap(forms);
+    out.changes = out.map ? changedEntries(out.map, _painted) : null;
     host.querySelectorAll('[data-upg-id]').forEach(refreshRow);
     return out;
+  }
+
+  /**
+   * markSaved(changes) — a write of `changes` landed: they are now what this
+   * device shows as saved, so pressing Save (or Save All) again does not
+   * resend them over a newer save from another device.
+   */
+  function markSaved(changes) {
+    if (!changes || typeof changes !== 'object') return;
+    if (!_painted) _painted = {};
+    Object.keys(changes).forEach(function (id) {
+      var e = changes[id] || {};
+      _painted[id] = {
+        cents: Number.isInteger(e.cents) ? e.cents : null,
+        enabled: e.enabled !== false,
+        installerName: typeof e.installerName === 'string' ? e.installerName : ''
+      };
+    });
   }
 
   function isDenied(e) {
@@ -523,6 +593,13 @@
       setMessage('Fix the highlighted price first. Nothing was saved.', 'error');
       return { ok: false, reason: 'invalid', errors: c ? c.errors : [] };
     }
+    var changes = c.changes || {};
+    if (!Object.keys(changes).length) {
+      // Nothing edited here since the paint: writing the whole map anyway is
+      // exactly what reverted other devices' saves (see STORAGE above).
+      setMessage('No changes to save.', 'ok');
+      return { ok: true, changes: {}, unchanged: true };
+    }
     if (typeof root._saveCompanyProfile !== 'function') {
       setMessage('Saving is unavailable right now. Reload the page and try again.', 'error');
       return { ok: false, reason: 'unavailable' };
@@ -532,10 +609,11 @@
     if (btn) btn.disabled = true;
     setMessage('Saving…', 'busy');
     try {
-      await root._saveCompanyProfile({ pricing: { upgradePrices: c.map } });
+      await root._saveCompanyProfile({ pricing: { upgradePrices: changes } });
+      markSaved(changes);
       setMessage('✓ Upgrade prices saved for your whole company.', 'ok');
       if (typeof root.showToast === 'function') root.showToast('✓ Upgrade prices saved', 'success');
-      return { ok: true, map: c.map };
+      return { ok: true, changes: changes };
     } catch (e) {
       // _saveCompanyProfile updates the in-memory profile BEFORE the write,
       // so a refused write would leave this device quoting prices the
@@ -560,10 +638,12 @@
     savedEntries: savedEntries,
     describe: describe,
     buildSaveMap: buildSaveMap,
+    changedEntries: changedEntries,
     canEdit: canEdit,
     // DOM
     render: render,
     collect: collect,
+    markSaved: markSaved,
     save: save
   });
 })(typeof window !== 'undefined' ? window : this);
