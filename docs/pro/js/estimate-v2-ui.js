@@ -150,6 +150,15 @@
     // { code, desc, amount, source }. Rendered as a removable chip
     // in the scope pane and included verbatim in the retail quote.
     passThru: [],
+    // Upgrades & Add-ons rows (stage 2, 2026-09-25): the homeowner's picks
+    // from a Job Template estimate, restored from the saved doc's
+    // `upgrade: true` rows. Like passThru they are added AFTER the engine at
+    // face value (their frozen quoted price), but they are also TAXED — see
+    // _applyUpgradeLines. Each entry is the saved row itself.
+    upgrades: [],
+    // The saved offered / chosen / declined record, carried so a re-save
+    // (or a second "Save Again?" doc) keeps it. Never edited here.
+    upgradeLog: null,
     // 3B — reopen: when a saved V2 estimate is reopened, the raw doc is
     // stashed here so doc regeneration can faithfully REPLAY the saved
     // numbers (honoring the persisted materialMarkupPct → B-8 retail) instead
@@ -172,6 +181,7 @@
     measurements: state.measurements, scope: state.scope, photos: state.photos,
     customer: state.customer, claim: state.claim, passThru: state.passThru,
     minJobCharge: state.minJobCharge, jobType: state.jobType,
+    upgrades: state.upgrades, upgradeLog: state.upgradeLog,
   });
 
   // ── Job Template estimates reopened here (review 2026-09-25) ───────
@@ -193,6 +203,36 @@
     });
     return Object.keys(out).length ? out : null;
   }
+  // ── Upgrades & Add-ons rows (stage 2, 2026-09-25) ───────────────────
+  // A Job Template estimate can carry the homeowner's upgrades: face-value
+  // retail rows tagged `upgrade: true` (upgrade-pricing.js price()), added
+  // AFTER the engine. Reopened here they used to land in the catalog scope,
+  // and the first edit dropped them — getCurrentEstimate re-resolves scope
+  // codes through the catalog, which has no "UPG …" code — so the next save
+  // silently lost a line the homeowner signed for and understated the total.
+  // Now they live in state.upgrades and _applyUpgradeLines re-adds them.
+  const _UPGRADE_TAG_KEYS = ['upgradeId', 'upgradeGroup', 'upgradeVersion', 'upgradeCents',
+    'upgradeWarranty', 'upgradeNotCovered', 'upgradeInstaller', 'upgradeRequired'];
+  function _isUpgradeRow(r) {
+    return !!r && (r.upgrade === true || /^UPG /.test(String(r.code || '').trim().toUpperCase()));
+  }
+  // The frozen quoted price in exact cents: the row's own upgradeCents, else
+  // its retail total (a row is never re-priced from today's library).
+  function _upgradeRowCents(r) {
+    if (r && Number.isSafeInteger(r.upgradeCents) && r.upgradeCents >= 0) return r.upgradeCents;
+    const t = Number(r && (r.retailTotal != null ? r.retailTotal : r.total));
+    return Number.isFinite(t) && t > 0 ? Math.round(t * 100) : 0;
+  }
+  // The upgrade tag a saved row must keep, so the NEXT reopen still knows it
+  // is an upgrade. null, never undefined (Firestore rejects undefined).
+  function _upgradeTagsOf(src) {
+    if (!src || src.upgrade !== true) return {};
+    const out = { upgrade: true };
+    _UPGRADE_TAG_KEYS.forEach((k) => { out[k] = (src[k] === undefined) ? null : src[k]; });
+    out.upgradeCents = _upgradeRowCents(src);
+    return out;
+  }
+
   // The id of the SAVED estimate `state` holds (set by rehydrateFromSaved),
   // or null while it holds a new, unsaved one.
   let _stateFromSavedDoc = null;
@@ -1504,7 +1544,7 @@
   function _undoFingerprint() {
     try {
       return JSON.stringify([state.mode, state.tier, state.jobMode, state.county,
-        state.measurements, state.minJobCharge, state.scope, state.passThru]);
+        state.measurements, state.minJobCharge, state.scope, state.passThru, state.upgrades]);
     } catch (e) { return null; }
   }
 
@@ -1531,7 +1571,7 @@
     const u = _pendingUndo;
     _dismissUndo();
     if (!u) return;
-    const list = u.list === 'passThru' ? 'passThru' : 'scope';
+    const list = (u.list === 'passThru' || u.list === 'upgrades') ? u.list : 'scope';
     // The array the removal produced must still be the live one. A preset,
     // Clear, a reopen or another removal replaces it — undoing into that
     // would resurrect a line into a different estimate.
@@ -1548,6 +1588,21 @@
   }
 
   function removeFromScope(code) {
+    // An upgrade row (stage 2, 2026-09-25) lives in state.upgrades — its
+    // own list, with the same undo. Removing one is the rep's call (the
+    // homeowner changed their mind); it re-prices live like any removal.
+    const upIdx = (state.upgrades || []).findIndex(r => r && r.code === code);
+    if (upIdx >= 0) {
+      const wasCleanU = !!state._reopenedClean;
+      const removedU = state.upgrades[upIdx];
+      state.upgrades = state.upgrades.filter((r, i) => i !== upIdx);
+      if (_rowEdit && _rowEdit.code === code) _rowEdit = null;
+      state._reopenedClean = false;   // 3B
+      render();
+      _offerUndo({ list: 'upgrades', index: upIdx, item: removedU, label: removedU.desc || code,
+        after: state.upgrades, wasClean: wasCleanU, fingerprint: _undoFingerprint() });
+      return;
+    }
     // Pass-through lines live in a separate array — check there
     // first so a removal on the "measurement report" chip works.
     const wasClean = !!state._reopenedClean;
@@ -2304,6 +2359,71 @@
     return out;
   }
 
+  // Re-add a reopened estimate's upgrade rows to a live re-resolve (stage 2,
+  // 2026-09-25). Each at its FROZEN face value — the quoted price never moves
+  // with today's library — and taxed at the estimate's CURRENT rate with the
+  // same integer rounding NBDUpgrades.price() used, so an unchanged county
+  // reproduces the saved tax to the cent and a new county re-taxes exactly.
+  // The engine's nearest-$25 total is kept; the upgrades add on top of it
+  // (NBDUpgrades.totalsWithUpgrades, which also re-applies a job minimum to
+  // the whole job instead of billing the floor gap on top).
+  //
+  // Not on an insurance claim and not on a per-SQ quote: upgrades never go
+  // inside a claim, and a per-SQ customer paper prints no lines. The rows
+  // stay in state.upgrades (switching back restores them) but price nothing.
+  function _applyUpgradeLines(estimate) {
+    const ups = state.upgrades || [];
+    if (!ups.length || !estimate) return;
+    if (state.jobMode === 'insurance' || state.mode === 'per-sq') return;
+    const U = window.NBDUpgrades;
+    const rate = Number(estimate.taxRate) || 0;
+    let upgCents = 0;
+    ups.forEach((r) => { upgCents += _upgradeRowCents(r); });
+    const taxCents = (U && typeof U.taxCentsAt === 'function')
+      ? U.taxCentsAt(upgCents, rate)
+      // Same half-up integer rounding as upgrade-pricing.js taxOn — only
+      // reached if the upgrade files failed to load with this bundle.
+      : Math.floor((upgCents * Math.round(rate * 1e6) + 500000) / 1e6);
+    if (U && typeof U.totalsWithUpgrades === 'function') {
+      const t = U.totalsWithUpgrades({
+        subtotal: estimate.subtotal, tax: estimate.tax, grandTotal: estimate.total,
+        minJobApplied: estimate.minJobApplied, minJobCharge: estimate.minJobCharge, roundTo: 25,
+      }, { upgradeCents: upgCents, taxCents: taxCents, errors: [] });
+      estimate.subtotal = t.subtotal;
+      estimate.tax = t.tax;
+      estimate.total = t.grandTotal;
+      estimate.minJobApplied = t.minJobApplied;
+    } else {
+      estimate.subtotal = (Math.round((Number(estimate.subtotal) || 0) * 100) + upgCents) / 100;
+      estimate.tax = (Math.round((Number(estimate.tax) || 0) * 100) + taxCents) / 100;
+      estimate.total = (Math.round((Number(estimate.total) || 0) * 100) + upgCents + taxCents) / 100;
+    }
+    estimate.lines = estimate.lines || [];
+    ups.forEach((r) => {
+      const cents = _upgradeRowCents(r);
+      const qty = Number(r.quantity) || 1;
+      const unit = Number.isFinite(Number(r.unitPrice)) ? Number(r.unitPrice) : (cents / 100) / qty;
+      estimate.lines.push(Object.assign({
+        code: r.code,
+        name: r.desc,
+        quantity: qty,
+        unit: r.unit || 'EA',
+        unitPrice: unit,
+        // Face value, no cost basis: lineTotal == retail, like a pass-through
+        // fee (finalization's lineRetailTotal and every saved-row reader take
+        // retailTotal / face as-is).
+        lineTotal: cents / 100,
+        retailPerUnit: unit,
+        retailTotal: cents / 100,
+        category: r.category || 'Upgrades',
+        source: 'upgrade',
+        qtyOverridden: false,
+      }, _upgradeTagsOf(Object.assign({}, r, { upgrade: true }))));
+    });
+    estimate.upgradeCents = upgCents;
+    estimate.upgradeTaxCents = taxCents;
+  }
+
   function getCurrentEstimate() {
     const cat = window.NBD_XACT_CATALOG;
     if (!cat) return null;
@@ -2350,6 +2470,11 @@
     const estimate = items.length
       ? window.EstimateLogic.resolveEstimate(items, state.measurements, settings)
       : { lines: [], subtotal: 0, tax: 0, total: 0 };
+
+    // Upgrades BEFORE pass-through fees: the job-minimum unwind in
+    // _applyUpgradeLines must see the engine's own totals only (a Services
+    // fee added after the floor would otherwise be pulled under it).
+    if (items.length) _applyUpgradeLines(estimate);
 
     // Append every pass-through line. These are flat-fee charges
     // (measurement report, e-sign fee, permit upcharge) that don't
@@ -2729,7 +2854,7 @@
     // never said WHICH items, so checking your picks meant leaving the
     // catalog for the Review step and coming back. Only rendered when
     // something is selected, so a fresh estimate isn't cluttered.
-    const selectedCount = (state.scope || []).length + ((state.passThru || []).length);
+    const selectedCount = (state.scope || []).length + ((state.passThru || []).length) + ((state.upgrades || []).length);
     // If the last selection was removed while viewing it, fall back to All.
     if (state.categoryFilter === 'selected' && selectedCount === 0) state.categoryFilter = 'all';
 
@@ -2846,6 +2971,13 @@
       rows.push({
         code: p.code, name: p.desc || 'Service', qty: 1, unit: 'ea',
         total: Number(p.amount) || 0, overridden: false, passThru: true
+      });
+    });
+    // Upgrade rows at their quoted face value (stage 2, 2026-09-25).
+    (state.upgrades || []).forEach(r => {
+      rows.push({
+        code: r.code, name: r.desc || 'Upgrade', qty: Number(r.quantity) || 1, unit: r.unit || '',
+        total: _upgradeRowCents(r) / 100, overridden: false
       });
     });
 
@@ -2992,16 +3124,19 @@
       // Report-Only CSP (script-src-attr 'none') — zero inline onclicks.
       // The pencil (edit-qty) lets the user set a manual quantity that
       // bypasses the measurement-based formula.
+      // An upgrade row is a quoted, frozen price the homeowner picked: it can
+      // be removed (with undo) but not re-quantified or annotated here.
+      const isUpg = line.upgrade === true;
       return `
-        <div class="v2-scope-item${overridden ? ' overridden' : ''}" data-code="${escLocal(line.code)}">
+        <div class="v2-scope-item${overridden ? ' overridden' : ''}${isUpg ? ' upgrade' : ''}" data-code="${escLocal(line.code)}">
           <div class="actions">
-            <button class="edit-note" type="button" data-action="edit-note" title="${lineNote ? 'Edit note' : 'Add note'}" style="${lineNote ? 'color:var(--orange,#BD5728);' : ''}">📝</button>
-            <button class="edit-qty" type="button" data-action="override-qty" title="Edit quantity">✎</button>
+            ${isUpg ? '' : `<button class="edit-note" type="button" data-action="edit-note" title="${lineNote ? 'Edit note' : 'Add note'}" style="${lineNote ? 'color:var(--orange,#BD5728);' : ''}">📝</button>
+            <button class="edit-qty" type="button" data-action="override-qty" title="Edit quantity">✎</button>`}
             <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
           </div>
           <div class="total">$${Math.round(lineRetail(line, estimate.materialMarkupPct)).toLocaleString()}</div>
           <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
-          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
+          <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}${isUpg ? ' · <span style="color:var(--orange,#BD5728);">upgrade · quoted price</span>' : ''}</div>
           ${lineNote ? `<div class="line-note" style="font-size:11px;color:var(--m,#9ca3af);font-style:italic;margin-top:2px;">📝 ${escLocal(lineNote)}</div>` : ''}
           ${_v2TierMismatch(line.tier) ? `<div class="tier-warn">⚠ ${escLocal(line.tier)}-tier item on a ${escLocal(state.tier)}-tier job</div>` : ''}
           ${editing ? _rowEditorHtml(line, noteEntry, escLocal) : ''}
@@ -3075,6 +3210,9 @@
       // An edited Job Template estimate restored from this draft must still
       // print its job type's warranty, not roofing's (2026-09-25).
       jobType: state.jobType,
+      // …and still carry the homeowner's upgrades (stage 2, 2026-09-25).
+      upgrades: state.upgrades,
+      upgradeLog: state.upgradeLog,
       savedAt: Date.now()
     };
   }
@@ -3610,7 +3748,9 @@
         const retailPerUnit = (line.retailPerUnit != null)
           ? Number(line.retailPerUnit)
           : (Number(line.materialCostPerUnit) || 0) * (1 + mk) + (Number(line.laborCostPerUnit) || 0);
-        return {
+        // An upgrade row keeps its tag (stage 2, 2026-09-25) so the next
+        // reopen restores it as an upgrade, not as an unknown catalog code.
+        return Object.assign({
         code:   line.code,
         desc:   line.name,
         qty:    (line.quantity || 0).toFixed(2) + (line.unit || ''),
@@ -3632,7 +3772,7 @@
         qtyOverride:         ((state.scope || []).find(s => s.code === line.code)?.overrides?.qty ?? null),
         // Per-line rep note — annotation printed under the line on documents.
         note:                ((state.scope || []).find(s => s.code === line.code)?.overrides?.note ?? null),
-        };
+        }, _upgradeTagsOf(line));
       }),
       // Totals — grandTotal is the canonical customer total: the selected
       // per-SQ tier price for per-SQ estimates, the scope total for line-item.
@@ -3666,7 +3806,37 @@
       // Internal margin view
       internal:         estimate.internal || null,
       // Timestamp handled by _saveEstimate (serverTimestamp)
-    }, _savedJobTypeFields(estimate));
+    }, _savedJobTypeFields(estimate), _savedUpgradeFields(estimate, state));
+  }
+
+  // The estimate-level upgrade fields a re-save must carry (stage 2,
+  // 2026-09-25), in the shape NBDUpgrades.applyToEstimate first wrote them.
+  // Written whenever this estimate has or HAD upgrades: updateDoc merges
+  // top-level keys, so removing the last upgrade here must write
+  // upgradeCents 0 / upgrades [] rather than leave the old figures behind.
+  // The offered / chosen / declined log is history and rides unchanged.
+  function _savedUpgradeFields(estimate, state) {
+    const lines = (estimate.lines || []).filter((l) => l && l.upgrade === true);
+    if (!lines.length && !(state.upgrades && state.upgrades.length) && !state.upgradeLog) return {};
+    const logged = {};
+    ((state.upgradeLog && state.upgradeLog.items) || []).forEach((it) => { if (it && it.id) logged[it.id] = it; });
+    const out = {
+      upgradeCents: lines.reduce((s, l) => s + _upgradeRowCents(l), 0),
+      upgradeTaxCents: lines.length
+        ? (Number.isSafeInteger(estimate.upgradeTaxCents) ? estimate.upgradeTaxCents : null)
+        : 0,
+      upgrades: lines.map((l) => ({
+        id: l.upgradeId || null,
+        qty: Number(l.quantity) || null,
+        unit: l.unit || null,
+        unitCents: Number.isFinite(Number(l.unitPrice)) ? Math.round(Number(l.unitPrice) * 100) : null,
+        retailCents: _upgradeRowCents(l),
+        priceSource: (logged[l.upgradeId] && logged[l.upgradeId].priceSource) || null,
+      })),
+      upgradeLibraryVersion: (lines[0] && lines[0].upgradeVersion) || null,
+    };
+    if (state.upgradeLog) out.upgradeLog = JSON.parse(JSON.stringify(state.upgradeLog));
+    return out;
   }
 
   // The job-type fields a Job Template estimate edited here must keep on
@@ -3690,7 +3860,7 @@
   function _reconstructEstimateFromSaved(doc) {
     if (!doc || !Array.isArray(doc.rows) || doc.materialMarkupPct == null) return null;
     const n = (v) => (v != null && isFinite(Number(v)) ? Number(v) : null);
-    const lines = doc.rows.filter((r) => r && r.code).map((r) => ({
+    const lines = doc.rows.filter((r) => r && r.code).map((r) => Object.assign({
       code: r.code, name: r.desc, category: r.category || '',
       quantity: n(r.quantity), unit: r.unit || '',
       materialCostPerUnit: Number(r.materialCostPerUnit) || 0,
@@ -3706,7 +3876,13 @@
         : Number(r.total) || 0,
       retailTotal: n(r.retailTotal),
       codeRefs: {},
-    }));
+    }, _isUpgradeRow(r) ? Object.assign({
+      // An upgrade row replays at its face unit price (a re-save would
+      // otherwise rebuild its rate from the null cost split as $0.00) and
+      // keeps its tag, so the re-saved row is still an upgrade on the next
+      // reopen.
+      retailPerUnit: n(r.unitPrice), source: 'upgrade',
+    }, _upgradeTagsOf(Object.assign({}, r, { upgrade: true }))) : {}));
     // Job Template estimates: the replay carries the saved job type, so a
     // clean reopen's regenerated Retail Quote / PDF prints its workmanship
     // warranty (review 2026-09-25). Nothing is added for a V2/classic doc.
@@ -3754,7 +3930,11 @@
         ? Object.assign({ margin: null, marginPct: 0 }, doc.internal,
             { marginPct: Number((doc.internal || {}).marginPct) || 0 })
         : null,
-    }, _jobTypeFieldsOf(doc) || {});
+    }, _jobTypeFieldsOf(doc) || {},
+    // The saved upgrade figures replay as saved (a clean re-save keeps them).
+    doc.rows.some(_isUpgradeRow)
+      ? { upgradeCents: n(doc.upgradeCents), upgradeTaxCents: n(doc.upgradeTaxCents) }
+      : {});
   }
 
   // Parse a saved pitch label ("8/12") back to the numeric rise (8).
@@ -3859,7 +4039,7 @@
     // Only trusted when BOTH halves are finite: a partially-written legacy row
     // must fall through to the catalog rather than resolve at half its cost.
     state.scope = (doc.rows || [])
-      .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru')
+      .filter((r) => r && r.code && !/^SVC /.test(r.code) && r.source !== 'passthru' && !_isUpgradeRow(r))
       .map((r) => ({
         code: r.code,
         savedCost: (Number.isFinite(Number(r.materialCostPerUnit))
@@ -3877,9 +4057,16 @@
     // them from the live re-resolve (getCurrentEstimate reads state.passThru)
     // and the next save loses the fee + understates grandTotal/deposit.
     state.passThru = (doc.rows || [])
-      .filter((r) => r && r.code && (/^SVC /.test(r.code) || r.source === 'passthru'))
+      .filter((r) => r && r.code && (/^SVC /.test(r.code) || r.source === 'passthru') && !_isUpgradeRow(r))
       .map((r) => ({ code: r.code, desc: r.desc,
         amount: Number(r.total) || Number(r.unitPrice) || 0, source: r.source || 'passthru' }));
+    // Upgrade rows (stage 2, 2026-09-25): kept whole, out of the catalog
+    // scope, and re-added after the engine by _applyUpgradeLines — the same
+    // "restore it or the first edit drops it" fix as the fees above, plus tax.
+    state.upgrades = (doc.rows || [])
+      .filter(_isUpgradeRow)
+      .map((r) => Object.assign(JSON.parse(JSON.stringify(r)), { upgrade: true }));
+    state.upgradeLog = doc.upgradeLog ? JSON.parse(JSON.stringify(doc.upgradeLog)) : null;
     state._reopenedDoc = doc;
     state._reopenedClean = true;
     _stateFromSavedDoc = estimateId;           // next fresh open resets (see open())

@@ -36,8 +36,9 @@
  *  - Dealer-locked guard systems are never offered, and a dropped product
  *    stays dropped: only the four leaf-protection lines below exist.
  *
- * Pure data, deep-frozen. Nothing loads this file yet — stage 2 wires the
- * Upgrades card into the Job Templates build screen.
+ * Pure data, deep-frozen. Loaded by the script-loader 'estimates' bundle
+ * since stage 2 (2026-09-25), which wired the Upgrades card into the Job
+ * Templates build screen (job-templates-ui.js).
  */
 (function (root) {
   'use strict';

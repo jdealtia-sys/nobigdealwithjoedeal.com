@@ -205,7 +205,7 @@
       // pricing math) split out of estimates.js.
       'js/estimate-crm-ops.js?v=2',
       'js/estimate-finalization.js?v=3',
-      'js/estimate-v2-ui.js?v=15',
+      'js/estimate-v2-ui.js?v=16',
       'js/estimate-supplement.js?v=2',
       'js/supplement-ui.js?v=2',
       // Job templates ride the estimates bundle: data is inert, the engine
@@ -215,17 +215,20 @@
       // entity-resolver.js (the lead search/quick-create picker) must load
       // before job-templates-ui.js, which calls it from paintModal.
       'js/job-templates-data.js?v=4',
-      'js/job-templates.js?v=4',
+      'js/job-templates.js?v=5',
       'js/entity-resolver.js?v=2',
-      'js/job-templates-ui.js?v=6',
+      'js/job-templates-ui.js?v=7',
       // Upgrades & Add-ons (2026-09-25): the retail upgrade library, then the
       // pure pricing core that reads it, then Settings → Upgrade prices,
       // which needs both. The Estimates settings tab loads this bundle
       // before _loadEstimateDefaultsV2 renders the panel. Its stylesheet
-      // rides here too: nothing outside that panel uses it.
+      // rides here too: nothing outside that panel uses it. The Job Templates
+      // Upgrades card (job-templates.js applyUpgrades) and V2's reopen of an
+      // upgraded estimate (estimate-v2-ui.js) read NBDUpgrades at CALL time
+      // only, so their place after both in this list is safe (stage 2 card).
       'css/upgrade-price-settings.css?v=1',
       'js/upgrade-library.js?v=1',
-      'js/upgrade-pricing.js?v=1',
+      'js/upgrade-pricing.js?v=2',
       'js/upgrade-price-settings.js?v=1'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
