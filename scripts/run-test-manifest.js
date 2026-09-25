@@ -381,7 +381,10 @@ const RUNNABLE = ['node', 'smoke'];
 //               rebasing onto 99b84861 (#1761, which followed #1760). The
 //               stage-2 card lane is open the same day — whoever merges last
 //               re-measures rather than adding a delta.
-const FLOORS = { node: 187, smoke: 68, disk: 276 };
+//   2026-09-25  187/68/276 -> 188/68/277, tests/upgrades-builder-card.test.js
+//               (Upgrades stage 2, lane "card"). RE-MEASURED via --check after
+//               rebasing onto 7933ce35 (#1762, lane "prices", merged first).
+const FLOORS = { node: 188, smoke: 68, disk: 277 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

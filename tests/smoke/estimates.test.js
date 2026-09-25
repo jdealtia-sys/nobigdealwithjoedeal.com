@@ -204,10 +204,13 @@ section('Phase 1b: V2 builder mobile step navigation + always-visible total');
     /case 'mstep':[\s\S]{0,160}setMobileStep\(arg\)/.test(src)
     && /function setMobileStep\(n\)/.test(src));
   // The bar's total mirrors the grand total in BOTH renderScope branches
-  // (empty state + priced), so it never shows a stale number.
+  // (empty state + priced), so it never shows a stale number. Since the
+  // review of #1763 (2026-09-25) both print through _fmtTotal — cents when
+  // the total has them (upgrade tax) — and must stay the SAME formatter.
   assert('live total mirrored into the step bar (both branches)',
     /mT0\.textContent = '\$0'/.test(src)
-    && /mT\.textContent = '\$' \+ Math\.round\(estimate\.total\)\.toLocaleString\(\)/.test(src));
+    && /totalEl\.textContent = _fmtTotal\(estimate\.total\)/.test(src)
+    && /mT\.textContent = _fmtTotal\(estimate\.total\)/.test(src));
   // Reopen lands on Review (look-at-it step); fresh estimates on Setup.
   assert('open() starts at Review for reopen, Setup for fresh',
     /setMobileStep\(opts\.estimateId \? 3 : 1\)/.test(src));

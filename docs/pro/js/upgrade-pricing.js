@@ -40,6 +40,13 @@
  *   installerLine(offerOrItem, tenant)            → homeowner installer sentence
  *   MAX_UNIT_CENTS                                → the per-unit ceiling a
  *                                                     saved price must stay under
+ *   taxCentsAt(cents, rate)                       → price()'s tax rounding, for
+ *                                                   re-taxing SAVED upgrade rows
+ *
+ * Loaded by the script-loader 'estimates' bundle since stage 2 (2026-09-25):
+ * the Job Templates build screen's Upgrades card (job-templates-ui.js via
+ * JobTemplates.applyUpgrades) and V2's reopen of an upgraded estimate
+ * (estimate-v2-ui.js _applyUpgradeLines) both call it.
  *
  * An offer's `qty` is what price() bills when the rep types nothing, so it
  * is only ever a figure the scope itself is priced on. `suggestedQty` is a
@@ -802,9 +809,11 @@
    * internal margin block. Upgrades sit outside O&P and carry no cost
    * basis, so there is nothing true to add there. V2's reopen
    * (_reconstructEstimateFromSaved) derives materialRetail from
-   * retailBeforeOHP and rebuilds a face-value row's lineTotal from `total`;
-   * stage 2 must teach that path about upgrade rows before V2 reopens an
-   * upgraded estimate.
+   * retailBeforeOHP and rebuilds a face-value row's lineTotal from `total`.
+   * Stage 2 (2026-09-25) taught V2 about upgrade rows: rehydrateFromSaved
+   * keeps them out of the catalog scope (whose re-resolve dropped every
+   * unknown code) and getCurrentEstimate re-adds them after the engine, at
+   * face, re-taxed with taxCentsAt — see estimate-v2-ui.js _applyUpgradeLines.
    */
   function applyToEstimate(payload, priced, opts) {
     opts = opts || {};
@@ -850,6 +859,19 @@
     return next;
   }
 
+  // The tax on a SAVED upgrade subtotal at a (possibly new) rate — for a
+  // re-priced reopen that must not re-quote the frozen line prices (stage 2,
+  // 2026-09-25: estimate-v2-ui.js re-taxes restored upgrade rows when the rep
+  // changes the county). Same integer rounding as price(), so an unchanged
+  // rate gives back exactly the quoted tax.
+  function taxCentsAt(cents, rate) {
+    var c = num(cents);
+    var r = num(rate);
+    if (c == null || !Number.isSafeInteger(c) || c < 0) throw new Error('[NBDUpgrades] taxCentsAt needs non-negative integer cents');
+    if (r == null || r < 0 || r >= 1) throw new Error('[NBDUpgrades] taxCentsAt needs a decimal rate in [0, 1)');
+    return taxOn(c, r);
+  }
+
   var api = {
     get version() { return lib().version; },
     offeredFor: offeredFor,
@@ -860,7 +882,8 @@
     installerLine: installerLine,
     // Exported so Settings → Upgrade prices refuses a typo with a message
     // instead of saving a figure sanitizeOverrides would silently drop.
-    MAX_UNIT_CENTS: MAX_UNIT_CENTS
+    MAX_UNIT_CENTS: MAX_UNIT_CENTS,
+    taxCentsAt: taxCentsAt
   };
   root.NBDUpgrades = Object.freeze(api);
 })(typeof window !== 'undefined' ? window : this);

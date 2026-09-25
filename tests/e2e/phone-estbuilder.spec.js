@@ -442,6 +442,283 @@ test.describe('phone estbuilder: reopened estimate keeps contact @shard2', () =>
   });
 });
 
+// ── 3b. Upgrades & Add-ons on the Job Templates build screen (stage 2) ────
+//
+// 2026-09-25 (documentation/projects/UPGRADES-ADDONS-DESIGN-2026-09-25.md):
+// the rep picks a leaf guard on the build screen's Upgrades card, hands the
+// phone over on "Show homeowner", the homeowner adds it, and the estimate is
+// saved with that line at exactly the price on the card. Jo runs this from
+// the INSTALLED iPhone app, so the @media(display-mode: standalone) rules
+// are forced on (a browser tab never matches them — see phone-dashnav's
+// 'draw (installed app)'). Money is read back from the SAVED doc, not
+// assumed: the card's line = the preview line = the saved row, and the
+// homeowner's running total = the saved grand total.
+
+async function forceStandalone(page) {
+  return safeEvaluate(page, () => {
+    let css = '';
+    for (const sh of document.styleSheets) {
+      let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+      for (const r of rules) {
+        if (r.media && /display-mode:\s*standalone/.test(r.conditionText || r.media.mediaText)) {
+          for (const inner of r.cssRules) css += inner.cssText + '\n';
+        }
+      }
+    }
+    const s = document.createElement('style');
+    s.id = 'e2e-force-standalone';
+    s.textContent = css;
+    document.head.appendChild(s);
+    return css.length;
+  });
+}
+
+const dollarsToCents = (s) => Math.round(Number(String(s).replace(/[$,]/g, '')) * 100);
+
+test.describe('phone estbuilder: Job Templates upgrades, installed app at 412px @shard2', () => {
+  test.skip(!creds, 'PLAYWRIGHT_TEST_USER_EMAIL / _PASSWORD not set');
+  test.use({ ...ANDROID, viewport: { width: 412, height: 860 } });
+
+  test('pick Alu-Rex → Show homeowner → Add → preview and save carry the quoted line', async ({ page }) => {
+    test.setTimeout(150_000);
+    await signIn(page);
+    const [lead] = await seedLeads(page, 1);
+    expect(lead && lead.id, 'a seeded customer').toBeTruthy();
+    expect(await forceStandalone(page), 'found the standalone rules to force').toBeGreaterThan(200);
+    await safeWaitForFunction(page, () => !!(window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function'), { timeout: 20_000 });
+    await safeEvaluate(page, async (leadId) => {
+      await window.ScriptLoader.loadBundle('estimates');
+      window.JobTemplatesUI.openPicker({ leadId });
+    }, lead.id);
+    await expect(page.locator('#jtModal.open')).toBeVisible({ timeout: 15_000 });
+    const use = page.locator('#jtModal [data-jt-action="quick-use"][data-id="jt_gi_k5_seamless_full"]');
+    await use.scrollIntoViewIfNeeded();
+    await use.tap();
+    const card = page.locator('#jtUpgCard [data-upg-card]');
+    await expect(card, 'the build screen shows an Upgrades card').toBeVisible({ timeout: 15_000 });
+
+    let lineCents = 0;
+    await test.step('the card: nothing pre-ticked; Alu-Rex is a thumb target priced with its footage', async () => {
+      await expect(page.locator('#jtUpgCard [data-jt-action="upg-pick-none"]')).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('#jtUpgCard [data-jt-action="upg-pick"][aria-pressed="true"]')).toHaveCount(0);
+      const pick = page.locator('#jtUpgCard [data-jt-action="upg-pick"][data-id="alurex"]');
+      await pick.scrollIntoViewIfNeeded();
+      expect(await reachable(pick), 'the Alu-Rex row is not covered').toBe(true);
+      const bb = await pick.boundingBox();
+      expect(bb.height, 'the Alu-Rex row is a big tap target').toBeGreaterThanOrEqual(48);
+      const price = (await page.locator('#jtUpgCard [data-upg-px="alurex"]').textContent()) || '';
+      const m = /^(\d+) ft × \$18 = (\$[\d,]+(?:\.\d\d)?)$/.exec(price.trim());
+      expect(m, 'price with quantity, e.g. "150 ft × $18 = $2,700" — got "' + price + '"').toBeTruthy();
+      lineCents = dollarsToCents(m[2]);
+      expect(lineCents, 'the line is footage × $18 exactly').toBe(Number(m[1]) * 1800);
+      await pick.tap();
+      await expect(pick).toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('#jtUpgCard [data-upg-sum]')).toHaveText('· 1 picked · +' + m[2]);
+    });
+
+    let hoTotalCents = 0;
+    let withoutCents = 0;
+    let savedId = null;
+    await test.step('Show homeowner: its own page; No thanks / Add move the total; hand back', async () => {
+      const show = page.locator('#jtUpgCard [data-jt-action="upg-show-homeowner"]');
+      await show.scrollIntoViewIfNeeded();
+      expect(await reachable(show), 'Show homeowner is reachable').toBe(true);
+      await show.tap();
+      const ho = page.locator('#jtHomeowner.open');
+      await expect(ho).toBeVisible();
+      const add = ho.locator('[data-jt-action="upg-ho-add"][data-id="alurex"]');
+      const no = ho.locator('[data-jt-action="upg-ho-no"][data-id="alurex"]');
+      await add.scrollIntoViewIfNeeded();
+      const [a, n] = [await add.boundingBox(), await no.boundingBox()];
+      expect(Math.round(a.width), 'Add and No thanks are the same size').toBe(Math.round(n.width));
+      expect(Math.round(a.height)).toBe(Math.round(n.height));
+      expect(a.height, 'thumb-sized').toBeGreaterThanOrEqual(48);
+      const total = async () => dollarsToCents(((await ho.locator('[data-ho-total] b').textContent()) || '').trim());
+      expect(await reachable(no), 'No thanks is not covered').toBe(true);
+      await no.tap();
+      await expect(no).toHaveAttribute('aria-pressed', 'true');
+      withoutCents = await total();
+      expect(await reachable(add), 'Add is not covered').toBe(true);
+      await add.tap();
+      await expect(add).toHaveAttribute('aria-pressed', 'true');
+      hoTotalCents = await total();
+      expect(hoTotalCents - withoutCents, 'Add moves the total by at least the quoted line').toBeGreaterThanOrEqual(lineCents);
+      const done = ho.locator('[data-jt-action="upg-ho-done"]');
+      expect(await reachable(done), 'hand back is reachable').toBe(true);
+      await done.tap();
+      await expect(page.locator('#jtHomeowner.open')).toHaveCount(0);
+      await expect(page.locator('#jtUpgCard [data-jt-action="upg-pick"][data-id="alurex"]')).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    await test.step('the proposal preview prints the upgrade line and the homeowner\'s total', async () => {
+      const go = page.locator('#jtModalFoot [data-jt-action="go-preview"]');
+      expect(await reachable(go), 'Preview proposal is reachable').toBe(true);
+      await go.tap();
+      await expect(page.locator('.jt-prop')).toBeVisible({ timeout: 10_000 });
+      const row = page.locator('.jt-prop tr', { hasText: 'Upgrade — Alu-Rex DoublePro gutter guard' });
+      await expect(row, 'the preview paper has the upgrade line').toHaveCount(1, { timeout: 5_000 });
+      await row.scrollIntoViewIfNeeded();
+      await expect(row).toBeVisible();
+      const cells = await row.locator('td').allTextContents();
+      expect(dollarsToCents(cells[cells.length - 1]), 'preview line = card line').toBe(lineCents);
+      const tot = await page.locator('.jt-prop-tots .r.g span').last().textContent();
+      expect(dollarsToCents(tot), 'preview total = the homeowner\'s running total').toBe(hoTotalCents);
+    });
+
+    await test.step('Create estimate saves the row at the card price and the same total', async () => {
+      const create = page.locator('#jtModal [data-jt-action="create-estimate"]');
+      await create.scrollIntoViewIfNeeded();
+      await create.tap();
+      await expect(page.locator('#jtModal .jt-success')).toBeVisible({ timeout: 20_000 });
+      const saved = await safeEvaluate(page, async (lid) => {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const db = window.db || window._db;
+        const uid = (window._auth || window.auth).currentUser.uid;
+        const snap = await fsMod.getDocs(fsMod.query(fsMod.collection(db, 'estimates'),
+          fsMod.where('userId', '==', uid), fsMod.where('leadId', '==', lid)));
+        let out = null; snap.forEach((d) => { if (!out) out = { id: d.id, ...d.data() }; });
+        if (!out) return null;
+        const row = (out.rows || []).find((r) => r.code === 'UPG LG-ARX') || null;
+        return { id: out.id, grandTotal: out.grandTotal, upgradeCents: out.upgradeCents, upgradeTaxCents: out.upgradeTaxCents,
+          row: row && { desc: row.desc, retailTotal: row.retailTotal, upgrade: row.upgrade },
+          log: (out.upgradeLog && out.upgradeLog.items || []).map((i) => i.id + ':' + i.status) };
+      }, lead.id);
+      expect(saved, 'the estimate was saved against the customer').toBeTruthy();
+      expect(saved.row, 'the saved estimate carries the upgrade row').toEqual({ desc: 'Upgrade — Alu-Rex DoublePro gutter guard', retailTotal: lineCents / 100, upgrade: true });
+      expect(saved.upgradeCents, 'saved upgradeCents = card line').toBe(lineCents);
+      expect(Math.round(saved.grandTotal * 100), 'saved total = the homeowner\'s running total').toBe(hoTotalCents);
+      expect(hoTotalCents - withoutCents, 'Add moved the total by EXACTLY the line + its saved tax').toBe(lineCents + saved.upgradeTaxCents);
+      expect(saved.log, 'the offered / chosen log').toEqual(expect.arrayContaining(['alurex:chosen']));
+      savedId = saved.id;
+    });
+
+    // V2 used to drop an unknown "UPG …" code on the first edit after a
+    // reopen (its live re-resolve runs every scope code through the catalog).
+    await test.step('Open in Estimate Builder → edit → Save keeps the upgrade line and the total', async () => {
+      const open = page.locator('#jtModal [data-jt-action="open-in-v2"]');
+      expect(await reachable(open), 'Open in Estimate Builder is reachable').toBe(true);
+      await open.tap();
+      await expect(page.locator('#estV2Modal.open')).toBeVisible({ timeout: 15_000 });
+      const upRow = page.locator('#v2scopeList .v2-scope-item[data-code="UPG LG-ARX"]');
+      await expect(upRow, 'the reopened estimate lists the upgrade').toHaveCount(1, { timeout: 10_000 });
+      await expect(upRow.locator('.name')).toContainText('Upgrade — Alu-Rex');
+      expect(dollarsToCents(await upRow.locator('.total').textContent()), 'V2 row = card line').toBe(lineCents);
+      // An edit that changes no price: from here V2 re-resolves live.
+      await safeEvaluate(page, () => {
+        const u = window.EstimateV2UI;
+        u.updateMeasurement('stories', u.getState().measurements.stories);
+      });
+      expect(await safeEvaluate(page, () => window.EstimateV2UI.getState()._reopenedClean), 'the edit switched V2 to a live re-resolve').toBe(false);
+      await expect(upRow, 'still listed after the edit').toHaveCount(1);
+      // To the cent (review of #1763): #v2total printed whole dollars, so an
+      // upgraded total with tax cents read differently here than on paper.
+      expect(dollarsToCents(await page.locator('#v2total').textContent()), 'V2 total after the edit = the saved total, to the cent').toBe(hoTotalCents);
+      await safeEvaluate(page, () => window.EstimateV2UI.save());
+      await expect(page.locator('#v2saveStatus')).toHaveText(/Saved|error|fail/i, { timeout: 20_000 });
+      const again = await safeEvaluate(page, async (id) => {
+        const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const snap = await fsMod.getDoc(fsMod.doc(window.db || window._db, 'estimates', id));
+        const d = snap.data() || {};
+        const row = (d.rows || []).find((r) => r.code === 'UPG LG-ARX') || null;
+        return { builder: d.builder, grandTotal: d.grandTotal, upgradeCents: d.upgradeCents,
+          row: row && { desc: row.desc, retailTotal: row.retailTotal, upgrade: row.upgrade } };
+      }, savedId);
+      expect(again.builder, 'the V2 save updated the same estimate').toBe('v2');
+      expect(again.row, 'the re-saved estimate still carries the tagged upgrade row').toEqual({ desc: 'Upgrade — Alu-Rex DoublePro gutter guard', retailTotal: lineCents / 100, upgrade: true });
+      expect(Math.round(again.grandTotal * 100), 'and the same total, to the cent').toBe(hoTotalCents);
+      expect(again.upgradeCents).toBe(lineCents);
+    });
+  });
+
+  // Review of #1763 (2026-09-25, all three lenses): with a guard set to
+  // "Make required", the homeowner page still offered the other guards of
+  // its pick-one group, and "Add" on one silently swapped the rep's required
+  // guard OUT — the total moved by the price difference, not by the price on
+  // the card. Now a group holding a required pick is base scope: the page
+  // offers none of it, and the rep's card refuses a sibling tap inline.
+  test('Make required: the guard stays in the price; the homeowner page offers none of its group', async ({ page }) => {
+    test.setTimeout(120_000);
+    await signIn(page);
+    expect(await forceStandalone(page), 'found the standalone rules to force').toBeGreaterThan(200);
+    await safeWaitForFunction(page, () => !!(window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function'), { timeout: 20_000 });
+    // company-profile.js replaces window._companyProfile when its one-shot
+    // read lands; set the in-page price only after that, or it is wiped.
+    await safeWaitForFunction(page, () => window._companyProfileLoaded === true, { timeout: 20_000 });
+    await safeEvaluate(page, async () => {
+      await window.ScriptLoader.loadBundle('estimates');
+      // In-page tenant price for the 3x4 step-up, so the homeowner page has
+      // an option OUTSIDE the leaf group (nothing is written anywhere).
+      // Settings → Upgrade prices' shape (#1762), in memory only.
+      const cp = window._companyProfile || {};
+      window._companyProfile = Object.assign({}, cp, { pricing: Object.assign({}, cp.pricing || {},
+        { upgradePrices: { downspout_3x4_step_up: { cents: 400, enabled: true, installerName: '' } } }) });
+      window.JobTemplatesUI.openPicker({});
+    });
+    await expect(page.locator('#jtModal.open')).toBeVisible({ timeout: 15_000 });
+    const use = page.locator('#jtModal [data-jt-action="quick-use"][data-id="jt_gi_k5_seamless_full"]');
+    await use.scrollIntoViewIfNeeded();
+    await use.tap();
+    const card = page.locator('#jtUpgCard [data-upg-card]');
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('#jtUpgCard [data-jt-action="upg-pick"][data-id="downspout_3x4_step_up"]'),
+      'fixture: the in-page tenant price makes the 3x4 step-up pickable').toBeEnabled();
+
+    const LB = 'leafblaster_pro_micromesh';
+    const req = page.locator('#jtUpgCard [data-jt-action="upg-require"][data-id="' + LB + '"]');
+    await req.scrollIntoViewIfNeeded();
+    expect(await reachable(req), 'Make required is reachable').toBe(true);
+    await req.tap();
+    await expect(req).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#jtUpgCard [data-upg-grp-req="leaf_protection"]'), 'the group says its guard is in the price').toBeVisible();
+
+    await test.step('the rep card refuses a sibling tap, on that row', async () => {
+      const alu = page.locator('#jtUpgCard [data-jt-action="upg-pick"][data-id="alurex"]');
+      await alu.scrollIntoViewIfNeeded();
+      expect(await reachable(alu), 'the Alu-Rex row is reachable').toBe(true);
+      await alu.tap();
+      await expect(alu, 'Alu-Rex did not replace the required guard').toHaveAttribute('aria-pressed', 'false');
+      await expect(page.locator('#jtUpgCard [data-jt-action="upg-pick"][data-id="' + LB + '"]')).toHaveAttribute('aria-pressed', 'true');
+      await expect(req).toHaveAttribute('aria-pressed', 'true');
+      const why = page.locator('#jtUpgCard [data-upg-err="alurex"]');
+      await expect(why).toHaveText(/is required on this job\. Tap its “✓ Required” to release it first\./);
+      await why.scrollIntoViewIfNeeded();
+      expect(await reachable(why), 'the refusal is on screen, not under a layer').toBe(true);
+    });
+
+    await test.step('Show homeowner: none of the leaf group; Add on the other option moves the total by exactly its price + tax', async () => {
+      const show = page.locator('#jtUpgCard [data-jt-action="upg-show-homeowner"]');
+      await show.scrollIntoViewIfNeeded();
+      await show.tap();
+      const ho = page.locator('#jtHomeowner.open');
+      await expect(ho).toBeVisible();
+      for (const id of ['amerimax_lockin_mesh', LB, 'leafblaster_pro_reinforced', 'alurex']) {
+        await expect(ho.locator('[data-id="' + id + '"], [data-ho-id="' + id + '"]'), id + ' is not offered to the homeowner').toHaveCount(0);
+      }
+      await ho.locator('.jt-ho-incl summary').tap();
+      await expect(ho.locator('.jt-ho-incl li', { hasText: 'LeafBlaster PRO stainless micromesh gutter guard' }), 'the required guard is "Already included"').toHaveCount(1);
+      const total = async () => dollarsToCents(((await ho.locator('[data-ho-total] b').textContent()) || '').trim());
+      const t0 = await total();
+      const line = dollarsToCents(await ho.locator('[data-ho-px="downspout_3x4_step_up"] b').textContent());
+      const tax = await safeEvaluate(page, (c) => {
+        const JT = window.JobTemplates;
+        const res = JT.resolveSelection([{ templateId: 'jt_gi_k5_seamless_full' }], {});
+        return window.NBDUpgrades.taxCentsAt(c, JT.buildEstimatePayload(res, {}).taxRate);
+      }, line);
+      const add = ho.locator('[data-jt-action="upg-ho-add"][data-id="downspout_3x4_step_up"]');
+      await add.scrollIntoViewIfNeeded();
+      expect(await reachable(add), 'Add is reachable').toBe(true);
+      await add.tap();
+      await expect(add).toHaveAttribute('aria-pressed', 'true');
+      expect(await total() - t0, 'Add moved the total by EXACTLY the card line + its tax').toBe(line + tax);
+      await ho.locator('[data-jt-action="upg-ho-done"]').tap();
+      await expect(page.locator('#jtHomeowner.open')).toHaveCount(0);
+      await expect(req, 'after hand back the guard is still required').toHaveAttribute('aria-pressed', 'true');
+      await expect(page.locator('#jtUpgCard [data-jt-action="upg-pick"][data-id="' + LB + '"]')).toHaveAttribute('aria-pressed', 'true');
+    });
+    await safeEvaluate(page, () => window.JobTemplatesUI.closeModal());
+  });
+});
+
 // ── 4. Desktop keeps its layout; Job Templates modal is opaque + readable ──
 
 test.describe('phone estbuilder: desktop + Job Templates modal @shard2', () => {

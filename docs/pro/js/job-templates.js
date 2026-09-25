@@ -1228,19 +1228,229 @@
   }
 
   // ═════════════════════════════════════════════════════════
+  // Upgrades & Add-ons (stage 2, 2026-09-25)
+  // ═════════════════════════════════════════════════════════
+  //
+  // The build screen's Upgrades card (job-templates-ui.js) and its "Show
+  // homeowner" page are UI over these functions, and createEstimate saves
+  // through the SAME applyUpgrades the preview renders — so the card's
+  // price, the preview line, the saved row and the change in the total are
+  // one number (documentation/projects/UPGRADES-ADDONS-DESIGN-2026-09-25.md).
+  //
+  // Upgrades never go through EstimateLogic: NBDUpgrades.price() emits
+  // face-value retail rows and applyToEstimate() adds them AFTER the engine
+  // (upgrade-pricing.js explains why a markup / O&P / $25-rounding pass would
+  // print a different number than the one quoted).
+  //
+  // An upgrade selection (`up`), as the UI sends it:
+  //   picks:            ['alurex', ...]  ids chosen, "Make required" ones too
+  //   quantities:       { id: qty }      rep-typed; blank means "follow the
+  //                                      gutter footage" (never a guess)
+  //   required:         { id: true }     "Make required": base scope, not a choice
+  //   recommended:      { id: 'reason' } a star counts only WITH a reason from
+  //                                      this house, and at most two do
+  //   declined:         { id: true }     the homeowner tapped "No thanks"
+  //   shownToHomeowner: boolean          the Show homeowner page was opened
+
+  const MAX_RECOMMENDED = 2;
+
+  function upgradesApi() {
+    const U = window.NBDUpgrades;
+    return (U && typeof U.price === 'function' && typeof U.offeredFor === 'function') ? U : null;
+  }
+
+  // The tenant's own upgrade data, read from ONE place: what Settings →
+  // Upgrade prices saves (#1762), companyProfile.pricing.upgradePrices =
+  //   { <upgradeId>: { cents, enabled, installerName } }
+  // passed EXPLICITLY, so the card and the save price from the same map the
+  // owner edited. No saved map → {} = the library's Jo-approved prices alone
+  // (never a guess: a needs_price item stays unofferable). The certified
+  // installer is named per item there (installerName wins inside offeredFor);
+  // with none saved the copy stays "an independent certified installer"
+  // (tenant neutral). 2026-09-25: this read companyProfile.upgrades, which
+  // nothing writes — the Settings lane's contract note asked for this switch.
+  function tenantUpgradeSettings() {
+    const cp = window._companyProfile;
+    const up = cp && cp.pricing && cp.pricing.upgradePrices;
+    return {
+      overrides: (up && typeof up === 'object' && !Array.isArray(up)) ? up : {},
+      tenant: {}
+    };
+  }
+
+  function upgradeContext(resolved, up, taxRate) {
+    const t = (resolved && resolved.totals) || {};
+    return {
+      templateIds: (resolved && resolved.sourceTemplates) || [],
+      lines: (resolved && resolved.lines) || [],
+      measurements: (resolved && resolved.measurements) || null,
+      quantities: (up && up.quantities && typeof up.quantities === 'object') ? up.quantities : {},
+      mode: t.mode || 'cash',
+      // A Job Template estimate is always line-item; per-SQ only exists in V2.
+      priceMode: 'line-item',
+      taxRate: taxRate != null ? taxRate : t.taxRate,
+      tenant: tenantUpgradeSettings().tenant
+    };
+  }
+
+  /** The offers for a resolved selection (NBDUpgrades.offeredFor), [] when none. */
+  function upgradeOffers(resolved, up) {
+    const U = upgradesApi();
+    if (!U || !resolved || !resolved.totals) return [];
+    const ctx = upgradeContext(resolved, up);
+    return U.offeredFor(ctx.templateIds, ctx, tenantUpgradeSettings().overrides);
+  }
+
+  function upgradePickList(up) {
+    const seen = {};
+    return ((up && Array.isArray(up.picks)) ? up.picks : []).filter(id => {
+      if (typeof id !== 'string' || !id || seen[id]) return false;
+      seen[id] = true;
+      return true;
+    }).map(id => ({ id }));
+  }
+
+  // The stars that count: a typed reason, at most MAX_RECOMMENDED, in the
+  // library's (offer) order so the same card always saves the same stars.
+  function recommendedReasons(offers, up) {
+    const rec = (up && up.recommended && typeof up.recommended === 'object') ? up.recommended : {};
+    const out = {};
+    let n = 0;
+    offers.forEach(o => {
+      const why = typeof rec[o.id] === 'string' ? rec[o.id].replace(/\s+/g, ' ').trim().slice(0, 140) : '';
+      if (why && o.state === 'available' && n < MAX_RECOMMENDED) { out[o.id] = why; n++; }
+    });
+    return out;
+  }
+
+  // The offered / chosen / declined record, prices FROZEN at quote time, so a
+  // later price change can never rewrite what this homeowner was offered.
+  // Only offers the homeowner could have been quoted (state 'available' — a
+  // price, eligible, not already in scope) are recorded.
+  function buildUpgradeLog(offers, priced, up, version) {
+    const avail = offers.filter(o => o.state === 'available');
+    if (!avail.length) return null;
+    const got = {};
+    ((priced && priced.priced) || []).forEach(p => { got[p.id] = p; });
+    const stars = recommendedReasons(offers, up);
+    const declined = (up && up.declined) || {};
+    const required = (up && up.required) || {};
+    // A pick-one group whose pick was made required is base scope: its other
+    // options were never the homeowner's to choose (the build screen keeps
+    // them off the Show homeowner page), so they are not logged as
+    // "offered" — the rule offeredFor applies to a guard already in the
+    // template's scope (review of #1763, 2026-09-25).
+    const heldGroup = {};
+    avail.forEach(o => { if (o.group && required[o.id] && got[o.id]) heldGroup[o.group] = o.id; });
+    return {
+      version: version || null,
+      at: new Date().toISOString(),
+      shownToHomeowner: !!(up && up.shownToHomeowner),
+      items: avail.filter(o => !(o.group && heldGroup[o.group] && heldGroup[o.group] !== o.id)).map(o => {
+        const p = got[o.id] || null;
+        const unitCents = p ? p.unitCents : o.unitCents;
+        const qty = p ? p.qty : (o.qty != null ? o.qty : null);
+        return {
+          id: o.id,
+          code: o.code,
+          name: o.name,
+          group: o.group || null,
+          unit: o.unit,
+          unitCents: unitCents,
+          qty: qty,
+          retailCents: (qty != null && unitCents != null) ? qty * unitCents : null,
+          priceSource: o.priceSource || null,
+          status: p ? (required[o.id] ? 'required' : 'chosen') : (declined[o.id] ? 'declined' : 'offered'),
+          recommended: !!stars[o.id],
+          reason: stars[o.id] || null
+        };
+      })
+    };
+  }
+
+  /**
+   * applyUpgrades(payload, resolved, up) → { payload, priced, offers, errors }
+   *   payload:  buildEstimatePayload(resolved, …) — the engine's base estimate
+   *   resolved: the resolveSelection() result it was built from
+   *   up:       the upgrade selection (see above)
+   * Returns a NEW payload with the picked upgrade rows appended at face value
+   * (NBDUpgrades.applyToEstimate), the totals moved by exactly the quote plus
+   * its tax, and `upgradeLog`. On any refusal (a pick with no quantity, two
+   * leaf guards, an insurance job, …) `errors` is non-empty and `payload` is
+   * the input unchanged — a caller must never save a half-applied quote.
+   */
+  function applyUpgrades(payload, resolved, up) {
+    const out = { payload: payload, priced: null, offers: [], errors: [] };
+    if (!payload || !up) return out;
+    const picks = upgradePickList(up);
+    const U = upgradesApi();
+    if (!U) {
+      if (picks.length) out.errors.push({ id: null, code: 'unavailable', message: 'Upgrade pricing did not load, so the picked upgrades cannot be priced.' });
+      return out;
+    }
+    const tenant = tenantUpgradeSettings();
+    // Priced at the PAYLOAD's tax rate — applyToEstimate refuses any other.
+    const ctx = upgradeContext(resolved, up, payload.taxRate);
+    const offers = U.offeredFor(ctx.templateIds, ctx, tenant.overrides);
+    out.offers = offers;
+    let next = payload;
+    if (picks.length) {
+      const priced = U.price(picks, ctx, tenant.overrides);
+      out.priced = priced;
+      if (priced.errors.length) { out.errors = priced.errors.slice(); return out; }
+      const required = up.required || {};
+      priced.rows.forEach(r => {
+        if (!required[r.upgradeId]) return;
+        // "Make required" (code work, or a guard the job must have): the
+        // line moves into the base scope, so it prints as a plain line,
+        // never as a homeowner choice. Same face-value price.
+        r.desc = String(r.desc || '').replace(/^Upgrade — /, '');
+        r.category = 'Base scope';
+        r.upgradeRequired = true;
+      });
+      try {
+        next = U.applyToEstimate(payload, priced, { minJobCharge: resolved && resolved.minJobCharge });
+      } catch (e) {
+        out.errors.push({ id: null, code: 'apply', message: String((e && e.message) || e) });
+        out.payload = payload;
+        return out;
+      }
+    }
+    const log = buildUpgradeLog(offers, out.priced, up, U.version);
+    if (log) {
+      if (next === payload) next = Object.assign({}, payload);
+      next.upgradeLog = log;
+    }
+    out.payload = next;
+    return out;
+  }
+
+  // ═════════════════════════════════════════════════════════
   // Actions
   // ═════════════════════════════════════════════════════════
 
   // Resolve → payload → save as a NEW estimate. Clearing the edit id is
   // load-bearing: a stale _editingEstimateId would silently OVERWRITE
   // whatever estimate the user last opened in a builder.
+  // opts.upgrades (stage 2, 2026-09-25): the build screen's upgrade selection,
+  // applied by the same applyUpgrades the preview rendered. A refusal throws —
+  // the rep sees it and nothing is saved.
   async function createEstimate(selection, opts) {
     opts = opts || {};
     const resolved = resolveSelection(selection, opts);
     if (!resolved.totals) {
       throw new Error('[JobTemplates] resolve failed: ' + resolved.warnings.join('; '));
     }
-    const payload = buildEstimatePayload(resolved, opts);
+    let payload = buildEstimatePayload(resolved, opts);
+    if (opts.upgrades) {
+      const up = applyUpgrades(payload, resolved, opts.upgrades);
+      if (up.errors.length) {
+        const err = new Error('[JobTemplates] upgrades: ' + up.errors.map(e => e.message).join(' '));
+        err.upgradeErrors = up.errors;
+        throw err;
+      }
+      payload = up.payload;
+    }
     if (typeof window._saveEstimate !== 'function') {
       throw new Error('[JobTemplates] _saveEstimate not loaded');
     }
@@ -1399,6 +1609,8 @@
     warrantyKindOf,
     resolveSelection,
     buildEstimatePayload,
+    upgradeOffers,
+    applyUpgrades,
     createEstimate,
     insertIntoV2,
     openLibrary

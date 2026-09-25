@@ -68,9 +68,17 @@
     return '$' + v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
+  // Whole dollars print as they always did ("$7,464"); an amount with cents
+  // prints its cents ("$7,213.62"). Review of #1763 (2026-09-25): this
+  // rounded to the dollar, which lost nothing while V2 totals were always
+  // $25-rounded — but an upgraded Job Template estimate adds its upgrades
+  // and their exact tax on top, so the Retail Quote's PROJECT TOTAL / Balance
+  // printed $7,214 for a saved $7,213.62 that the proposal, contract,
+  // portal and invoice all print to the cent.
   function fmtMoneyBig(n) {
-    const v = Number(n) || 0;
-    return '$' + Math.round(v).toLocaleString('en-US');
+    const c = Math.round((Number(n) || 0) * 100);
+    const digits = (c % 100 === 0) ? 0 : 2;
+    return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits });
   }
 
   // A quantity label must never round a fraction to a whole number. This
