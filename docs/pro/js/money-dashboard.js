@@ -175,7 +175,12 @@
       collectionsQueue.push({
         id: inv.id || null,
         leadId: inv.leadId || null,
-        customerName: inv.customerName || (lead && lead.name) || 'Customer',
+        // Leads store firstName/lastName, not `name` (estimate#9, 2026-09-25):
+        // the old `lead.name` fallback never fired, so every invoice saved
+        // with a blank customerName queued as "Customer".
+        customerName: inv.customerName
+          || (lead && (lead.name || [lead.firstName, lead.lastName].filter(Boolean).join(' ')))
+          || 'Customer',
         balanceCents: balC,
         dueDate: inv.dueDate || null,
         daysPastDue: daysPastDue,
