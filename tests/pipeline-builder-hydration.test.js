@@ -82,6 +82,9 @@ function loadBuilder(opts) {
     innerHTML: '', _listeners: {},
     addEventListener(type, fn) { (this._listeners[type] = this._listeners[type] || []).push(fn); },
     querySelector() { return null; },
+    // The builder reaches every Save copy (header + the bottom save bar,
+    // 2026-09-25) through querySelectorAll; nothing is rendered here, so none.
+    querySelectorAll() { return []; },
   };
   const toasts = [], warns = [], saves = [];
   const win = {
@@ -118,6 +121,7 @@ function loadBuilder(opts) {
     createElement() { return { style: {} }; },
     head: { appendChild() {} },
     querySelector() { return null; },
+    querySelectorAll() { return []; },
   };
   const sandbox = { window: win, document, console: { log() {}, warn: (...a) => { warns.push(a.map(String).join(' ')); }, error() {} } };
   vm.runInNewContext(SRC, sandbox, { filename: 'pipeline-builder.js' });

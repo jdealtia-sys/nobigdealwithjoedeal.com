@@ -18,6 +18,13 @@ function injectCSS() {
 #nbd-conn-btn {
   background:transparent;
   border:none;
+  /* A <button> with no color of its own paints the UA's buttontext — black —
+     so the ↻ beside the status dot was invisible on the always-dark header
+     in BOTH modes (1.08:1 dark, 1.13:1 light; phone audit views#11,
+     2026-09-25). The bar is a fixed near-black (dashboard-app.css header),
+     so the glyph gets the same fixed light ink the rest of the chrome uses;
+     its own opacity:.5 keeps it the quiet secondary cue it was drawn as. */
+  color:#e8eaf0;
   cursor:pointer;
   font-size:15px;
   padding:4px 6px;

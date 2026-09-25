@@ -397,6 +397,26 @@ header{flex-shrink:0;background:rgba(10,12,15,.97);-webkit-backdrop-filter:blur(
 }
 .hdr-tool:hover{ color:var(--t); background:color-mix(in srgb, var(--t) 8%, transparent); }
 .hdr-tool:focus-visible{ outline:2px solid var(--orange); outline-offset:1px; }
+/* Light mode on the always-dark chrome (phone audit views#11, 2026-09-25).
+   `header` above and #mobile-nav (the <=768 block) paint a HARD-CODED
+   near-black bar in every theme and mode, but the text on them reads palette
+   tokens, and --t / --m are dark inks in light mode. Measured at 412 in light
+   mode: the "NBD" wordmark #0f172a on the bar = 1.04:1 (only "PRO" showed), the
+   header icons 3.09:1 and the 8.5px bottom-nav labels 3.03:1 — and hovering a
+   header icon on desktop turned it var(--t), i.e. invisible. The bar's colour
+   is fixed, so its inks are pinned too, to the default dark palette's values
+   (--t ~#e8eaf0, --m ~#9ca3af). Scoped to [data-mode="light"] so every dark
+   theme keeps its own tinted --t / --m exactly as before. The pinned inks are
+   also right on a fresh login's first boot, where the preboot has already
+   stamped data-mode="light" but the lazy theme bundle hasn't painted the light
+   palette yet: the bar is dark in both. Deliberately NOT the whole header —
+   .upill and the bell / recent dropdowns inside it sit on palette surfaces
+   (--s2 / --s) and must keep reading palette tokens. */
+:root[data-mode="light"] header .logo{ color:#e8eaf0; }
+:root[data-mode="light"] header .hdr-tool{ color:#9ca3af; }
+:root[data-mode="light"] header .hdr-tool:hover{ color:#e8eaf0; background:rgba(232,234,240,.08); }
+:root[data-mode="light"] #mobile-nav .mn-item:not(.active):not(.mn-fab) .mn-icon,
+:root[data-mode="light"] #mobile-nav .mn-item:not(.active):not(.mn-fab) .mn-lbl{ color:#9ca3af; }
 .hdr-tool .hdr-tool-badge{
   position:absolute; top:2px; right:2px;
   background:var(--red); color:var(--t);
@@ -1764,14 +1784,18 @@ body:has(#view-prospects.active) .breadcrumb-container{
      touch devices we bump them all to 36x36 minimum so reps
      hitting them on a phone don't fat-finger an adjacent row.
      Inline-style width/height get overridden via attribute
-     selectors so we don't have to edit each button site. */
+     selectors so we don't have to edit each button site.
+     .sfb-action (Next Best Actions, W115) was missed and stayed a
+     30px target; added 2026-09-25 with the phone row layout below
+     (phone audit views#5). */
   .cmd-action,
   .hl-action,
   .at-action,
   .ss-action,
   .rc-action,
   .notif-action,
-  .af-action {
+  .af-action,
+  .sfb-action {
     min-width: 36px !important;
     min-height: 36px !important;
     /* Bump font-size proportionally so the icon doesn't look
@@ -2028,6 +2052,43 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
    pay for. */
 @media (min-width:769px){
   #hot-leads-body .hl-actions{ padding-right:var(--nbd-fab-rail, 94px); }
+}
+/* Dashboard lead-row widgets on phones (phone audit views#4 / views#5,
+   2026-09-25). Hot Leads (.hot-lead-row), Almost There (.at-row), Stale
+   Shares (.ss-row) and Next Best Actions (.sfb-row) all lay a row out as an
+   inline grid with the name in a `1fr` track beside an `auto` track of
+   action buttons. On a touch phone the Wave 81 rule (@media (hover:none)
+   above) makes each action 36px, so a full 📞💬📧🔍💤 cluster is 196px and
+   the auto track takes it all: measured at 412 the Hot Leads name track was
+   0px on 5-action rows (22px — "D…" — on 4-action rows), 0px on every row at
+   360, and there the 💤 ran past the panel's overflow:hidden edge, leaving a
+   12px sliver to tap; Next Best Actions' headline got 95px (43px at 360), so
+   all five rows read "Send portal lin…" and never reached the customer's
+   name. The fix is the layout, not the buttons: below 600px the action
+   cluster moves to its own full-width grid row under the name, so the name
+   gets the whole row beside the badge (and score), and every action stays
+   36px and on-screen. The inline grid-template-columns needs !important to
+   be overridden. The no-actions placeholder is an empty div; hide it so it
+   doesn't open an empty second row. Desktop and tablet keep the one-line
+   rows (the name track is 316px+ from 800px up). */
+@media (max-width:600px){
+  #hot-leads-body .hot-lead-row{ grid-template-columns:auto minmax(0,1fr) auto !important; row-gap:8px !important; }
+  .at-row, .ss-row{ grid-template-columns:auto minmax(0,1fr) !important; row-gap:8px !important; }
+  #hot-leads-body .hot-lead-row > .hl-actions,
+  .at-row > .at-actions,
+  .ss-row > .ss-actions{ grid-column:1 / -1; justify-content:flex-end; flex-wrap:wrap; }
+  #hot-leads-body .hot-lead-row > div:empty,
+  .at-row > div:empty,
+  .ss-row > div:empty{ display:none; }
+  /* Next Best Actions: same move, plus the headline may wrap to two lines —
+     every suggestion template leads with a 4-19 character verb phrase
+     ("Send portal link to …") before the name. */
+  #smart-followup-briefing-body .sfb-row{ grid-template-columns:auto minmax(0,1fr) !important; row-gap:8px !important; }
+  #smart-followup-briefing-body .sfb-row > .sfb-actions{ grid-column:1 / -1; justify-content:flex-end; flex-wrap:wrap; }
+  #smart-followup-briefing-body .sfb-headline{
+    white-space:normal !important;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; line-clamp:2;
+  }
 }
 /* Toggle switch component */
 .ob-toggle{position:relative;display:inline-block;width:38px;height:20px;flex-shrink:0;}
@@ -2538,6 +2599,12 @@ body[data-nbd-size="comfortable"] .crm-icon-btn { width: calc(32px * var(--nbd-s
 .sf label{display:block;font-size:9px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--m);margin-bottom:5px;}
 .sf input{width:100%;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 12px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;}
 .sf input:focus{border-color:var(--orange);}
+/* Colour pickers in a settings field (Company Profile > Primary / Accent,
+   phone audit views#13, 2026-09-25). They inherited the text-input padding
+   above (10px 12px) with no height, so the box rendered 27px tall with a 5px
+   content strip: the saved brand colour never showed, just a thin grey rule,
+   at every width. Same override onboarding.html already gives its pickers. */
+.sf input[type="color"]{padding:4px 6px;height:40px;cursor:pointer;}
 
 /* MODAL */
 /* z: --z-overlay (cert-round scale). Things that must beat an open modal
@@ -4399,7 +4466,14 @@ body {
   .crm-sec-restore{display:none!important;}
   .crm-rev-strip{padding:4px 12px 8px;overflow-x:auto;flex-wrap:nowrap;}
   .rev-pill{padding:6px 12px;flex-shrink:0;}
-  .sf-row{flex-direction:column;gap:8px;}
+  /* Stack Settings form rows to one column (phone audit views#6, 2026-09-25).
+     This line used to read `flex-direction:column`, but .sf-row is a GRID
+     (display:grid; 1fr 1fr, near .sf label), so it did nothing: every
+     Settings panel stayed two 145px columns at 412 (119px at 360), the
+     single-field rows (Cal.com, Google review link, the three "Send me…"
+     opt-ins) used only the left half, and their labels wrapped 8-13 lines.
+     minmax(0,1fr) rather than 1fr so a long value can't widen the track. */
+  .sf-row{grid-template-columns:minmax(0,1fr);gap:8px;}
   .theme-grid{grid-template-columns:repeat(auto-fill,minmax(120px,1fr));}
   .step-bar{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px;}
   .step-item{flex-shrink:0;}
@@ -5130,13 +5204,39 @@ body {
     min-width: 0!important;
     max-width: none!important;
     width: auto!important;
-    max-height: calc(100vh - 80px)!important;
-    max-height: calc(100dvh - 80px - env(safe-area-inset-bottom,0px))!important;
+    /* Stop above #mobile-nav (62px + the home-indicator inset, riding on any
+       bottom strip) with an 8px gap. The old 100dvh - 80px ran 18px + inset
+       UNDER the nav; it never showed while the bell list was capped at 300px,
+       but the list now fills the panel (views#8 below). */
+    max-height: calc(100vh - 126px)!important;
+    max-height: calc(100dvh - 56px - env(safe-area-inset-top,0px) - 70px - env(safe-area-inset-bottom,0px) - var(--nbd-bottom-chrome,0px))!important;
     overflow-y: auto!important;
     -webkit-overflow-scrolling: touch;
   }
   /* Notification badge "50" shouldn't overflow the bell icon */
   #notifBadge { font-size: 8.5px!important; padding: 1px 3.5px!important; min-width: 14px!important; }
+  /* Bell rows on phones (phone audit views#8, 2026-09-25). Each .notif-item
+     is a flex row: icon | text (flex:1) | action strip (flex-shrink:0) | ×.
+     With the Wave 81 36px touch actions the strip is ~192px, so the panel's
+     full width still left the text 98px at 412 (46px at 360): titles ran 3-6
+     lines, the detail line cut to "0 days …", rows were 92-134px tall and the
+     300px list showed 2-3 of 10. Wrap the strip onto its own line under the
+     text (26px = icon + gap, so it lines up with the title), give × / ↩ and
+     the 10px "Mark all read" / "Clear all" / "Show dismissed" buttons (11px
+     tall) real 36px targets, and let the list use the panel's height instead
+     of its inline 300px cap. The panel is already a flex column (inline
+     style, display:flex when open), so min-height:0 lets the list shrink and
+     scroll inside the panel's max-height. */
+  #notifList { max-height:none!important; flex:1 1 auto; min-height:0; }
+  #notifList .notif-item, #notifDismissedList .notif-item { flex-wrap:wrap; }
+  .notif-item > .notif-actions { order:3; flex-basis:100%; justify-content:flex-start; padding-left:26px; }
+  .notif-item > .notif-dismiss {
+    display:inline-flex; align-items:center; justify-content:center;
+    min-width:36px; min-height:36px; margin:-8px -10px 0 0;
+  }
+  #notifDropdown button[data-fn="markAllNotificationsRead"],
+  #clearAllNotifBtn,
+  #notifDismissedToggle button { min-height:36px; padding:0 10px; font-size:12px!important; }
 }
 
 /* ── interaction polish (visual audit 2026-07-19) ─────────────────────────

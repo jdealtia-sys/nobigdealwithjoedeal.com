@@ -592,11 +592,20 @@ body.theme-frosted {
 .tc-new { font-size: 11px; font-weight: 700; color: var(--green); letter-spacing: .1em; }
 
 /* Rapid Fire Banner */
+/* The banner and the drill card (.rapid-card below) paint a HARD-CODED navy
+   gradient in every theme and mode, so the text on them must be a fixed light
+   ink too — the way .rb-sub / .rapid-context already pin #8b9bb4. The title and
+   the objection quote read var(--t) instead, which is #0f172a in light mode:
+   1.12:1 on this navy, so "Objection Obliterator" and the objection you're meant
+   to answer were invisible on a light-mode phone (phone audit views#3,
+   2026-09-25). #e8eaf0 is the fixed ink this file's other always-dark panels
+   already use (.npm-title, .nhm-title, .nbd-toast) and sits within a shade of
+   the default dark palette's --t (#e2e8f0), so dark mode looks unchanged. */
 .rapid-banner { background: linear-gradient(135deg, #12223D 0%, #16213e 100%); border: 1px solid var(--blue)30; border-radius: 12px; padding: 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: all .2s; margin-bottom: 4px; }
 .rapid-banner:hover { border-color: var(--blue); box-shadow: 0 4px 20px rgba(74,158,255,.2); }
 .rb-left { display: flex; align-items: center; gap: 14px; }
 .rb-icon { font-size: 32px; }
-.rb-title { font-size: 16px; font-weight: 700; color:var(--t); }
+.rb-title { font-size: 16px; font-weight: 700; color: #e8eaf0; }
 .rb-sub { font-size: 12px; color: #8b9bb4; margin-top: 2px; }
 .rb-right { text-align: right; }
 .rb-best { font-size: 12px; color: var(--blue); font-weight: 600; }
@@ -676,7 +685,7 @@ body.theme-frosted {
 .rs-item { font-size: 12px; font-weight: 600; color: var(--m); }
 .rapid-card { background: linear-gradient(135deg, #12223D 0%, #16213e 100%); border-radius: 12px; padding: 28px; text-align: center; margin-bottom: 20px; }
 .rapid-context { font-size: 11px; color: #8b9bb4; margin-bottom: 12px; text-transform: uppercase; letter-spacing: .1em; }
-.rapid-objection { font-size: 22px; font-weight: 700; color:var(--t); line-height: 1.4; }
+.rapid-objection { font-size: 22px; font-weight: 700; color: #e8eaf0; line-height: 1.4; } /* fixed ink on the fixed navy card: see .rapid-banner above */
 .rapid-options { display: flex; flex-direction: column; gap: 8px; }
 .rapid-opt { background: var(--s2); border: 2px solid var(--br); border-radius: 10px; padding: 14px 16px; cursor: pointer; transition: all .15s; }
 .rapid-opt:hover { border-color: var(--blue); }

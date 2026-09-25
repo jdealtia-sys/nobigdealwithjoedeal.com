@@ -123,12 +123,44 @@
     }
   }
 
+  // Priority-label inks (phone audit views#11, 2026-09-25). The pastels were
+  // drawn for the dark palette; on the light palette the 9px "TODAY" was
+  // #fcd34d on its amber-tinted row at 1.27:1. Light gets a deep ink of the
+  // same hue (TODAY 6.25:1, URGENT 5.28:1 on their row tints). The pick reads
+  // the palette actually PAINTED (page background luminance), not data-mode —
+  // a fresh login's first boot has data-mode="light" on the still-navy page
+  // until the lazy theme bundle lands — and _reinkLabels() repaints in place on
+  // themechange / modechange, because a full render() would re-spend the five
+  // AI enrichment calls.
+  const LABEL_INK = {
+    urgent: { dark: '#fca5a5', light: '#b91c1c' },
+    today:  { dark: '#fcd34d', light: '#92400e' },
+  };
+  function _paletteIsLight() {
+    try {
+      const m = String(getComputedStyle(document.body).backgroundColor).match(/[\d.]+/g);
+      if (!m || m.length < 3 || (m.length > 3 && +m[3] === 0)) return false;
+      return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255 > 0.5;
+    } catch (_) { return false; }
+  }
+  function _labelInk(prio) {
+    const ink = LABEL_INK[prio] || LABEL_INK.today;
+    return _paletteIsLight() ? ink.light : ink.dark;
+  }
+  function _reinkLabels() {
+    const body = document.getElementById('smart-followup-briefing-body');
+    if (!body) return;
+    body.querySelectorAll('.sfb-label[data-sfb-prio]').forEach((el) => {
+      el.style.color = _labelInk(el.getAttribute('data-sfb-prio'));
+    });
+  }
+
   function _renderRow(lead, sug) {
-    let bg, color, border, icon, label;
+    let bg, color, border, icon, label, prio;
     if (sug.priority === 'urgent') {
-      bg = 'rgba(239,68,68,0.10)'; color = '#fca5a5'; border = 'rgba(239,68,68,0.45)'; icon = '⚡'; label = 'Urgent';
+      prio = 'urgent'; bg = 'rgba(239,68,68,0.10)'; color = _labelInk(prio); border = 'rgba(239,68,68,0.45)'; icon = '⚡'; label = 'Urgent';
     } else {
-      bg = 'rgba(245,158,11,0.10)'; color = '#fcd34d'; border = 'rgba(245,158,11,0.45)'; icon = '💡'; label = 'Today';
+      prio = 'today'; bg = 'rgba(245,158,11,0.10)'; color = _labelInk(prio); border = 'rgba(245,158,11,0.45)'; icon = '💡'; label = 'Today';
     }
 
     const phone = String(lead.phone || '').replace(/\D+/g, '');
@@ -145,21 +177,26 @@
       actions.push(`<button class="sfb-action" data-sfb-action="preview" data-sfb-lead-id="${escapeHtml(lead.id)}" type="button" title="Preview portal" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:6px;background:rgba(245,158,11,0.14);color:#f59e0b;border:none;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:transform .12s;">🔍</button>`);
     }
 
+    // .sfb-text / .sfb-actions are the phone hooks: at <=600px
+    // dashboard-app.css drops the actions to a second grid row and lets the
+    // headline wrap to two lines, because four actions beside the text left
+    // the headline 43-95px and cut every row to "Send portal lin…" before
+    // the customer's name (phone audit views#5, 2026-09-25).
     return `
       <div class="sfb-row" data-sfb-lead-id="${escapeHtml(lead.id)}"
         style="display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:center; padding:10px 12px; border-radius:8px; background:${bg}; border:1px solid ${border}; margin-bottom:6px; cursor:pointer; -webkit-tap-highlight-color:transparent;"
         title="Open ${escapeHtml(leadName(lead))}">
         <div style="font-size:18px; flex-shrink:0;" aria-hidden="true">${icon}</div>
-        <div style="min-width:0;">
+        <div class="sfb-text" style="min-width:0;">
           <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
-            <span style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:${color};">${escapeHtml(label)}</span>
+            <span class="sfb-label" data-sfb-prio="${prio}" style="font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:${color};">${escapeHtml(label)}</span>
             <span style="font-size:9px; color:var(--m,#9aa3b2); font-weight:500;">· ${escapeHtml(String(sug.confidence))}%</span>
             <span class="sfb-ai-badge" title="AI-enriched" style="display:none; font-size:9px; color:#a78bfa; font-weight:600; padding:1px 6px; border-radius:8px; background:rgba(167,139,250,0.14); border:1px solid rgba(167,139,250,0.35);">✨ AI</span>
           </div>
           <div class="sfb-headline" style="font-size:13px; font-weight:600; color:var(--t,#e8eaf0); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(sug.headline)}</div>
           <div class="sfb-reason" style="font-size:11px; color:var(--m,#9aa3b2); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(sug.reasoning)}</div>
         </div>
-        <div style="display:flex; gap:4px; flex-shrink:0; align-items:center;">${actions.join('')}</div>
+        <div class="sfb-actions" style="display:flex; gap:4px; flex-shrink:0; align-items:center;">${actions.join('')}</div>
       </div>`;
   }
 
@@ -215,12 +252,16 @@
   function init() {
     setTimeout(render, 1700);
     window.addEventListener('nbd:data-refreshed', render);
+    document.addEventListener('themechange', _reinkLabels);
+    document.addEventListener('modechange', _reinkLabels);
     if (_intervalId) clearInterval(_intervalId);
     _intervalId = setInterval(render, 5 * 60_000);
   }
   function destroy() {
     if (_intervalId) { clearInterval(_intervalId); _intervalId = null; }
     window.removeEventListener('nbd:data-refreshed', render);
+    document.removeEventListener('themechange', _reinkLabels);
+    document.removeEventListener('modechange', _reinkLabels);
   }
   window.addEventListener('pagehide', destroy);
 
