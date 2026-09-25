@@ -587,11 +587,20 @@ test.describe('phone views: light mode stays readable @audit', () => {
       for (const n of c.nav) expect(n.c, `bottom-nav "${n.t}"`).toBeGreaterThanOrEqual(4.5);
       // :hover turned a header icon var(--t) — #0f172a on the near-black bar,
       // 1.04:1 — and on Android a tap leaves :hover stuck on what was tapped,
-      // so the bell went dark-on-dark right after you opened it.
-      await page.locator('#notifBtn').hover();
-      const hovered = await page.evaluate(() => window.__pvContrast(document.getElementById('notifBtn')));
-      expect(hovered, 'hovered header icon on the dark header').toBeGreaterThanOrEqual(3);
-      await page.mouse.move(1, 400);
+      // so the bell went dark-on-dark right after you opened it. Tap it for
+      // real, then let the icon's .15s colour transition finish: read
+      // immediately, it still shows the resting colour and the check passes
+      // with the bug present.
+      await page.locator('#notifBtn').tap();
+      await animationsDone(page);
+      const hovered = await page.evaluate(() => {
+        const b = document.getElementById('notifBtn');
+        return { stuck: b.matches(':hover'), c: window.__pvContrast(b) };
+      });
+      expect(hovered.stuck, 'a tap leaves :hover on the bell (the Android case this pins)').toBe(true);
+      expect(hovered.c, 'hovered header icon on the dark header').toBeGreaterThanOrEqual(3);
+      await page.locator('#notifBtn').tap();
+      await expect(page.locator('#notifDropdown')).toBeHidden();
     });
 
     await test.step('views#11 Engagement Cohort + Next Best Actions labels', async () => {
