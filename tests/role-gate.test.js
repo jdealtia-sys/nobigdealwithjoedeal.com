@@ -20,11 +20,15 @@
  *        produces the "Your role is view-only" notice, and the caller still
  *        receives the ORIGINAL rejection (nothing is swallowed); other roles
  *        and other errors stay silent; successes pass through untouched;
+ *      - for every OTHER role the wrapper returns the very same promise with
+ *        no handler attached, so an un-awaited failed write still raises an
+ *        unhandled rejection (the event Sentry reports from) — review of
+ *        #1776: the observer used to ride every role's writes and hid them;
  *      - the capture-phase click guard stops a gated control for a viewer
  *        (before the page's own delegate) and leaves everyone else alone;
  *      - the gated selector covers the write controls the brief names and
  *        none of a viewer's own user-scoped controls.
- *   B. Each of the 29 guarded entry points, extracted from its real file and
+ *   B. Each of the 37 guarded entry points, extracted from its real file and
  *      executed: for a viewer it returns at the guard having touched nothing
  *      but window.NBDRole; for a sales_rep it goes past the guard.
  *
@@ -176,6 +180,47 @@ async function partA() {
     ok(name + ': viewer refusal is explained and still rejects', rejected && toasts.length === 1);
   }
 
+  // Every OTHER role's write is left exactly as it was (review of #1776,
+  // 2026-09-25). Attaching any handler marks a promise handled, so when the
+  // observer rode every role's writes, an owner's / rep's un-awaited write
+  // that failed stopped raising 'unhandledrejection' — the event Sentry's
+  // global handler reports from (maps-routing.js fires its ml_training_data
+  // addDoc and forgets it). Proven the way the browser sees it: a bare call,
+  // nobody awaiting, and Node's own unhandled-rejection tracking.
+  const unhandled = [];
+  const onUR = (reason) => { unhandled.push(String((reason && reason.code) || reason)); };
+  process.on('unhandledRejection', onUR);
+  try {
+    for (const c of [{ role: 'sales_rep', companyId: 'co-x' }, { role: 'manager', companyId: 'co-x' },
+      { role: 'company_admin', companyId: 'co-x' }, {}]) {
+      const who = c.role || 'no role claim (solo)';
+      win._userClaims = c;
+      unhandled.length = 0;
+      let made = null;
+      win.deleteDoc = () => (made = Promise.reject(denied()));
+      const p = win.deleteDoc('d');            // fire-and-forget
+      ok(who + ': the wrapper hands back the very same promise', p === made);
+      await tick(); await tick();
+      ok(who + ': an un-awaited refused write still raises an unhandled rejection',
+        unhandled.length === 1 && unhandled[0] === 'permission-denied', JSON.stringify(unhandled));
+      // Left unhandled on purpose: the listener above already consumed it, and
+      // a late .catch() would only print PromiseRejectionHandledWarning.
+    }
+    // A viewer's bare refused write IS observed: explained on screen, and not
+    // reported as an app failure (it is the rules working).
+    win._userClaims = { role: 'viewer' };
+    R._resetNoticeThrottle();
+    resetNotice();
+    unhandled.length = 0;
+    win.deleteDoc = () => Promise.reject(denied());
+    win.deleteDoc('d');
+    await tick(); await tick();
+    ok('viewer: a fire-and-forget refused write is explained, not reported as unhandled',
+      toasts.length === 1 && unhandled.length === 0, 'toasts=' + toasts.length + ' unhandled=' + JSON.stringify(unhandled));
+  } finally {
+    process.removeListener('unhandledRejection', onUR);
+  }
+
   // Layer 2: the capture-phase click guard.
   const clickL = dom.listeners.find((l) => l.type === 'click');
   const keyL = dom.listeners.find((l) => l.type === 'keydown');
@@ -207,6 +252,14 @@ async function partA() {
   ok('ordinary typing is never intercepted', !e5.prevented && !e5.stopped);
   let e6 = ev(true, { type: 'keydown', key: ' ', target: { tagName: 'TEXTAREA', closest: () => ({}) } }); keyL.fn(e6);
   ok('Space inside a text field is never intercepted', !e6.prevented && !e6.stopped);
+  // The ⓘ "Preview blank template" button sits INSIDE a generateCustomerDoc
+  // tile (gated). It writes nothing, so a viewer's click on it goes through.
+  R._resetNoticeThrottle();
+  resetNotice();
+  const inTile = (sel) => (sel === R._readInside || sel === R._gatedSelector ? {} : null);
+  let e7 = ev(true, { target: { tagName: 'BUTTON', closest: inTile } }); clickL.fn(e7);
+  ok('viewer click on the blank-preview ⓘ inside a gated tile goes through', !e7.prevented && !e7.stopped && toasts.length === 0);
+  ok('…and the exemption is exactly that control', R._readInside === '[data-action="_previewBlankDoc"]', R._readInside);
 
   // The selector: the brief's minimum list is covered…
   const S = win.NBDRole._gatedSelector;
@@ -222,6 +275,17 @@ async function partA() {
     'estimate save': [A('openEstimateModal'), A('saveEstimate'), A('newEstimate'), F('startNewEstimate'), F('saveEstimate'), '#editEstimateBtn', '#deleteEstimateBtn'],
     'lead create/edit/delete': [A('openEditCustomerModal'), A('saveCustomerEdits'), A('progressStage'), F('openLeadModal'), F('saveLead'), F('editCardDetails'), F('confirmDeleteLead'), F('bulkMoveStage'), F('_mCreate'), A('edit-lead'), A('delete-lead'), A('move-card')],
     'kanban next action + job checklist (kept visible, blocked)': ['[data-action="run-next-action"]', '[data-change-action="toggleJobChecklistItem"]'],
+    // Review of #1776 (2026-09-25): still offered to a viewer, failing with a
+    // generic error or a bare toast once the rules refused them.
+    'estimates list duplicate/rename/assign/delete': ['.est-act-btn[data-act="duplicate"]', '.est-act-btn[data-act="rename"]',
+      '.est-act-btn[data-act="assign"]', '.est-act-btn[data-act="delete"]', '.est-lead-chip.unassigned'],
+    'EstimatePreview + customer estimate hub writes': ['[data-ep-action="assign"]', '[data-ep-action="duplicate"]', '[data-ep-action="archive"]',
+      '[data-ceh-act="primary"]', '[data-ceh-act="duplicate"]', '[data-ceh-act="assign"]', '[data-ceh-act="archive"]', '[data-ceh-act="new"]'],
+    'expenses log/supplier/recurring/delete': ['[data-exp-action="open-form"]', '[data-exp-action="open-supplier"]',
+      '[data-exp-action="add-recurring"]', '[data-exp-action="del-recurring"]', '[data-exp-action="del-supplier"]', '[data-exp-action="delete"]'],
+    'knock, kanban "+ task", phone Task, portal reply, rules self-test, follow-up sends': [F('openD2DOrGo'), '.kc-task-badge.empty',
+      '#nbd-quick-action-bar .qab-task', '#repMsgText', '#repMsgSend', F('testFirestoreRules'), '[data-csf-action="sms"]', '[data-csf-action="email"]'],
+    'document generation (kept visible, blocked)': [A('docgen'), A('generateCustomerDoc')],
   };
   for (const [what, sels] of Object.entries(MUST)) {
     const missing = sels.filter((s) => !has(s));
@@ -230,7 +294,10 @@ async function partA() {
   // …and a viewer's own user-scoped / read-only controls are NOT.
   const MUST_NOT = [F('_saveSettings'), F('_saveNotifSettings'), F('markAllNotificationsRead'), F('clearAllNotifications'),
     A('exportCustomerPDF'), A('filterPhotos'), A('filterTimeline'), A('togglePresentationMode'), A('_previewBlankDoc'),
-    F('exportLeadsCSV'), F('crmViewBoard'), A('goTo'), A('signOut'), F('openSettingsTab')];
+    F('exportLeadsCSV'), F('crmViewBoard'), A('goTo'), A('signOut'), F('openSettingsTab'),
+    // reading an estimate, a receipt, an export; calling the homeowner
+    '.est-act-btn[data-act="open"]', '[data-ep-action="edit"]', '[data-ceh-act="edit"]', '[data-ceh-act="toggle"]',
+    '[data-exp-action="export-csv"]', '[data-exp-action="receipt"]', '[data-csf-action="dismiss"]', '#nbd-quick-action-bar .qab-call'];
   const wrong = MUST_NOT.filter(has);
   ok('not gated: settings, notification read state, exports, filters, navigation', wrong.length === 0, 'gated by mistake: ' + wrong.join(' '));
 
@@ -241,9 +308,18 @@ async function partA() {
     !!style && /html\.nbd-role-viewer \[data-action="quickAddNote"\]/.test(style.textContent)
       && /display:none!important/.test(style.textContent)
       && !/html\.nbd-role-viewer \.nbd-tl-task/.test(style.textContent));
+  // Block-only controls stay on screen: the Templates rows (their category
+  // headers count them) and the customer page's tiles (the ⓘ lives inside).
+  ok('document generation rows/tiles are NOT hidden (block-only)', !!style
+    && !/html\.nbd-role-viewer \[data-action="docgen"\]/.test(style.textContent)
+    && !/html\.nbd-role-viewer \[data-action="generateCustomerDoc"\]/.test(style.textContent)
+    && !/html\.nbd-role-viewer \.est-lead-chip/.test(style.textContent));
+  ok('the estimates-card write buttons ARE hidden', !!style
+    && /html\.nbd-role-viewer \.est-act-btn\[data-act="duplicate"\]/.test(style.textContent)
+    && /html\.nbd-role-viewer \.est-act-btn\[data-act="delete"\]/.test(style.textContent));
 }
 
-// ── B. The 29 guarded entry points, executed ─────────────────────────────────
+// ── B. The 37 guarded entry points, executed ─────────────────────────────────
 // Find the function that starts inside `anchor` and return its full source.
 // The end is found by the parser, not by counting braces: the first `}` after
 // which the text compiles as a function expression is the matching one (any
@@ -328,8 +404,20 @@ async function partB() {
     ['dashboard-actions.js', 'function editCardDetails() {'],
     ['tasks.js', 'async function openTaskModal(leadId,event){', null, ['l1', null]],
     ['tasks.js', 'async function addTask(){'],
+    // Review of #1776 (2026-09-25): the estimates list and the EstimatePreview
+    // sheet reach these, and they wrote through module-local Firestore
+    // functions role-gate's layer 3 never sees ("Failed to rename" etc.).
+    ['estimate-crm-ops.js', 'async function duplicateEstimateAction(id) {', null, ['e1']],
+    ['estimate-crm-ops.js', 'async function renameEstimateAction(id) {', null, ['e1']],
+    ['estimate-crm-ops.js', 'async function assignEstimateAction(id) {', null, ['e1']],
+    ['estimate-crm-ops.js', 'async function deleteEstimateAction(id) {', null, ['e1']],
+    ['customer-estimate-hub.js', 'function newEstimate() {'],
+    ['customer-estimate-hub.js', 'function makePrimary(estId) {', null, ['e1']],
+    ['customer-estimate-hub.js', 'function doDuplicate(id) {', null, ['e1']],
+    // Every knock entry (Prospects button, D2D KNOCK, map long-press, re-knock).
+    ['d2d-tracker-ui-2026b.js', 'function openQuickKnock(opts) {', null, [{}]],
   ];
-  ok('29 guarded entry points listed', CASES.length === 29, String(CASES.length));
+  ok('37 guarded entry points listed', CASES.length === 37, String(CASES.length));
   for (const [file, anchor, pre, args, viewerReturn] of CASES) {
     const label = file + ' :: ' + anchor.split('\n').pop().replace(/\s*\{$/, '');
     let fnSrc;

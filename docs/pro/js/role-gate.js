@@ -24,17 +24,21 @@
  *      the pages' bubble-phase delegates see it, and says why.
  *   3. NEVER SILENT. Every Firestore/Storage write the pages make through the
  *      window.* globals (addDoc, setDoc, updateDoc, deleteDoc, writeBatch().
- *      commit, runTransaction, uploadBytes, uploadBytesResumable) is watched:
- *      if it is refused with permission-denied while the user is a viewer,
+ *      commit, runTransaction, uploadBytes, uploadBytesResumable) is watched
+ *      WHILE THE USER IS A VIEWER: if it is refused with permission-denied,
  *      the user is told "Your role is view-only" instead of the write failing
  *      silently or being reported as a generic error. This covers every write
- *      path layers 1-2 do not list. It never blocks a write itself, so no
- *      other role's behaviour changes, and the rules stay the only authority.
+ *      path layers 1-2 do not list. It never blocks a write itself, and for
+ *      every other role the wrapper hands back the untouched promise with no
+ *      handler attached (see watchResult), so no other role's behaviour
+ *      changes and the rules stay the only authority.
  *
  * Save functions for the core actions (notes, tasks, drawings, documents,
- * warranty claims, photos, estimates, the lead itself) also call
- * NBDRole.guard() first, which covers entry points that are not a click on a
- * listed control: keyboard shortcuts, the command palette, drag-and-drop.
+ * warranty claims, photos, estimates and the estimates-list duplicate /
+ * rename / assign / delete / make-primary actions, knocks, the lead itself)
+ * also call NBDRole.guard() first, which covers entry points that are not a
+ * click on a listed control: keyboard shortcuts, the command palette,
+ * drag-and-drop, the EstimatePreview sheet, a map long-press.
  *
  * A viewer's own user-scoped writes (settings, notification read state,
  * template forks) are untouched: the rules allow them and nothing here blocks
@@ -67,10 +71,11 @@
     'openUploadModal', 'uploadPhotos', 'togglePhotoSelectMode', 'applyBulkPhotoDelete', 'deletePhoto',
     'quickSetPhase', 'quickSetSeverity', 'setCoverPhotoFromPopup', '_openPhotoInEditorAndClose',
     'peDeletePhoto', 'peStagePhoto', 'peTagToggle', 'peBulkAnalyze',
-    // documents (generate, upload, signed upload, delete) + photo reports
+    // documents (generate, upload, signed upload, delete) + photo reports.
+    // generateCustomerDoc tiles and docgen rows are BLOCK_ONLY below, not here.
     'openDocCreateModal', 'openDocUploadModal', 'uploadDocuments', 'uploadSignedDoc',
-    '_pickCustomerDoc', 'generateCustomerDoc', 'deleteCustomerDoc',
-    'openPhotoReportPicker', 'generatePhotoReport', 'docgen',
+    '_pickCustomerDoc', 'deleteCustomerDoc',
+    'openPhotoReportPicker', 'generatePhotoReport',
     // estimates
     'openEstimateModal', 'saveEstimate', '_openInDashboardEstimate', '_openInDashboardJobTemplates',
     'newEstimate',
@@ -92,6 +97,9 @@
     'startNewEstimate', 'saveEstimate', 'openQMImportModal', 'applyQMData',
     // documents, invoices, voice memos
     'openUploadDoc', 'saveDocUpload', 'cdaInvoice', 'cdaVoiceMemo',
+    // knocks (Prospects "+ New Knock"; D2D.openQuickKnock is guarded too),
+    // and the Settings rules self-test, which creates a probe lead.
+    'openD2DOrGo', 'testFirestoreRules',
   ];
   // Controls with no data-action of their own.
   var WRITE_IDS = [
@@ -99,6 +107,33 @@
     'editEstimateBtn',      // estimate viewer: Edit in Builder
     'deleteEstimateBtn',    // estimate viewer: Archive
     'repMsgSend',           // portal-message reply
+    'repMsgText',           // …and its textarea (a composer with no Send button)
+  ];
+  // Controls dispatched by their own module's attribute, not data-action.
+  // Added 2026-09-25 from the #1776 review: each of these was still offered
+  // to a viewer and failed with a generic error ("Failed to rename", "Failed
+  // to add supplier") or a bare view-only toast once the rules refused it.
+  var WRITE_SELECTORS = [
+    // Estimates list card (dashboard-widgets.js). Open/preview stay: reading.
+    '.est-act-btn[data-act="duplicate"]', '.est-act-btn[data-act="rename"]',
+    '.est-act-btn[data-act="assign"]', '.est-act-btn[data-act="delete"]',
+    // EstimatePreview sheet (estimate-preview.js). Edit opens the builder to read.
+    '[data-ep-action="assign"]', '[data-ep-action="duplicate"]', '[data-ep-action="archive"]',
+    // Customer estimate hub (customer-estimate-hub.js). Edit opens the builder.
+    '[data-ceh-act="primary"]', '[data-ceh-act="duplicate"]', '[data-ceh-act="assign"]',
+    '[data-ceh-act="archive"]', '[data-ceh-act="new"]',
+    // Expenses view (expenses.js): log, supplier, recurring, deletes.
+    '[data-exp-action="open-form"]', '[data-exp-action="open-supplier"]',
+    '[data-exp-action="add-recurring"]', '[data-exp-action="del-recurring"]',
+    '[data-exp-action="del-supplier"]', '[data-exp-action="delete"]',
+    // Kanban card "+" (no tasks yet = "Add a task"). A card WITH tasks keeps
+    // its count badge; its click is refused by tasks.js openTaskModal's guard.
+    '.kc-task-badge.empty',
+    // customer.html phone quick-action bar: Task (Call/Text/Email stay).
+    '#nbd-quick-action-bar .qab-task',
+    // Smart Follow-up sends to the homeowner. sendSMS has no server-side role
+    // check yet (the callables follow-up), so the client must not offer it.
+    '[data-csf-action="sms"]', '[data-csf-action="email"]',
   ];
   // Stays VISIBLE (it shows state) but a viewer's click does nothing but explain.
   var BLOCK_ONLY = [
@@ -107,13 +142,28 @@
     '.nbd-share-toggle',    // photo "shared with homeowner" pill
     '[data-action="run-next-action"]',                    // kanban next-action chip (logs contact, ...)
     '[data-change-action="toggleJobChecklistItem"]',      // customer job checklist tick box
+    '.est-lead-chip.unassigned',                          // estimates card "➕ Unassigned" (click = assign)
+    // Document generation creates a document record for the lead, so it stays
+    // refused — but the rows/tiles stay visible. Hiding them (the first cut of
+    // #1776) left the Templates view's category headers counting "4 docs" over
+    // empty accordions, and took the customer page's "Preview blank template"
+    // (ⓘ, which writes nothing) with the tiles it sits in. See READ_INSIDE.
+    '[data-action="docgen"]',                             // dashboard Templates view rows
+    '[data-action="generateCustomerDoc"]',                // customer.html Generate Documents tiles
   ];
+  // Read-only controls that sit INSIDE a gated control and must keep working
+  // for a viewer: the capture guard lets a click on these through even though
+  // an ancestor matches the gated selector.
+  var READ_INSIDE = [
+    '[data-action="_previewBlankDoc"]',   // ⓘ inside a generateCustomerDoc tile; a blank preview never persists
+  ].join(',');
 
   function _attr(v) { return String(v).replace(/["\\]/g, '\\$&'); }
   var HIDE_SELECTORS = []
     .concat(WRITE_ACTIONS.map(function (a) { return '[data-action="' + _attr(a) + '"]'; }))
     .concat(WRITE_FNS.map(function (f) { return '[data-action="call"][data-fn="' + _attr(f) + '"]'; }))
-    .concat(WRITE_IDS.map(function (i) { return '#' + i; }));
+    .concat(WRITE_IDS.map(function (i) { return '#' + i; }))
+    .concat(WRITE_SELECTORS);
   var GATED_SELECTOR = HIDE_SELECTORS.concat(BLOCK_ONLY).join(',');
 
   // ── Role ──────────────────────────────────────────────────────────────────
@@ -176,7 +226,20 @@
   // ── Layer 3: watch the write globals ──────────────────────────────────────
   // The wrapper returns the ORIGINAL promise/task, so callers see exactly what
   // they saw before (rejection included). The extra .then only observes.
+  //
+  // Only for a viewer, decided per call (claims can land after the page's
+  // first writes). WHY (review of #1776, 2026-09-25): attaching ANY handler
+  // marks the promise as handled, so when the observer rode every write, an
+  // owner's / manager's / rep's un-awaited write that failed (e.g.
+  // maps-routing.js's fire-and-forget ml_training_data addDoc) stopped raising
+  // 'unhandledrejection' — the event Sentry's global handler reports those
+  // failures from. A sales_rep's two bare refused writes went from two events
+  // on the base build to zero. Re-throwing from the observer is no fix: it
+  // would raise a spurious unhandled rejection for every write the caller DOES
+  // handle. The trade for a viewer is deliberate: their refused writes are
+  // expected and explained on screen, so not reporting them is correct.
   function watchResult(r) {
+    if (!isViewer()) return r;
     if (r && typeof r.then === 'function') {
       try { r.then(null, onWriteError); } catch (_) { /* not a real thenable */ }
     }
@@ -244,7 +307,10 @@
   // ── Layer 2: the capture-phase guard ──────────────────────────────────────
   function gatedEl(target) {
     if (!target || typeof target.closest !== 'function') return null;
-    try { return target.closest(GATED_SELECTOR); } catch (_) { return null; }
+    try {
+      if (target.closest(READ_INSIDE)) return null;
+      return target.closest(GATED_SELECTOR);
+    } catch (_) { return null; }
   }
   function onActivate(e) {
     if (!isViewer()) return;
@@ -283,6 +349,7 @@
     // exposed for tests (tests/role-gate.test.js)
     _gatedSelector: GATED_SELECTOR,
     _hideSelectors: HIDE_SELECTORS,
+    _readInside: READ_INSIDE,
     _wrapWrite: wrapWrite,
     _wrapBatchFactory: wrapBatchFactory,
     _resetNoticeThrottle: function () { _lastNotice = 0; },

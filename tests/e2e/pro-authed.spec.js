@@ -2180,6 +2180,7 @@ test.describe.serial("Viewer role is read-only (Jo's decision B) @shard2", () =>
   const PASSWORD = 'nbd-e2e-viewer-pw-1';
   const LEAD_V = 'lead-' + TAG + '-own';     // owned by the viewer
   const LEAD_T = 'lead-' + TAG + '-team';    // a teammate's, same tenant
+  const EST_V = 'est-' + TAG + '-own';       // an unassigned estimate the viewer owns
   const made = [];
   let uid = null;
   let adm = null;
@@ -2214,6 +2215,8 @@ test.describe.serial("Viewer role is read-only (Jo's decision B) @shard2", () =>
     await put('leads/' + LEAD_T, { userId: 'rep-' + TAG, companyId: CO, firstName: 'Team', lastName: 'Mate',
       stage: 'new', jobType: 'insurance', customerId: 'EVR-0002', address: '2 Viewer St' });
     await put('leads/' + LEAD_V + '/tasks/t1', { title: 'Call the adjuster', done: false, userId: uid });
+    await put('estimates/' + EST_V, { userId: uid, companyId: CO, leadId: null, builder: 'classic',
+      name: 'Viewer Owned Estimate', addr: '1 Viewer St', grandTotal: 12000, createdAt: new Date() });
   });
 
   test.afterAll(async () => {
@@ -2303,5 +2306,61 @@ test.describe.serial("Viewer role is read-only (Jo's decision B) @shard2", () =>
     const t = await admin().db.doc('leads/' + LEAD_V + '/tasks/t1').get();
     expect(t.exists && t.data().done, 'the task is still open').toBe(false);
     expect(pageErrors, 'role-gate.js and the page load without a thrown error').toEqual([]);
+  });
+
+  // Review of #1776 (2026-09-25): the estimates-list card and the
+  // EstimatePreview sheet still offered Duplicate / Rename / Assign / Delete to
+  // a viewer who owns the estimate. Those write through module-local Firestore
+  // functions, so the refusal surfaced as "Failed to rename" instead of the
+  // view-only notice. And hiding every Templates row left "4 docs" headers
+  // over empty accordions; the rows now stay, and a click explains.
+  test('estimates list + Templates: no write buttons, read actions stay, a click explains', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (e) => pageErrors.push(e.message));
+    await loginAs(page, { email: EMAIL, password: PASSWORD });
+    await safeWaitForFunction(page, () => !!(window._userClaims && window._userClaims.role === 'viewer'), { timeout: 30_000 });
+    await safeWaitForFunction(page, () => typeof window.goTo === 'function', { timeout: 30_000 });
+    await page.evaluate(() => window.goTo('est'));
+    const card = page.locator(`#estListWrap .nbd-est-card[data-id="${EST_V}"]`);
+    await expect(card, 'the viewer can still read their estimate').toBeVisible({ timeout: 30_000 });
+    await expect(card.locator('[data-act="open"]'), 'Edit (open to read) stays').toBeVisible();
+    for (const act of ['duplicate', 'rename', 'assign', 'delete']) {
+      await expect(card.locator(`.est-act-btn[data-act="${act}"]`), act + ' is not offered to a viewer').toBeHidden();
+    }
+    // The "➕ Unassigned" chip is state, so it stays; its click (= assign) explains.
+    const chip = card.locator('.est-lead-chip.unassigned');
+    await expect(chip).toBeVisible();
+    await chip.click();
+    await expect(page.getByText(VIEW_ONLY_RE).first(), 'the assign click is explained').toBeVisible({ timeout: 5_000 });
+    await expect(page.locator('#assign-lead-picker'), 'no lead picker opened').toHaveCount(0);
+
+    // The preview sheet: read it, but no Attach/Assign or Copy.
+    await card.locator('.est-card-main').click();
+    const sheet = page.locator('[data-ep-action="close"]').first();
+    await expect(sheet, 'the EstimatePreview sheet opens for reading').toBeVisible({ timeout: 10_000 });
+    for (const act of ['assign', 'duplicate', 'archive']) {
+      const loc = page.locator(`[data-ep-action="${act}"]`);
+      const n = await loc.count();
+      for (let i = 0; i < n; i++) await expect(loc.nth(i), 'preview ' + act + ' is not offered').toBeHidden();
+    }
+    await sheet.click();
+
+    // Nothing was written: the estimate is unchanged and there is no copy.
+    const e = await admin().db.doc('estimates/' + EST_V).get();
+    expect(e.data().leadId, 'still unassigned').toBeNull();
+    expect(e.data().name, 'not renamed').toBe('Viewer Owned Estimate');
+    const mine = await admin().db.collection('estimates').where('userId', '==', uid).get();
+    expect(mine.size, 'no duplicate was created').toBe(1);
+
+    // Templates: the rows are listed (their headers count them); a click on
+    // one explains instead of opening the generator.
+    await page.evaluate(() => window.goTo('docs'));
+    const row = page.locator('#view-docs .tl-doc-row[data-action="docgen"]').first();
+    await expect(row, 'Templates rows stay listed for a viewer').toBeVisible({ timeout: 20_000 });
+    await page.evaluate(() => { const n = document.getElementById('nbdRoleViewOnlyNotice'); if (n) n.remove(); });
+    await page.waitForTimeout(2_700);   // past role-gate's one-notice-per-burst window
+    await row.click();
+    await expect(page.getByText(VIEW_ONLY_RE).first(), 'the generate click is explained').toBeVisible({ timeout: 5_000 });
+    expect(pageErrors, 'no thrown error on the estimates or Templates views').toEqual([]);
   });
 });

@@ -203,7 +203,7 @@
       'js/estimate-entry.js?v=1',
       // Rock 2 PR 6: the estimates-list row actions (Firestore CRM ops, no
       // pricing math) split out of estimates.js.
-      'js/estimate-crm-ops.js?v=2',
+      'js/estimate-crm-ops.js?v=3',
       'js/estimate-finalization.js?v=4',
       'js/estimate-v2-ui.js?v=16',
       'js/estimate-supplement.js?v=2',
@@ -262,7 +262,7 @@
     // stays eager — maps.js doubles as the theme/font appearance engine.
     d2d: [
       'js/d2d-tracker-core-2026b.js?v=7',
-      'js/d2d-tracker-ui-2026b.js?v=4',
+      'js/d2d-tracker-ui-2026b.js?v=5',
       'js/d2d-tracker-2026b.js?v=3'
     ],
     // PDF export libs (PR 2b2). jsPDF + html2pdf — ~1.1 MB combined (html2pdf

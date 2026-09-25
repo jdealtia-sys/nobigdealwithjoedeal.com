@@ -10,6 +10,58 @@ Background: [RULES-DELETE-NULL-RESOURCE-2026-09-25](RULES-DELETE-NULL-RESOURCE-2
 (#1771) split the `documents` / `warrantyClaims` delete out of `allow write`
 and listed both points below as open product calls.
 
+## Update 2026-09-25 (review fixup of #1776)
+
+A review of the first push found two blocking client defects and several
+smaller ones. What changed, and what this note said that was wrong:
+
+- **Layer 3 hid other roles' failures (blocking, fixed).** The write observer
+  attached a handler to EVERY role's write promise. A handler marks a promise
+  handled, so an owner's / manager's / rep's un-awaited write that failed
+  stopped raising `unhandledrejection`, the event Sentry's global handler
+  reports from. The claim below that "other roles see no change" was false.
+  `watchResult()` now attaches only while the user is a viewer, decided per
+  call. Checked in a browser on the served build: a sales_rep's and a
+  manager's two bare refused writes each raise two unhandled rejections again,
+  as on the base build; a viewer's raise none and show the view-only notice.
+  `role-gate.test.js` proves it with Node's own unhandled-rejection tracking
+  (one line per role, which all redden if the per-call check is removed).
+- **Estimate list actions (blocking, fixed).** The estimates-list card's
+  Duplicate / Rename / Assign / Delete and the EstimatePreview sheet's
+  Attach / Copy were still offered to a viewer who owns the estimate. They
+  write through module-local SDK functions that layer 3 never sees, so the
+  refusal read "Failed to rename". Now hidden (the "Unassigned" chip stays,
+  blocked), and `duplicateEstimateAction` / `renameEstimateAction` /
+  `assignEstimateAction` / `deleteEstimateAction` plus the customer estimate
+  hub's `makePrimary` / `doDuplicate` / `newEstimate` call `NBDRole.guard()`.
+  The hub's Make primary / Copy / Assign / Delete / New buttons are hidden.
+- **Other controls still offered (fixed).** Expenses (+ Log Expense,
+  + Supplier, recurring, deletes), Prospects "+ New Knock" (and
+  `D2D.openQuickKnock` is guarded, which covers the map long-press and
+  re-knock), the kanban "+" (no tasks yet), the phone quick-action bar's
+  Task, the portal reply textarea, Settings "Test Rules" (it creates a probe
+  lead), and the Smart Follow-up SMS / Email sends. `sendSMS` has no
+  server-side role check yet (see Left open).
+- **Templates view (changed).** Hiding every `docgen` row left the category
+  headers counting "4 docs" over empty accordions, and hiding the customer
+  page's `generateCustomerDoc` tiles took the ⓘ "Preview blank template"
+  with them, though a blank preview writes nothing. The rows and tiles are
+  now visible but blocked (a click explains), and the ⓘ is exempt from the
+  capture guard (`READ_INSIDE`). Generating a filled document stays refused:
+  it creates a document record for the lead. The reviewer also said the
+  viewer lost each row's "Blank" print. That button does not exist for any
+  role: `injectBlankButtons()` in `dashboard-ui.js` looks for an `onclick`
+  attribute the CSP migration removed from every row, and it runs while the
+  Templates view is still an unhydrated `<template>`. This is pre-existing,
+  and the page copy still points at the button. Left open below.
+- **The exceptions' reason was wrong (corrected below and in the rules
+  comment).** Two of them are read by teammates: `reps/{uid}` by every member
+  of the company, and `training_sessions` by a company_admin or manager. Both
+  stay writable. `reps/{uid}` is the viewer's profile, which decision B
+  names. `training_sessions` is the record of the viewer's own sales practice,
+  which managers read to coach; it is not tenant business data.
+- **Guarded entry points: 29 → 37.**
+
 ## Jo's decisions (2026-09-25, product owner, final)
 
 > **A.** Hard-deleting signed-contract rows (leads/{id}/documents) and
@@ -125,9 +177,14 @@ and the parent lead's `userId` for lead subcollections.
 
 ### Deliberately left writable for a viewer (the exceptions)
 
-Each is keyed to the viewer's own uid or `userId`, is read by nobody else in
-the tenant, and is what the app writes to boot or to remember the user's own
-settings. None of them is customer data.
+Each is keyed to the viewer's own uid or `userId`, is about the viewer
+themselves, and is what the app writes to boot or to remember the user's own
+settings. None of them is customer data. Most are private to the viewer. Two
+are read by teammates by design (corrected 2026-09-25; this line first said
+"read by nobody else in the tenant"). `reps/{uid}` is read by every member of
+the company: it is the viewer's profile, which decision B names.
+`training_sessions` is read by a company_admin or manager: it records the
+viewer's own sales practice, for coaching.
 
 | Path | Why it stays |
 |---|---|
@@ -154,11 +211,15 @@ the role is read-only. Three layers:
    writeBatch().commit/uploadBytes/uploadBytesResumable` are watched through
    accessors: a `permission-denied` / `storage/unauthorized` refusal while the
    user is a viewer shows the same notice. The caller still gets the original
-   rejection; nothing is blocked; other roles see no change.
+   rejection; nothing is blocked. For every other role the wrapper returns the
+   untouched promise with no handler attached (corrected 2026-09-25, see the
+   update at the top: the first cut attached one for every role).
 
-Plus `NBDRole.guard()` at the top of 29 entry points, which covers paths that
-are not a click on a listed control (keyboard shortcuts, the command palette,
-drag-and-drop, `?new=1`).
+Plus `NBDRole.guard()` at the top of 37 entry points (29 at first; the review
+fixup added the four estimates-list actions, three estimate-hub actions and
+`D2D.openQuickKnock`), which covers paths that are not a click on a listed
+control (keyboard shortcuts, the command palette, drag-and-drop, `?new=1`,
+the EstimatePreview sheet, a map long-press).
 
 **Gated (hidden, or kept visible but blocked, and guarded):**
 
@@ -167,15 +228,16 @@ drag-and-drop, `?new=1`).
 | Notes | inline composer `#quickNoteWrap`, `quickAddNote`, `openNotesModal`/`saveNote`, dashboard `_mJdQuickAddNote` |
 | Tasks | `openTaskModal`/`saveTask`/`saveEvent` (customer), `addTask`/`openTaskModal` (dashboard), kanban `open-tasks` via `openTaskModal`, timeline task rows + checkboxes (visible, blocked) |
 | Drawings | `saveDrawingToCustomer`, `saveZone`, `startZoneDraw`, `commitPin`, `importToEstimate` |
-| Documents | `openDocCreateModal`, `_pickCustomerDoc`, `generateCustomerDoc`, `openDocUploadModal`/`uploadDocuments`, `uploadSignedDoc`, `deleteCustomerDoc`, dashboard `docgen`, `openUploadDoc`/`saveDocUpload`, photo reports |
+| Documents | `openDocCreateModal`, `_pickCustomerDoc`, `openDocUploadModal`/`uploadDocuments`, `uploadSignedDoc`, `deleteCustomerDoc`, `openUploadDoc`/`saveDocUpload`, photo reports; `generateCustomerDoc` tiles and dashboard `docgen` rows (visible, blocked; the tile's ⓘ blank preview still works) |
 | Warranty claims | `WarrantyClaim.promptIntake` / `promptResolution` (the kanban move was already blocked for viewers) |
 | Photos | `openUploadModal`/`uploadPhotos`, drag-and-drop onto the customer page, bulk delete, quick phase/severity/cover, editor, share pill (visible, blocked) |
-| Estimates | `openEstimateModal`/`saveEstimate` (customer), `saveEstimate` (estimates.js), `newEstimate`/`startNewEstimate`, Edit in Builder / Archive |
+| Estimates | `openEstimateModal`/`saveEstimate` (customer), `saveEstimate` (estimates.js), `newEstimate`/`startNewEstimate`, Edit in Builder / Archive; estimates-list card Duplicate / Rename / Assign / Delete and the "Unassigned" chip (visible, blocked); EstimatePreview Attach / Copy; customer estimate hub Make primary / Copy / Assign / Delete / New (added by the review fixup) |
+| Other (review fixup) | Expenses log / supplier / recurring / deletes, Prospects "+ New Knock" and `D2D.openQuickKnock`, kanban "+" task badge (no tasks yet), phone quick-action Task, portal reply textarea, Settings "Test Rules", Smart Follow-up SMS / Email |
 | Lead | `openLeadModal`/`saveLead`/`saveQuickLead` (create + edit), `openEditCustomerModal`/`saveCustomerEdits`, `progressStage`, `editCardDetails`, card `edit-lead`/`delete-lead`/`move-card`, bulk actions, import/sample data, next-action chip and job checklist (visible, blocked); the customer-ID mint on page open is skipped for a viewer (a viewer who owned the lead passed `_cidCanWrite`, burned a counter number, then failed the lead stamp) |
 
 **Messaged, not hidden** (the rules refuse; layer 3 explains): every other
-write that goes through the `window.*` globals, e.g. D2D knocks, expenses,
-invoices from the invoice pipeline, pins from the map sidebar, the insurance
+write that goes through the `window.*` globals, e.g. invoices from the invoice
+pipeline, pins from the map sidebar, the insurance
 claim editor's saves, review requests from the dashboard. Writes made with a
 module's own imported SDK functions (not the globals) fail with the module's
 own error handling; the page-open ones are background writes a viewer never
@@ -218,19 +280,26 @@ pins the rule body and was updated with it).
   the emulator, so loading them on the shared rig would have replaced main's
   Storage rules for every lane. CI runs it (`emulators:exec --only storage`,
   a throwaway emulator).
-- `tests/role-gate.test.js` (new, node bucket): 105 checks. role-gate.js in a
-  sandbox (class via the accessor, guard, watched writes pass the original
-  rejection through and explain only viewer permission refusals, capture
-  guard, selector coverage both ways), and all 29 guarded entry points
-  extracted from their real files and executed: a viewer returns at the guard
-  touching nothing else; a sales_rep goes past it.
+- `tests/role-gate.test.js` (new, node bucket): 139 checks (105 before the
+  review fixup). role-gate.js in a sandbox (class via the accessor, guard,
+  watched writes pass the original rejection through and explain only viewer
+  permission refusals, every other role's write promise is returned untouched
+  and still raises an unhandled rejection when nobody awaits it, capture
+  guard and its ⓘ exemption, selector coverage both ways), and all 37 guarded
+  entry points extracted from their real files and executed: a viewer returns
+  at the guard touching nothing else; a sales_rep goes past it.
 - `tests/e2e/pro-authed.spec.js` "Viewer role is read-only (Jo's decision B)
   @shard2": seeds a viewer in a tagged throwaway company through the admin SDK
   (emulator mode only), signs in, and checks the dashboard (no Add Lead, board
   still readable, a real refused write surfaces the notice) and the customer
   page (write controls hidden, read-only banner, task click explains and the
-  task stays open). Its only write attempt is one main's rules also refuse,
-  so it behaves the same on the shared rig. Cleans up by id and by tag.
+  task stays open). Since the review fixup, a third test covers the estimates
+  list (no Duplicate / Rename / Assign / Delete, open stays, the "Unassigned"
+  chip explains, the EstimatePreview sheet has no Attach / Copy, and the
+  seeded estimate is unchanged with no copy made) and the Templates view (rows
+  stay listed, a click explains). Its only write attempt is one main's rules
+  also refuse, so it behaves the same on the shared rig. Cleans up by id and
+  by tag.
 - `tests/smoke/*`: four shape assertions that pinned the old rule text now pin
   the new text (`notes` author-only, `estimates` delete, Storage photos
   delete, `pins`/`zones` update).
@@ -331,17 +400,51 @@ Two gaps the first pass found and this PR closed before the rerun: `companies` u
 
 **Client.** `tests/role-gate.test.js`: removing the guard from `openLeadModal` reddens exactly its two lines (viewer stops / sales_rep passes); notifying on any role's refusal reddens "a sales_rep refused for another reason gets no view-only notice" (which first needed a throttle reset, found by this break-test); treating every error as a refusal reddens "a viewer hit by an unrelated error". The E2E block, run locally against this worktree served on :5391 and the shared rig: an empty stylesheet reddens "Add Lead is not offered to a viewer"; no capture-phase click guard reddens the task-click notice; unwatched writes redden "the refusal is explained"; `isViewer()` returning false reddens the <html> class check. Every mutation was restored from a byte copy and compared.
 
+**Client, review fixup (2026-09-25).** Each mutation restored from a byte copy
+and compared. Unit (`role-gate.test.js`, 139 checks): putting the observer back
+on every role reddens exactly the four "an un-awaited refused write still
+raises an unhandled rejection" lines (sales_rep, manager, company_admin,
+solo); dropping the `READ_INSIDE` exemption reddens the ⓘ line; not hiding
+the new selectors reddens the four new "gated:" groups and "the
+estimates-card write buttons ARE hidden"; hiding `docgen` again reddens
+"document generation rows/tiles are NOT hidden"; removing the guard from
+`renameEstimateAction`, `makePrimary` or `openQuickKnock` reddens exactly
+that function's two lines. E2E (new test "estimates list + Templates", run
+against this worktree on :5391 and the shared rig): not hiding the new
+selectors reddens "duplicate is not offered to a viewer"; hiding `docgen`
+again reddens "Templates rows stay listed for a viewer".
+
 **Storage.** Not break-tested (the Storage emulator is global to the rig; see Tests).
 
 ## Left open
 
-- **Callables do not check the role.** Admin-SDK Cloud Functions a viewer's
-  browser can call (portal links, `replyToPortalMessage`, `sendSMS`,
-  `attachStormProof`, `requestMeasurement`, document rendering, …) write on
-  the caller's behalf without a `viewer` check. `sendEmail` and
-  `markEmailUnsubscribed` already refuse viewers. The client hides the portal
-  reply button and the review/referral SMS; the callables themselves are a
-  follow-up.
+- **Callables do not check the role (tracked follow-up; decision B is not
+  yet enforced server-side for these).** Admin-SDK Cloud Functions a viewer's
+  browser can call write or send on the caller's behalf without a `viewer`
+  check. Two reach further than a viewer's OWN leads: `attachStormProof`
+  (`functions/handlers/storm-proof.js`) and `requestMeasurement`
+  (`functions/integrations/measurement.js`, a paid provider path) accept any
+  same-company member on ANY lead in the tenant. For a lead the viewer owns:
+  portal-token minting (`canManageLead` in `functions/portal.js`),
+  `replyToPortalMessage` (a message to the homeowner), `sendSMS`, e-sign
+  envelopes (`functions/esign-envelope.js`) and sign requests
+  (`functions/remote-signing.js`). Only `sendEmail` and
+  `markEmailUnsubscribed` refuse a viewer today. The client hides the portal
+  reply, the review/referral SMS and the Smart Follow-up SMS / Email; the fix
+  is one shared server-side `role !== 'viewer'` guard in each callable.
+- **Two product calls for Jo on decision A** (the rules follow its letter):
+  1. A manager can no longer hard-delete a signed-contract or warranty-claim
+     row, but can still blank it. A full-overwrite `setDoc(ref, {})`, or an
+     update moving `status` from `signed` back to `draft`, is an update, and
+     managers keep create/update. If signed rows should be protected in
+     substance, freeze their fields once `status == 'signed'`.
+  2. "The same set that can delete the lead itself" is not literally true:
+     the platform admin can hard-delete a lead but not its `documents` /
+     `warrantyClaims` rows (unchanged since #1771). The rules follow the
+     explicit list in the decision (owner + company_admin).
+- The Templates view's per-row "Blank" print button is never injected for any
+  role (pre-existing; see the update at the top), and the page copy still
+  tells the rep to use it.
 - A viewer's customer page logs `Invoice load error`: `customer-tasks-ui.js`
   puts `viewer` in the team invoice query, but the `invoices` read rule admits
   only staff. Pre-existing, a read-side mismatch, not touched here.

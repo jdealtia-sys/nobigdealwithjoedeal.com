@@ -22,6 +22,8 @@
 // ══════════════════════════════════════════════════════════════
 
 async function duplicateEstimateAction(id) {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   if (typeof window._duplicateEstimate !== 'function') {
     showToast('Duplicate not available — reload the page', 'error');
     return;
@@ -34,6 +36,8 @@ async function duplicateEstimateAction(id) {
 }
 
 async function renameEstimateAction(id) {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const src = (window._estimates || []).find(e => e.id === id);
   if (!src) { showToast('Estimate not found', 'error'); return; }
   const current = src.name || src.addr || '';
@@ -60,6 +64,8 @@ async function renameEstimateAction(id) {
 }
 
 async function assignEstimateAction(id) {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const src = (window._estimates || []).find(e => e.id === id);
   if (!src) { showToast('Estimate not found', 'error'); return; }
   const leads = window._leads || [];
@@ -72,6 +78,8 @@ async function assignEstimateAction(id) {
 }
 
 async function deleteEstimateAction(id) {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const src = (window._estimates || []).find(e => e.id === id);
   if (!src) { showToast('Estimate not found', 'error'); return; }
   const label = src.name || src.addr || 'this estimate';

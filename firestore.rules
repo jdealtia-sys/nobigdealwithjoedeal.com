@@ -80,13 +80,20 @@ service cloud.firestore {
     // loses anything. .get() because a solo operator has NO role claim and a
     // bare token.role read throws (NEW-5).
     //
-    // Deliberately NOT applied: a viewer's own user-scoped docs, which nobody
-    // else reads and which the app writes to boot and to remember settings:
-    // users/{uid} (+ subcollections: settings, preferences, fcmTokens,
-    // jobTemplates, captures), userSettings/{uid}, notifications addressed to
-    // them, reps/{uid} (their team profile), academy_progress/{uid},
-    // daily_entries/{uid}, dailyTracker, training_sessions (their own practice
-    // record) and estimate_drafts/{uid}. The table is in
+    // Deliberately NOT applied: a viewer's own user-scoped docs — keyed to
+    // their own uid / userId, about the viewer themselves, carrying no lead,
+    // customer or money data — which the app writes to boot and to remember
+    // settings: users/{uid} (+ subcollections: settings, preferences,
+    // fcmTokens, jobTemplates, captures), userSettings/{uid}, notifications
+    // addressed to them, reps/{uid} (their team profile), academy_progress/
+    // {uid}, daily_entries/{uid}, dailyTracker, training_sessions (their own
+    // sales-practice record) and estimate_drafts/{uid}. Most are private to
+    // the viewer. Two are read by teammates BY DESIGN (corrected 2026-09-25 —
+    // an earlier cut of this comment said "nobody else reads" them): every
+    // member of the company reads reps/{uid} (it is the viewer's profile,
+    // which decision B names as an exception), and a company_admin / manager
+    // reads training_sessions to coach (it records the viewer's own practice,
+    // not tenant business). The table is in
     // documentation/audit/ROLE-TIGHTENING-2026-09-25.md.
     function notViewer() {
       return isAuth() && request.auth.token.get('role', '') != 'viewer';
