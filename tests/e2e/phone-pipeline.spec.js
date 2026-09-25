@@ -486,13 +486,16 @@ test.describe('phone pipeline @audit', () => {
   test('a rotate re-renders the list and the follow-up rows for the new width; the pipeline never comes back blank (nav polish #2)', async () => {
     test.setTimeout(120_000);
     const saved = await safeEvaluate(page, () => { try { return localStorage.getItem('nbd-crm-view-mode'); } catch (_) { return null; } });
-    const state = () => safeEvaluate(page, () => {
+    // Counts can move under a live refresh (the book is shared), so the
+    // list is checked by this run's own Installing lead as well as by count.
+    const state = () => safeEvaluate(page, (id) => {
       const shown = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).length;
       const label = (document.getElementById('followUpAlertsLabel') || {}).textContent || '';
       return { listMode: document.body.classList.contains('crm-list-mode'),
         cards: shown('#crmListWrap .cl-card'), rows: shown('#crmListWrap tr.crm-list-row'), board: shown('#kanbanBoard .k-card'),
+        myCard: shown(`#crmListWrap .cl-card[data-id="${id}"]`) > 0, myRow: shown(`#crmListWrap tr.crm-list-row[data-id="${id}"]`) > 0,
         fu: shown('#followUpAlerts .follow-up-alert'), due: parseInt(label, 10) || 0 };
-    });
+    }, ids.install);
     // What lands while the phone is sideways: a live refresh (snapshot →
     // renderLeads). Without one the old layout just sat there.
     const refresh = () => safeEvaluate(page, () => window.renderLeads(window._leads));
@@ -515,7 +518,7 @@ test.describe('phone pipeline @audit', () => {
         expect(side.fu, `sideways (${h}x${w}): the wider screen's five follow-up rows`).toBe(Math.min(5, side.due));
         await turn(w, h);
         const back = await state();
-        expect(back.cards, `upright again (${w}x${h}): every list card is back`).toBe(up.cards);
+        expect({ cards: back.cards > 0, mine: back.myCard }, `upright again (${w}x${h}): the list cards are back`).toEqual({ cards: true, mine: true });
         expect(back.listMode, `upright again (${w}x${h}): the list`).toBe(true);
         expect(back.fu, `upright again (${w}x${h}): three follow-up rows`).toBe(3);
       }
@@ -524,13 +527,12 @@ test.describe('phone pipeline @audit', () => {
       await turn(412, 860);
       await safeEvaluate(page, () => window.crmViewList());
       await waitWith(page, () => document.querySelectorAll('#crmListWrap .cl-card').length > 0, null, 10_000);
-      const n = (await state()).cards;
       await turn(860, 412);
       const tbl = await state();
-      expect({ listMode: tbl.listMode, cards: tbl.cards, table: tbl.rows === n }, 'saved List sideways: the table, one row per lead').toEqual({ listMode: true, cards: 0, table: true });
+      expect({ listMode: tbl.listMode, cards: tbl.cards, table: tbl.rows > 0, mine: tbl.myRow }, 'saved List sideways: the table').toEqual({ listMode: true, cards: 0, table: true, mine: true });
       await turn(412, 860);
       const cards = await state();
-      expect({ cards: cards.cards, rows: cards.rows }, 'saved List upright again: the cards').toEqual({ cards: n, rows: 0 });
+      expect({ cards: cards.cards > 0, mine: cards.myCard, rows: cards.rows }, 'saved List upright again: the cards').toEqual({ cards: true, mine: true, rows: 0 });
 
       // Saved Board: the board both ways; only the follow-up rows re-fit
       // (no refresh in between — the rows follow the rotate by themselves).
