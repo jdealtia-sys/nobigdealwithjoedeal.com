@@ -22,6 +22,13 @@
 // the switch itself at every phone layout, live on / off, reload, re-entry,
 // and on / off x5 with no leak. The desktop block opts in and still gets
 // nothing.
+// Gate review (same day): with no preference ☰ Tools is main's drawer (the
+// Eave/Rake chooser, Line Type and ✓ Finish run where they were — the
+// switch sits below Controls); the switch is reached by a real finger
+// dragging the drawer (not scrollIntoView, which scrolls the page); a
+// toast's ✕ keeps off ☰ Tools; on / off x5 also checks the screen's timers
+// and frame are cancelled; Eave/Rake mode ('er') at switch-on shows Edit and
+// hides the drawer's "tap" bars.
 //
 // How it measures:
 //   - The engine seam (drawMap.nbdDraw, draw lane L3) is a TEST-ONLY stub
@@ -106,6 +113,36 @@ function leakProbeInit() {
   }
   const count = (m) => { let n = 0; m.forEach((s) => { n += s.size; }); return n; };
   Object.defineProperty(window, '__e2eLeaks', { value: () => ({ window: count(live.window), document: count(live.document), observers: observers.size }) });
+  // Timers and frames the SCREEN has pending: the direct caller of
+  // setTimeout / requestAnimationFrame is in draw-reticle.js and is not
+  // relayout() — the switch's own re-measure after a flip, which outlives a
+  // screen on purpose (350 ms). V8 stack: [0] Error, [1] screenCall, [2] the
+  // wrapper, then Sentry's own wrapper frames (it wraps both after this
+  // script runs), then the caller. (Gate review 2026-09-25: deleting
+  // destroy()'s cancelAnimationFrame and clearTimeout lines left every test
+  // green.)
+  const screenCall = () => {
+    const c = (new Error().stack || '').split('\n').slice(3).find((l) => !/sentry/i.test(l)) || '';
+    return c.indexOf('draw-reticle.js') !== -1 && !/\brelayout\b/.test(c);
+  };
+  const pending = { timers: new Set(), frames: new Set() };
+  const sT = window.setTimeout, cT = window.clearTimeout, rAF = window.requestAnimationFrame, cAF = window.cancelAnimationFrame;
+  window.setTimeout = function (fn, ms) {
+    if (typeof fn !== 'function' || !screenCall()) return sT.apply(window, arguments);
+    const rest = Array.prototype.slice.call(arguments, 2);
+    const id = sT.call(window, function () { pending.timers.delete(id); return fn.apply(this, rest); }, ms);
+    pending.timers.add(id);
+    return id;
+  };
+  window.clearTimeout = function (id) { pending.timers.delete(id); return cT.call(window, id); };
+  window.requestAnimationFrame = function (fn) {
+    if (typeof fn !== 'function' || !screenCall()) return rAF.call(window, fn);
+    const id = rAF.call(window, function (t) { pending.frames.delete(id); return fn(t); });
+    pending.frames.add(id);
+    return id;
+  };
+  window.cancelAnimationFrame = function (id) { pending.frames.delete(id); return cAF.call(window, id); };
+  Object.defineProperty(window, '__e2ePending', { value: () => ({ timers: pending.timers.size, frames: pending.frames.size }) });
 }
 // Everything the screen adds to the page outside its own root, and the switch.
 async function screenState(page) {
@@ -129,12 +166,38 @@ async function screenState(page) {
   }, PREF);
 }
 const TOOLS = '[data-action="mapSidebar"][data-target="map-sidebar-draw"]';
-// Scroll ☰ Tools until the switch sits mid-drawer, as a rep would. (With the
-// screen off, a 360x640 phone's drawer runs 66px under the bottom nav, so
-// "scrolled into view" is not the same as "under a thumb".)
-async function revealSwitch(page) {
-  await page.evaluate(() => document.getElementById('drawCrosshairSwitch').scrollIntoView({ block: 'center', inline: 'nearest' }));
+// Bring the switch into the part of ☰ Tools a thumb can reach — the drawer's
+// box, on screen, above the bottom nav — the way a rep does: with `touch`,
+// a real finger drags inside the drawer (held still before lifting, so
+// nothing flings); without, the drawer itself scrolls. Never the page: the
+// first cut used scrollIntoView(), which also scrolls the PAGE, and a
+// finger cannot — at 740x360 Tools opens wholly below the screen and a
+// swipe on the header or the map leaves the page where it is (gate review,
+// 2026-09-25). Returns where the switch ended up.
+async function revealSwitch(page, touch) {
+  const where = () => page.evaluate(() => {
+    const d = document.getElementById('map-sidebar-draw');
+    const r = d.getBoundingClientRect();
+    const s = document.getElementById('drawCrosshairSwitch').getBoundingClientRect();
+    const nav = document.getElementById('mobile-nav');
+    const nr = nav && getComputedStyle(nav).display !== 'none' ? nav.getBoundingClientRect() : null;
+    const top = Math.max(r.top, 0);
+    const bottom = Math.min(r.bottom, innerHeight, nr && nr.height ? nr.top : Infinity);
+    return { top, bottom, x: r.left + r.width / 2, dy: (s.top + s.height / 2) - (top + bottom) / 2, inside: s.top >= top + 4 && s.bottom <= bottom - 4, scrollY };
+  });
+  let w = await where();
+  if (!touch) {
+    await page.evaluate((dy) => { document.getElementById('map-sidebar-draw').scrollTop += dy; }, w.dy);
+  } else {
+    for (let i = 0; i < 10 && !w.inside && w.bottom - w.top > 80; i++) {
+      const span = Math.min(Math.abs(w.dy), (w.bottom - w.top) * 0.6);
+      const mid = (w.top + w.bottom) / 2, dir = Math.sign(w.dy);
+      await touch.pan({ x: w.x, y: mid + dir * span / 2 }, { x: w.x, y: mid - dir * span / 2 }, { steps: 20, stepMs: 16, holdEndMs: 150, settleMs: 300 });
+      w = await where();
+    }
+  }
   await page.waitForTimeout(150);
+  return where();
 }
 // Open / close ☰ Tools with a real tap (no-op if it is already that way).
 async function setTools(page, open) {
@@ -385,9 +448,15 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
     // close, flip, finish run and empty undo — hiding it and taking the
     // finger meant for the pending point for its 5 s life. On the Draw
     // screen toasts now sit at the top of the map.
-    test('a toast clears the crosshair, the pending point and the magnifier, and lets a finger through', async () => {
+    test('a toast clears the crosshair, the pending point, the magnifier and ☰ Tools, and lets a finger through', async () => {
       await reset();
       await mode('perim');
+      // Open and close ☰ Tools once: it is relabelled "☰ Tools" (narrower,
+      // so further right), the label it had when a toast's ✕ sat on its
+      // centre and ate the tap meant for it (gate review, 2026-09-25).
+      await setTools(page, true);
+      await setTools(page, false);
+      await nextFrames(page);
       await T.quietToasts(page);
       await page.evaluate(() => window.showToast('Facet 1 closed — 1075 sf', 'info'));
       await expect(page.locator('#toastContainer .toast')).toHaveCount(1);
@@ -422,7 +491,13 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       expect(under.overlaps, 'the toast floats over zoom-in (+) — the case this pins').toBe(true);
       expect((await hitTest(page, '#drawMap .leaflet-control-zoom-in')).why, 'zoom-in (+) under the toast').toBe('hit');
       expect((await hitTest(page, '#toastContainer .toast-close')).why, 'the toast ✕').toBe('hit');
-      await expect(page.locator('#toastContainer .toast'), 'the toast was up for all three').toHaveCount(1);
+      // ☰ Tools — the way back to the beta switch — is clear of the whole
+      // toast, so its ✕ cannot take a tap meant for Tools.
+      const tb = await page.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom, label: document.querySelector(s).textContent.trim() }; }, TOOLS);
+      expect(tb.label, 'Tools relabelled after one open / close').toBe('☰ Tools');
+      expect(overlap(await toastBox(), tb), `toast vs ☰ Tools ${JSON.stringify(tb)}`).toBe(false);
+      expect((await hitTest(page, TOOLS)).why, '☰ Tools with a toast up').toBe('hit');
+      await expect(page.locator('#toastContainer .toast'), 'the toast was up for all four').toHaveCount(1);
       await tapSel('[data-dr-act="cancel"]');
       await T.quietToasts(page);
       await expect(page.locator('#toastContainer .toast')).toHaveCount(0);
@@ -870,6 +945,9 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
           const u2 = await ui(page);
           expect(overlap(t, u2.cross), `852x393: toast ${JSON.stringify(t)} vs the crosshair`).toBe(false);
           expect(overlap(t, u2.bar), '852x393: toast vs the bar').toBe(false);
+          const tb = await boxOf(tools);
+          expect(overlap(t, tb), `852x393: toast vs ☰ Tools ${JSON.stringify(tb)}`).toBe(false);
+          expect((await hitTest(page, tools)).why, '852x393: ☰ Tools with a toast up').toBe('hit');
           await T.quietToasts(page);
         } finally {
           if (await page.locator('#map-sidebar-draw.open').count()) await page.locator('[data-action="mapSidebar"][data-target="map-sidebar-draw"]').tap().catch(() => {});
@@ -1011,7 +1089,7 @@ test.describe.serial('crosshair beta switch, off by default 412x860 @shard2', ()
     expect(s.sw.checked, 'it reads off').toBe('false');
     await setTools(page, true);
     await T.quietToasts(page);
-    await revealSwitch(page);
+    await revealSwitch(page, touch);
     await expect(page.locator(SW), 'the switch shows in ☰ Tools').toBeVisible();
     await expectTappable(page, SW, 'the beta switch');
     expect((await page.locator(SW).boundingBox()).height, 'switch height').toBeGreaterThanOrEqual(44);
@@ -1133,7 +1211,18 @@ test.describe.serial('crosshair beta switch, off by default 412x860 @shard2', ()
       expect(on.leaflets, `cycle ${i}: the map + the magnifier's map`).toBe(off0.leaflets + 1);
       if (!on1) on1 = on;
       else expect(on, `cycle ${i}: on, the same listeners / observers / maps as cycle 1`).toEqual(on1);
-      await page.evaluate(() => document.getElementById('drawCrosshairSwitch').click());
+      // Off with a frame queued (a resize makes the screen re-measure) and
+      // the Confirm guard's timer live (Add was a frame ago), in the same
+      // task, so nothing can run first: destroy() must cancel both.
+      const at = await page.evaluate(() => {
+        window.dispatchEvent(new Event('resize'));
+        const before = window.__e2ePending();
+        document.getElementById('drawCrosshairSwitch').click();
+        return { before, after: window.__e2ePending() };
+      });
+      expect(at.before.frames, `cycle ${i}: a screen frame was queued at off`).toBeGreaterThanOrEqual(1);
+      expect(at.before.timers, `cycle ${i}: a screen timer was live at off (the Confirm guard)`).toBeGreaterThanOrEqual(1);
+      expect(at.after, `cycle ${i}: off cancels the screen's frame and timers`).toEqual({ timers: 0, frames: 0 });
       await nextFrames(page);
       expect(await leaks(), `cycle ${i}: off leaves the page as it found it`).toEqual(off0);
     }
@@ -1142,9 +1231,15 @@ test.describe.serial('crosshair beta switch, off by default 412x860 @shard2', ()
     expect(on1.seamListeners, 'and its seam listeners').toBeGreaterThan(off0.seamListeners);
   });
 
-  test('the switch is under a thumb: 412x860, 360x640 and landscape, browser and installed app, off and on', async () => {
+  // Reached by a real finger dragging inside ☰ Tools (revealSwitch). Not at
+  // 740x360 (a small phone on its side, under 769px wide): there ☰ Tools
+  // opens wholly below the screen and no swipe brings it up — on main too,
+  // for everything in Tools (gate review, 2026-09-25). The first cut
+  // "reached" it with scrollIntoView(), which scrolls the page from code.
+  test('the switch is under a thumb: 412x860, 360x640 and 852x393, browser and installed app, off and on', async () => {
+    test.setTimeout(120_000);
     try {
-      for (const [w, h] of [[412, 860], [360, 640], [852, 393], [740, 360]]) {
+      for (const [w, h] of [[412, 860], [360, 640], [852, 393]]) {
         await page.setViewportSize({ width: w, height: h });
         await page.waitForTimeout(500);
         for (const installed of [false, true]) {
@@ -1160,7 +1255,8 @@ test.describe.serial('crosshair beta switch, off by default 412x860 @shard2', ()
               const viaTools = await page.evaluate((s) => { const b = document.querySelector(s); return !!b && getComputedStyle(b).display !== 'none' && b.getBoundingClientRect().width > 0; }, TOOLS);
               if (viaTools) await setTools(page, true);
               await T.quietToasts(page);
-              await revealSwitch(page);
+              const got = await revealSwitch(page, touch);
+              expect(got.inside, `${tag}: a finger dragging in ☰ Tools brings the switch on screen ${JSON.stringify(got)}`).toBe(true);
               const box = await page.locator(SW).boundingBox();
               expect(box && box.height, `${tag}: switch height`).toBeGreaterThanOrEqual(44);
               expect(box.x >= 0 && box.x + box.width <= w + 0.5, `${tag}: switch inside the screen ${JSON.stringify(box)}`).toBe(true);
@@ -1280,12 +1376,79 @@ test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shar
     expect(await leafletOpts(), 'Leaflet options untouched').toEqual({ inertia: true, touchZoom: true, doubleClickZoom: true, crosshairClass: false });
     expect(s.sw && s.sw.checked, 'the switch reads off').toBe('false');
     await setTools(page, true);
-    await revealSwitch(page);
+    await revealSwitch(page, touch);
     await expectTappable(page, '#drawCrosshairSwitch', 'the beta switch in ☰ Tools');
     await setTools(page, false);
     const st = await tapToPlace();
     expect(st.saved && st.saved.lines.length, 'two taps drew one line (tap-to-place)').toBe(1);
     expect(Math.abs(st.saved.lines[0].dist - G.hav(WING.A, WING.B)), 'its length').toBeLessThanOrEqual(0.5);
+  });
+
+  // 2026-09-25 (gate review, blocking): with no preference ☰ Tools must be
+  // main's drawer. The first cut mounted the switch under Draw Mode, and its
+  // 56px row pushed the Eave/Rake chooser, the Line Type grid and ✓ Finish
+  // run under the bottom nav at 393x852 and 412x860 — on screen there on
+  // main when Tools opens (drawer at its top). The switch sits below
+  // Controls now, after every control the drawing flow uses.
+  test('default (no preference): ☰ Tools is main\'s drawer — Line Type, the Eave/Rake chooser and ✓ Finish run are under a thumb as it opens (393x852, 412x860)', async () => {
+    test.setTimeout(150_000);
+    // ☰ Tools opened by a finger, the drawer at its top.
+    const openAtTop = async () => {
+      await T.quietToasts(page);
+      await page.evaluate(() => { window.scrollTo(0, 0); document.getElementById('map-sidebar-draw').scrollTop = 0; });
+      await setTools(page, true);
+      await page.evaluate(() => { document.getElementById('map-sidebar-draw').scrollTop = 0; });
+      await T.quietToasts(page);
+    };
+    // `mode` armed, two finger taps on the map (A, B): tap-to-place.
+    const twoTaps = async (mode) => {
+      await T.resetDrawing(page);
+      await T.setView(page, WING.view, WING.zoom);
+      await T.arm(page, mode);
+      await touch.tap(await T.ll2client(page, WING.A));
+      await touch.tap(await T.ll2client(page, WING.B));
+    };
+    try {
+      for (const [w, h] of [[393, 852], [412, 860]]) {
+        await page.setViewportSize({ width: w, height: h });
+        await page.waitForTimeout(600);
+        for (const installed of [false, true]) {
+          const tag = `${w}x${h}${installed ? ' installed' : ''}`;
+          if (installed) expect(await forceStandalone(page), 'found the standalone rules to force').toBeGreaterThan(200);
+          try {
+            await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+            await page.waitForTimeout(500);
+            expect((await screenState(page)).roots, `${tag}: no crosshair screen`).toBe(0);
+            // Lines: the Line Type grid.
+            await T.resetDrawing(page);
+            await T.arm(page, 'line');
+            await openAtTop();
+            for (const sel of ['#ltGrid .lt-btn:nth-child(1)', '#ltGrid .lt-btn:nth-child(2)']) await expectTappable(page, sel, `${tag}, Lines: ${sel}`);
+            await setTools(page, false);
+            // Perimeter, two taps: the Eave / Rake chooser for that edge.
+            await twoTaps('perim');
+            await expect(page.locator('#reChooser'), `${tag}: the Eave / Rake chooser is up`).toHaveClass(/\bvisible\b/);
+            await openAtTop();
+            for (const sel of ['.re-btn-eave', '.re-btn-rake']) await expectTappable(page, sel, `${tag}, Perimeter: ${sel}`);
+            await setTools(page, false);
+            // Gutters, two taps: ✓ Finish run.
+            await twoTaps('gutter');
+            await openAtTop();
+            await expectTappable(page, '#gutterFinishBtn', `${tag}, Gutters: ✓ Finish run`);
+            await setTools(page, false);
+          } finally {
+            if (installed) await page.evaluate(() => { const st = document.getElementById('e2e-force-standalone'); if (st) st.remove(); });
+          }
+        }
+      }
+    } finally {
+      if (await page.locator('#map-sidebar-draw.open').count()) await page.locator(TOOLS).tap().catch(() => {});
+      await T.resetDrawing(page);
+      await page.setViewportSize({ width: 412, height: 860 });
+      await page.waitForTimeout(600);
+      await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+      await T.setView(page, WING.view, WING.zoom);
+    }
   });
 
   test('switch on: the screen builds live and the engine goes into crosshair mode', async () => {
@@ -1463,6 +1626,72 @@ test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shar
     const st = await tapToPlace();
     expect(st.saved && st.saved.lines.length, 'two taps drew one line again (tap-to-place)').toBe(1);
     expect(Math.abs(st.saved.lines[0].dist - G.hav(WING.A, WING.B)), 'its length').toBeLessThanOrEqual(0.5);
+  });
+
+  // Gate review 2026-09-25: the engine can be in the drawer's Eave/Rake mode
+  // ('er') when the switch goes on. On the screen a tap only aims, so 'er'
+  // shows as Edit on the bar (whose Flip does that job), and the drawer's
+  // Eave/Rake button and its "Tap any Eave or Rake line" bar are hidden —
+  // the first cut left that bar up. The perimeter bar's "tap map to trace"
+  // goes too. Each is checked shown with the switch off first, and a tap on
+  // the line flips it with the switch off: the control for "flips nothing".
+  test('Eave/Rake mode as the switch goes on: Edit on the bar, the drawer\'s "tap" bars hidden, a tap on an edge flips nothing', async () => {
+    const shown = (sel) => page.evaluate((s) => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().height > 0; }, sel);
+    const types = async () => ((await T.drawState(page)).saved || { lines: [] }).lines.map((l) => l.type);
+    const onLine = { lat: WING.A.lat + (WING.B.lat - WING.A.lat) * 0.3, lng: WING.A.lng + (WING.B.lng - WING.A.lng) * 0.3 }; // clear of the length chip
+    try {
+      // One Eave line A-B, by tap-to-place (switch off).
+      await T.resetDrawing(page);
+      await T.setView(page, WING.view, WING.zoom);
+      await api('setMode', 'line', { lineType: 5 });
+      await touch.tap(await T.ll2client(page, WING.A));
+      await touch.tap(await T.ll2client(page, WING.B));
+      await expect.poll(types, { message: 'one Eave line' }).toEqual([5]);
+      await T.quietToasts(page);
+      // Perimeter armed, switch off: its bar shows.
+      await T.arm(page, 'perim');
+      await setTools(page, true);
+      expect(await shown('#perimBar'), 'off: the perimeter bar shows').toBe(true);
+      // The drawer's Eave/Rake mode, by a finger; its bar shows.
+      await tapSel('#modeERBtn');
+      expect((await api('state')).mode, 'the engine is in Eave/Rake mode').toBe('er');
+      expect(await shown('#erBar'), 'off: the Eave/Rake bar shows').toBe(true);
+      await setTools(page, false);
+      await touch.tap(await T.ll2client(page, onLine));
+      await expect.poll(types, { message: 'off: a tap on the line flips it (Eave -> Rake)' }).toEqual([4]);
+      await T.quietToasts(page);
+      // Switch on, with the engine in 'er'.
+      await setTools(page, true);
+      await revealSwitch(page, touch);
+      await tapSel('#drawCrosshairSwitch');
+      expect(await shown('#modeERBtn'), 'on: the drawer\'s Eave/Rake button is hidden').toBe(false);
+      expect(await shown('#erBar'), 'on: its "Tap any Eave or Rake line" bar is hidden').toBe(false);
+      await setTools(page, false);
+      await expect(page.locator('#view-draw.dr-on .dr-root .dr-bar')).toBeVisible();
+      expect(await page.evaluate(() => document.querySelector('.dr-mode[data-dr-mode="edit"]').getAttribute('aria-pressed')), 'on: the bar shows Edit').toBe('true');
+      expect((await api('state')).mode, 'the engine is still in Eave/Rake mode').toBe('er');
+      await T.setView(page, WING.view, WING.zoom);
+      const at = await T.ll2client(page, onLine);
+      expect((await T.hitAt(page, at)).ok, `on: a finger there reaches the map (${(await T.hitAt(page, at)).what})`).toBe(true);
+      await touch.tap(at);
+      await page.waitForTimeout(500);
+      expect(await types(), 'on: a tap on the line only aims — nothing flips').toEqual([4]);
+      // Outline on the bar leaves 'er'; the perimeter bar's "tap map to trace" stays hidden.
+      await tapSel('.dr-mode[data-dr-mode="perim"]');
+      expect((await api('state')).mode, 'Outline takes the engine out of Eave/Rake mode').toBe('perim');
+      await setTools(page, true);
+      expect(await shown('#perimBar'), 'on: the perimeter bar ("tap map to trace") is hidden').toBe(false);
+      // Off: the drawer is main's again.
+      await revealSwitch(page, touch);
+      await tapSel('#drawCrosshairSwitch');
+      expect((await screenState(page)).roots, 'off: the screen is gone').toBe(0);
+      expect(await shown('#perimBar'), 'off: the perimeter bar is back').toBe(true);
+      expect(await shown('#modeERBtn'), 'off: the Eave/Rake button is back').toBe(true);
+    } finally {
+      if (await page.locator('#map-sidebar-draw.open').count()) await page.locator(TOOLS).tap().catch(() => {});
+      await T.quietToasts(page);
+      await T.resetDrawing(page);
+    }
   });
 
   test('no page errors on the real engine', async () => {
