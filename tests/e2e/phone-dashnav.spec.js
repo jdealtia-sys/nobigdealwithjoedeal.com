@@ -313,15 +313,21 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     // Measure only AFTER initDrawMap has run: the collapse came from init
     // itself (an inline style it wrote), so the empty container measures
     // fine for the moment before it — a break-test caught this assertion
-    // passing on the broken code by reading too early. The touch toggle is
-    // appended at the end of init's touch branch, so it marks "init done".
-    await expect(page.locator('#drawMap.leaflet-container #drawModeToggle')).toBeAttached({ timeout: 15_000 });
+    // passing on the broken code by reading too early. The engine seam
+    // (drawMap.nbdDraw) is attached as the LAST step of init, so it marks
+    // "init done". (It was the DRAW MODE / NAVIGATE toggle, appended at the
+    // end of init's touch branch — removed in draw lane L3, 2026-09-25.)
+    await expect.poll(() => safeEvaluate(page, () => typeof drawMap !== 'undefined' && !!drawMap && !!drawMap.nbdDraw),
+      { message: 'initDrawMap finished (drawMap.nbdDraw attached)', timeout: 15_000 }).toBe(true);
     await page.waitForTimeout(300);
     await expect.poll(() => safeEvaluate(page, () => Math.round(document.getElementById('drawMap').getBoundingClientRect().height)),
       { message: '#drawMap height after init', timeout: 5_000 }).toBeGreaterThan(200);
     await expectTappable(page, '#drawMap', 'the map surface');
-    await expectTappable(page, '#drawModeToggle', 'DRAW MODE / NAVIGATE toggle');
+    // The top-left corner is the zoom control's alone: no toggle over "+"
+    // (the old one sat at left:54px, beside it) and nothing left behind.
+    await expect(page.locator('#drawModeToggle'), 'the DRAW MODE / NAVIGATE toggle is gone (L3)').toHaveCount(0);
     await expectTappable(page, '#drawMap .leaflet-control-zoom-in', 'zoom-in (+)');
+    await expectTappable(page, '#drawMap .leaflet-control-zoom-out', 'zoom-out (−)');
   });
 
   // 2026-09-25, Jo on the INSTALLED app (iPhone): "☰ Tools" did nothing

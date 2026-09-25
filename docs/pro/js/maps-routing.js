@@ -71,8 +71,6 @@ let perimSegments = [];
 let perimClosed   = false;
 let perimPendingP1 = null;
 let perimPendingP2 = null;
-let perimTempLine  = null;
-let perimTempLbl   = null;
 let perimPolygon   = null;
 let perimBaseArea  = 0;
 let perimCloseRing = null;
@@ -95,8 +93,54 @@ let selectedLineId = null;
 let drawMapLayers = {};
 let currentLayerType = 'satellite';
 
-// Snap
+// Snap — a desktop click (and, while the crosshair is off, a finger tap)
+// joins the corner within 12 px. Unchanged by L3.
 const SNAP_PX = 12;
+
+// ── Draw lane L3 (2026-09-25) — the crosshair-ready engine seam ──
+// Phones are moving to "move the map, not your finger": a fixed crosshair
+// at the map's centre, and an Add button (docs/pro/js/draw-reticle.js, lane
+// L4) that places the point under it. This file owns the engine side:
+// drawMap.nbdDraw (the seam, see _seam at the bottom of initDrawMap), the
+// shared-corner mover, the crosshair map mode, the live preview and the
+// guards. Nothing new goes on window (globals-surface-snapshot).
+// Crosshair-placed points snap to a corner within 16 px, capped at 3 ft of
+// ground (so 7.9 px at z20, 15.8 px at z21 over Cincinnati), and not at all
+// when that radius is under 4 px — below ~z19 the ring the UI draws would
+// be invisible, and an invisible snap is how a point lands on the wrong
+// corner (the plan rejected the 24 px blind snap for that reason).
+const RETICLE_SNAP_PX = 16, RETICLE_SNAP_FT = 3, RETICLE_SNAP_MIN_PX = 4;
+// Add is refused within 6 px of the last point: no 0 ft segments, and no
+// accidental "finish" from a double press.
+const SAME_SPOT_PX = 6;
+// A desktop mouse grabs the nearest corner within 8 px — our own hit test,
+// so a dot grabbed dead-centre drags even where a line or label sits on it.
+const VERTEX_GRAB_PX = 8;
+// pointer:coarse at init (a phone or tablet). Crosshair mode exists only
+// there; desktop keeps click-to-place (Jo, decision 4).
+let _coarse = false;
+// Crosshair mode is OFF until the crosshair screen (L4) switches it on with
+// nbdDraw.setCrosshair(true): without that screen a phone would have no Add
+// button, and Jo test-drives it on his iPhone before it goes to everyone
+// (decision 8). Off = today's tap-to-place, exactly.
+let _crosshair = false;
+let _crosshairSaved = null; // map options to put back when it goes off
+// The edge type a crosshair-placed perimeter edge commits as (sticky until
+// changed; the desktop still asks with #reChooser after every edge).
+let _stickyEdge = 'eave';
+// movestart → moveend (a pan, a glide, an aim, a fly-to).
+let _moveActive = false;
+// A tap-to-aim pan in flight: {latlng, ts, inFlight}.
+let _aim = null;
+// Last finger contact on the map, so the compatibility mousemove a tap
+// produces never paints a desktop preview (it used to arrive AFTER the
+// point with the rAF preview below and leave a "0.0 ft" chip on it).
+let _lastTouchTs = 0;
+// on('change' | 'preview') subscribers.
+const _seamListeners = { change: [], preview: [] };
+let _changeQueued = false;
+// The one live preview (dashed segment + length chip), reused frame to frame.
+let _pvRaf = 0, _pvArg = null;
 
 // Multi-structure support. 2026-09-25 (L2, Jo's decision 3): real
 // per-structure drawings. Every line, facet and accessory carries the
@@ -169,9 +213,18 @@ function initDrawMap() {
   // to zoom past this regardless of user input. Previously the user could
   // zoom to 22 even though no provider had tiles at 20+, which surfaced
   // Esri's "This map is not yet available at this zoom level" placeholder
-  // tile. With Google primary + maxZoom 21, every zoom level the user
-  // can reach has real imagery.
-  drawMap = L.map('drawMap',{preferCanvas:true, maxZoom: 21}).setView([39.07,-84.17],20);
+  // tile.
+  // 2026-09-25 (draw lane L3): 22, one step past Google's native 21, so a
+  // corner can be aimed at 0.095 ft/px. Every layer below declares its
+  // maxNativeZoom, so z22 shows the z21 (or z19) tiles upscaled — softer,
+  // never a placeholder. Capped at 22: past that the upscale is mush.
+  try { _coarse = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches); } catch (e) { _coarse = false; }
+  const mapOpts = { preferCanvas: true, maxZoom: 22 };
+  // A finger is not a mouse: on coarse pointers the canvas hit-tests lines
+  // and dots with 10 px of slack (Leaflet's `tolerance`), so a tap on a thin
+  // edge (Eave/Rake flip, the line popup) lands.
+  if (_coarse) mapOpts.renderer = L.canvas({ tolerance: 10 });
+  drawMap = L.map('drawMap', mapOpts).setView([39.07,-84.17],20);
 
   // Google satellite primary — Brave Shields blocks `server.arcgisonline.com`
   // at the network layer (instant onerror → SW returns synthetic 503 → black
@@ -202,16 +255,16 @@ function initDrawMap() {
   }
 
   drawMapLayers.satellite = attachFallback(L.tileLayer(GOOGLE_SAT_TILE, {
-    subdomains: '0123', attribution: GOOGLE_ATTR, maxNativeZoom: 21, maxZoom: 21
+    subdomains: '0123', attribution: GOOGLE_ATTR, maxNativeZoom: 21, maxZoom: 22
   }));
-  drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:21});
+  drawMapLayers.street = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxNativeZoom:19,maxZoom:22});
   drawMapLayers.hybrid = L.layerGroup([
-    attachFallback(L.tileLayer(GOOGLE_SAT_TILE, { subdomains: '0123', maxNativeZoom: 21, maxZoom: 21 })),
+    attachFallback(L.tileLayer(GOOGLE_SAT_TILE, { subdomains: '0123', maxNativeZoom: 21, maxZoom: 22 })),
     // Place labels overlay still uses Esri Reference; tops out at z=19 and is
     // semi-transparent (opacity:0.75) so missing tiles at z>19 are unnoticeable.
     L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-      { maxNativeZoom: 19, maxZoom: 21, opacity: 0.75 }
+      { maxNativeZoom: 19, maxZoom: 22, opacity: 0.75 }
     )
   ]);
   drawMapLayers.satellite.addTo(drawMap);
@@ -226,94 +279,59 @@ function initDrawMap() {
   setTimeout(function() { if(drawMap) drawMap.invalidateSize(); }, 500);
   setTimeout(function() { if(drawMap) drawMap.invalidateSize(); }, 1500);
 
-  // ── Touch support (April 2026) ──
-  // Detect touch device and add a Draw/Navigate mode toggle.
-  // In Draw mode: map panning is disabled, taps place points.
-  // In Navigate mode: normal pan/zoom, no drawing.
-  // Two-finger always zooms regardless of mode.
-  const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
-  let drawNavMode = 'draw'; // 'draw' | 'navigate'
-  if (isTouchDevice) {
-    // Create floating mode toggle button
-    const modeBtn = document.createElement('button');
-    modeBtn.id = 'drawModeToggle';
-    // left:54px, not 10px: Leaflet's zoom control owns the top-left corner
-    // (10px inset, ~34px wide on touch). While the map was collapsed to 0px
-    // (see the note where this is appended) nobody could see that this
-    // button sat squarely on top of the zoom-in "+" (phone audit 2026-09-25).
-    modeBtn.style.cssText = 'position:absolute;top:10px;left:54px;z-index:1000;'
-      + 'background:var(--orange,#BD5728);color:#fff;border:none;border-radius:8px;'
-      + 'padding:10px 16px;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;'
-      + 'font-weight:800;letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);'
-      + 'transition:all .15s;-webkit-tap-highlight-color:transparent;min-height:44px;';
-    modeBtn.textContent = '✏️ DRAW MODE';
-    modeBtn.addEventListener('click', function(e) {
-      e.stopPropagation();
-      if (drawNavMode === 'draw') {
-        drawNavMode = 'navigate';
-        modeBtn.textContent = '🗺️ NAVIGATE';
-        modeBtn.style.background = 'var(--s2,#181C22)';
-        modeBtn.style.border = '1px solid var(--br,#2a2f35)';
-        drawMap.dragging.enable();
-        drawMap.touchZoom.enable();
-      } else {
-        drawNavMode = 'draw';
-        modeBtn.textContent = '✏️ DRAW MODE';
-        modeBtn.style.background = 'var(--orange,#BD5728)';
-        modeBtn.style.border = 'none';
-        if (drawOn) drawMap.dragging.disable();
-      }
-    });
-    // No inline position here. This used to set mapEl.style.position =
-    // 'relative' to anchor the button — which beat the stylesheet's
-    // `.map-area > div[id$="Map"]{position:absolute;inset:0}`, and with the
-    // old min-height:300px gone (#1098) the map collapsed to 0px tall on
-    // EVERY touch device: a blank Drawing Tool, with this very toggle clipped
-    // out of sight inside it (phone audit 2026-09-25, views#0). The
-    // stylesheet's position:absolute already anchors an absolute child.
-    const mapEl = document.getElementById('drawMap');
-    if (mapEl) mapEl.appendChild(modeBtn);
-  }
+  // 2026-09-25 (draw lane L3): the orange "✏️ DRAW MODE / 🗺️ NAVIGATE"
+  // button that sat here on every touch device is gone. It never did what
+  // it said: toggleDraw() checked `typeof drawNavMode`, a name local to this
+  // function, so Draw mode never actually stopped the map panning — and a
+  // phone's taps placed points and its pans panned in BOTH states (audit
+  // H1/H2). One-finger panning is simply always on now; the crosshair
+  // screen (L4) replaces the idea with "move the map, not your finger".
 
   drawMap.on('click', e => {
+    // A tap's rAF preview must never land after the point it previewed.
+    _cancelPreviewFrame();
+    // Crosshair mode (L3): a real tap only AIMS — it slides the tapped spot
+    // under the crosshair and never places a point. Points come from the
+    // crosshair screen's Add, which fires this same event tagged
+    // nbdReticle (placeAtReticle below), so every mode's handler — line,
+    // perimeter, gutter, accessory, Shadow Pitch, Auto-Detect — is reached
+    // exactly as a desktop click reaches it.
+    if(_crosshair && !e.nbdReticle) { _aimAt(e.latlng); return; }
     if(shadowMode) { handleShadowClick(e.latlng); return; }
     // Accessory placement mode takes priority
     if(accessoryMode) { placeAccessory(e.latlng); return; }
     if(!drawOn) return;
-    const snapped = snapToVertex(e.latlng);
+    // A crosshair point arrives already snapped by the crosshair's own rule
+    // (the one its preview used), so the committed length IS the previewed
+    // length; a click still takes the 12 px desktop snap.
+    const snapped = e.nbdReticle ? e.latlng : snapToVertex(e.latlng);
     if(drawMode === 'line') handleLineClick(snapped);
-    else if(drawMode === 'perim') handlePerimClick(snapped);
-    else if(drawMode === 'gutter') handleGutterClick(snapped);
+    else if(drawMode === 'perim') handlePerimClick(snapped, e.nbdReticle ? e.nbdEdge : null);
+    else if(drawMode === 'gutter') handleGutterClick(snapped, !!e.nbdReticle);
   });
 
+  // Desktop preview: the dashed segment follows the mouse. rAF-throttled and
+  // drawn into ONE reused polyline + chip (L3) — it used to remove and
+  // re-create both layers on every mousemove.
   drawMap.on('mousemove', e => {
-    if(!drawOn) return;
-    const pt = snapToVertex(e.latlng);
-    if(drawMode === 'line' && drawStart) {
-      if(tempLine) drawMap.removeLayer(tempLine);
-      if(tempLbl)  drawMap.removeLayer(tempLbl);
-      const lt = LT[drawLT];
-      tempLine = L.polyline([drawStart, pt], {color:lt.color, weight:3, dashArray:'6,4', opacity:.7}).addTo(drawMap);
-      const d = hav(drawStart, pt);
-      tempLbl  = L.marker(mid(drawStart, pt), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-    }
-    if(drawMode === 'perim' && perimPoints.length > 0 && !perimClosed) {
-      const lastPt = perimPoints[perimPoints.length-1];
-      if(perimTempLine) drawMap.removeLayer(perimTempLine);
-      if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
-      perimTempLine = L.polyline([lastPt, pt], {color:'#BE185D', weight:3, dashArray:'6,4', opacity:.6}).addTo(drawMap);
-      const d = hav(lastPt, pt);
-      perimTempLbl  = L.marker(mid(lastPt, pt), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-    }
-    if(drawMode === 'gutter' && gutterPoints.length > 0) {
-      const lastPt = gutterPoints[gutterPoints.length-1];
-      if(perimTempLine) drawMap.removeLayer(perimTempLine);
-      if(perimTempLbl)  drawMap.removeLayer(perimTempLbl);
-      perimTempLine = L.polyline([lastPt, pt], {color:'#06B6D4', weight:3, dashArray:'6,4', opacity:.6}).addTo(drawMap);
-      const d = hav(lastPt, pt);
-      perimTempLbl  = L.marker(mid(lastPt, pt), {icon:L.divIcon({html:`<div class="meas-label">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-    }
+    if(!drawOn || _crosshair) return;
+    if(Date.now() - _lastTouchTs < 800) return; // a tap's compatibility mousemove
+    _queuePreview(e.latlng);
   });
+  // Motion bookkeeping for the guards (placeAtReticle, state().moving).
+  drawMap.on('movestart', () => { _moveActive = true; if (_crosshair) _emitChange(); });
+  drawMap.on('moveend', () => {
+    _moveActive = false;
+    if (_aim) _aim.inFlight = false;
+    if (_crosshair) _emitChange();
+  });
+  (function () {
+    const c = drawMap.getContainer();
+    const touched = () => { _lastTouchTs = Date.now(); };
+    c.addEventListener('touchstart', touched, { passive: true });
+    c.addEventListener('touchend', touched, { passive: true });
+  })();
+  _bindVertexDrag();
 
   // Keyboard shortcuts
   document.addEventListener('keydown', e => {
@@ -332,8 +350,10 @@ function initDrawMap() {
     else if(e.key==='f'||e.key==='F') { e.preventDefault(); zoomToFit(); }
   });
 
-  // Show shortcut hint briefly
+  // Show shortcut hint briefly (keyboards only — see showShortcutHint)
   showShortcutHint();
+  // "Tap" on a phone, "Click" with a mouse (L3).
+  _applyPointerCopy();
 
   // Jo's slope switch: a per-viewer preference, default ON.
   try { slopeLfOn = localStorage.getItem(SLOPE_PREF_KEY) !== '0'; } catch (e) { slopeLfOn = true; }
@@ -345,16 +365,46 @@ function initDrawMap() {
 
   renderStructureList();
   recalc();
+
+  // The engine seam (draw lane L3). It lives ON the map object — never on
+  // window — and is announced once, when the map is ready, so the crosshair
+  // screen (L4, loaded after this file in the drawtool bundle) can start
+  // whichever comes first: this event, or finding drawMap.nbdDraw already
+  // set. Last in init on purpose: its presence means init finished.
+  drawMap.nbdDraw = _seam;
+  try {
+    document.dispatchEvent(new CustomEvent('nbd:drawmap-ready', { detail: { map: drawMap, api: _seam } }));
+  } catch (e) { console.warn('[maps-routing] nbd:drawmap-ready listener threw:', e && e.message); }
 }
 
 function showShortcutHint() {
-  if(localStorage.getItem('nbd_draw_hint_shown')) return;
+  // A phone has no keyboard: the hint (D / Z / C / F / 1-9) is for mice (L3).
+  if (_coarse) return;
+  try { if(localStorage.getItem('nbd_draw_hint_shown')) return; } catch (e) { return; }
   const hint = document.createElement('div');
   hint.className = 'draw-shortcut-hint';
-  hint.innerHTML = '<b>Shortcuts:</b> D=Draw Z=Undo C=Clear F=Fit 1-9=Type Esc=Cancel';
+  hint.innerHTML = '<b>Shortcuts:</b> D=Draw Z=Undo Shift+Z=Redo C=Clear F=Fit 1-9=Type Esc=Cancel';
   const area = document.querySelector('#view-draw .map-area');
   if(area) { area.appendChild(hint); setTimeout(()=>{ hint.style.opacity='0'; setTimeout(()=>hint.remove(),500); },6000); }
-  localStorage.setItem('nbd_draw_hint_shown','1');
+  try { localStorage.setItem('nbd_draw_hint_shown','1'); } catch (e) { /* storage blocked */ }
+}
+
+// ── POINTER-TYPE COPY (2026-09-25, draw lane L3) ──
+// The Draw view's help text said "click" on every phone. _tap('Click the
+// roof') returns "Tap the roof" on a coarse pointer; the drawer's static
+// hints are rewritten once at init the same way.
+function _tap(s) {
+  return _coarse ? String(s).replace(/\bClick\b/g, 'Tap').replace(/\bclick\b/g, 'tap') : String(s);
+}
+function _perimIdleHint() {
+  return _tap('⬡ Perimeter mode — click map to trace. Click first dot to close.');
+}
+function _applyPointerCopy() {
+  if (!_coarse) return;
+  const pb = document.getElementById('perimBar');
+  if (pb && !facets.length) pb.textContent = _perimIdleHint();
+  const er = document.getElementById('erBar');
+  if (er && er.firstChild && er.firstChild.nodeType === 3) er.firstChild.textContent = _tap(er.firstChild.textContent);
 }
 
 // ── SNAP TO VERTEX ──────────────────────────────
@@ -380,6 +430,714 @@ function snapToVertex(latlng) {
   });
   return best || latlng;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// DRAW LANE L3 (2026-09-25) — THE CROSSHAIR-READY ENGINE
+// ═══════════════════════════════════════════════════════════════════
+// Everything the crosshair screen (L4) drives, and the corner mover the
+// desktop mouse now shares with it. The public face is `_seam` (published
+// as drawMap.nbdDraw at the end of initDrawMap); the rest is module-private.
+
+// ── Corners (the shared-vertex registry) ──
+// A corner is a POSITION. Every line end, facet corner, open-outline point
+// and gutter-run point at the same spot (within 1e-7 deg, ~1 cm — the
+// tolerance restore already merges on) is one vertex, and moving it moves
+// all of them. A snapped point lands EXACTLY on the corner it snapped to, so
+// snapping is what makes a corner shared; the dots are only its handle.
+function _vertexList() {
+  const out = [];
+  const add = p => { if (p && !out.some(q => _sameLL(q, p))) out.push(p); };
+  drawnLines.forEach(l => { add(l.p1); add(l.p2); });
+  facets.forEach(f => f.points.forEach(add));
+  perimPoints.forEach(add);
+  gutterPoints.forEach(add);
+  if (drawStart) add(drawStart);
+  return out;
+}
+// Nearest corner to a container point within r px (exclude: a position to
+// skip, e.g. the corner being moved).
+function _nearestVertex(cp, r, exclude) {
+  let best = null;
+  _vertexList().forEach(p => {
+    if (exclude && _sameLL(p, exclude)) return;
+    const d = drawMap.latLngToContainerPoint(p).distanceTo(cp);
+    if (d <= r && (!best || d < best.px)) best = { latlng: p, px: d };
+  });
+  return best;
+}
+function _llOf(x) {
+  if (!x) return null;
+  if (Array.isArray(x)) return Number.isFinite(x[0]) && Number.isFinite(x[1]) ? L.latLng(x[0], x[1]) : null;
+  const lat = Number(x.lat), lng = Number(x.lng);
+  return Number.isFinite(lat) && Number.isFinite(lng) ? L.latLng(lat, lng) : null;
+}
+function _plainLL(p) { return p ? { lat: p.lat, lng: p.lng } : null; }
+
+// Crosshair snap radius in px at the current zoom (see RETICLE_SNAP_*): 0
+// when snapping is off at this zoom.
+function _reticleSnapPx() {
+  if (!drawMap) return 0;
+  const c = drawMap.getCenter();
+  const ftpx = window.NBDDrawGeom.ftPerPx(c.lat, drawMap.getZoom());
+  const r = Math.min(RETICLE_SNAP_PX, RETICLE_SNAP_FT / ftpx);
+  return r >= RETICLE_SNAP_MIN_PX ? r : 0;
+}
+// Where a crosshair point at `latlng` would land: on the nearest corner
+// within `radius` px, or exactly where it is.
+function _snapInfo(latlng, radius, exclude) {
+  const ll = L.latLng(latlng);
+  const r = Number.isFinite(radius) ? radius : _reticleSnapPx();
+  const hit = r > 0 ? _nearestVertex(drawMap.latLngToContainerPoint(ll), r, exclude) : null;
+  return hit ? { latlng: hit.latlng, snapped: true, px: hit.px, radius: r } : { latlng: ll, snapped: false, px: 0, radius: r };
+}
+// The crosshair: the map centre. getCenter() is exact after a setView (the
+// crosshair screen centres the map on a fine-tuned point, then places), and
+// equals containerPointToLatLng(size/2) while a finger pans.
+function _reticleLatLng() { return drawMap.getCenter(); }
+
+// ── Live preview ──
+// What the next point would add: the segment from the anchor (the Line
+// start, the outline's last corner, the gutter run's last point) to the
+// target, and the run so far. `rule` picks the snap: 'reticle' (the
+// crosshair's own rule, used by the seam and placeAtReticle so the
+// committed length IS the previewed length), 'click' (the 12 px desktop
+// snap, for the mouse preview) or 'none'.
+function _anchorInfo() {
+  if (drawMode === 'line' && drawStart) return { anchor: drawStart, runFt: 0, color: LT[drawLT].color };
+  if (drawMode === 'perim' && perimPoints.length && !perimPendingP2) {
+    return { anchor: perimPoints[perimPoints.length - 1], runFt: perimSegments.reduce((s, l) => s + l.dist, 0), color: '#BE185D', canClose: perimPoints.length >= 3 };
+  }
+  if (drawMode === 'gutter' && gutterPoints.length) {
+    const run = gutterRunId === null ? 0 : drawnLines.filter(l => l.type === 10 && l.runId === gutterRunId).reduce((s, l) => s + l.dist, 0);
+    return { anchor: gutterPoints[gutterPoints.length - 1], runFt: run, color: '#06B6D4' };
+  }
+  return null;
+}
+function _previewCalc(latlng, rule) {
+  const raw = latlng ? L.latLng(latlng) : _reticleLatLng();
+  const a = drawOn && !accessoryMode && !shadowMode ? _anchorInfo() : null;
+  let target = raw, snapped = false;
+  if (rule === 'click') { target = snapToVertex(raw); snapped = target !== raw; }
+  // The crosshair never snaps back onto the point the segment starts from:
+  // that is a 0 ft segment, and it would make every point within 16 px of
+  // the last one impossible (a 2 ft gutter return at z21). 6 px is the
+  // same-spot guard's job.
+  else if (rule !== 'none') { const s = _snapInfo(raw, undefined, a ? a.anchor : null); target = s.latlng; snapped = s.snapped; }
+  if (!a) return { anchor: null, target, snapped, segmentFt: 0, runFt: 0, px: Infinity, closes: false, color: null };
+  const segmentFt = hav(a.anchor, target);
+  const closes = !!a.canClose && _sameLL(target, perimPoints[0]);
+  const px = drawMap.latLngToContainerPoint(a.anchor).distanceTo(drawMap.latLngToContainerPoint(target));
+  return { anchor: a.anchor, target, snapped, segmentFt, runFt: a.runFt + segmentFt, px, closes, color: a.color };
+}
+function _publicPreview(p) {
+  return {
+    anchor: _plainLL(p.anchor), target: _plainLL(p.target), snapped: !!p.snapped,
+    segmentFt: p.segmentFt, runFt: p.runFt, closes: !!p.closes,
+    sameSpot: !!p.anchor && !p.closes && p.px < SAME_SPOT_PX
+  };
+}
+// The desktop mouse preview: one paint per animation frame, whatever the
+// mousemove rate. (The crosshair screen paints its own preview through
+// nbdDraw.preview, once per frame of its own — the engine does not also
+// follow the map, or the two would fight over the one band.)
+function _queuePreview(latlng) {
+  _pvArg = latlng;
+  if (_pvRaf) return;
+  _pvRaf = requestAnimationFrame(() => { _pvRaf = 0; if (_pvArg) _renderPreview(_pvArg, 'click'); });
+}
+function _cancelPreviewFrame() {
+  if (_pvRaf) { cancelAnimationFrame(_pvRaf); _pvRaf = 0; }
+}
+function _hidePreview() {
+  if (tempLine) { drawMap.removeLayer(tempLine); tempLine = null; }
+  if (tempLbl)  { drawMap.removeLayer(tempLbl);  tempLbl  = null; }
+}
+// Paint the band anchor → target into the ONE reused polyline + chip
+// (setLatLngs; the chip's icon is rebuilt only when its text changes), and
+// return what was painted. Canvas redraws batch per frame in Leaflet.
+function _renderPreview(latlng, rule) {
+  if (!drawMap) return null;
+  const p = _previewCalc(latlng, rule);
+  if (!p.anchor || p.px < SAME_SPOT_PX) {
+    _hidePreview();
+  } else {
+    const pts = [p.anchor, p.target];
+    const html = `<div class="meas-label">${p.segmentFt.toFixed(1)} ft</div>`;
+    if (tempLine) { tempLine.setLatLngs(pts); if (tempLine.options.color !== p.color) tempLine.setStyle({ color: p.color }); }
+    else tempLine = L.polyline(pts, { color: p.color, weight: 3, dashArray: '6,4', opacity: .7, interactive: false }).addTo(drawMap);
+    if (tempLbl) {
+      tempLbl.setLatLng(mid(p.anchor, p.target));
+      if (tempLbl._nbdHtml !== html) { tempLbl.setIcon(L.divIcon({ html, className: '', iconAnchor: [0, 10], iconSize: null })); tempLbl._nbdHtml = html; }
+    } else {
+      tempLbl = L.marker(mid(p.anchor, p.target), { interactive: false, keyboard: false, icon: L.divIcon({ html, className: '', iconAnchor: [0, 10], iconSize: null }) }).addTo(drawMap);
+      tempLbl._nbdHtml = html;
+    }
+  }
+  const pub = _publicPreview(p);
+  _emit('preview', pub);
+  return pub;
+}
+
+// ── Motion guards ──
+// A finger still dragging, a pinch, or a zoom animation: a point placed now
+// would land wherever the map happens to be mid-gesture.
+function _gestureActive() {
+  if (!drawMap) return false;
+  const d = drawMap.dragging && drawMap.dragging._draggable;
+  return !!((d && d._moving) || (drawMap.touchZoom && drawMap.touchZoom._zooming) || drawMap._animatingZoom);
+}
+
+// ── Tap-to-aim (crosshair mode) ──
+// A tap slides the tapped spot under the crosshair (a 0.2 s glide; Leaflet
+// truncates the pan to whole pixels, so it lands within 1 px). The second
+// tap of a double-tap finishes the first glide at once, so Leaflet's
+// double-tap zoom ('center' in this mode) zooms around the spot aimed at.
+function _aimAt(latlng) {
+  const now = Date.now();
+  if (_aim && now - _aim.ts < 350) {
+    if (_aim.inFlight) { drawMap.setView(_aim.latlng, drawMap.getZoom(), { animate: false }); _aim.inFlight = false; }
+    _aim.ts = 0;
+    return;
+  }
+  _aim = { latlng: L.latLng(latlng), ts: now, inFlight: true };
+  drawMap.panTo(_aim.latlng, { animate: true, duration: 0.2 });
+}
+
+// ── Crosshair mode on/off ──
+// On (coarse pointers only): one-finger panning always on, pinch and
+// double-tap zoom around the CENTRE (so the corner under the crosshair stays
+// under it — the default pinch moved the target 270 px on the rig), no
+// inertia (a 200 px flick coasted 120 px, ~23 ft), a tap aims, and lines,
+// labels, dots and accessory markers stop taking taps. Perimeter edges
+// commit at once as the sticky edge type; the desktop keeps #reChooser.
+function _setCrosshair(on) {
+  const want = !!on && _coarse && !!drawMap;
+  if (want === _crosshair) return _crosshair;
+  const m = drawMap;
+  if (want) {
+    _crosshairSaved = { inertia: m.options.inertia, touchZoom: m.options.touchZoom, doubleClickZoom: m.options.doubleClickZoom };
+    // A corner waiting on the chooser cannot outlive the switch: the
+    // crosshair commits edges directly.
+    resetPendingState();
+    _crosshair = true;
+    m.options.inertia = false;
+    m.options.touchZoom = 'center';
+    m.options.doubleClickZoom = 'center';
+    m.dragging.enable(); m.touchZoom.enable(); m.doubleClickZoom.enable();
+    m.getContainer().classList.add('nbd-crosshair');
+    _cancelPreviewFrame();
+    clearTemp();
+  } else {
+    _crosshair = false;
+    const s = _crosshairSaved || {};
+    m.options.inertia = s.inertia !== undefined ? s.inertia : true;
+    m.options.touchZoom = s.touchZoom !== undefined ? s.touchZoom : true;
+    m.options.doubleClickZoom = s.doubleClickZoom !== undefined ? s.doubleClickZoom : true;
+    if (drawOn && m.doubleClickZoom) m.doubleClickZoom.disable();
+    m.getContainer().classList.remove('nbd-crosshair');
+    _cancelPreviewFrame();
+    clearTemp();
+  }
+  _applyInteractivity();
+  _emitChange();
+  return _crosshair;
+}
+// Leaflet reads a canvas path's options.interactive on every hit test, so
+// flipping it takes effect at once; DOM icons (length chips, accessories)
+// take pointer-events.
+function _applyInteractivity() {
+  drawnLines.forEach(l => { if (l.line) l.line.options.interactive = !_crosshair; _labelPassThrough(l.lbl, drawOn); });
+  _allDots.forEach(d => { d.options.interactive = !_crosshair; });
+  placedAccessories.forEach(a => _accessoryPassThrough(a.marker));
+}
+function _accessoryPassThrough(marker) {
+  if (!marker) return;
+  const el = marker.getElement && marker.getElement();
+  if (el) el.style.pointerEvents = _crosshair ? 'none' : '';
+  if (marker.dragging) { if (_crosshair) marker.dragging.disable(); else marker.dragging.enable(); }
+}
+
+// ── Placing a point at the crosshair ──
+function _refused(reason, extra) { return Object.assign({ ok: false, reason }, extra || {}); }
+function placeAtReticle(opts) {
+  const o = opts || {};
+  if (!drawMap) return _refused('no-map');
+  // A finger still on the map (pan / pinch) or a zoom animating: refuse.
+  if (_gestureActive()) return _refused('moving');
+  // A glide already running is ended first: an aim glide jumps to where it
+  // was going, anything else (inertia, a fly-to) stops where it is — the
+  // point lands at the centre the rep sees come to rest.
+  if (_aim && _aim.inFlight) { drawMap.setView(_aim.latlng, drawMap.getZoom(), { animate: false }); _aim.inFlight = false; }
+  else if (_moveActive) drawMap.stop();
+  if (o.edgeType === 'eave' || o.edgeType === 'rake') _stickyEdge = o.edgeType;
+  if (Number.isInteger(o.lineType) && LT[o.lineType]) _setLineType(o.lineType);
+  const drawing = drawOn && !accessoryMode && !shadowMode;
+  if (!drawOn && !accessoryMode && !shadowMode && !autoDetectActive) return _refused('not-armed');
+  if (drawing && drawMode === 'er') return _refused('flip-mode');
+  if (drawing && drawMode === 'perim' && perimPendingP2) return _refused('choose-edge');
+  const at = o.at ? _llOf(o.at) : null;
+  const p = _previewCalc(at, o.snap === false ? 'none' : 'reticle');
+  if (drawing && p.anchor && !p.closes && p.px < SAME_SPOT_PX) return _refused('same-spot', { preview: _publicPreview(p) });
+  const before = { lines: drawnLines.length, facets: facets.length, acc: placedAccessories.length };
+  const cp = drawMap.latLngToContainerPoint(p.target);
+  drawMap.fire('click', {
+    latlng: p.target, containerPoint: cp, layerPoint: drawMap.containerPointToLayerPoint(cp),
+    originalEvent: { type: 'click', nbdReticle: true, preventDefault() {}, stopPropagation() {} },
+    nbdReticle: true,
+    // The crosshair commits a perimeter edge as the sticky type right away;
+    // without the crosshair (a desktop caller) the chooser still asks,
+    // unless the caller named the type.
+    nbdEdge: (_crosshair || o.edgeType) ? _stickyEdge : null
+  });
+  _emitChange();
+  return {
+    ok: true, at: _plainLL(p.target), latlng: _plainLL(p.target), snapped: !!p.snapped, closed: facets.length > before.facets,
+    segmentFt: p.anchor ? p.segmentFt : 0, linesAdded: drawnLines.length - before.lines,
+    accessoryAdded: placedAccessories.length > before.acc
+  };
+}
+// The seam's line-type change. Not selLT(): that also RETYPES whichever line
+// is selected in the drawer's list, which a Lines-mode chip must not do.
+function _setLineType(i) {
+  document.querySelectorAll('.lt-btn').forEach((b, k) => {
+    b.classList.toggle('active', k === i);
+    b.style.borderColor = k === i ? LT[i].color : '';
+  });
+  drawLT = i;
+  if (drawStart && tempLine) tempLine.setStyle({ color: LT[i].color });
+  _emitChange();
+}
+
+// ── Moving a corner ──
+// One mover for the desktop mouse drag, nbdDraw.moveVertex (the crosshair's
+// Move → Drop) and Set length. It moves EVERY line end, facet corner,
+// open-outline point, gutter point and dot at that position together — the
+// old dot drag moved lines by dot identity only, and editLineLength moved
+// one line's end and its dot while the neighbouring edge stayed behind
+// (a torn corner). The undo snapshot is taken before any live change.
+function _beginVertexMove(fromLL) {
+  const from = L.latLng(fromLL);
+  const snap = _snapshot();
+  const lineRefs = [], facetRefs = [], perimRefs = [], gutterRefs = [];
+  drawnLines.forEach(l => {
+    if (_sameLL(l.p1, from)) lineRefs.push({ l, end: 1 });
+    if (_sameLL(l.p2, from)) lineRefs.push({ l, end: 2 });
+  });
+  facets.forEach(f => f.points.forEach((p, i) => { if (_sameLL(p, from)) facetRefs.push({ f, i }); }));
+  perimPoints.forEach((p, i) => { if (_sameLL(p, from)) perimRefs.push(i); });
+  gutterPoints.forEach((p, i) => { if (_sameLL(p, from)) gutterRefs.push(i); });
+  const startRef = !!(drawStart && _sameLL(drawStart, from));
+  _allDots = _allDots.filter(d => drawMap.hasLayer(d));
+  const dots = _allDots.filter(d => _sameLL(d.getLatLng(), from));
+  const touchedFacets = Array.from(new Set(facetRefs.map(r => r.f)));
+  let cur = from;
+  function place(to) {
+    lineRefs.forEach(r => { if (r.end === 1) r.l.p1 = to; else r.l.p2 = to; });
+    facetRefs.forEach(r => { r.f.points[r.i] = to; });
+    perimRefs.forEach(i => { perimPoints[i] = to; });
+    gutterRefs.forEach(i => { gutterPoints[i] = to; });
+    if (startRef) drawStart = to;
+    dots.forEach(d => d.setLatLng(to));
+    const seen = new Set();
+    lineRefs.forEach(r => {
+      const l = r.l;
+      if (seen.has(l)) return;
+      seen.add(l);
+      l.line.setLatLngs([l.p1, l.p2]);
+      l.dist = hav(l.p1, l.p2);
+      l.lbl.setLatLng(mid(l.p1, l.p2));
+      l.lbl.setIcon(_measIcon(l.dist, l.color)); _labelPassThrough(l.lbl, drawOn);
+    });
+    touchedFacets.forEach(f => { if (f.polygon) f.polygon.setLatLngs(f.points); });
+    if (perimRefs.indexOf(0) >= 0 && perimCloseRing) perimCloseRing.setLatLng(to);
+    cur = to;
+  }
+  // Would `to` fold an edge to nothing (a corner dropped onto its own
+  // neighbour)?
+  function collapses(to) {
+    if (lineRefs.some(r => { const o = r.end === 1 ? r.l.p2 : r.l.p1; return !_sameLL(o, from) && _sameLL(o, to); })) return true;
+    if (facetRefs.some(r => { const n = r.f.points.length; return _sameLL(r.f.points[(r.i + 1) % n], to) || _sameLL(r.f.points[(r.i + n - 1) % n], to); })) return true;
+    const nb = (arr, i) => (i > 0 && _sameLL(arr[i - 1], to)) || (i < arr.length - 1 && _sameLL(arr[i + 1], to));
+    return perimRefs.some(i => nb(perimPoints, i)) || gutterRefs.some(i => nb(gutterPoints, i));
+  }
+  return {
+    size: lineRefs.length + facetRefs.length + perimRefs.length + gutterRefs.length + (startRef ? 1 : 0),
+    update(to) { place(L.latLng(to)); },
+    collapses(to) { return collapses(L.latLng(to)); },
+    cancel() { if (!_sameLL(cur, from)) place(from); },
+    commit(toLL) {
+      const to = L.latLng(toLL);
+      if (_sameLL(to, from) || collapses(to)) { this.cancel(); return false; }
+      place(to);
+      _pushUndo(snap);
+      // Dropped onto another corner: the two become one (one dot, and from
+      // now on one vertex). Undo splits them again.
+      _unifyDotsAt(to);
+      touchedFacets.forEach(f => { const fi = facets.indexOf(f); if (fi >= 0) rebuildFacetPolygon(fi); });
+      _redrawOpenOutline();
+      renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
+      return true;
+    }
+  };
+}
+// Every dot sitting on `ll` becomes the first one, and every reference
+// follows it (lines, facets, the open outline / run, pending points).
+function _unifyDotsAt(ll) {
+  const here = _allDots.filter(d => drawMap.hasLayer(d) && _sameLL(d.getLatLng(), ll));
+  if (here.length < 2) return;
+  const keep = here[0], drop = new Set(here.slice(1));
+  const re = d => (drop.has(d) ? keep : d);
+  drawnLines.forEach(l => { l.dot1 = re(l.dot1); l.dot2 = re(l.dot2); });
+  facets.forEach(f => { f.dots = f.dots.map(re); });
+  perimDots = perimDots.map(re); gutterDots = gutterDots.map(re);
+  drawStartDot = re(drawStartDot); perimPendingDot = re(perimPendingDot);
+  drop.forEach(d => drawMap.removeLayer(d));
+  _allDots = _allDots.filter(d => !drop.has(d));
+  keep.bringToFront();
+}
+// The open outline has no polygon yet, only its close ring at point A.
+function _redrawOpenOutline() {
+  if (perimCloseRing && perimPoints.length) perimCloseRing.setLatLng(perimPoints[0]);
+}
+function _vertexAt(ll) {
+  const exact = _vertexList().find(p => _sameLL(p, ll));
+  if (exact) return exact;
+  const near = _nearestVertex(drawMap.latLngToContainerPoint(ll), 1.5);
+  return near ? near.latlng : null;
+}
+function moveVertex(from, to, opts) {
+  const o = opts || {};
+  if (!drawMap) return _refused('no-map');
+  const f = _llOf(from), t = _llOf(to);
+  if (!f || !t) return _refused('bad-args');
+  const v = _vertexAt(f);
+  if (!v) return _refused('no-vertex');
+  // The drop lands exactly where it was put (the crosshair screen shows no
+  // snap ring for a move). {snap:true} snaps it onto a corner within the
+  // crosshair radius, joining the two.
+  let target = t, snapped = false;
+  if (o.snap === true) {
+    const s = _snapInfo(t, _reticleSnapPx(), v);
+    if (s.snapped) { target = s.latlng; snapped = true; }
+  }
+  const joins = _vertexList().some(p => _sameLL(p, target) && !_sameLL(p, v));
+  const mover = _beginVertexMove(v);
+  if (mover.collapses(target)) return _refused('collapse');
+  const moved = mover.size;
+  if (!mover.commit(target)) return _refused('no-move');
+  _emitChange();
+  return { ok: true, moved, at: _plainLL(target), latlng: _plainLL(target), snapped, merged: joins };
+}
+
+// ── Desktop mouse: drag a corner ──
+// Replaces each dot's own mousedown (L3): the nearest corner within 8 px of
+// the pointer is grabbed, whatever is drawn on top of it, and a shared
+// corner moves every line on it. Mouse only — a finger pans, and on a phone
+// corners move through the crosshair screen's Move / Drop.
+function _bindVertexDrag() {
+  const c = drawMap.getContainer();
+  let drag = null, eatClickUntil = 0;
+  c.addEventListener('pointerdown', ev => {
+    if (ev.pointerType !== 'mouse' || ev.button !== 0) return;
+    if (drawOn || _crosshair || shadowMode || accessoryMode) return;
+    const t = ev.target;
+    if (t && t.closest && t.closest('.leaflet-control, .leaflet-popup, .leaflet-marker-draggable')) return;
+    const cp = drawMap.mouseEventToContainerPoint(ev);
+    const v = _nearestVertex(cp, VERTEX_GRAB_PX);
+    if (!v) return;
+    // preventDefault on pointerdown also withholds the compatibility
+    // mousedown, so neither Leaflet's pan nor a layer's mousedown starts.
+    ev.preventDefault(); ev.stopPropagation();
+    drag = { mover: _beginVertexMove(v.latlng), start: cp, moved: false, last: null, panOn: drawMap.dragging.enabled() };
+    if (drag.panOn) drawMap.dragging.disable();
+    document.addEventListener('pointermove', onMove, true);
+    document.addEventListener('pointerup', onUp, true);
+    document.addEventListener('pointercancel', onUp, true);
+  }, true);
+  function onMove(ev) {
+    if (!drag) return;
+    const cp = drawMap.mouseEventToContainerPoint(ev);
+    if (!drag.moved && cp.distanceTo(drag.start) < 3) return;
+    drag.moved = true;
+    drag.last = drawMap.containerPointToLatLng(cp);
+    drag.mover.update(drag.last);
+  }
+  function onUp() {
+    document.removeEventListener('pointermove', onMove, true);
+    document.removeEventListener('pointerup', onUp, true);
+    document.removeEventListener('pointercancel', onUp, true);
+    const d = drag;
+    drag = null;
+    if (!d) return;
+    if (d.panOn) drawMap.dragging.enable();
+    if (d.moved && d.last) {
+      // The click that follows the release would land on a line and open
+      // its popup (or place an accessory): swallow that one click.
+      eatClickUntil = Date.now() + 500;
+      if (!d.mover.commit(d.last)) showToast('That would fold an edge to nothing — corner put back', 'info');
+      _emitChange();
+    } else {
+      d.mover.cancel();
+    }
+  }
+  c.addEventListener('click', ev => {
+    if (eatClickUntil && Date.now() < eatClickUntil) { eatClickUntil = 0; ev.stopPropagation(); ev.preventDefault(); }
+  }, true);
+}
+
+// ── Picking what is under the crosshair (Edit mode) ──
+// The nearest corner within px (default 16), else the nearest edge, else a
+// placed accessory. Plain data; pass it back to moveVertex / retype / flip /
+// remove / setLength.
+function _vertexInfo(p, px) {
+  const lines = drawnLines.filter(l => _sameLL(l.p1, p) || _sameLL(l.p2, p));
+  const fs = facets.filter(f => f.points.some(q => _sameLL(q, p)));
+  return {
+    kind: 'vertex', latlng: _plainLL(p), lat: p.lat, lng: p.lng, px,
+    count: lines.length, lines: lines.map(l => l.id), facets: fs.map(f => f.id),
+    // More than one shape meets here (two sections, or loose lines).
+    shared: fs.length > 1 || lines.length > 2 || (!fs.length && lines.length > 1)
+  };
+}
+function pick(latlng, px) {
+  if (!drawMap) return null;
+  const ll = latlng ? _llOf(latlng) : _reticleLatLng();
+  if (!ll) return null;
+  const r = Number.isFinite(px) && px > 0 ? px : RETICLE_SNAP_PX;
+  const cp = drawMap.latLngToContainerPoint(ll);
+  const v = _nearestVertex(cp, r);
+  if (v) return _vertexInfo(v.latlng, v.px);
+  let best = null;
+  drawnLines.forEach(l => {
+    const d = L.LineUtil.pointToSegmentDistance(cp, drawMap.latLngToContainerPoint(l.p1), drawMap.latLngToContainerPoint(l.p2));
+    if (d <= r && (!best || d < best.px)) best = { l, px: d };
+  });
+  if (best) {
+    const l = best.l;
+    return {
+      kind: 'edge', id: l.id, type: l.type, name: l.name, subtype: l.subtype || null, dist: l.dist, px: best.px,
+      p1: _plainLL(l.p1), p2: _plainLL(l.p2), facetId: l.facetId || null, runId: l.runId || null,
+      structureId: l.structureId, isPerim: !!l.isPerim, flippable: l.type === 4 || l.type === 5
+    };
+  }
+  let acc = null;
+  placedAccessories.forEach(a => {
+    const d = drawMap.latLngToContainerPoint(a.latlng).distanceTo(cp);
+    if (d <= r && (!acc || d < acc.px)) acc = { a, px: d };
+  });
+  if (acc) return { kind: 'accessory', id: acc.a.id, type: acc.a.type, lat: acc.a.latlng.lat, lng: acc.a.latlng.lng, px: acc.px };
+  return null;
+}
+// A line id from a number or an edge pick.
+function _lineIdOf(t) {
+  if (t && typeof t === 'object') return t.kind === 'edge' || t.kind === undefined ? Number(t.id) : NaN;
+  return Number(t);
+}
+
+// ── Change events ──
+// on('change', fn) fires once per action (coalesced to a microtask, after
+// the action returns) with state(); on('preview', fn) once per painted
+// preview frame with {anchor, target, segmentFt, runFt, snapped, closes,
+// sameSpot}.
+function _emit(evt, payload) {
+  const list = _seamListeners[evt];
+  if (!list || !list.length) return;
+  list.slice().forEach(fn => { try { fn(payload); } catch (e) { console.warn('[maps-routing] nbdDraw ' + evt + ' listener threw:', e && e.message); } });
+}
+function _emitChange() {
+  if (_changeQueued) return;
+  _changeQueued = true;
+  Promise.resolve().then(() => {
+    _changeQueued = false;
+    if (!_seamListeners.change.length || !drawMap) return;
+    let st = null;
+    try { st = _state(); } catch (e) { console.warn('[maps-routing] nbdDraw state failed:', e && e.message); return; }
+    _emit('change', st);
+  });
+}
+
+// ── state() ──
+function _state() {
+  const m = drawMap;
+  const c = _reticleLatLng();
+  const zoom = m.getZoom();
+  const pv = _previewCalc(null, 'reticle');
+  const radius = _reticleSnapPx();
+  const moving = _gestureActive() || _moveActive;
+  const placing = drawOn || !!accessoryMode || !!shadowMode || !!autoDetectActive;
+  const drawing = drawOn && !accessoryMode && !shadowMode;
+  const sameSpot = drawing && !!pv.anchor && !pv.closes && pv.px < SAME_SPOT_PX;
+  const openCount = drawMode === 'perim' ? perimPoints.length : drawMode === 'gutter' ? gutterPoints.length : (drawStart ? 1 : 0);
+  return {
+    version: SEAM_VERSION,
+    coarse: _coarse, crosshair: _crosshair,
+    // mode: the engine's draw mode ('line' | 'perim' | 'er' | 'gutter');
+    // armed: drawing is on (the drawer's Draw/Stop).
+    mode: drawMode, armed: drawOn, drawing: drawOn,
+    accessory: accessoryMode || null, shadow: shadowMode || null, autoDetect: !!autoDetectActive,
+    lineType: drawLT, lineTypes: LT.map(t => ({ name: t.n, color: t.color })), edgeType: _stickyEdge,
+    zoom, maxZoom: m.getMaxZoom(), ftPerPx: window.NBDDrawGeom.ftPerPx(c.lat, zoom),
+    moving,
+    reticle: _plainLL(c),
+    snapRadiusPx: radius,
+    snap: pv.snapped ? _plainLL(pv.target) : null,
+    // anchor: where the next segment starts; first: the open outline's
+    // first corner (an Add snapped onto it closes the shape).
+    anchor: _plainLL(pv.anchor), first: drawMode === 'perim' && perimPoints.length ? _plainLL(perimPoints[0]) : null,
+    segmentFt: pv.segmentFt, runFt: pv.runFt, closes: !!pv.closes, sameSpot,
+    openCount,
+    pendingEdge: !!perimPendingP2,
+    canAdd: placing && !moving && !sameSpot && !(drawing && drawMode === 'er') && !(drawing && drawMode === 'perim' && !!perimPendingP2),
+    canClose: drawMode === 'perim' && perimPoints.length >= 3 && !perimPendingP2,
+    canFinishRun: drawMode === 'gutter' && gutterRunId !== null && gutterPoints.length >= 2,
+    canUndo: _undoStack.length > 0 || !!drawStart || !!perimPendingP2,
+    canRedo: _redoStack.length > 0,
+    counts: {
+      lines: drawnLines.length, facets: facets.length, vertices: _vertexList().length,
+      accessories: placedAccessories.length, gutterRuns: window.NBDDrawGeom.gutterRuns(drawnLines).length
+    },
+    structureId: activeStructureId, structures: structures.map(s => ({ id: s.id, name: s.name }))
+  };
+}
+// setMode(mode, {lineType}) — arm Outline ('perim'), Lines ('line') or
+// Gutters ('gutter') the way the drawer's mode button + ▶ Draw do; null
+// disarms (Edit). The same mode again only changes the line type, so a
+// Line start point survives a type change.
+function _setMode(mode, opts) {
+  const o = opts || {};
+  if (mode !== null && mode !== undefined && ['line', 'perim', 'gutter', 'er'].indexOf(mode) < 0) return _refused('bad-mode');
+  if (Number.isInteger(o.lineType) && LT[o.lineType]) _setLineType(o.lineType);
+  if (!mode) { if (drawOn) toggleDraw(); _emitChange(); return { ok: true, mode: drawMode, armed: drawOn }; }
+  if (mode !== drawMode) {
+    const ids = { line: 'modeLineBtn', perim: 'modePerimBtn', er: 'modeERBtn', gutter: 'modeGutterBtn' };
+    setDrawMode(mode, document.getElementById(ids[mode]));
+  }
+  if (!drawOn && mode !== 'er') toggleDraw();
+  _emitChange();
+  return { ok: true, mode: drawMode, armed: drawOn };
+}
+
+// ── THE SEAM: drawMap.nbdDraw ──
+// Frozen in the L3 PR description (draw lane L3, 2026-09-25); the crosshair
+// screen (L4) builds against exactly this. Coordinates in and out are plain
+// {lat, lng}; a refused action returns {ok:false, reason} — nothing throws.
+const SEAM_VERSION = 1;
+const _seam = Object.freeze({
+  version: SEAM_VERSION,
+  state() { return drawMap ? _state() : null; },
+  setMode(mode, opts) { return _setMode(mode, opts); },
+  // setEdgeType('eave' | 'rake') — the sticky type crosshair outline edges
+  // commit as (placeAtReticle / closeShape's edgeType sets it too).
+  setEdgeType(t) {
+    if (t !== 'eave' && t !== 'rake') return false;
+    _stickyEdge = t;
+    _emitChange();
+    return true;
+  },
+  // snap(latlng?, px?) → {latlng, snapped, kind, px, radius}: where a
+  // crosshair point at latlng (default: the crosshair) would land. px can
+  // only NARROW the engine's radius (16 px, 3 ft cap, off when under 4 px),
+  // so a ring drawn from this is exactly what placeAtReticle will do. Never
+  // the anchor (the point the next segment starts from).
+  snap(latlng, px) {
+    if (!drawMap) return null;
+    const ll = latlng ? _llOf(latlng) : _reticleLatLng();
+    if (!ll) return null;
+    const engine = _reticleSnapPx();
+    const r = Number.isFinite(px) && px > 0 ? Math.min(px, engine) : engine;
+    const a = drawOn && !accessoryMode && !shadowMode ? _anchorInfo() : null;
+    const s = _snapInfo(ll, r, a ? a.anchor : null);
+    return { latlng: _plainLL(s.latlng), lat: s.latlng.lat, lng: s.latlng.lng, snapped: s.snapped, kind: s.snapped ? 'vertex' : null, px: s.px, radius: r };
+  },
+  // preview(latlng) paints the dashed band from the anchor to latlng (after
+  // the crosshair snap) and returns {anchor, target, segmentFt, runFt,
+  // snapped, closes, sameSpot}. preview() with no argument = at the
+  // crosshair; preview(null) clears the band.
+  preview(latlng) {
+    if (!drawMap) return null;
+    if (latlng === null) {
+      _hidePreview();
+      const a = _anchorInfo();
+      return { anchor: null, target: null, snapped: false, segmentFt: 0, runFt: a ? a.runFt : 0, closes: false, sameSpot: false };
+    }
+    const ll = latlng === undefined ? _reticleLatLng() : _llOf(latlng);
+    if (!ll) return null;
+    _cancelPreviewFrame();
+    return _renderPreview(ll, 'reticle');
+  },
+  placeAtReticle,
+  finishRun() {
+    if (gutterRunId === null) return { ok: false, reason: 'no-run' };
+    finishGutterRun();
+    _emitChange();
+    return { ok: true };
+  },
+  // closeShape({edgeType?}) → close the open outline with its last edge.
+  closeShape(opts) {
+    const o = opts || {};
+    if (drawMode !== 'perim') return _refused('not-outline');
+    if (perimPendingP2) return _refused('choose-edge');
+    if (perimPoints.length < 3) return _refused('open-outline-needs-3');
+    if (o.edgeType === 'eave' || o.edgeType === 'rake') _stickyEdge = o.edgeType;
+    const n = facets.length;
+    closePerimeter();
+    if (_crosshair || o.edgeType) perimChooseType(_stickyEdge);
+    _emitChange();
+    return { ok: true, closed: facets.length > n, pendingEdge: !!perimPendingP2 };
+  },
+  undo() { undoLine(); _emitChange(); return true; },
+  redo() { redoLine(); _emitChange(); return true; },
+  pick,
+  moveVertex,
+  // retype(line, type) — type is an LT index (0-10).
+  retype(line, type) {
+    const id = _lineIdOf(line), t = Number(type);
+    const l = drawnLines.find(x => x.id === id);
+    if (!l || !Number.isInteger(t) || !LT[t]) return false;
+    if (l.type === t) return true;
+    retypeLine(id, t);
+    _emitChange();
+    return l.type === t;
+  },
+  // flip(line) — Eave <-> Rake.
+  flip(line) {
+    const l = drawnLines.find(x => x.id === _lineIdOf(line));
+    if (!l || (l.type !== 4 && l.type !== 5)) return false;
+    erToggleSegment(l.id);
+    _emitChange();
+    return true;
+  },
+  // remove(target) — a line id / edge pick, or an accessory pick. The
+  // caller confirms first; this does not ask.
+  remove(target) {
+    if (target && typeof target === 'object' && target.kind === 'accessory') return _removeAccessory(Number(target.id));
+    if (target && typeof target === 'object' && target.kind === 'vertex') return false;
+    const id = _lineIdOf(target);
+    if (!drawnLines.some(l => l.id === id)) return false;
+    deleteLine(id);
+    _emitChange();
+    return true;
+  },
+  // setLength(line, ft) — moves the line's second end along the line; a
+  // shared corner moves every edge on it (no prompt(), for an inline box).
+  setLength(line, ft) { const ok = _setLineLength(_lineIdOf(line), Number(ft)); if (ok) _emitChange(); return ok; },
+  totals() {
+    if (!drawMap) return null;
+    const t = _totals();
+    return JSON.parse(JSON.stringify({ combined: t.combined, per: t.per, gutterRuns: window.NBDDrawGeom.gutterRuns(drawnLines) }));
+  },
+  // on('change' | 'preview', fn) → unsubscribe function.
+  on(evt, fn) {
+    const list = _seamListeners[evt];
+    if (!list || typeof fn !== 'function') return () => {};
+    list.push(fn);
+    return () => { const i = list.indexOf(fn); if (i >= 0) list.splice(i, 1); };
+  },
+  off(evt, fn) { const list = _seamListeners[evt]; const i = list ? list.indexOf(fn) : -1; if (i >= 0) list.splice(i, 1); },
+  // setCrosshair(bool) → the resulting mode. Coarse pointers only (a mouse
+  // keeps click-to-place): returns false on a desktop.
+  setCrosshair(on) { return _setCrosshair(on); }
+});
 
 // ── MAP LAYER TOGGLE ────────────────────────────
 function toggleMapLayer() {
@@ -473,6 +1231,7 @@ function setDrawMode(mode, btn) {
     gutterResult.classList.add('visible');
     recalcGutters();
   }
+  _emitChange();
 }
 
 // ── LINE MODE ────────────────────────────────
@@ -483,6 +1242,7 @@ function handleLineClick(latlng) {
     const hit = _findDot(latlng);
     drawStartDot = hit || makeDraggableDot(latlng, LT[drawLT].color);
     drawStartDotNew = !hit;
+    _emitChange();
   } else {
     _pushUndo();
     const endDot = _dotAt(latlng, LT[drawLT].color);
@@ -502,77 +1262,36 @@ function _measIcon(dist, color) {
 // on the measurement labels are swallowed"). Their own click only edits a
 // length, which editLineLength() refuses while drawing anyway. Needed more
 // now that a chip is as wide as its text (iconSize:null above).
+// In crosshair mode (L3) chips never take a tap at all: a tap only aims,
+// and lengths are set from the crosshair screen (nbdDraw.setLength).
 function _labelPassThrough(lbl, on) {
   const el = lbl && lbl.getElement && lbl.getElement();
   if (!el) return;
-  el.style.pointerEvents = on ? 'none' : '';
+  const pass = on || _crosshair;
+  el.style.pointerEvents = pass ? 'none' : '';
   const chip = el.firstElementChild;
-  if (chip) chip.style.pointerEvents = on ? 'none' : '';
+  if (chip) chip.style.pointerEvents = pass ? 'none' : '';
 }
 function _syncLabelPassThrough() {
   drawnLines.forEach(l => _labelPassThrough(l.lbl, drawOn));
 }
 
-// ── DRAGGABLE DOT FACTORY ────────────────────
-// Desktop mouse drag only. 2026-09-25 (L2): the touch path is gone — it
-// bound to dot._path, which never exists under the canvas renderer
-// (preferCanvas:true), so every dot re-polled setTimeout(30) forever (198
-// timers/s with 6 dots, 330/s after two Clears) and a finger drag panned the
-// map anyway (audit B2). Finger vertex editing is the crosshair lane's job.
+// ── CORNER DOT FACTORY ───────────────────────
+// 2026-09-25 (L2): the touch path is gone — it bound to dot._path, which
+// never exists under the canvas renderer (preferCanvas:true), so every dot
+// re-polled setTimeout(30) forever (198 timers/s with 6 dots, 330/s after
+// two Clears) and a finger drag panned the map anyway (audit B2).
+// 2026-09-25 (L3): the dot's own mousedown drag is gone too. A mouse now
+// grabs the nearest CORNER within 8 px through one container-level hit test
+// (_bindVertexDrag), and the move goes through the shared-corner mover, so
+// every line, facet corner and run point on that corner moves as one. A dot
+// is only the corner's handle; it takes no taps in crosshair mode.
 function makeDraggableDot(latlng, color, opts) {
   const dot = L.circleMarker(latlng, {
     radius:6, color:'#fff', fillColor:color, fillOpacity:1, weight:2,
-    draggable:true, ...(opts||{})
+    interactive: !_crosshair, ...(opts||{})
   }).addTo(drawMap);
   _allDots.push(dot);
-
-  let dragging = false, from = null, snap = null;
-
-  function startDrag() {
-    if (drawOn) return false; // Don't drag while actively drawing
-    dragging = true;
-    from = dot.getLatLng();
-    snap = _snapshot(); // pushed as an undo step only if the dot really moves
-    drawMap.dragging.disable();
-    return true;
-  }
-
-  function endDrag() {
-    if (!dragging) return;
-    dragging = false;
-    drawMap.dragging.enable();
-    const to = dot.getLatLng();
-    if (from && !_sameLL(from, to)) _pushUndo(snap);
-    snap = null;
-    updateLinesForDot(dot, to);
-    // Facet corners, and the open outline / gutter run points, follow the
-    // dot too — the next edge used to start from the corner's OLD position.
-    facets.forEach((f,fi) => {
-      let hit = false;
-      f.dots.forEach((d, di) => { if (d === dot) { f.points[di] = to; hit = true; } });
-      if (hit) rebuildFacetPolygon(fi);
-    });
-    perimDots.forEach((d, di) => { if (d === dot) perimPoints[di] = to; });
-    gutterDots.forEach((d, di) => { if (d === dot) gutterPoints[di] = to; });
-    recalc(); recalcGutters(); autoSaveDrawing();
-  }
-
-  dot.on('mousedown', e => {
-    L.DomEvent.stopPropagation(e);
-    if (!startDrag()) return;
-    drawMap.on('mousemove', onMouseMove);
-    drawMap.on('mouseup', onMouseUp);
-  });
-  function onMouseMove(e) {
-    if (!dragging) return;
-    dot.setLatLng(e.latlng);
-    updateLinesForDot(dot, e.latlng, true);
-  }
-  function onMouseUp() {
-    drawMap.off('mousemove', onMouseMove);
-    drawMap.off('mouseup', onMouseUp);
-    endDrag();
-  }
   return dot;
 }
 
@@ -598,26 +1317,17 @@ function _removeDotIfOrphan(dot) {
   if (!used) drawMap.removeLayer(dot);
 }
 
-function updateLinesForDot(dot, newLatLng, dragging) {
-  drawnLines.forEach(l => {
-    let changed = false;
-    if(l.dot1 === dot) { l.p1 = newLatLng; changed = true; }
-    if(l.dot2 === dot) { l.p2 = newLatLng; changed = true; }
-    if(changed) {
-      l.line.setLatLngs([l.p1, l.p2]);
-      l.dist = hav(l.p1, l.p2);
-      l.lbl.setLatLng(mid(l.p1, l.p2));
-      l.lbl.setIcon(_measIcon(l.dist, l.color)); _labelPassThrough(l.lbl, drawOn);
-    }
-  });
-  if (!dragging) renderLineList();
-}
+// (updateLinesForDot is gone with the dot drag, L3: corners move through
+// _beginVertexMove, by POSITION, so a line whose end sits on the corner
+// under a different dot object can no longer be left behind.)
 
 function selLT(i, el) {
   document.querySelectorAll('.lt-btn').forEach(b => { b.classList.remove('active'); b.style.borderColor = ''; });
-  el.classList.add('active'); el.style.borderColor = LT[i].color;
+  if (el) { el.classList.add('active'); el.style.borderColor = LT[i].color; }
   drawLT = i;
   if(selectedLineId !== null) retypeLine(selectedLineId, i);
+  if (drawStart && tempLine) tempLine.setStyle({ color: LT[i].color });
+  _emitChange();
 }
 
 function toggleDraw() {
@@ -627,14 +1337,13 @@ function toggleDraw() {
     btn.textContent = '⏹ Stop'; btn.className = 'draw-btn stop';
     drawMap.getContainer().style.cursor = 'crosshair';
     // A double-click/double-tap while drawing is two points, not a zoom
-    // (2026-09-25, L2, audit H4).
-    if (drawMap.doubleClickZoom) drawMap.doubleClickZoom.disable();
+    // (2026-09-25, L2, audit H4) — except in crosshair mode (L3), where a
+    // tap never places anything and a double-tap zooms around the centre.
+    if (drawMap.doubleClickZoom && !_crosshair) drawMap.doubleClickZoom.disable();
     _syncLabelPassThrough();
-    // On touch devices in Draw mode, disable map dragging so
-    // taps register as drawing points instead of panning.
-    if (typeof drawNavMode !== 'undefined' && drawNavMode === 'draw') {
-      drawMap.dragging.disable();
-    }
+    // (L3: the `typeof drawNavMode` check that stood here was dead — the
+    // name was local to initDrawMap — so dragging was never disabled; the
+    // DRAW/NAVIGATE toggle it served is removed. Panning stays on.)
   } else {
     btn.textContent = '▶ Draw'; btn.className = 'draw-btn go';
     drawMap.getContainer().style.cursor = '';
@@ -647,13 +1356,14 @@ function toggleDraw() {
     // Re-enable dragging when drawing stops
     drawMap.dragging.enable();
   }
+  _emitChange();
 }
 
+// Drops the live preview (and any preview frame still queued).
 function clearTemp() {
+  _cancelPreviewFrame();
   if(tempLine) { drawMap.removeLayer(tempLine); tempLine = null; }
   if(tempLbl)  { drawMap.removeLayer(tempLbl);  tempLbl  = null; }
-  if(perimTempLine) { drawMap.removeLayer(perimTempLine); perimTempLine = null; }
-  if(perimTempLbl)  { drawMap.removeLayer(perimTempLbl);  perimTempLbl  = null; }
 }
 
 // ── ONE LINE FACTORY (2026-09-25, draw lane L2) ──
@@ -666,7 +1376,7 @@ function _addLine(rec) {
   const lt = LT[rec.type] || LT[0];
   const color = rec.color || lt.color;
   const d = Number.isFinite(rec.dist) ? rec.dist : hav(rec.p1, rec.p2);
-  const line = L.polyline([rec.p1, rec.p2], {color, weight:4, opacity:.95, dashArray:lt.dash||null}).addTo(drawMap);
+  const line = L.polyline([rec.p1, rec.p2], {color, weight:4, opacity:.95, dashArray:lt.dash||null, interactive:!_crosshair}).addTo(drawMap);
   const lbl  = L.marker(mid(rec.p1, rec.p2), {icon:_measIcon(d, color)}).addTo(drawMap);
   const id = (Number.isSafeInteger(rec.id) && rec.id > 0) ? rec.id : _nextLineId++;
   if (id >= _nextLineId) _nextLineId = id + 1;
@@ -683,7 +1393,7 @@ function _addLine(rec) {
   if (l.dot1) l.dot1.bringToFront();
   if (l.dot2) l.dot2.bringToFront();
   lbl.on('click', () => editLineLength(l.id));
-  if (drawOn) _labelPassThrough(lbl, true);
+  if (drawOn || _crosshair) _labelPassThrough(lbl, true);
   // ONE click handler per line, created once, dispatching on the mode. The
   // Eave/Rake toggle used to add a handler on every mode entry (3 on a fresh
   // facet: one tap fired "Rake / Eave / Rake", audit B8); and the popup
@@ -768,24 +1478,26 @@ function editLineLength(lineId) {
   if(!val || isNaN(parseFloat(val))) return;
   const newDist = parseFloat(val);
   if(newDist <= 0) return;
-  _pushUndo();
+  if (_setLineLength(lineId, newDist)) showToast(`Updated to ${newDist.toFixed(1)} ft`);
+}
+// Scale a line from p1 toward p2 to `newDist` ft. 2026-09-25 (L3): the far
+// end moves as a CORNER — every edge sharing it follows (it used to move
+// this line's end and its dot alone, tearing the facet's next edge off the
+// corner). Shared by the desktop prompt and nbdDraw.setLength.
+function _setLineLength(lineId, newDist) {
+  const l = drawnLines.find(x => x.id === lineId);
+  if (!l || !Number.isFinite(newDist) || newDist <= 0 || !(l.dist > 0)) return false;
   const ratio = newDist / l.dist;
-  // Scale line from p1 toward p2
-  const newLat = l.p1.lat + (l.p2.lat - l.p1.lat) * ratio;
-  const newLng = l.p1.lng + (l.p2.lng - l.p1.lng) * ratio;
-  const newP2 = L.latLng(newLat, newLng);
-  l.p2 = newP2;
-  l.dist = newDist;
-  l.line.setLatLngs([l.p1, l.p2]);
-  if(l.dot2) l.dot2.setLatLng(newP2);
-  l.lbl.setLatLng(mid(l.p1, l.p2));
-  l.lbl.setIcon(_measIcon(l.dist, l.color)); _labelPassThrough(l.lbl, drawOn);
-  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
-  showToast(`Updated to ${newDist.toFixed(1)} ft`);
+  const newP2 = L.latLng(l.p1.lat + (l.p2.lat - l.p1.lat) * ratio, l.p1.lng + (l.p2.lng - l.p1.lng) * ratio);
+  return _beginVertexMove(l.p2).commit(newP2);
 }
 
 // ── PERIMETER MODE (multi-facet) ─────────────
-function handlePerimClick(latlng) {
+// `edge` ('eave' | 'rake'): a crosshair Add (L3) — the edge commits at once
+// as that type, no chooser; and the outline closes only on an Add SNAPPED
+// exactly onto its first corner (never on a 20 px near-miss). null: a
+// click or tap, which keeps the chooser and the 20 px close.
+function handlePerimClick(latlng, edge) {
   // 2026-09-25 (L2, audit B4): this used to begin with
   //   if(perimClosed) { saveFacet(); resetPerimState(); }
   // but perimChooseType() had ALREADY saved the closed facet, so the first
@@ -800,8 +1512,9 @@ function handlePerimClick(latlng) {
   if(perimPoints.length >= 3) {
     const first = perimPoints[0];
     const screenDist = drawMap.latLngToContainerPoint(first).distanceTo(drawMap.latLngToContainerPoint(latlng));
-    if(screenDist < 20) { // 20px on screen — much more precise than 30ft
+    if(edge ? _sameLL(first, latlng) : screenDist < 20) { // 20px on screen — much more precise than 30ft
       closePerimeter();
+      if (edge) perimChooseType(edge);
       return;
     }
   }
@@ -825,7 +1538,9 @@ function handlePerimClick(latlng) {
   perimPendingDot = hit || makeDraggableDot(latlng, facetColor);
   perimPendingDotNew = !hit;
   clearTemp();
+  if (edge) { perimChooseType(edge); return; } // the crosshair: committed, no question
   showReChooser();
+  _emitChange();
 }
 
 function showReChooser() {
@@ -869,6 +1584,7 @@ function resetPendingState() {
     dropped = true;
   }
   _perimClosing = false;
+  if (dropped) _emitChange();
   return dropped;
 }
 
@@ -894,7 +1610,7 @@ function perimChooseType(subtype) {
     });
     showToast(f.label+' closed — '+f.baseArea.toFixed(0)+' sf');
     const bar = document.getElementById('perimBar');
-    if (bar) bar.textContent = '⬡ '+f.label+' — '+f.baseArea.toFixed(0)+' sf · click to start new facet';
+    if (bar) bar.textContent = '⬡ '+f.label+' — '+f.baseArea.toFixed(0)+' sf · '+_tap('click to start new facet');
     _resetPerimTrace();
   }
   hideReChooser();
@@ -979,7 +1695,7 @@ function _resetPerimTrace() {
 function resetPerimState() {
   _resetPerimTrace();
   const bar = document.getElementById('perimBar');
-  if(bar) bar.textContent = '⬡ Perimeter mode — click to trace Facet '+(facets.length+1)+'. Click first dot to close.';
+  if(bar) bar.textContent = _tap('⬡ Perimeter mode — click to trace Facet '+(facets.length+1)+'. Click first dot to close.');
 }
 
 function rebuildFacetPolygon(fi) {
@@ -1089,8 +1805,11 @@ function erToggleSegment(id) {
 }
 
 // ── GUTTER MODE (separate from perimeter) ────
-function handleGutterClick(latlng) {
-  if(gutterPoints.length > 0) {
+// fromReticle (L3): a crosshair Add. Only Finish run ends a run then — Add
+// within 6 px of the last point was already refused by the same-spot guard,
+// and 6-12 px away it is a real (short) segment, not a finish.
+function handleGutterClick(latlng, fromReticle) {
+  if(gutterPoints.length > 0 && !fromReticle) {
     // A tap on the run's last point finishes the run (2026-09-25, L2).
     const last = gutterPoints[gutterPoints.length-1];
     const px = drawMap.latLngToContainerPoint(last).distanceTo(drawMap.latLngToContainerPoint(latlng));
@@ -1253,7 +1972,7 @@ async function clearDraw() {
   if (drawnLines.length || facets.length || perimPoints.length || gutterPoints.length || placedAccessories.length) _pushUndo();
   _teardownDrawing();
   const pb = document.getElementById('perimBar');
-  if (pb) pb.textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
+  if (pb) pb.textContent = _perimIdleHint();
   renderLineList(); renderFacetList(); renderStructureList(); renderAccessoryPanel(); recalc(); recalcGutters();
   clearSavedDrawing();
 }
@@ -1449,6 +2168,9 @@ function recalc() {
   // lines that take the global pitch are stale — repaint the list once.
   const gp = document.getElementById('pitchSel')?.value;
   if (gp !== _lastGlobalPitch) { _lastGlobalPitch = gp; if (drawnLines.length) renderLineList(); }
+  // Totals moved (an edit, Clear, or the pitch / waste selects, whose
+  // data-on-change is this function): nbdDraw 'change' (L3, coalesced).
+  _emitChange();
 }
 let _lastGlobalPitch = null;
 
@@ -1985,9 +2707,10 @@ function toggleAccessoryMode(typeId) {
     accessoryMode = typeId;
     const acc = ACCESSORIES.find(a => a.id === typeId);
     drawMap.getContainer().style.cursor = 'crosshair';
-    showToast('Click the roof to place: ' + (acc?.label || typeId), 'info');
+    showToast(_crosshair ? 'Put the crosshair on it, then Add: ' + (acc?.label || typeId) : _tap('Click the roof to place: ') + (acc?.label || typeId), 'info');
   }
   renderAccessoryPanel();
+  _emitChange();
 }
 
 function placeAccessory(latlng) {
@@ -2017,6 +2740,9 @@ function _addAccessoryMarker(a) {
   const marker = L.marker(latlng, { icon, draggable: true }).addTo(drawMap);
   const rec = { id: _nextAccId++, type: a.type, latlng, marker, structureId: a.structureId || activeStructureId };
   placedAccessories.push(rec);
+  // Crosshair mode (L3): a tap on a marker aims like any tap; removal goes
+  // through the crosshair screen (nbdDraw.pick → remove).
+  _accessoryPassThrough(marker);
   let before = null;
   marker.on('dragstart', () => { before = _snapshot(); });
   marker.on('dragend', () => {
@@ -2030,15 +2756,21 @@ function _addAccessoryMarker(a) {
   // real modal in standalone mode. Native confirm falls through on desktop.
   marker.on('click', async function() {
     const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-    if (await _ask('Remove this ' + acc.label + '?')) {
-      _pushUndo();
-      drawMap.removeLayer(marker);
-      placedAccessories = placedAccessories.filter(x => x !== rec);
-      renderAccessoryPanel();
-      autoSaveDrawing();
-    }
+    if (await _ask('Remove this ' + acc.label + '?')) _removeAccessory(rec.id);
   });
   return rec;
+}
+// Remove one placed accessory (undoable). No question asked here: the
+// marker's click confirms first, and so does the crosshair screen.
+function _removeAccessory(id) {
+  const rec = placedAccessories.find(x => x.id === id);
+  if (!rec) return false;
+  _pushUndo();
+  if (rec.marker && drawMap.hasLayer(rec.marker)) drawMap.removeLayer(rec.marker);
+  placedAccessories = placedAccessories.filter(x => x !== rec);
+  renderAccessoryPanel();
+  autoSaveDrawing();
+  return true;
 }
 
 function getAccessoryCounts() {
@@ -2383,6 +3115,9 @@ function autoSaveDrawing() {
   try {
     localStorage.setItem(_drawStorageKey(), JSON.stringify(_serializeDrawing()));
   } catch(e) { /* quota or private browsing — silently fail */ }
+  // Every committed change autosaves, so this is where nbdDraw's 'change'
+  // event is raised for them (L3; coalesced, one per action).
+  _emitChange();
 }
 
 // THE restore path (2026-09-25, draw lane L2). draw-geom's
@@ -2734,7 +3469,7 @@ function startShadowPitch() {
   shadowMode = 'shadow'; // First: draw shadow line
   showToast('Step 1: Draw a line along the shadow edge on the satellite image', 'info');
   const bar = document.getElementById('shadowBar');
-  if(bar) { bar.style.display = 'block'; bar.textContent = '☀️ Step 1: Click two points along the roof shadow on the ground.'; }
+  if(bar) { bar.style.display = 'block'; bar.textContent = _tap('☀️ Step 1: Click two points along the roof shadow on the ground.'); }
 }
 
 function handleShadowClick(latlng) {
@@ -2742,7 +3477,7 @@ function handleShadowClick(latlng) {
     if(!shadowLine) {
       shadowLine = { p1: latlng };
       makeDraggableDot(latlng, '#EAB308');
-      showToast('Now click the end of the shadow', 'info');
+      showToast(_tap('Now click the end of the shadow'), 'info');
     } else {
       shadowLine.p2 = latlng;
       makeDraggableDot(latlng, '#EAB308');
@@ -2879,8 +3614,9 @@ function setHistoricalLayer(idx) {
   historyLayerOld = L.tileLayer(
     ESRI_WAYBACK_TILE(v.release),
     // Wayback serves to z=19 natively; let Leaflet upscale to the drawMap's
-    // z=21 ceiling instead of leaving the layer blank when zoomed on a roof.
-    { maxNativeZoom: 19, maxZoom: 21, opacity: 1, attribution: 'Imagery © Esri (Wayback)' }
+    // ceiling instead of leaving the layer blank when zoomed on a roof (z=22
+    // since draw lane L3, 2026-09-25 — at 21 the history layer vanished at z22).
+    { maxNativeZoom: 19, maxZoom: 22, opacity: 1, attribution: 'Imagery © Esri (Wayback)' }
   ).addTo(drawMap);
   // Put behind current drawings
   historyLayerOld.setZIndex(-1);
@@ -2906,11 +3642,17 @@ function closeHistoricalImagery() {
 // ── FEATURE 5: ROOF EDGE AUTO-DETECT ─────────────────────────────
 function startAutoDetect() {
   autoDetectActive = true;
-  showToast('Click a corner of the roof — AI will try to trace the edges', 'info');
-  drawMap.once('click', async (e) => {
+  showToast(_crosshair ? 'Put the crosshair on a roof corner, then Add — AI will try to trace the edges'
+    : _tap('Click a corner of the roof — AI will try to trace the edges'), 'info');
+  // In crosshair mode (L3) a real tap only aims, so this waits for the
+  // crosshair's Add (the click tagged nbdReticle) instead of the first tap.
+  const onPick = async (e) => {
+    if (_crosshair && !e.nbdReticle) return;
+    drawMap.off('click', onPick);
     autoDetectActive = false;
     await detectRoofEdges(e.latlng);
-  });
+  };
+  drawMap.on('click', onPick);
 }
 
 async function detectRoofEdges(startLatLng) {
@@ -3414,7 +4156,9 @@ function addStructure(name) {
 // An outline half-traced on one structure cannot move to another.
 function _canSwitchStructure() {
   if (perimPoints.length) {
-    showToast('Finish the outline first — tap its first corner to close it, or Undo', 'info');
+    showToast(_crosshair ? 'Finish the outline first — Close it, or Undo'
+      : _coarse ? 'Finish the outline first — tap its first corner to close it, or Undo'
+      : 'Finish the outline first — click its first corner to close it, or Undo', 'info');
     return false;
   }
   return true;

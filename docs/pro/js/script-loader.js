@@ -337,9 +337,11 @@
     // 2026-09-25 (draw lane L2): maps-routing.js now calls it (totals,
     // restore, estimate import) — both re-versioned together, and this file's
     // own ?v re-bumped 7 -> 8 (after #1762's registry edit took 7).
+    // 2026-09-25 (draw lane L3): maps-routing.js gains the crosshair-ready
+    // engine seam (drawMap.nbdDraw) — v5 -> v6; this file's own ?v 8 -> 9.
     drawtool: [
       'js/draw-geom.js?v=2',
-      'js/maps-routing.js?v=5'
+      'js/maps-routing.js?v=6'
     ],
     // Talk Tank inbox (2026-09-14, boot-weight containment) — a single-view
     // module with zero callers outside goTo('talk-tank'); was two static
