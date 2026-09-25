@@ -322,6 +322,51 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     await expectTappable(page, '#drawMap .leaflet-control-zoom-in', 'zoom-in (+)');
   });
 
+  // 2026-09-25, Jo on the INSTALLED app (iPhone): "☰ Tools" did nothing
+  // visible. The @media(display-mode: standalone) block pinned .map-area at
+  // 100dvh-120px, so the drawer opened below the screen of an overflow:hidden
+  // view. A browser tab never matches display-mode:standalone, and no browser
+  // can emulate it, so this copies the block's rules to the top level: the
+  // exact cascade the installed app gets. Runs straight after 'draw', with
+  // the Draw view still open.
+  test('draw (installed app): ☰ Tools opens the drawer on screen with the modes tappable', async () => {
+    await dismissToasts(page);
+    const forced = await safeEvaluate(page, () => {
+      let css = '';
+      for (const sh of document.styleSheets) {
+        let rules; try { rules = sh.cssRules; } catch (e) { continue; }
+        for (const r of rules) {
+          if (r.media && /display-mode:\s*standalone/.test(r.conditionText || r.media.mediaText)) {
+            for (const inner of r.cssRules) css += inner.cssText + '\n';
+          }
+        }
+      }
+      const s = document.createElement('style');
+      s.id = 'e2e-force-standalone';
+      s.textContent = css;
+      document.head.appendChild(s);
+      return css.length;
+    });
+    expect(forced, 'found the standalone rules to force').toBeGreaterThan(200);
+    try {
+      const tools = '[data-action="mapSidebar"][data-target="map-sidebar-draw"]';
+      await expectTappable(page, tools, '☰ Draw Tools');
+      await page.locator(tools).tap();
+      await expect(page.locator('#map-sidebar-draw')).toHaveClass(/\bopen\b/);
+      // Opening Draw raises async toasts (e.g. geocoding stubbed to "not
+      // found"); a rep swipes them away, so close them before hit-testing.
+      await dismissToasts(page);
+      await expectTappable(page, '#modeLineBtn', 'Draw Mode: Lines (inside the opened drawer)');
+      await expectTappable(page, '#modeGutterBtn', 'Draw Mode: Gutters (inside the opened drawer)');
+      const map = await safeEvaluate(page, () => Math.round(document.getElementById('drawMap').getBoundingClientRect().height));
+      expect(map, 'the map keeps a usable height with the drawer open').toBeGreaterThan(200);
+      await page.locator(tools).tap();
+      await expect(page.locator('#map-sidebar-draw')).not.toHaveClass(/\bopen\b/);
+    } finally {
+      await safeEvaluate(page, () => { const s = document.getElementById('e2e-force-standalone'); if (s) s.remove(); });
+    }
+  });
+
   test('more: Reports, Talk Tank and Referrals open from the More drawer, and the drawer covers the sidebar', async () => {
     for (const target of ['reports', 'talk-tank', 'refrewards']) {
       await dismissToasts(page);
