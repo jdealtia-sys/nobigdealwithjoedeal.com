@@ -738,6 +738,7 @@ export const NBDAuth = {
         // and UI size were wiped on every logout, so a rep re-picked them
         // each sign-in (2026-09-24).
         'nbd-crm-view-mode', 'nbd-kanban-density', 'nbd_ui_size',
+        'nbd-dup-dismissed',
       ]);
       const drop = [];
       for (let i = 0; i < localStorage.length; i++) {
