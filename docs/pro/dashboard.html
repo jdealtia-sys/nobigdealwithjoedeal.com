@@ -3100,6 +3100,20 @@
               </div>
             </div>
 
+            <!-- Default Pipeline View (2026-09-24): per device on purpose, so
+                 a phone can default to List while the desktop keeps Board. -->
+            <div style="padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:10px;">
+              <div style="margin-bottom:10px;">
+                <div class="h-13-mb2">Default Pipeline View</div>
+                <div class="meta-11">Auto opens List on a phone and Board on a computer. Saved on this device.</div>
+              </div>
+              <div id="crmViewDefaultGroup" style="display:flex;gap:6px;">
+                <button type="button" class="cview-default-btn" data-view-default="auto" data-action="call" data-fn="crmViewAuto" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Auto</button>
+                <button type="button" class="cview-default-btn" data-view-default="board" data-action="call" data-fn="crmViewBoard" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">Board</button>
+                <button type="button" class="cview-default-btn" data-view-default="list" data-action="call" data-fn="crmViewList" style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--br);background:var(--s);color:var(--m);font-family:inherit;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;transition:all .15s;">List</button>
+              </div>
+            </div>
+
             <!-- Bold-hierarchy toggle -->
             <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--s2);border:1px solid var(--br);border-radius:7px;margin-bottom:8px;">
               <div>
@@ -5591,7 +5605,7 @@
 <!-- Canonical customer URL builder (window.NBDUrl). Loaded BEFORE
      dashboard-actions.js because that file calls NBDUrl.customer(). -->
 <script defer src="js/nbd-url.js?v=1"></script>
-<script defer src="js/dashboard-state.js?v=4"></script>
+<script defer src="js/dashboard-state.js?v=5"></script>
 <script defer src="js/dashboard-api.js?v=4"></script>
 <!-- Durable offline photo queue. Loaded EAGERLY and ahead of the lazy
      `photos` bundle on purpose: photo-engine.js only arrives when the rep
@@ -6476,7 +6490,7 @@
 <script defer src="js/push-actions.js?v=1"></script>
 <script defer src="js/crm-portal-bridge.js?v=4"></script>
 <script defer src="js/crm.js?v=34"></script>
-<script defer src="js/crm-list-view.js?v=3"></script>
+<script defer src="js/crm-list-view.js?v=4"></script>
 <script defer src="js/tasks.js?v=5"></script>
 <script defer src="js/notif-bell.js?v=3"></script>
 <script defer src="js/buying-intent-strike.js?v=2"></script>

@@ -145,6 +145,7 @@
     "customer-a11y-structure.test.js",
     "nav-contract.test.js",
     "needs-attention-hygiene.test.js",
+    "crm-list-view-default.test.js",
     "photo-report-output-contract.test.js",
     "photo-report-builder.test.js",
     "photo-report-sharing.test.js",
