@@ -18,6 +18,8 @@
 //   note        pipeline#8 — "+" > Quick Note opened the ADD LEAD form.
 //   schedule    pipeline#10 — Today's schedule sat ~2,100px down.
 //   draw        views#0 — the Drawing Tool map was 0px tall on touch devices.
+//   draw search Draw audit H9 — no address suggestions ever appeared on the
+//               Draw view, and Go left ☰ Tools open over the map.
 //   more        views#1 — Reports / Talk Tank / Referrals had no phone entry.
 //   report      views#2 — Photo Library "New Report" rendered the builder
 //               into a hidden overlay.
@@ -367,7 +369,77 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     }
   });
 
-  test('more: Reports, Talk Tank and Referrals open from the More drawer, and the drawer covers the sidebar', async () => {
+  // Draw audit H9 (2026-09-25): typing into the Draw view's address box never
+  // showed a suggestion. The autocomplete was bound once at boot, while
+  // #drawSearch still sat inside <template id="tpl-view-draw">, so there was
+  // nothing to bind. And after Go, ☰ Tools stayed open over the map the rep
+  // had just flown to. Runs straight after the two draw tests, with the Draw
+  // view still open and its drawer shut. Geocoding answers with one made-up
+  // address (the file's catch-all stub answers "no results").
+  test('draw search: suggestions appear as the rep types, and a pick, Go or Enter closes ☰ Tools', async () => {
+    const HIT = [{
+      lat: '39.1031', lon: '-84.5120',
+      display_name: '1234 Dashnav Draw Road, Cincinnati, Hamilton County, Ohio, 45202, United States',
+      address: { house_number: '1234', road: 'Dashnav Draw Road', city: 'Cincinnati', county: 'Hamilton County',
+        state: 'Ohio', 'ISO3166-2-lvl4': 'US-OH', postcode: '45202' },
+    }];
+    const LABEL = '1234 Dashnav Draw Rd, Cincinnati, OH 45202';
+    const NOMINATIM = '**/nominatim.openstreetmap.org/search**';
+    const answer = (r) => r.fulfill({ contentType: 'application/json', body: JSON.stringify(HIT) });
+    await page.route(NOMINATIM, answer);
+    const tools = '[data-action="mapSidebar"][data-target="map-sidebar-draw"]';
+    const drawer = page.locator('#map-sidebar-draw');
+    const input = page.locator('#drawSearch');
+    const view = () => safeEvaluate(page, () => {
+      const c = drawMap.getCenter(); // a bare sibling-scope `let` in maps-routing.js, never on window
+      return `${c.lat.toFixed(4)},${c.lng.toFixed(4)} z${drawMap.getZoom()}`;
+    });
+    const openTools = async () => {
+      await dismissToasts(page);
+      await page.locator(tools).tap();
+      await expect(drawer).toHaveClass(/\bopen\b/);
+      await expectTappable(page, '#drawSearch', 'the Draw address box (inside ☰ Tools)');
+    };
+    const typingFocus = () => safeEvaluate(page, () => document.activeElement && document.activeElement.id);
+    try {
+      // 1. Suggestions appear as the rep types (10 characters), under a thumb.
+      await openTools();
+      await input.tap();
+      await input.pressSequentially('1234 Dashn', { delay: 25 });
+      const item = '#ac-drawSearch .ac-item';
+      await expect(page.locator(item).first(), '#ac-drawSearch shows a suggestion after typing 10 characters').toBeVisible({ timeout: 5_000 });
+      await expect(page.locator(item).first()).toContainText('1234 Dashnav Draw Rd');
+      await expectTappable(page, item, 'the first address suggestion');
+
+      // 2. Picking it fills the box, flies the map there, closes ☰ Tools and
+      //    drops the keyboard (the box is no longer on screen to type into).
+      await page.locator(item).first().tap();
+      await expect(input).toHaveValue(LABEL);
+      await expect(drawer, 'picking a suggestion closes ☰ Tools').not.toHaveClass(/\bopen\b/);
+      await expect.poll(view, { message: 'the map flies to the picked address' }).toBe('39.1031,-84.5120 z19');
+      expect(await typingFocus(), 'the address box lets go of the keyboard').not.toBe('drawSearch');
+
+      // 3. Go (the box keeps the picked address) — from somewhere else on the map.
+      await safeEvaluate(page, () => drawMap.setView([39.2, -84.3], 15, { animate: false }));
+      await openTools();
+      const go = '#map-sidebar-draw [data-fn="searchDraw"]';
+      await expectTappable(page, go, 'Go');
+      await page.locator(go).tap();
+      await expect(drawer, 'Go closes ☰ Tools').not.toHaveClass(/\bopen\b/);
+      await expect.poll(view, { message: 'Go flies the map to the address' }).toBe('39.1031,-84.5120 z19');
+
+      // 4. The phone keyboard's Go key is an Enter keydown in the box.
+      await openTools();
+      await input.tap();
+      await input.press('Enter');
+      await expect(drawer, 'the keyboard\'s Go (Enter) closes ☰ Tools').not.toHaveClass(/\bopen\b/);
+      expect(await typingFocus(), 'Enter lets go of the keyboard too').not.toBe('drawSearch');
+    } finally {
+      await page.unroute(NOMINATIM, answer);
+    }
+  });
+
+  test('more:Reports, Talk Tank and Referrals open from the More drawer, and the drawer covers the sidebar', async () => {
     for (const target of ['reports', 'talk-tank', 'refrewards']) {
       await dismissToasts(page);
       await page.locator('#mni-more').tap();
