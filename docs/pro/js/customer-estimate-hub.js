@@ -114,6 +114,15 @@
   function isV2(est) {
     return !!(est && (est.builder === 'v2' || est.estimateVersion === 'v2'));
   }
+  // A Log Estimate record (amount only). Its ✎ Edit opens the amount editor,
+  // never Classic (dashboard-widgets.js viewEstimate, phone audit 2026-09-25),
+  // so it is labelled Logged, like the dashboard list's LOGGED chip.
+  function isLogged(est) {
+    return typeof window._isLoggedEstimate === 'function' && !!window._isLoggedEstimate(est);
+  }
+  function kindLabel(est) {
+    return isV2(est) ? 'V2' : isLogged(est) ? 'Logged' : 'Classic';
+  }
   function titleOf(est) {
     return (est && (est.name || est.title || est.addr)) || 'Untitled estimate';
   }
@@ -240,7 +249,7 @@
   function statusChips(est, isPrimary) {
     var out = '';
     if (isPrimary) out += '<span class="ceh-chip is-primary">★ Primary</span>';
-    out += '<span class="ceh-chip">' + (isV2(est) ? 'V2' : 'Classic') + '</span>';
+    out += '<span class="ceh-chip">' + kindLabel(est) + '</span>';
     if (est.tier) out += '<span class="ceh-chip">' + esc(String(est.tier)) + '</span>';
     if (est.sq != null && Number(est.sq)) out += '<span class="ceh-chip">' + esc(Number(est.sq).toFixed(2)) + ' SQ</span>';
     var sig = est.signatureStatus || '';
@@ -372,7 +381,7 @@
       html += ests.map(function (est) {
         var isPrimary = !!(primaryId && est.id === primaryId);
         var open = _expanded[est.id] === true;
-        var sub = [fmtWhen(est.createdAt), isV2(est) ? 'V2 builder' : 'Classic'].filter(Boolean).join(' · ');
+        var sub = [fmtWhen(est.createdAt), isV2(est) ? 'V2 builder' : kindLabel(est)].filter(Boolean).join(' · ');
         return '<div class="ceh-card' + (isPrimary ? ' is-primary' : '') + (open ? ' is-open' : '') + '">' +
           '<button type="button" class="ceh-card-hd" data-ceh-act="toggle" data-ceh-id="' + esc(est.id) + '" aria-expanded="' + (open ? 'true' : 'false') + '">' +
             '<span class="ceh-card-body">' +
@@ -425,13 +434,11 @@
       withEstimates('openEstimateV2Builder', [{ estimateId: estId }]);
       return;
     }
-    // A Log Estimate record (amount only) never opens Classic: viewEstimate
-    // routes it to a small amount editor, a fixed sheet that sits above this
-    // overlay (phone audit 2026-09-25, estimate#11). So, like V2, it stays in
-    // the customer's context. The editor's save repaints the estimates list,
-    // which refreshes this hub.
-    if (typeof window._isLoggedEstimate === 'function' && window._isLoggedEstimate(est)
-        && typeof window.viewEstimate === 'function') {
+    // A logged record never opens Classic: viewEstimate routes it to a small
+    // amount editor, a fixed sheet that sits above this overlay. So, like V2,
+    // it stays in the customer's context. The editor's save repaints the
+    // estimates list, which refreshes this hub.
+    if (isLogged(est) && typeof window.viewEstimate === 'function') {
       window.viewEstimate(estId);
       return;
     }

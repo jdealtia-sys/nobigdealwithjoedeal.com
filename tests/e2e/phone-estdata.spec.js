@@ -370,6 +370,8 @@ test.describe.serial('phone estimate data @audit', () => {
     await expect(jd, 'still in the customer after Save').toBeVisible();
     await expect(page.locator(`#mJdTabEstimates .ceh-card:has([data-ceh-id="${S.loggedId}"]) .ceh-tot-v`),
       'the hub shows the new price').toHaveText('$14,250', { timeout: 10_000 });
+    await expect(page.locator(`#mJdTabEstimates [data-ceh-act="toggle"][data-ceh-id="${S.loggedId}"] .ceh-card-s`),
+      'the hub labels it for the editor ✎ Edit opens: Logged, not Classic').toContainText('Logged');
     await safeEvaluate(page, () => window.closeMobileJobDetail());
     await expect(jd).toBeHidden();
   });
