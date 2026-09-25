@@ -190,6 +190,11 @@
     border: 1px dashed color-mix(in srgb, var(--ink, #fff) 30%, transparent) !important;
   }
 
+  /* Ask Joe header is one no-wrap flex row (avatar, title, ONLINE, two
+     buttons); at 360px "New Chat" ended 8px off-screen. Let it wrap.
+     Caught by tests/e2e/phone-fit.spec.js on its first run. */
+  .joe-header { flex-wrap: wrap; padding: 12px 14px; }
+
   /* 4c. Door-to-door: the Quick Knock FAB duplicated the Knock button
      and sat on top of the Knock/Heat/Hail row (same corner as the
      speed-dial). The Knock button stays. */
