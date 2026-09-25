@@ -1085,14 +1085,23 @@
   /* right:0 is only the starting anchor — _placeCrmMenu (dashboard-ui.js)
      nudges `right` and sets max-height on open so the menu stays on screen
      and above the phone nav bar. The row is left-aligned on phones, where
-     right:0 alone hung the Filters menu 130px off the left edge. */
+     right:0 alone hung the Filters menu 130px off the left edge.
+     z-index is --z-overlay, not --z-dropdown (200) (2026-09-25 follow-up).
+     At 200 the floating FAB stack (+, doc, mic: z 9999) painted over the
+     menu's right edge on a landscape phone, where the two overlap. The
+     FABs sit at 9999 (the --z-emergency value), so the only ladder step
+     above them is the overlay layer. An open menu is never left under an
+     overlay: every tap outside it closes it, and so does every item that
+     acts (dashboard-ui.js _crmMenuArm). An overlay opened without a tap
+     (a timer, a keyboard shortcut) is appended after this header, so it
+     wins the tie on DOM order. */
   .crm-tools-menu{
     display:none; position:absolute; top:calc(100% + 6px); right:0;
     min-width:200px; max-width:calc(100vw - 16px); padding:6px;
     overflow-y:auto; overscroll-behavior:contain;
     background:var(--s2); border:1px solid var(--br); border-radius:8px;
     box-shadow:0 8px 24px rgba(0,0,0,.35);
-    z-index:200;
+    z-index:var(--z-overlay, 10000);
   }
   .crm-tools-menu.open{ display:block; }
   .crm-tools-menu button{

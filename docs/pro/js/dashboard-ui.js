@@ -2048,68 +2048,122 @@ function _placeCrmMenu(menu) {
   menu.style.maxHeight = Math.max(120, Math.floor(bottom - r.top - PAD)) + 'px';
 }
 
-// Tools dropdown (collapsed secondary toolbar)
-function toggleCrmToolsMenu(ev) {
-  const menu = document.getElementById('crmToolsMenu');
+// Header dropdowns — Tools (⋯, the collapsed secondary toolbar) and Filters
+// (one-row toolbar, 2026-07-06). One lifecycle for both (2026-09-25 phone
+// audit follow-ups). The two used to carry near-copies of this code, and
+// the copies had drifted:
+//   - A second tap on ⋯ did not close Tools. Its outside-tap check compared
+//     e.target.id with 'crmToolsBtn', but a tap on the button lands on its
+//     <svg> child, so the check closed the menu and the button's own toggle
+//     reopened it. Filters already used closest(). Both share one check now.
+//   - The outside-tap closer listened for `click` only. WebKit (Jo's iPhone
+//     app) sends no click for a tap on plain page (the header title, blank
+//     board), only pointerdown/touchstart, so on the iPhone a tap beside an
+//     open menu left it open. pointerdown fires on every engine; click
+//     stays for keyboard activation.
+//   - Each open added a document capture listener that only an OUTSIDE tap
+//     removed, so every close from the button leaked one. Now one set of
+//     listeners is armed while a menu is open and every close path here
+//     removes it.
+//   - A menu was placed only when it opened. After a rotate or resize it
+//     kept the portrait `right` offset and height cap, and it hung off the
+//     screen and under the nav bar. It is re-placed now.
+// An item that ACTS (a view jump, Prospects, Deleted leads, Export CSV …)
+// closes its menu too. The menu now paints above the FAB stack
+// (kanban-force.css, --z-overlay), so a menu left open behind the Deleted
+// leads drawer (z 1500) would paint over the drawer. Filter toggles keep
+// the delegate's own 220ms preview-then-close.
+const _CRM_MENU_BTN = { crmToolsMenu: 'crmToolsBtn', crmFiltersMenu: 'crmFiltersBtn' };
+let _crmMenuArmed = null; // { menu, onAway, onResize, raf } while a menu is open
+
+function _crmMenuDisarm() {
+  const a = _crmMenuArmed;
+  if (!a) return;
+  _crmMenuArmed = null;
+  document.removeEventListener('pointerdown', a.onAway, true);
+  document.removeEventListener('click', a.onAway, true);
+  window.removeEventListener('resize', a.onResize);
+  window.removeEventListener('orientationchange', a.onResize);
+  if (window.visualViewport) window.visualViewport.removeEventListener('resize', a.onResize);
+  if (a.raf) cancelAnimationFrame(a.raf);
+}
+
+function _crmMenuArm(menu) {
+  _crmMenuDisarm();
+  const btnSel = '#' + _CRM_MENU_BTN[menu.id];
+  const a = { menu, raf: 0 };
+  a.onAway = (e) => {
+    const t = e.target;
+    // Closed by a path outside this lifecycle (openDupReview removes .open
+    // itself): just stop listening.
+    if (!menu.classList.contains('open')) { _crmMenuDisarm(); return; }
+    // closest(), never t.id: the tap lands on the button's <svg>/<span>.
+    // The button's own click toggles the menu shut.
+    if (t && t.closest && t.closest(btnSel)) return;
+    if (menu.contains(t)) {
+      const item = e.type === 'click' && t.closest && t.closest('[data-action]');
+      // Deferred so the action delegate runs first, with the menu still open.
+      if (item && item.dataset.action !== 'toggle') setTimeout(_closeCrmMenus, 0);
+      return;
+    }
+    _closeCrmMenus();
+  };
+  a.onResize = () => {
+    if (a.raf) return;
+    a.raf = requestAnimationFrame(() => {
+      a.raf = 0;
+      if (_crmMenuArmed !== a) return;
+      const btn = document.querySelector(btnSel);
+      // The anchor button left the layout, so there is nothing to hang
+      // the menu from.
+      if (!btn || !btn.getClientRects().length) { _closeCrmMenus(); return; }
+      _placeCrmMenu(menu);
+    });
+  };
+  _crmMenuArmed = a;
+  document.addEventListener('pointerdown', a.onAway, true);
+  document.addEventListener('click', a.onAway, true);
+  window.addEventListener('resize', a.onResize);
+  window.addEventListener('orientationchange', a.onResize);
+  if (window.visualViewport) window.visualViewport.addEventListener('resize', a.onResize);
+}
+
+function _toggleCrmMenu(id, ev) {
+  const menu = document.getElementById(id);
   if (!menu) return;
-  if (typeof closeCrmFiltersMenu === 'function') closeCrmFiltersMenu();
-  const isOpen = menu.classList.toggle('open');
-  if (isOpen) {
+  const opening = !menu.classList.contains('open');
+  // The two menus close each other, so only one is ever open.
+  _closeCrmMenus();
+  if (opening) {
+    menu.classList.add('open');
     _placeCrmMenu(menu);
-    // Reflect current filter active-state into the mobile Tools menu
-    // items (Needs Attention / Stale Shares / etc.) before the user
-    // sees it. The action-delegate also re-syncs on every toggle so
-    // the indicator stays correct while the menu is open.
+    // Reflect current filter active-state into the menu items (Needs
+    // Attention / Stale Shares / etc.) before the user sees it. The
+    // action-delegate also re-syncs on every toggle so the indicator
+    // stays correct while the menu is open.
     if (typeof window.syncMobileToolsMenuActive === 'function') {
       window.syncMobileToolsMenuActive();
     }
-    // Close on next click outside
-    setTimeout(() => {
-      const onAway = (e) => {
-        if (!menu.contains(e.target) && e.target.id !== 'crmToolsBtn') {
-          closeCrmToolsMenu();
-          document.removeEventListener('click', onAway, true);
-        }
-      };
-      document.addEventListener('click', onAway, true);
-    }, 0);
+    _crmMenuArm(menu);
   }
   if (ev) ev.stopPropagation();
 }
-function closeCrmToolsMenu() {
-  document.getElementById('crmToolsMenu')?.classList.remove('open');
+function _closeCrmMenu(id) {
+  document.getElementById(id)?.classList.remove('open');
+  if (_crmMenuArmed && _crmMenuArmed.menu.id === id) _crmMenuDisarm();
 }
+function _closeCrmMenus() {
+  _closeCrmMenu('crmToolsMenu');
+  _closeCrmMenu('crmFiltersMenu');
+}
+
+function toggleCrmToolsMenu(ev) { _toggleCrmMenu('crmToolsMenu', ev); }
+function closeCrmToolsMenu() { _closeCrmMenu('crmToolsMenu'); }
 window.toggleCrmToolsMenu = toggleCrmToolsMenu;
 window.closeCrmToolsMenu = closeCrmToolsMenu;
 
-// Filters dropdown (one-row toolbar, 2026-07-06) — same lifecycle as the
-// Tools menu: sync indicators on open, close on outside click, and the
-// two menus close each other so only one is ever open.
-function toggleCrmFiltersMenu(ev) {
-  const menu = document.getElementById('crmFiltersMenu');
-  if (!menu) return;
-  closeCrmToolsMenu();
-  const isOpen = menu.classList.toggle('open');
-  if (isOpen) {
-    _placeCrmMenu(menu);
-    if (typeof window.syncMobileToolsMenuActive === 'function') {
-      window.syncMobileToolsMenuActive();
-    }
-    setTimeout(() => {
-      const onAway = (e) => {
-        if (!menu.contains(e.target) && !(e.target.closest && e.target.closest('#crmFiltersBtn'))) {
-          closeCrmFiltersMenu();
-          document.removeEventListener('click', onAway, true);
-        }
-      };
-      document.addEventListener('click', onAway, true);
-    }, 0);
-  }
-  if (ev) ev.stopPropagation();
-}
-function closeCrmFiltersMenu() {
-  document.getElementById('crmFiltersMenu')?.classList.remove('open');
-}
+function toggleCrmFiltersMenu(ev) { _toggleCrmMenu('crmFiltersMenu', ev); }
+function closeCrmFiltersMenu() { _closeCrmMenu('crmFiltersMenu'); }
 window.toggleCrmFiltersMenu = toggleCrmFiltersMenu;
 window.closeCrmFiltersMenu = closeCrmFiltersMenu;
 

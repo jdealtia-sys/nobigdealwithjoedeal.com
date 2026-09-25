@@ -21,6 +21,14 @@
 //   - A cancelled swipe left a card stuck sideways.
 //   - Add Lead pairs had no gutter.
 //
+// Follow-ups to the menu fix (2026-09-25, once the menus painted):
+//   - A second tap on ⋯ did not close Tools (the tap lands on the <svg>).
+//   - On Jo's iPhone a tap beside an open menu did not close it (WebKit sends
+//     no click for a tap on plain page, only pointerdown).
+//   - After a rotate the menu kept its portrait placement, off-screen.
+//   - The FAB stack painted over the menu's right edge on a landscape phone.
+//   - Deleted leads and Prospects left their menu open behind them.
+//
 // So every assertion here is behavioural: elementFromPoint at a control's
 // centre must return that control, and taps are real touch events
 // (touchscreen.tap / CDP touch sequences) at on-screen coordinates, never
@@ -194,6 +202,51 @@ async function openMenuAndHitTest(page, btnSel, menuId, touch) {
   }, menuId);
 }
 
+const MENUS = [['#crmToolsBtn', 'crmToolsMenu'], ['#crmFiltersBtn', 'crmFiltersMenu']];
+
+// Wait (bounded) for a header menu to reach an open/closed state, then return
+// the state it is actually in. A menu that never gets there fails the expect()
+// after it with a readable message instead of a timeout.
+async function menuSettles(page, id, want, ms = 1_500) {
+  await waitWith(page, ([i, w]) => document.getElementById(i).classList.contains('open') === w, [id, want], ms).catch(() => {});
+  return safeEvaluate(page, (i) => document.getElementById(i).classList.contains('open'), id);
+}
+
+// Where an open header menu sits and whether a finger can reach what it
+// shows. Only items whose centre is inside the menu's own (scrolling) box
+// count. Each is hit-tested at its centre AND 12px in from each side edge,
+// because the FAB stack used to cover only a menu's right edge. fabs lists
+// the visible FABs whose box overlaps the menu's.
+async function menuReport(page, id) {
+  return safeEvaluate(page, (i) => {
+    const m = document.getElementById(i); const mr = m.getBoundingClientRect();
+    const nav = document.getElementById('mobile-nav'); const nr = nav && nav.getBoundingClientRect();
+    const limit = nr && nr.height > 0 && nr.top > 0 && nr.top < innerHeight ? nr.top : innerHeight;
+    const tag = (h) => (h ? h.tagName + (h.id ? '#' + h.id : '') : 'nothing');
+    // Inside the border and padding: an item scrolled to where its centre
+    // sits on the menu's own edge is cut in half, not covered.
+    const cs = getComputedStyle(m);
+    const top = mr.top + parseFloat(cs.borderTopWidth) + parseFloat(cs.paddingTop);
+    const bot = mr.bottom - parseFloat(cs.borderBottomWidth) - parseFloat(cs.paddingBottom);
+    const shown = [...m.querySelectorAll('button')].filter((b) => getComputedStyle(b).display !== 'none')
+      .filter((b) => { const q = b.getBoundingClientRect(); const c = q.top + q.height / 2; return c > top && c < bot; });
+    const covered = [];
+    for (const b of shown) {
+      const q = b.getBoundingClientRect(); const cy = q.top + q.height / 2;
+      for (const x of [q.left + 12, q.left + q.width / 2, q.right - 12]) {
+        const h = document.elementFromPoint(x, cy);
+        if (!h || !b.contains(h)) { covered.push(b.innerText.trim().replace(/\s+/g, ' ') + ' @x' + Math.round(x) + ' under ' + tag(h)); break; }
+      }
+    }
+    const fabs = ['addLeadFab', 'nbd-whisper-fab', 'nbd-qc-fab', 'nbd-qci-fab', 'nbd-fab-dial'].map((f) => document.getElementById(f))
+      .filter((f) => f && f.getClientRects().length && getComputedStyle(f).opacity !== '0' && getComputedStyle(f).visibility !== 'hidden')
+      .filter((f) => { const r = f.getBoundingClientRect(); return r.left < mr.right && r.right > mr.left && r.top < mr.bottom && r.bottom > mr.top; })
+      .map((f) => f.id);
+    return { open: m.classList.contains('open'), left: mr.left, right: mr.right, bottom: mr.bottom, vw: document.documentElement.clientWidth,
+      limit, n: shown.length, covered, fabs };
+  }, id);
+}
+
 // A real one-finger drag through CDP (a touchscreen swipe; Playwright has no
 // touch-move API). `cancel` ends it with touchcancel instead of touchend.
 async function touchDrag(cdp, page, from, dx, dy, steps, cancel) {
@@ -327,6 +380,86 @@ test.describe('phone pipeline @audit', () => {
     const last = await safeEvaluate(page, () => window.__ppHit(document.getElementById('kanbanDensityToggleBtn')));
     expect(last, 'after a finger drag, the last Tools item is reachable').toBe(true);
     await safeEvaluate(page, () => window.closeCrmToolsMenu());
+    await page.setViewportSize({ width: 412, height: 860 });
+  });
+
+  test('header menus: a second tap or a touch beside closes them; they follow a rotate and paint over the FABs (pipeline#0 follow-ups)', async () => {
+    test.setTimeout(120_000);
+    const closeAll = () => safeEvaluate(page, () => { window.closeCrmToolsMenu(); window.closeCrmFiltersMenu(); });
+    // The previous test ends on a CDP finger drag, and Chromium swallows the
+    // first tap after a synthetic drag as a fling-stop (seen on main's ⋮
+    // menu too). Stop any fling with a touch that fires no click, so the
+    // first real tap below counts.
+    await toTop(page);
+    const title0 = await centre(page, '#view-crm .crm-hdr-title');
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: title0.x, y: title0.y }] });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+    await page.waitForTimeout(200);
+    for (const width of [412, 360]) {
+      await page.setViewportSize({ width, height: 860 });
+      await toTop(page);
+      for (const [btn, menu] of MENUS) {
+        await closeAll();
+        await quietToasts(page);
+        const c = await centre(page, btn);
+        // The old ⋯ check compared e.target.id, and a finger lands on the icon.
+        const lands = await safeEvaluate(page, ([s, x, y]) => { const b = document.querySelector(s); const h = document.elementFromPoint(x, y); return !!h && h !== b && b.contains(h); }, [btn, c.x, c.y]);
+        expect(lands, `a finger on ${btn} lands on its icon, not the button element itself (${width}px)`).toBe(true);
+        await page.touchscreen.tap(c.x, c.y);
+        expect(await menuSettles(page, menu, true), `first tap opens ${menu} (${width}px)`).toBe(true);
+        await page.touchscreen.tap(c.x, c.y);
+        expect(await menuSettles(page, menu, false), `a second tap on ${btn} closes ${menu} (${width}px)`).toBe(false);
+        await page.touchscreen.tap(c.x, c.y);
+        expect(await menuSettles(page, menu, true), `a third tap reopens ${menu} (${width}px)`).toBe(true);
+        // A touch beside the menu that arrives with NO click. WebKit (Jo's
+        // iPhone app) sends no click for a tap on plain page like the title;
+        // touchStart + touchCancel gives Chromium the same shape (pointerdown,
+        // no click).
+        const t = await centre(page, '#view-crm .crm-hdr-title');
+        expect(await safeEvaluate(page, ([x, y, id]) => !document.getElementById(id).contains(document.elementFromPoint(x, y)), [t.x, t.y, menu]),
+          'the title is beside the menu, not under it').toBe(true);
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: t.x, y: t.y }] });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchCancel', touchPoints: [] });
+        expect(await menuSettles(page, menu, false), `a touch beside ${menu} closes it with no click (${width}px)`).toBe(false);
+      }
+      // The two menus still close each other.
+      await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', true);
+      const f = await centre(page, '#crmFiltersBtn');
+      await page.touchscreen.tap(f.x, f.y);
+      expect(await menuSettles(page, 'crmFiltersMenu', true), `Filters opens from under an open Tools menu (${width}px)`).toBe(true);
+      expect(await menuSettles(page, 'crmToolsMenu', false), `… and Tools closes (${width}px)`).toBe(false);
+      await closeAll();
+    }
+
+    // Turn the phone with a menu open, and back: it is re-placed each time.
+    for (const [btn, menu] of MENUS) {
+      await page.setViewportSize({ width: 412, height: 860 });
+      await toTop(page);
+      await openMenuAndHitTest(page, btn, menu, true);
+      for (const vp of [{ width: 860, height: 412 }, { width: 412, height: 860 }]) {
+        await page.setViewportSize(vp);
+        await page.waitForTimeout(300);
+        const r = await menuReport(page, menu);
+        const at = `${menu} after turning to ${vp.width}x${vp.height}`;
+        expect(r.open, `${at}: still open`).toBe(true);
+        expect(r.left, `${at}: left edge on screen`).toBeGreaterThanOrEqual(0);
+        expect(r.right, `${at}: right edge on screen (vw ${r.vw})`).toBeLessThanOrEqual(r.vw);
+        expect(r.bottom, `${at}: ends above the nav bar / screen bottom`).toBeLessThanOrEqual(r.limit + 1);
+        expect(r.n, `${at}: shows items`).toBeGreaterThan(2);
+        expect(r.covered, `${at}: items a finger can't reach`).toEqual([]);
+      }
+      await closeAll();
+    }
+
+    // Landscape phone: the FAB column overlaps the Tools menu's right edge,
+    // and the menu must be what paints there.
+    await page.setViewportSize({ width: 860, height: 412 });
+    await toTop(page);
+    await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', true);
+    const z = await menuReport(page, 'crmToolsMenu');
+    expect(z.fabs, 'precondition: on a landscape phone the FAB stack overlaps the open Tools menu').not.toEqual([]);
+    expect(z.covered, 'Tools items painted over by the FAB stack').toEqual([]);
+    await closeAll();
     await page.setViewportSize({ width: 412, height: 860 });
   });
 
@@ -605,6 +738,43 @@ test.describe('pipeline on desktop @audit', () => {
     await page.mouse.click(dup.x, dup.y);
     await safeWaitForFunction(page, () => !!document.getElementById('dupReviewOverlay'), { timeout: 5_000 });
     await safeEvaluate(page, () => { const o = document.getElementById('dupReviewOverlay'); if (o) o.remove(); });
+  });
+
+  test('a second click closes a menu; Deleted leads closes Tools; a resize re-places an open menu (pipeline#0 follow-ups)', async () => {
+    for (const [btn, menu] of MENUS) {
+      await openMenuAndHitTest(page, btn, menu, false);
+      const c = await centre(page, btn);
+      await page.mouse.click(c.x, c.y);
+      expect(await menuSettles(page, menu, false), `a second click on ${btn} closes ${menu}`).toBe(false);
+    }
+    // The menu paints above the FAB stack now, so one left open behind the
+    // Deleted leads drawer (z 1500) would paint over the drawer.
+    await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', false);
+    const was = await page.locator('#crmToolsMenu').boundingBox();
+    const del = await centre(page, '#crmToolsMenu [data-fn="openDeletedDrawer"]');
+    await page.mouse.click(del.x, del.y);
+    await waitWith(page, () => { const d = document.getElementById('deletedDrawer'); return d.classList.contains('open') && Math.abs(d.getBoundingClientRect().right - innerWidth) < 1; }, null, 5_000);
+    const r = await safeEvaluate(page, (b) => {
+      const h = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+      return { toolsOpen: document.getElementById('crmToolsMenu').classList.contains('open'),
+        onDrawer: !!h && document.getElementById('deletedDrawer').contains(h), by: h ? h.tagName + '#' + h.id + '.' + String(h.className).split(' ')[0] : 'nothing' };
+    }, was);
+    expect(r.toolsOpen, 'Deleted leads closes the Tools menu').toBe(false);
+    expect(r.onDrawer, `the drawer, not the menu, is on top where the menu was (hit ${r.by})`).toBe(true);
+    await safeEvaluate(page, () => document.getElementById('deletedDrawer').classList.remove('open'));
+    await page.waitForTimeout(400);
+    // Narrow the window with Tools open: the phone layout moves the button
+    // to the left, and the menu has to follow it.
+    await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', false);
+    await page.setViewportSize({ width: 700, height: 860 });
+    await page.waitForTimeout(300);
+    const n = await menuReport(page, 'crmToolsMenu');
+    await page.setViewportSize({ width: 1280, height: 860 });
+    await safeEvaluate(page, () => window.closeCrmToolsMenu());
+    expect(n.open, 'Tools stays open through the resize').toBe(true);
+    expect(n.left, 'Tools left edge on screen at 700px').toBeGreaterThanOrEqual(0);
+    expect(n.right, 'Tools right edge on screen at 700px').toBeLessThanOrEqual(n.vw);
+    expect(n.covered, 'Tools items a cursor can\'t reach at 700px').toEqual([]);
   });
 
   test('list table shows the real stage; card-detail chips are readable (pipeline#1, #4)', async () => {

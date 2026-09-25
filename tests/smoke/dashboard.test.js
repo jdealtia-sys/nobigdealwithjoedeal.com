@@ -1136,10 +1136,14 @@ section('Pipeline header row is not a scroll box (2026-09-25 phone audit)');
   assert('dropdown menus scroll themselves when a screen is short',
     /\.crm-tools-menu\s*\{[^}]*overflow-y:\s*auto/.test(css));
   const ui = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  // 2026-09-25 follow-ups: both menus route through one _toggleCrmMenu (their
+  // near-copies had drifted), which places the menu and arms the closer that
+  // also re-places it on resize. phone-pipeline.spec.js carries the behaviour.
   assert('both header menus are placed on screen when they open',
     /function _placeCrmMenu\(menu\)/.test(ui)
-    && /function toggleCrmToolsMenu[\s\S]{0,400}_placeCrmMenu\(menu\)/.test(ui)
-    && /function toggleCrmFiltersMenu[\s\S]{0,300}_placeCrmMenu\(menu\)/.test(ui));
+    && /function _toggleCrmMenu\(id, ev\)[\s\S]{0,700}_placeCrmMenu\(menu\)/.test(ui)
+    && /function toggleCrmToolsMenu\(ev\) \{ _toggleCrmMenu\('crmToolsMenu', ev\); \}/.test(ui)
+    && /function toggleCrmFiltersMenu\(ev\) \{ _toggleCrmMenu\('crmFiltersMenu', ev\); \}/.test(ui));
 }
 
 section('Wave 5b — Gradient flatten + bulk accent-fg migration');
