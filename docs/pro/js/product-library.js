@@ -362,7 +362,7 @@
     let productsHtml = '';
     Object.keys(grouped).sort((a, b) => catLabel(a).localeCompare(catLabel(b))).forEach(catId => {
       const catProds = grouped[catId].sort((a, b) => (a.sortOrder || 99) - (b.sortOrder || 99));
-      const isCollapsed = collapsedCategories[catId] === true;
+      const isCollapsed = isCategoryCollapsed(catId);
       const chevron = isCollapsed ? '▸' : '▾';
       productsHtml += `
         <div style="margin-bottom:28px;">
@@ -430,8 +430,8 @@
                 ? `<span style="color:${m >= 40 ? '#10b981' : m >= 25 ? '#f59e0b' : '#ef4444'};font-weight:700;">${formatCurrency(sellPrice - myCost)}/${p.unit} (${m}%)</span>`
                 : NOT_SET}</div>
               <div style="display:flex;gap:6px;">
-                <button data-pl-action="editProduct" data-pl-id="${p.id}" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
-                <button data-pl-action="archiveProduct" data-pl-id="${p.id}" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
+                <button class="pl-card-btn" data-pl-action="editProduct" data-pl-id="${p.id}" style="padding:5px 12px;background:#3b82f6;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;">Edit</button>
+                <button class="pl-card-btn" data-pl-action="archiveProduct" data-pl-id="${p.id}" style="padding:5px 10px;background:#f3f4f6;color:#6b7280;border:none;border-radius:6px;cursor:pointer;font-size:11px;font-weight:500;">Archive</button>
               </div>
             </div>
           </div>
@@ -440,8 +440,14 @@
       productsHtml += '</div></div>';
     });
 
+    // .pl-card-btn: each card's Edit / Archive measured 45x22 / 57x22 on a
+    // phone (11px text, 5px padding) — below the 36px touch floor the rest
+    // of the app holds to (Wave 81, dashboard-app.css). Touch devices and
+    // phone widths get 40px buttons; desktop keeps the compact pair
+    // (phone audit views#14, 2026-09-25). !important because the sizes are
+    // inline on each button.
     return `
-      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}.pl-product-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}@media (max-width:360px){.pl-product-grid{grid-template-columns:minmax(0,1fr);}}</style>
+      <style>.pl-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1)!important;}.pl-product-grid{grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;}@media (max-width:360px){.pl-product-grid{grid-template-columns:minmax(0,1fr);}}@media (hover:none),(max-width:600px){.pl-card-btn{min-height:40px;padding:8px 16px!important;font-size:13px!important;}}</style>
       <div style="padding:20px;background:transparent;min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
 
         <!-- Header -->
@@ -829,8 +835,22 @@
     reRender();
   }
 
+  // Phones open the library with every category collapsed (phone audit
+  // views#14, 2026-09-25): with all 16 expanded it was 276 cards and
+  // 87,752px of scroll at 412 (92,512px at 360) before you reached the
+  // product you wanted. Search and the category chips already exist, so a
+  // search or a chip shows its matches expanded; a category the rep has
+  // tapped keeps whatever they chose. Desktop keeps the expanded default.
+  function isCategoryCollapsed(catId) {
+    if (Object.prototype.hasOwnProperty.call(collapsedCategories, catId)) return collapsedCategories[catId] === true;
+    if (currentFilter.search || currentFilter.category) return false;
+    try { return !!(window.matchMedia && window.matchMedia('(max-width: 600px)').matches); } catch (_) { return false; }
+  }
+
   function toggleCategory(catId) {
-    collapsedCategories[catId] = !collapsedCategories[catId];
+    // Toggle what's on SCREEN (which may be the phone default, not a stored
+    // choice) — negating the raw map would re-collapse a phone's first tap.
+    collapsedCategories[catId] = !isCategoryCollapsed(catId);
     reRender();
   }
 

@@ -216,8 +216,10 @@
         if (editable) {
           html += '<span class="pb-grip" draggable="true" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '" title="Drag to reorder">⠿</span>';
         }
-        // reorder
-        html += '<div style="display:flex;flex-direction:column;gap:1px;">';
+        // reorder (.pb-reorder: on touch the pair lays out side by side at
+        // 36px — see injectCss; stacked 22x20 arrows 1px apart were the only
+        // phone reorder control, the grip being HTML5 drag)
+        html += '<div class="pb-reorder" style="display:flex;flex-direction:column;gap:1px;">';
         html += '<button type="button" class="pb-mini" data-pb-action="up" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '"' + (i === 0 || !editable ? ' disabled' : '') + ' title="Move up">▲</button>';
         html += '<button type="button" class="pb-mini" data-pb-action="down" data-view="' + esc(vk) + '" data-stage="' + esc(key) + '"' + (i === stages.length - 1 || !editable ? ' disabled' : '') + ' title="Move down">▼</button>';
         html += '</div>';
@@ -255,6 +257,25 @@
       html += '</div></div>';
     });
 
+    // Unsaved-changes save bar (phone audit views#9, 2026-09-25). The only
+    // Save lived in the header above, and the editor is 6,596px tall at 412
+    // (7 pipelines, 63 stage rows): after renaming a stage in the last
+    // pipeline, Save sat 5,755px above the viewport — 7.4 screens up, with
+    // nothing on screen saying the edit wasn't saved yet. This bar appears
+    // as soon as the working copy is dirty (render, or markDirtyLight while
+    // typing) and rides the bottom of the viewport: sticky inside the view's
+    // scroller on desktop, fixed above #mobile-nav on phones (there the
+    // document scrolls and <body> is an overflow container, so sticky never
+    // engages) — see injectCss. It is the same data-pb-action="save" the
+    // header button uses. The outer .pb-savebar is also the in-flow spacer
+    // that keeps the last pipeline's rows from ending up under the fixed bar.
+    if (editable) {
+      html += '<div class="pb-savebar"' + (_dirty ? '' : ' hidden') + '><div class="pb-savebar-inner">'
+        + '<button type="button" class="btn btn-orange" data-pb-action="save">💾 Save changes</button>'
+        + '<span class="pb-savebar-msg">Unsaved changes</span>'
+        + '</div></div>';
+    }
+
     root.innerHTML = html;
   }
 
@@ -278,8 +299,12 @@
   function markDirtyLight() {
     _dirty = true;
     var root = document.getElementById(ROOT_ID);
-    var saveBtn = root && root.querySelector('[data-pb-action="save"]');
-    if (saveBtn) saveBtn.disabled = false;
+    if (!root) return;
+    // Every Save copy (header + the bottom save bar), not just the first.
+    var saveBtns = root.querySelectorAll('[data-pb-action="save"]');
+    for (var i = 0; i < saveBtns.length; i++) saveBtns[i].disabled = false;
+    var bar = root.querySelector('.pb-savebar');
+    if (bar) bar.hidden = false;
   }
 
   async function onClick(e) {
@@ -401,8 +426,10 @@
     if (!writeReady()) { toast(NOT_LOADED_MSG, 'error'); return false; }
     if (!canEdit()) { toast('Only the owner or a company admin can edit pipelines', 'error'); return false; }
     if (typeof window._saveCompanyProfile !== 'function') { toast('Cannot save right now', 'error'); return false; }
-    var btn = document.querySelector('[data-pb-action="save"]');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    // Header Save + the bottom save bar's Save: both show progress, and both
+    // come back on failure (querySelector used to reach only the first).
+    var btns = document.querySelectorAll('#' + ROOT_ID + ' [data-pb-action="save"]');
+    for (var bi = 0; bi < btns.length; bi++) { btns[bi].disabled = true; btns[bi].textContent = 'Saving…'; }
     try {
       await window._saveCompanyProfile({ pipelines: _cfg });
       // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window global.
@@ -416,7 +443,7 @@
     } catch (e) {
       console.warn('[pipelines] save failed', e);
       toast('Save failed: ' + ((e && e.message) || 'unknown'), 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '💾 Save changes'; }
+      for (var bj = 0; bj < btns.length; bj++) { btns[bj].disabled = false; btns[bj].textContent = '💾 Save changes'; }
       return false;
     }
   }
@@ -515,7 +542,30 @@
       + '.pb-grip{cursor:grab;color:var(--m);font-size:14px;line-height:1;padding:0 2px;user-select:none;touch-action:none;}'
       + '.pb-grip:active{cursor:grabbing;}'
       + '.pb-stage-row{border-radius:6px;transition:background .08s;}'
-      + '.pb-stage-row.pb-dragover{background:color-mix(in srgb, var(--orange) 14%, transparent);box-shadow:inset 0 2px 0 var(--orange);}';
+      + '.pb-stage-row.pb-dragover{background:color-mix(in srgb, var(--orange) 14%, transparent);box-shadow:inset 0 2px 0 var(--orange);}'
+      // Touch (phone audit views#9, 2026-09-25): ▲/▼/👁 were 22x20 with ▲ and
+      // ▼ stacked 1px apart (12px below ▲'s centre already hit ▼), and ✕ 26x26
+      // — on a phone those arrows are the ONLY way to reorder, since the grip
+      // is HTML5 drag. Same hover:none gate + 36px floor as the Wave 81 touch
+      // rule in dashboard-app.css; ▲ ▼ go side by side so the pair doesn't
+      // make every row 76px tall.
+      + '@media (hover:none){.pb-mini,.pb-mini.pb-danger{width:36px;height:36px;font-size:13px;border-radius:7px;}'
+      +   '.pb-reorder{flex-direction:row!important;gap:4px!important;}}'
+      // Unsaved-changes save bar (see render()). Button first, hugging the left
+      // edge, so on desktop it stays clear of the bottom-right FAB rail
+      // (fab-stack-coordinator.js: move sideways, never stack on it).
+      + '.pb-savebar{position:sticky;bottom:12px;z-index:var(--z-sticky,50);margin-top:12px;}'
+      + '.pb-savebar[hidden]{display:none;}'
+      + '.pb-savebar-inner{display:flex;align-items:center;gap:12px;width:max-content;max-width:100%;padding:8px 14px 8px 8px;background:var(--s);border:1px solid var(--orange);border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.28);}'
+      + '.pb-savebar-inner .btn{font-size:13px;padding:10px 16px;min-height:40px;}'
+      + '.pb-savebar-msg{font-size:12px;font-weight:600;color:var(--t);}'
+      // Phones: the document is the scroller and <body> an overflow container,
+      // so sticky never engages — the inner bar is fixed above #mobile-nav
+      // (62px + safe area, riding above any bottom strip via margin-bottom like
+      // the nav itself) and the outer div stays in flow as a spacer so the last
+      // pipeline can still scroll clear of it.
+      + '@media (max-width:768px){.pb-savebar{position:static;height:68px;margin-top:8px;}'
+      +   '.pb-savebar-inner{position:fixed;left:12px;right:12px;width:auto;bottom:calc(62px + env(safe-area-inset-bottom,0px) + 10px);margin-bottom:var(--nbd-bottom-chrome,0px);z-index:var(--z-sticky,50);justify-content:flex-start;}}';
     document.head.appendChild(s);
   }
 

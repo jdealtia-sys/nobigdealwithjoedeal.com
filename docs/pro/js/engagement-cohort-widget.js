@@ -54,6 +54,26 @@
     { tier: 0, key: 'new',       label: 'New',       icon: '🌱', bg: 'rgba(154,163,178,0.14)', color: '#9aa3b2', border: 'rgba(154,163,178,0.45)' },
   ];
 
+  // Light-palette inks (phone audit views#11, 2026-09-25). The tier colours
+  // above are pastels drawn for the dark palette; on the light palette's cream
+  // panel they fell to 1.40-2.41:1 (Viewed 1.40, Responded 1.58, Sent 1.68).
+  // Each tier keeps its hue with a deep ink that clears 4.5:1 there
+  // (Responded 4.76, Hot 4.91, Viewed 5.19, Sent 6.73, New 7.18).
+  // The switch reads the palette actually PAINTED (the page background's
+  // luminance), not data-mode: on a fresh login's first boot the preboot has
+  // already stamped data-mode="light" from the OS while the lazy theme bundle
+  // has not painted the light palette yet, so a data-mode switch would put
+  // these deep inks on the still-navy page. render() re-runs on themechange /
+  // modechange, so the inks follow the palette when the bundle lands.
+  const LIGHT_INK = { 4: '#b45309', 3: '#c2410c', 2: '#0f766e', 1: '#6d28d9', 0: '#475569' };
+  function paletteIsLight() {
+    try {
+      const m = String(getComputedStyle(document.body).backgroundColor).match(/[\d.]+/g);
+      if (!m || m.length < 3 || (m.length > 3 && +m[3] === 0)) return false;
+      return (0.2126 * m[0] + 0.7152 * m[1] + 0.0722 * m[2]) / 255 > 0.5;
+    } catch (_) { return false; }
+  }
+
   function computeCounts() {
     const leads = Array.isArray(window._leads) ? window._leads : [];
     const ests  = Array.isArray(window._estimates) ? window._estimates : [];
@@ -96,6 +116,7 @@
 
     // Find the largest count so we can scale bars proportionally.
     const maxCount = Math.max(...TIER_DEFS.map(d => counts[d.tier])) || 1;
+    const light = paletteIsLight();
 
     body.innerHTML = `
       <div style="display:flex; flex-direction:column; gap:8px; padding:6px 4px;">
@@ -103,15 +124,16 @@
           const c = counts[d.tier];
           const pct = (c / maxCount) * 100;
           const empty = c === 0;
+          const ink = light ? LIGHT_INK[d.tier] : d.color;
           return `
-            <div style="display:grid; grid-template-columns:74px 1fr 32px; gap:10px; align-items:center; opacity:${empty ? 0.45 : 1};">
-              <div style="font-size:12px; font-weight:600; color:${d.color}; white-space:nowrap;">
+            <div class="ec-row" data-ec-tier="${d.key}" style="display:grid; grid-template-columns:74px 1fr 32px; gap:10px; align-items:center; opacity:${empty ? 0.45 : 1};">
+              <div class="ec-label" style="font-size:12px; font-weight:600; color:${ink}; white-space:nowrap;">
                 ${d.icon} ${d.label}
               </div>
               <div style="position:relative; height:14px; background:var(--s2,#0f1419); border:1px solid var(--br,#1e2530); border-radius:7px; overflow:hidden;">
-                <div style="position:absolute; inset:0 auto 0 0; width:${pct}%; background:${d.color}; opacity:${empty ? 0 : 0.55}; transition:width .35s ease;"></div>
+                <div style="position:absolute; inset:0 auto 0 0; width:${pct}%; background:${ink}; opacity:${empty ? 0 : 0.55}; transition:width .35s ease;"></div>
               </div>
-              <div style="font-size:13px; font-weight:700; color:${empty ? 'var(--m,#9aa3b2)' : d.color}; text-align:right;">
+              <div style="font-size:13px; font-weight:700; color:${empty ? 'var(--m,#9aa3b2)' : ink}; text-align:right;">
                 ${c}
               </div>
             </div>`;
@@ -126,6 +148,10 @@
   function init() {
     setTimeout(render, 1700);
     window.addEventListener('nbd:data-refreshed', render);
+    // Re-ink when the palette changes under us (theme bundle landing after
+    // this widget's first render, a Settings theme/mode pick, an OS flip).
+    document.addEventListener('themechange', render);
+    document.addEventListener('modechange', render);
   }
 
   const EngagementCohortWidget = {

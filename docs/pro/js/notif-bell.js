@@ -726,9 +726,15 @@
               >💤</button>`);
           }
         }
+        // .notif-actions / .notif-dismiss are the phone hooks: at <=600px
+        // dashboard-app.css wraps the action strip onto its own line under
+        // the text and gives × / ↩ a 36px target, because five 36px touch
+        // actions beside the text left the title a 98px column (46px at
+        // 360) — "Overdue Follow-Up — Todd Heffner" ran 3-6 lines and the
+        // detail cut to "0 days …" (phone audit views#8, 2026-09-25).
         if (buttons.length > 0) {
           actionButtonsHTML = `
-            <div style="display:flex; gap:3px; align-self:center; flex-shrink:0;">
+            <div class="notif-actions" style="display:flex; gap:3px; align-self:center; flex-shrink:0;">
               ${buttons.join('')}
             </div>`;
         }
@@ -757,7 +763,7 @@
         </div>
         ${actionButtonsHTML}
         ${isDismissedView ? `
-        <button title="Restore"
+        <button class="notif-dismiss" title="Restore"
           style="
             background:transparent; border:none; color:var(--m);
             cursor:pointer; padding:4px 8px; font-size:13px; line-height:1;
@@ -765,7 +771,7 @@
           data-nb-action="restore" data-nb-id="${escapeHtml(n.id)}" data-nb-stop="1">
           ↩
         </button>` : `
-        <button title="Dismiss"
+        <button class="notif-dismiss" title="Dismiss"
           style="
             background:transparent; border:none; color:var(--m);
             cursor:pointer; padding:4px 8px; font-size:14px; line-height:1;

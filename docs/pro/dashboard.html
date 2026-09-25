@@ -1947,7 +1947,7 @@
       <div id="bulkActionBar" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:8px 14px;margin-top:8px;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap;">
         <span id="bulkSelectedCount" style="color:var(--orange);font-weight:600;">0 selected</span>
         <button class="btn btn-ghost btn-11" data-action="call" data-fn="selectAllVisibleLeads">☑ Select all visible</button>
-        <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--accent-fg);">
+        <select id="bulkStageSelect" style="background:var(--s3);border:1px solid var(--br);border-radius:4px;padding:5px 8px;font-size:11px;color:var(--t);">
           <option value="">Move to stage...</option>
           <!-- Populated dynamically, fallback options below -->
           <option value="new">New Lead</option>
@@ -4044,7 +4044,10 @@
               <div style="display:flex;align-items:center;gap:12px;">
                 <div style="width:44px;height:44px;border-radius:22px;background:var(--orange);color:var(--accent-fg);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;" id="teamOwnerInitials">JD</div>
                 <div class="f1">
-                  <div style="font-size:14px;font-weight:700;color:var(--accent-fg);" id="teamOwnerName">Loading...</div>
+                  <!-- color:var(--t), not --accent-fg (phone audit views#7, 2026-09-25):
+                       --accent-fg is the ink for text ON an --orange fill, so on this
+                       --s2 card it was white-on-cream (1.11:1) in light mode. -->
+                  <div style="font-size:14px;font-weight:700;color:var(--t);" id="teamOwnerName">Loading...</div>
                   <div class="meta-11">Owner / Operator · Admin · All permissions</div>
                 </div>
                 <span style="font-size:9px;font-weight:700;padding:4px 10px;background:var(--orange);color:var(--accent-fg);border-radius:12px;letter-spacing:.08em;">OWNER</span>
@@ -4057,10 +4060,16 @@
             <!-- Invite form -->
             <div style="border-top:1px solid var(--br);padding-top:14px;">
               <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:8px;">Invite a Rep</div>
-              <div style="display:flex;gap:8px;align-items:flex-end;">
-                <div class="f1">
+              <!-- Phone audit views#7 (2026-09-25): the row didn't wrap, so at 412 the
+                   email box got 66px (35px at 360) beside Role + Send Invite, and its
+                   text was --accent-fg (white, the ink for an --orange fill) on --s2,
+                   invisible in light mode. flex-wrap + a 220px basis puts the email
+                   on its own full-width line on phones, Role + Send Invite under it;
+                   on desktop there is room for all three and the row is unchanged. -->
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;">
+                <div class="f1" style="flex:1 1 220px;min-width:0;">
                   <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Email Address</label>
-                  <input type="email" id="inviteRepEmail" placeholder="rep@email.com" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--accent-fg);font-family:inherit;font-size:13px;">
+                  <input type="email" id="inviteRepEmail" placeholder="rep@email.com" style="width:100%;background:var(--s2);border:1px solid var(--br);border-radius:6px;padding:10px 12px;color:var(--t);font-family:inherit;font-size:13px;">
                 </div>
                 <div>
                   <label style="font-size:10px;color:var(--m);display:block;margin-bottom:4px;">Role</label>
@@ -4251,21 +4260,23 @@
               </div>
               <span style="font-size:9px;font-weight:700;padding:5px 11px;background:var(--orange);color:var(--accent-fg);border-radius:3px;letter-spacing:.1em;" id="billingStatusBadge">—</span>
             </div>
-            <!-- Usage meters -->
+            <!-- Usage meters. The figures read var(--t): they sit on --s2 cards, and
+                 --accent-fg (the ink for an --orange fill) made them white-on-cream,
+                 1.11:1, in light mode (sibling of the Team tab's views#7, 2026-09-25). -->
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px;" id="billingUsageMeters">
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Leads</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent-fg);" id="billingLeadsUsed">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingLeadsUsed">—</div>
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingLeadsBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Reports</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent-fg);" id="billingReportsUsed">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingReportsUsed">—</div>
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingReportsBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">AI Calls</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent-fg);" id="billingAIUsed">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--t);" id="billingAIUsed">—</div>
                 <div style="height:4px;background:var(--br);border-radius:2px;margin-top:6px;overflow:hidden;"><div id="billingAIBar" style="height:100%;background:var(--orange);border-radius:2px;width:0%;transition:width .3s;"></div></div>
               </div>
             </div>
@@ -4288,7 +4299,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
                 <div style="font-size:9px;color:var(--m);text-transform:uppercase;letter-spacing:.1em;">This Month</div>
-                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent-fg);" id="aiUsageMonth">—</div>
+                <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--t);" id="aiUsageMonth">—</div>
                 <div style="font-size:9px;color:var(--m);">API calls</div>
               </div>
               <div style="padding:12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;text-align:center;">
@@ -4505,7 +4516,7 @@
             <p style="color:var(--m);font-size:13px;margin-bottom:16px;">Access the full keyboard shortcuts matrix and the step-by-step how-to guide anytime.</p>
             <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
               <button data-action="call" data-fn="openShortcutsPanel" style="padding:10px 20px;background:var(--orange);color:var(--accent-fg);border:none;border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">⌨️ Shortcuts Overlay</button>
-              <button data-action="windowOpen" data-target="how-to.html" style="padding:10px 20px;background:var(--s2);color:var(--accent-fg);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
+              <button data-action="windowOpen" data-target="how-to.html" style="padding:10px 20px;background:var(--s2);color:var(--t);border:1px solid var(--br);border-radius:6px;cursor:pointer;font-weight:600;font-size:14px;">📖 Open Full How-To</button>
             </div>
             <div style="color:var(--m);font-size:12px;">Tip: Press <kbd style="font-family:'Barlow Condensed';font-size:11px;font-weight:600;color:var(--t);background:var(--s2);border:1px solid var(--br);border-radius:3px;padding:2px 6px;">?</kbd> from anywhere in the app to open the shortcuts overlay instantly.</div>
           </div>
@@ -5395,7 +5406,7 @@
         <label>Work Performed</label>
         <input type="text" id="wcWork" placeholder="Full roof replacement — GAF Timberline HDZ" class="w-full">
       </div>
-      <div id="wcTierDesc" style="background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 20%, transparent);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--accent-fg);line-height:1.6;"></div>
+      <div id="wcTierDesc" style="background:color-mix(in srgb, var(--orange) 8%, transparent);border:1px solid color-mix(in srgb, var(--orange) 20%, transparent);border-radius:6px;padding:10px 12px;font-size:11px;color:var(--t);line-height:1.6;"></div>
     </div>
 
     <div style="display:flex;gap:10px;">
