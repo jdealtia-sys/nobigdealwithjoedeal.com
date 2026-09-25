@@ -295,7 +295,8 @@ test.describe('phone pipeline @audit', () => {
     });
     try {
       const card = page.locator(`#crmListWrap .cl-card[data-id="${ids.install}"]`);
-      await card.scrollIntoViewIfNeeded();
+      // Centre it: at the bottom edge the floating ⋯ speed dial covers Open.
+      await card.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       const a = await card.locator('.cl-card-addr').boundingBox();
       await touchDrag(cdp, page, { x: a.x + a.width * 0.8, y: a.y + a.height / 2 }, -170, 0, 12, false);
       await page.waitForTimeout(300);
@@ -306,7 +307,7 @@ test.describe('phone pipeline @audit', () => {
       // Swipe right then have the OS cancel the touch (#11): the card must
       // snap back with Open on screen, and nothing may fire.
       const card2 = page.locator(`#crmListWrap .cl-card[data-id="${ids.closed}"]`);
-      await card2.scrollIntoViewIfNeeded();
+      await card2.evaluate((el) => el.scrollIntoView({ block: 'center' }));
       const a2 = await card2.locator('.cl-card-addr').boundingBox();
       await touchDrag(cdp, page, { x: a2.x + a2.width * 0.2, y: a2.y + a2.height / 2 }, 120, 0, 12, true);
       await page.waitForTimeout(250);
@@ -453,15 +454,23 @@ test.describe('phone pipeline @audit', () => {
       await safeWaitForFunction(page, () => !document.body.classList.contains('crm-list-mode'), { timeout: 10_000 });
     }
     await page.setViewportSize({ width: 412, height: 680 });
-    const n = await safeEvaluate(page, (id) => {
-      const card = document.querySelector(`#kanbanBoard .k-card[data-id="${id}"]`);
-      card.closest('.kanban-board').scrollLeft = 0;
-      card.scrollIntoView({ block: 'center' });
-      const r = card.querySelector('.kc-name').getBoundingClientRect();
-      return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 };
-    }, ids.fu1);
-    await page.touchscreen.tap(n.x, n.y);
-    await safeWaitForFunction(page, () => { const e = document.getElementById('mJobDetail'); return e && !e.hidden && e.classList.contains('open'); }, { timeout: 10_000 });
+    // Tap the card's name. Right after login, live refreshes rebuild the
+    // board and can move the card between aiming and tapping, so re-aim and
+    // retry (never re-tapping once the job detail is open).
+    const jdOpen = () => safeEvaluate(page, () => { const e = document.getElementById('mJobDetail'); return !!e && !e.hidden && e.classList.contains('open'); });
+    for (let attempt = 0; attempt < 3 && !(await jdOpen()); attempt++) {
+      await quietToasts(page);
+      const n = await safeEvaluate(page, (id) => {
+        const card = document.querySelector(`#kanbanBoard .k-card[data-id="${id}"]`);
+        card.closest('.kanban-board').scrollLeft = 0;
+        card.scrollIntoView({ block: 'center' });
+        const r = card.querySelector('.kc-name').getBoundingClientRect();
+        return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 };
+      }, ids.fu1);
+      await page.touchscreen.tap(n.x, n.y);
+      await waitWith(page, () => { const e = document.getElementById('mJobDetail'); return e && !e.hidden && e.classList.contains('open'); }, null, 4_000).catch(() => {});
+    }
+    expect(await jdOpen(), 'a tap on a board card opens the job detail').toBe(true);
     for (const sel of ['#mJdStatus', '#mJdJobType']) {
       const c = await chipContrast(page, sel, '--bg');
       expect(c.ratio, `${sel} "${c.text}" contrast on the top bar (${c.diag})`).toBeGreaterThanOrEqual(4.5);
