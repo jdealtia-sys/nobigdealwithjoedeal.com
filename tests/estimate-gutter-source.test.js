@@ -29,9 +29,15 @@
  *                    fixed-price fixture totals pinned from origin/main
  *   3. ONE TEST      every engine agrees on whether a footage is present
  *
- * Break-tested against origin/main f7408d71 (the three engine files swapped
- * back): the section-1 drawn-job assertions, the pinned drawn fixture and the
- * section-3 negative / non-numeric rows go red; the no-gutter rows stay green.
+ * Break-tested against origin/main f7408d71, all three engine files swapped
+ * back and then each one alone. What goes red on main:
+ *   - every section-1 drawn-job row except the four main already got right
+ *     (per-SQ alone, generated scope, the 20 LF repair, a typed footage);
+ *   - the pinned drawn fixture, and the legacy-twin rows (no GUTTER_LF);
+ *   - the negative, non-numeric and infinite rows of the no-charge test and
+ *     section 3 (main: a -$42.50 gutter credit, a NaN-quantity gutter line,
+ *     and an infinite per-SQ gutter charge).
+ * The eave-priced no-gutter rows and the pinned no-gutter fixture stay green.
  *
  * Run: node tests/estimate-gutter-source.test.js
  */
@@ -56,6 +62,13 @@ function eq(actual, expected, label) {
 }
 function truthy(cond, label) { if (!cond) throw new Error(label || 'expected truthy'); }
 function cents(d) { return Math.round(Number(d) * 100); }
+// Run every row and report every failing one, so one bad row cannot hide the
+// rows after it (a break-test must show exactly which inputs go red).
+function eachRow(rows, fn) {
+  const bad = [];
+  rows.forEach((r) => { try { fn(r); } catch (e) { bad.push(e.message); } });
+  if (bad.length) throw new Error(bad.join('; '));
+}
 
 // ── Boot the real browser stack ─────────────────────────────────────────
 // `sources` may replace a file's text (the legacy twin below).
@@ -288,15 +301,18 @@ const ABSENT = [
 ];
 
 test('guttersLf absent, 0, blank, null, negative or non-numeric: gutter run and guard are 120 LF (eave)', () => {
-  ABSENT.forEach(([label, g]) => {
+  eachRow(ABSENT, ([label, g]) => {
     const est = EL.resolveEstimate(scopeItems(win), Object.assign({}, JOB, g), SETTINGS);
     eq(runLines(est.lines)[0].quantity, EAVE, label + ' run');
     eq(lineFor(est, GUARD)[0].quantity, EAVE, label + ' guard');
   });
 });
 
-test('per-SQ quote and generated scope with no gutter footage: no gutter charge at all (as before)', () => {
-  ABSENT.forEach(([label, g]) => {
+test('per-SQ quote and generated scope with no gutter footage: no gutter charge at all', () => {
+  // As before for absent / 0 / blank / null. Negative and non-numeric are the
+  // fix: main priced -5 LF as a $42.50 gutter CREDIT on the per-SQ quote and
+  // put a NaN-quantity gutter line in the generated scope.
+  eachRow(ABSENT, ([label, g]) => {
     const input = perSqInput(Object.assign({}, JOB, g));
     eq(V2.calculatePerSq(input).addOns.gutters, 0, label + ' per-SQ gutters');
     const li = V2.calculateLineItem(Object.assign({ method: 'line-item' }, input));
@@ -399,7 +415,7 @@ test('fixture, no gutter footage: totals pinned from origin/main', () => {
     qty: 'FX RUN=120 FX GUARD=120 FX HANGER=120 FX DSP=20 FX STARTER=120',
     retailBeforeOHP: 290500, subtotal: 348600, tax: 24402, total: 372500,
   };
-  ABSENT.forEach(([label, g]) => {
+  eachRow(ABSENT, ([label, g]) => {
     const got = fx(Object.assign({ stories: 2, eaveLf: EAVE }, g));
     Object.keys(want).forEach((k) => eq(got[k], want[k], label + ' ' + k));
   });
@@ -426,7 +442,7 @@ test('present exactly when finite and above zero — EstimateLogic, per-SQ and g
     [0, false], ['', false], [null, false], [undefined, false], [-5, false], ['abc', false],
     [NaN, false], [Infinity, false], [-Infinity, false],
   ];
-  rows.forEach(([v, present]) => {
+  eachRow(rows, ([v, present]) => {
     const m = Object.assign({}, JOB, { guttersLf: v });
     const label = 'guttersLf=' + String(v);
     const run = runLines(EL.resolveEstimate(scopeItems(win), m, SETTINGS).lines)[0].quantity;
