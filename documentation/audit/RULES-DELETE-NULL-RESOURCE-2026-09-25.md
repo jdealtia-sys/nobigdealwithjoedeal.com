@@ -154,6 +154,11 @@ restored:
 - **Claims delete widened to any signed-in user.** The claims viewer denial
   goes red, and so do 4 cross-tenant claim checks.
 - **Test-side: the owner delete skipped.** The "row is gone" read goes red.
+- **Viewer-owner excluded (fixup).** Four runs, each narrowing one owner
+  branch to `role != 'viewer'`: `allow delete` on documents, then on claims,
+  then `allow create, update` on documents, then on claims. Each turned red
+  exactly the matching new §28d line (the viewer-owner delete or update) for
+  that subcollection, and the unmutated control passed.
 - **Trigger mutations.** These ran through the real handler, in-process,
   against a dedicated project:
   - Step 1b removed: the claims-swept assertion goes red.
