@@ -197,6 +197,11 @@ async function raiseUploadIndicator(page, { touch }) {
   await press(open);
   await page.waitForSelector('#uploadModal.open #uploadZone');
   await page.locator('#fileInput').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: PNG_1PX });
+  // The tile, not just the count: an emptied queue hides the Upload button but
+  // leaves #uploadCount as it was, so on a second raise (the next width) the
+  // count reads 1 before the FileReader has queued anything and
+  // _uploadQueue[0] below is undefined. openUploadModal clears the tiles.
+  await expect(page.locator('#uploadPreview .preview-item')).toHaveCount(1, { timeout: 15_000 });
   await expect(page.locator('#uploadCount')).toHaveText('1', { timeout: 15_000 });
   await safeEvaluate(page, () => { const it = window._uploadQueue[0]; it.uploading = true; it.progress = 40; });
   await press(page.locator('#uploadModal button.btn[data-action="closeUploadModal"]'));
@@ -712,6 +717,11 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
       // openUploadModal empties the queue, so each width starts from 0.
       const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#uploadZone').tap()]);
       await chooser.setFiles(Array.from({ length: 15 }, (_, i) => ({ name: `batch-${i}.png`, mimeType: 'image/png', buffer: PNG_1PX })));
+      // Wait on the tiles: #uploadCount keeps the last batch's 15 after Cancel
+      // (an emptied queue only hides the button), so at the second width it
+      // read 15 before any file had loaded and the Upload button was still
+      // display:none (2 of 40 back-to-back rounds on the local rig).
+      await expect(page.locator('#uploadPreview .preview-item')).toHaveCount(15, { timeout: 15_000 });
       await expect(page.locator('#uploadCount')).toHaveText('15', { timeout: 15_000 });
       // No scrolling: the rep must see the primary action as soon as the batch lands.
       // Selected by role, not by the footer's class, so a break-test against

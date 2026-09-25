@@ -143,12 +143,19 @@ async function stubNetwork(page) {
 // card) is legitimate but lands over the bottom nav a moment AFTER boot on a
 // fresh CI tenant — CI's first run failed "#mni-dash covered by
 // #nbd-onb-overlay". Arrive as a returning user, as dashboard-actions-audit
-// does; the tour has its own spec there.
+// does; the tour has its own spec there. A returning user has also had
+// today's Ask Joe nudges: the once-a-day overdue scan raises a 7s warning
+// toast ("40 overdue follow-ups — …") 2s after load, and when the tests
+// before it run fast it lands on the "+" sheet after openCreateSheet has
+// swept the toasts — "Task row … covered by DIV#toast-1.toast". Same guard
+// as phone-views, phone-pipeline and phone-estdata.
 async function returningUser(context) {
   await context.addInitScript(() => {
     try {
       localStorage.setItem('nbd-onboarding-complete', '1');
       localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+      const today = new Date().toISOString().split('T')[0];
+      ['overdue_scan', 'pending_estimate_scan', 'morning_briefing'].forEach((k) => localStorage.setItem('nbd_proactive_' + k, today));
     } catch (e) { /* storage blocked: the tour just shows */ }
   });
 }
