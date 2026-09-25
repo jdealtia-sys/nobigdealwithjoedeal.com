@@ -530,6 +530,7 @@ test.describe('phone portal: the rep preview @shard2 @phoneportal', () => {
     // the mint, so the real preview modal frames the (mocked) portal.
     await safeEvaluate(page, (tok) => { window.CustomerPortal.mintUrl = async () => location.origin + '/pro/portal.html?token=' + tok; }, TOKEN);
     const btn = page.locator('#quickPreviewPortalBtn');
+    if (await skip.isVisible().catch(() => false)) await skip.tap().catch(() => {}); // a late-starting tour
     if (!(await btn.isVisible().catch(() => false))) await page.locator('#qaMoreBtn').tap();
     await btn.tap();
     const frame = page.frameLocator('#nbd-portal-preview-iframe');
