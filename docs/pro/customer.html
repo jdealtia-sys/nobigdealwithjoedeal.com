@@ -535,6 +535,29 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
   display:grid; grid-template-columns:repeat(auto-fill, minmax(100px, 1fr));
   gap:8px; margin-top:12px;
 }
+/* Upload / Cancel stay in reach (2026-09-25, phone audit). The row sat in
+   normal flow BELOW the preview grid, and the Upload button only appears
+   once photos are queued, so with a batch chosen the modal showed nothing
+   but thumbnails: 15 photos at 412px put "Upload 15 Photos" 832px down the
+   modal's own scroll, a full 25 put it ~1,600px down, with no hint it was
+   there. Desktop hits the same wall (90vh) at about 15 photos. Sticky to the
+   bottom of .modal-content (the scroller) keeps the primary action on
+   screen at every batch size; it is inert when everything fits. The
+   negative margins/offset reach through .modal-content's 24px padding so
+   the footer spans the card edge to edge and nothing scrolls visibly
+   below it. */
+#uploadModal .upload-actions {
+  position:sticky; bottom:-24px; z-index:1;
+  margin:20px -24px -24px; padding:12px 24px 24px;
+  background:var(--s); border-top:1px solid var(--br);
+}
+/* Phones: four thumbnails a row instead of two 145px tiles, so a batch
+   reads as a batch (15 photos: 4 rows, not 8). Photo modal only — the
+   document modal's #docUploadPreview reuses .upload-preview for filename
+   rows that need the width. */
+@media (max-width:640px) {
+  #uploadModal .upload-preview { grid-template-columns:repeat(auto-fill, minmax(64px, 1fr)); }
+}
 .preview-item {
   position:relative; aspect-ratio:1; border-radius:8px;
   overflow:hidden; background:var(--s2);
@@ -577,7 +600,11 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
    Visible whenever window._uploadQueue has any item with a non-null
    .uploading flag and progress < 100. Auto-hides when queue drains. */
 .nbd-upload-widget {
-  position:fixed; right:16px; bottom:16px;
+  /* Rides above the bottom strips (2026-09-25, phone audit sibling sweep):
+     at bottom:16px it sat under #nbd-quick-action-bar on a phone, so the
+     in-flight upload indicator and its "View details" button were hidden
+     behind CALL / TEXT / TASK. 0px on desktop, where no strip shows. */
+  position:fixed; right:16px; bottom:calc(16px + var(--nbd-bottom-chrome, 0px));
   min-width:240px; max-width:300px;
   background:var(--s2); border:1px solid var(--br);
   border-radius:10px; padding:12px 14px;
@@ -613,6 +640,74 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
   background:transparent; color:var(--orange);
   border:1px solid var(--orange); border-radius:6px;
   cursor:pointer; font-weight:600; font-size:11px;
+}
+
+/* FIELD-TOOLS SPEED DIAL (2026-09-25, phone audit)
+   On a phone this page stood the three field-tool FABs (inbox, quick
+   capture, dictate) in a permanent 166px column over the right edge of
+   every panel. A sweep of the whole page found template ⓘ buttons, doc ✕
+   buttons, the claim editor's "+ Add" and "Mark Paid" under them, and a
+   thumb tap on a covered ⓘ opened Quick Capture instead of the preview.
+   The dashboard solved the same problem on 2026-07-06 (Jo's pick): one ⋯
+   launcher (#nbd-fab-dial, fab-speed-dial.js) with the tools parked
+   faded + untappable, fanning out in a row to its LEFT when opened. This
+   is that design for this page. The dashboard's copy lives in
+   kanban-force.css, which this page doesn't load, and its bottom offsets
+   bake in #mobile-nav's 62px, which this page doesn't have. Here the base
+   slots sit 16px off the bottom edge and mobile-polish.css lifts the whole
+   group (launcher included) by --nbd-corner-claimed, i.e. above
+   #nbd-quick-action-bar at <=640px. Centres share the launcher's centre
+   line (16 + 24 = 40px): mic 54px -> 13, capture 48px -> 16, inbox
+   44px -> 18. bottom/right need !important to outrank the modules' inline
+   positions; opacity deliberately does NOT, so fab-stack-coordinator's
+   inline hide still wins while a full-screen modal is open. Desktop
+   (>=769px) never shows the launcher and keeps the classic stack. */
+#nbd-fab-dial { display:none; }
+@media (max-width:768px) {
+  #nbd-fab-dial {
+    display:flex; position:fixed;
+    bottom:calc(16px + env(safe-area-inset-bottom, 0px));
+    right:calc(16px + env(safe-area-inset-right, 0px));
+    z-index:9999;
+    width:48px; height:48px; border-radius:50%;
+    background:var(--s2); color:var(--orange);
+    border:1px solid var(--br); cursor:pointer;
+    font-size:20px; font-weight:700; line-height:1;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+    align-items:center; justify-content:center;
+    -webkit-tap-highlight-color:transparent;
+    transition:background .15s, color .15s, opacity .16s;
+  }
+  body.nbd-dial-open #nbd-fab-dial {
+    background:var(--orange); color:var(--accent-fg, #fff);
+    border-color:var(--accent-ring, rgba(255,255,255,.35));
+  }
+  #nbd-whisper-fab {
+    opacity:0; pointer-events:none;
+    bottom:calc(13px + env(safe-area-inset-bottom, 0px)) !important;
+    right:calc(76px + env(safe-area-inset-right, 0px)) !important;
+  }
+  #nbd-qc-fab {
+    opacity:0; pointer-events:none;
+    bottom:calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+    right:calc(142px + env(safe-area-inset-right, 0px)) !important;
+  }
+  #nbd-qci-fab {
+    opacity:0; pointer-events:none;
+    bottom:calc(18px + env(safe-area-inset-bottom, 0px)) !important;
+    right:calc(202px + env(safe-area-inset-right, 0px)) !important;
+  }
+  body.nbd-dial-open #nbd-whisper-fab,
+  body.nbd-dial-open #nbd-qc-fab,
+  body.nbd-dial-open #nbd-qci-fab {
+    opacity:1; pointer-events:auto;
+  }
+  /* Transient bottom-right chrome clears the launcher instead of landing
+     on it — same call the dashboard made when it lifted its toasts to clear
+     #nbd-fab-dial. Launcher top = 16 + 48 = 64px, plus the corner lift, plus
+     an 8px gap. The toast container reads this in customer-tasks-ui.js. */
+  :root { --nbd-toast-bottom: calc(72px + var(--nbd-corner-claimed, 0px)); }
+  .nbd-upload-widget { bottom:var(--nbd-toast-bottom); }
 }
 
 /* LIGHTBOX */
@@ -723,7 +818,13 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
 .tab-content {
   display: block;
   margin-bottom: 20px;
-  scroll-margin-top: 80px; /* so anchor scroll doesn't hide behind sticky header */
+  /* scroll-margin-top:80px REMOVED 2026-09-25 (phone audit). It was the old
+     "don't hide behind the sticky bar" compensation, and html's
+     scroll-padding-top:60px (top of this file) replaced it without it ever
+     being deleted. The two ADD, so every jump-nav tap landed its section at
+     y=140, with ~92px of the previous section's card between the pinned bar
+     and the heading the rep asked for. scroll-padding-top alone puts it at
+     y=60, just under the 48px bar. */
 }
 .tab-content + .tab-content {
   border-top: 1px solid var(--br);
@@ -797,9 +898,16 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
    overflow-x scroller: it simply starts scrolling sooner.
    Gated at the FAB stack's canonical 768px breakpoint. Above it the
    quick-action strip (hidden at 641px) no longer lifts the stack up into this
-   bar's band, and notching 94px out of a wide bar would just read as a bug. */
+   bar's band, and notching 94px out of a wide bar would just read as a bug.
+
+   RETIRED 2026-09-25 (phone audit). The rail margin was sized for a FAB
+   COLUMN. At <=768px that column is gone: the three tools collapse behind
+   the one ⋯ launcher (see FIELD-TOOLS SPEED DIAL), parked in the bottom
+   48px of the corner, which can't reach a bar that pins at the top. What
+   the margin did do was leave a 106x48 see-through notch beside the PINNED
+   bar, with page text and live buttons ("View", a doc ✕) scrolling through
+   it next to the chips. The bar now runs the full width of the container. */
 @media (max-width: 768px) {
-  .jump-nav { margin-right: var(--nbd-fab-rail, 94px); }
   /* Scroll affordance (2026-09-09): this bar has scrolled horizontally
      since the nowrap fix above, but nothing ever signaled that — at 375px
      it visually reads as "Overview / Timeline / Photos" and stops, so
@@ -812,10 +920,28 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
      item would be a false "keep scrolling" signal. The trade-off: the
      fade never fully clears even scrolled to the end, so "Contact" keeps
      a soft edge — a small cosmetic cost for going from zero affordance
-     to an always-visible one. */
-  .jump-nav {
-    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
-    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+     to an always-visible one.
+
+     REPLACED 2026-09-25 (phone audit): a mask fades EVERYTHING the element
+     paints, its own opaque background included, so the pinned bar's last
+     28px turned see-through and page text scrolled visibly behind the last
+     chip. The cue is now a gradient INTO the bar's own background (var(--s2),
+     the same opaque token the bar is painted with, so it matches every
+     theme; the blur argument above only applied while the fade exposed
+     what is under the bar). It is a sticky last flex item: pinned to the
+     scroller's right edge while there is more to swipe, and resting in its
+     own slot past "Contact" once scrolled to the end, so the last link
+     clears completely. right:-10px reaches past the bar's 10px padding to
+     its edge; the vertical margins cover the padding top and bottom. */
+  .jump-nav::after {
+    content: '';
+    flex: 0 0 28px;
+    align-self: stretch;
+    margin: -10px 0 -10px -8px;
+    position: sticky;
+    right: -10px;
+    background: linear-gradient(to right, transparent, var(--s2));
+    pointer-events: none;
   }
 }
 .jump-nav a {
@@ -2170,7 +2296,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     
     <div class="upload-preview" id="uploadPreview"></div>
     
-    <div style="margin-top:20px; display:flex; gap:8px;">
+    <div class="upload-actions" style="display:flex; gap:8px;">
       <button class="btn btn-orange" id="uploadBtn" data-action="uploadPhotos" style="flex:1; display:none;">
         📤 Upload <span id="uploadCount">0</span> Photos
       </button>
@@ -2652,6 +2778,13 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <!-- W149: FAB stack coordinator — hides voice/inbox FABs when a
      modal is open so they don't float over the modal content. -->
 <script defer src="/pro/js/fab-stack-coordinator.js?v=2"></script>
+<!-- Phone speed-dial (2026-09-25, phone audit): the same ⋯ launcher the
+     dashboard uses, so at ≤768px the three field-tool FABs above collapse
+     behind one button instead of standing in a 166px column over the right
+     edge of every panel. Its CSS for this page is the "Field-tools speed
+     dial" block in the <style> above (kanban-force.css, which styles it on
+     the dashboard, is not loaded here). -->
+<script defer src="/pro/js/fab-speed-dial.js?v=1"></script>
 <!-- Install prompt — consolidated to pwa-install-nudge.js (2026-07-05).
      W150 pwa-install.js is deleted: two complete install-prompt systems
      shared the #nbd-pwa-install-banner id with separate dismissal flags,

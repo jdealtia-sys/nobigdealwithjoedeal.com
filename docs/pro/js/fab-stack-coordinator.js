@@ -210,7 +210,18 @@
       if (r.bottom < vh * 0.75) return;    // not actually on the bottom edge
       if (r.height > vh * 0.30) return;    // a panel, not a bar — see RULES
       if (!isStrip && (vw - r.right) > _CORNER_RAIL_PX) return;  // not in the rail
-      claimed = Math.max(claimed, Math.ceil(vh - r.top) + _CLAIM_GAP_PX);
+      // A strip claims its HEIGHT, not vh - top (2026-09-25, phone audit).
+      // #nbd-quick-action-bar slides up from translateY(100%) every time it
+      // re-renders (page load, resize, every nbd:data-refreshed), and this
+      // runs on the mutation that mounts it — i.e. with the bar still below
+      // the screen. vh - top read ~0, the claim published 8px, and until
+      // the 1.5s safety interval re-measured, the FAB stack sat 70px low,
+      // on top of the bar's TASK button. A strip is pinned at bottom:0 by
+      // declaration, so at rest the two numbers are identical; only the
+      // height survives an animation. Corner claimants keep vh - top: they
+      // can sit above the edge, which is what their claim measures.
+      const reach = isStrip ? r.height : (vh - r.top);
+      claimed = Math.max(claimed, Math.ceil(reach) + _CLAIM_GAP_PX);
     });
     const root = document.documentElement;
     root.style.setProperty('--nbd-bottom-chrome', strip + 'px');

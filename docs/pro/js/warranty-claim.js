@@ -56,7 +56,12 @@
 
       const overlay = document.createElement('div');
       overlay.id = 'nbd-warranty-claim-modal';
-      overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
+      // --z-overlay, not 9998 (2026-09-25, phone audit sibling sweep): 9998
+      // sat one under the field-tool FABs (9999), so the FAB stack floated
+      // over this modal's backdrop, painted and tappable (measured at 412px
+      // on customer.html) — the stale tap targets fab-stack-coordinator.js
+      // exists to prevent. Modal backdrops belong on the overlay tier.
+      overlay.style.cssText = 'position:fixed;inset:0;z-index:var(--z-overlay,10000);background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;padding:20px;';
 
       const sheet = document.createElement('div');
       sheet.style.cssText = 'background:var(--s, #1a1d23);border:1px solid var(--br, #2a2d35);border-radius:12px;padding:28px;max-width:480px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.5);';

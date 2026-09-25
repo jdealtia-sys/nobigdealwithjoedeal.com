@@ -15,6 +15,10 @@
  *     slots faded + untappable when closed, fans them out in a thumb
  *     row LEFT of the launcher when open. Desktop ≥769px hides the
  *     launcher and keeps the classic vertical stack.
+ *   - customer.html (2026-09-25) loads this module too, with its own
+ *     copy of that CSS (the FIELD-TOOLS SPEED DIAL block in its <style>):
+ *     kanban-force.css isn't loaded there, and that page has no
+ *     #mobile-nav, so its slots sit 16px off the edge, not 78px.
  *   - fab-stack-coordinator.js: lists the launcher in FAB_IDS, so a
  *     full-screen modal hides it with the rest of the stack (its
  *     inline opacity:0 outranks our CSS open-state).

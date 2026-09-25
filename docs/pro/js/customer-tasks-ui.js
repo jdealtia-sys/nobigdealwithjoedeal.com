@@ -357,13 +357,25 @@ window.showToast = function(message, type = 'info') {
   if (!container) {
     container = document.createElement('div');
     container.id = 'toastContainer';
-    container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
+    // bottom rides ABOVE the bottom strips (2026-09-25, phone audit). The
+    // contract in fab-stack-coordinator.js says toasts ride above
+    // --nbd-bottom-chrome, but the only rule that did it is
+    // dashboard-app.css's .toast-container margin, and this page loads
+    // neither that sheet nor a class on this container. So at bottom:20px
+    // every toast landed on #nbd-quick-action-bar (70px tall on a phone):
+    // "Job costs saved", "Customer info updated" and every error were
+    // hidden behind it, and once the bar dropped under the toast layer the
+    // toast would have covered Call / Text / Task for up to 9s instead.
+    // --nbd-bottom-chrome is 0px on desktop and wherever no strip shows.
+    // --nbd-toast-bottom is customer.html's phone override (<=768px), which
+    // also clears the field-tools ⋯ launcher parked above the bar.
+    container.style.cssText = 'position:fixed;bottom:var(--nbd-toast-bottom, calc(20px + var(--nbd-bottom-chrome, 0px)));right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
     document.body.appendChild(container);
   }
   while (container.children.length >= 5) container.firstChild.remove();
   const BORDER = { success: 'var(--green,#2ECC8A)', error: 'var(--red,#E05252)', warning: 'var(--gold,#eab308)', info: 'var(--blue,#3b82f6)' };
   const toast = document.createElement('div');
-  toast.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--s,#1a1d23);color:var(--t,#e8eaf0);border:1px solid var(--br,rgba(255,255,255,.1));border-left:3px solid ' + (BORDER[type] || BORDER.info) + ';border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:340px;pointer-events:auto;animation:ctToastIn .25s ease-out;';
+  toast.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--s,#1a1d23);color:var(--t,#e8eaf0);border:1px solid var(--br,rgba(255,255,255,.1));border-left:3px solid ' + (BORDER[type] || BORDER.info) + ';border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:min(340px, calc(100vw - 40px));pointer-events:auto;animation:ctToastIn .25s ease-out;';
   const msg = document.createElement('span');
   msg.textContent = message;
   const close = document.createElement('button');
@@ -1517,7 +1529,12 @@ window.showPhotoActions = function(idx, event) {
   
   var popup = document.createElement('div');
   popup.id = 'photoActionPopup';
-  popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:9000;display:flex;align-items:center;justify-content:center;';
+  // --z-overlay, not 9000 (2026-09-25, phone audit). 9000 put this sheet
+  // UNDER the field-tool FABs (9999) and the quick-action bar, so on a phone
+  // the FABs sat on the right end of "Set as Cover Photo" and "Delete" and a
+  // tap on Delete's right edge opened Quick Capture instead. It is a modal
+  // backdrop like every other overlay on this page, so it takes that tier.
+  popup.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.5);z-index:var(--z-overlay,10000);display:flex;align-items:center;justify-content:center;';
   popup.onclick = function(e) { if (e.target === popup) popup.remove(); };
   
   var phaseColors = { 'Before': '#3b82f6', 'During': 'var(--orange)', 'After': 'var(--green)' };
@@ -1530,7 +1547,8 @@ window.showPhotoActions = function(idx, event) {
     '<div style="display:flex;align-items:center;gap:10px;">' +
     '<img src="' + photo.url + '" loading="lazy" decoding="async" style="width:48px;height:48px;border-radius:8px;object-fit:cover;">' +
     '<div style="font-size:16px;font-weight:700;">Edit Photo</div></div>' +
-    '<button data-action="_closePhotoActionPopup" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;">&times;</button></div>' +
+    // The × was a bare 13x26 glyph; 40x40 is a thumb-sized target (2026-09-25).
+    '<button data-action="_closePhotoActionPopup" aria-label="Close" style="background:none;border:none;color:var(--m);font-size:22px;cursor:pointer;min-width:40px;min-height:40px;margin:-8px -10px -8px 0;display:flex;align-items:center;justify-content:center;">&times;</button></div>' +
     
     '<div style="margin-bottom:14px;">' +
     '<label style="font-size:11px;font-weight:600;color:var(--m);display:block;margin-bottom:4px;">Phase</label>' +
