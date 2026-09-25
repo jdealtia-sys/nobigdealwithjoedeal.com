@@ -49,7 +49,16 @@
         overflow: hidden;
         user-select: none;
         -webkit-user-select: none;
-        touch-action: none;
+        /* pan-y, not none (phone audit, 2026-09-25): with none, the browser
+           handed EVERY touch to the drag handler, so a thumb that landed on a
+           slider while scrolling the portal could not scroll the page — and
+           three stacked sliders cover ~58% of a phone screen, leaving only
+           41px gutters to scroll by. pan-y keeps vertical swipes for the page
+           and pinch-zoom for the photo; horizontal drags still come here.
+           Plain pan-y first: a browser that rejects the pinch-zoom value
+           (older iOS Safari) drops that whole line and keeps this one. */
+        touch-action: pan-y;
+        touch-action: pan-y pinch-zoom;
         cursor: ew-resize;
       }
       .nbd-ba .nbd-ba-layer {
@@ -183,6 +192,14 @@
     const before   = wrap.querySelector('.nbd-ba-before');
 
     let dragging = false;
+    // A touch is only a drag once it has moved sideways more than it has
+    // moved up or down. Until then it may still be the start of a page
+    // scroll (touch-action: pan-y above), so it must not move the handle:
+    // jumping the handle to wherever the thumb landed on pointerdown is what
+    // made a scroll attempt yank the photo to 68%. The browser answers a
+    // vertical swipe with pointercancel, which drops the pending touch.
+    let pendingTouch = null;
+    const TOUCH_SLOP = 6; // px, roughly the platform's own tap slop
 
     function setRatio(r) {
       // Clamp to a tiny margin on both sides so the labels stay visible.
@@ -198,17 +215,41 @@
       return x / rect.width;
     }
 
-    function onPointerDown(ev) {
+    function startDrag(ev) {
       dragging = true;
       try { baEl.setPointerCapture(ev.pointerId); } catch (_) {}
       setRatio(eventRatio(ev));
+    }
+    function onPointerDown(ev) {
+      if (ev.pointerType === 'touch') {
+        // No preventDefault: that would claim the gesture before we know
+        // which way it is going.
+        pendingTouch = { id: ev.pointerId, x: ev.clientX, y: ev.clientY };
+        return;
+      }
+      // Mouse / pen: unchanged — press anywhere jumps the handle there.
+      startDrag(ev);
       ev.preventDefault();
     }
     function onPointerMove(ev) {
+      if (pendingTouch && ev.pointerId === pendingTouch.id) {
+        const dx = Math.abs(ev.clientX - pendingTouch.x);
+        const dy = Math.abs(ev.clientY - pendingTouch.y);
+        if (dx < TOUCH_SLOP || dx <= dy) return;
+        pendingTouch = null;
+        startDrag(ev);
+        return;
+      }
       if (!dragging) return;
       setRatio(eventRatio(ev));
     }
     function onPointerUp(ev) {
+      // A touch that never moved is a tap: reveal up to the tapped point,
+      // the same thing a mouse click does.
+      if (ev.type === 'pointerup' && pendingTouch && ev.pointerId === pendingTouch.id) {
+        setRatio(eventRatio(ev));
+      }
+      pendingTouch = null;
       dragging = false;
       try { baEl.releasePointerCapture(ev.pointerId); } catch (_) {}
     }

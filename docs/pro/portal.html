@@ -207,7 +207,37 @@
     border-radius: var(--nbd-radius-lg);
     background: #fff;
   }
-  @media (max-width: 600px) { .cal-embed { height: 820px; } }
+  /* Phone audit (2026-09-25): this used to RAISE the embeds to 820px on
+     phones — taller than any phone's visible viewport. With the frame
+     filling the whole screen, every swipe landed inside it: five 400px
+     swipes scrolled the frame and left the page where it was, and the only
+     page-scrolling strips were the 41px gutters either side. Two embeds in
+     a row (sign, then book) meant trapping twice on the homeowner's most
+     important flow.
+     - The signing frame now always fits the SMALL viewport (URL bar shown)
+       with a band of page above or below it to scroll by. 72svh: 620px at
+       860 tall, 560 on a Pixel-sized Chrome; floor 420 so it never gets too
+       short to sign in. The vh line is the fallback for pre-svh browsers.
+     - The booking calendar does not render inline on phones at all: its
+       "Open Booking Page" button (already under it) opens the same Cal.com
+       page full-screen, which is how Cal.com is built to be used on a
+       phone, and a hidden lazy iframe is never fetched. The estimate
+       walkthrough page alone is ~1780px tall, so any inline height traps. */
+  @media (max-width: 600px) {
+    .cal-embed { height: clamp(420px, 72vh, 820px); height: clamp(420px, 72svh, 820px); }
+    .cal-embed[data-embed="booking"] { display: none; }
+  }
+  /* iOS zoom (phone audit, 2026-09-25): iOS Safari zooms the page in on
+     focus of any text control under 16px and leaves it zoomed, so the
+     homeowner pinches back out after every message. portal.js renders its
+     message / callback / rating / warranty / referral / photo-caption
+     fields at 12-14px via inline styles, hence !important. Same rule the
+     rep side carries (dashboard-app.css "Global iOS auto-zoom kill"), which
+     this page does not load; (pointer: coarse) also covers an iPad held
+     landscape, wider than 900. Desktop keeps the inline sizes. */
+  @media (max-width: 900px), (pointer: coarse) {
+    input, select, textarea { font-size: max(16px, 1em) !important; }
+  }
   /* Documents shelf (2026-09-16) */
   .doc-list { margin-top: var(--nbd-space-3); display: flex; flex-direction: column; gap: var(--nbd-space-2); }
   .doc-row {
@@ -226,8 +256,11 @@
   /* Sandboxed document viewer modal — see wirePortalDocumentsCard's comment
      in portal.js for why generated documents render in an opaque-origin
      iframe (srcdoc) rather than a direct link. */
+  /* z: --z-overlay, above the floating Live pill (--z-fab) and below the
+     update banner (--z-toast) — see _showLivePill in portal.js. Was 1000,
+     which put the pill on top of the open viewer (phone audit 2026-09-25). */
   .doc-modal-overlay {
-    display: none; position: fixed; inset: 0; z-index: 1000;
+    display: none; position: fixed; inset: 0; z-index: var(--z-overlay, 10000);
     background: rgba(15,17,21,.72); padding: var(--nbd-space-4);
     align-items: center; justify-content: center;
   }
@@ -449,12 +482,31 @@
   }
   .progress-schedule + .progress-next{ margin-top: var(--nbd-space-2); }
   @media (max-width:520px){
-    .progress-step-label{ font-size:9px; }
+    /* Phone audit (2026-09-25): was font-size 9px with the base rule's
+       nowrap + ellipsis, so every phone got 9px milestone names and a 320px
+       phone — or the rep's Preview Portal modal, whose frame is 318px wide
+       at a 360 viewport — got "Inspect…", "Installa…", "Comple…". Now the
+       brand's condensed display face (the one every other small label on
+       this page uses) at 12px, untracked, with the track's 8px gaps handed
+       to the labels: "Installation", the longest, is 49px against a 55px
+       step at 360. At 340 and below it steps to 11px (45px against 47px in
+       the 318px preview frame), so no width a phone or the preview reaches
+       cuts a name. Wrapping stays on as the last resort for a longer tenant
+       label — a second line beats a lost ending. */
+    .progress-track{ gap:0; }
+    .progress-step-label{
+      font-family: var(--nbd-font-display); font-size:12px; letter-spacing:0;
+      white-space:normal; overflow:visible; text-overflow:clip;
+      overflow-wrap:break-word; -webkit-hyphens:auto; hyphens:auto;
+    }
     .progress-dot{ width:24px; height:24px; font-size:11px; }
     .progress-track::before, .progress-track-fill{ top:11px; }
-    /* Too tight at this width for a third line under a 9px label — the
+    /* Too tight at this width for another line under the label — the
        label + checkmark already carry the essential information. */
     .progress-step-date{ display:none; }
+  }
+  @media (max-width:340px){
+    .progress-step-label{ font-size: var(--nbd-text-xs); }
   }
 
   /* Print stylesheet (2026-09-16). A homeowner's real use case: handing an
@@ -514,7 +566,7 @@
 <!-- D-2.7: Before/After draggable slider. Loaded after the main
      page body so the portal's render path can call NBDBeforeAfter
      once view data lands. Self-contained — no Firebase deps. -->
-<script defer src="./js/before-after-slider.js?v=2"></script>
+<script defer src="./js/before-after-slider.js?v=3"></script>
 
 <script defer src="js/booking-events.js?v=2"></script>
 <script src="js/portal.js" defer></script>
