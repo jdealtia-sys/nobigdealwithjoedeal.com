@@ -4283,6 +4283,20 @@ body {
   #view-map .map-view.active { height:100%!important; min-height:0!important; }
   #view-map .map-area { min-height:calc(100dvh - 120px)!important; }
 }
+/* 2026-09-25 (Jo, installed app on an iPhone): the two min-heights above pin
+   the map at 100dvh-120px. On a PHONE the tools drawer opens BENEATH the map
+   (order:2 in the <=768px layout), so it opened off the bottom of a view that
+   is overflow:hidden. Tapping "☰ Tools" did nothing visible, and every mode
+   button and "▶ Draw" sat below the screen. It showed only in the installed
+   app; a browser tab never matched display-mode:standalone, which is why no
+   test saw it. The <=768px layout (#view-*.active flex column, .map-area
+   flex:1) already keeps the map full-height while the drawer is shut, so the
+   collapse these rules guard against can't happen there. Phones get the
+   browser behaviour back: the map fills the pane and shrinks when the drawer
+   opens. Desktop standalone keeps the pin. */
+@media (display-mode: standalone) and (max-width:768px) {
+  #view-draw .map-area, #view-map .map-area { min-height:240px!important; }
+}
 
 /* ── MOBILE FULL SYSTEM (≤768px) ── */
 @media(max-width:768px){
