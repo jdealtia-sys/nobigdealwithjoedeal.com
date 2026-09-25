@@ -87,7 +87,8 @@ console.log('\nSETTINGS PICKER');
 // ── Phone field cards (2026-09-24) ────────────────────────────────
 // render() on a phone builds cards; the swipe handlers are driven by fake
 // touch events on fake card elements parsed back out of the markup.
-function loadCards({ phone, leads, ua }) {
+const unesc = (s) => s.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+function loadCards({ phone, leads, ua, stageOptionsForType }) {
   const moves = [];
   const toasts = [];
   let hrefSet = null;
@@ -97,15 +98,22 @@ function loadCards({ phone, leads, ua }) {
     set innerHTML(v) {
       this._html = String(v);
       cards.length = 0;
-      const re = /<div class="cl-card" data-id="([^"]*)" data-phone="([^"]*)" data-stage="([^"]*)">/g;
+      // Every data-* attribute on each card div (data-next / data-next-msg
+      // joined data-id / data-phone / data-stage on 2026-09-25).
+      const re = /<div class="cl-card" ([^>]*)>/g;
       let m;
       while ((m = re.exec(this._html))) {
-        const attrs = { 'data-id': m[1], 'data-phone': m[2], 'data-stage': m[3] };
+        const attrs = {};
+        m[1].replace(/(data-[a-z-]+)="([^"]*)"/g, (_, k, v) => { attrs[k] = unesc(v); });
         const h = {};
+        const cls = new Set(['cl-card']);
         cards.push({
-          attrs, h, style: {},
-          classList: { toggle() {}, remove() {} },
-          getAttribute: (k) => attrs[k],
+          attrs, h, style: {}, cls,
+          classList: {
+            toggle(c, on) { if (on === undefined ? !cls.has(c) : on) cls.add(c); else cls.delete(c); },
+            remove(...cs) { cs.forEach((c) => cls.delete(c)); },
+          },
+          getAttribute: (k) => (k in attrs ? attrs[k] : null),
           addEventListener: (t, f) => { h[t] = f; },
         });
       }
@@ -139,6 +147,7 @@ function loadCards({ phone, leads, ua }) {
     setInterval: () => 0, clearInterval() {}, setTimeout: () => 0,
     Date, Math, JSON, String, Number, Array, Object, Promise,
   };
+  if (stageOptionsForType) win.stageOptionsForType = stageOptionsForType;
   win.window = win;
   Object.defineProperty(win.location, 'href', { set: (v) => { hrefSet = v; }, get: () => hrefSet });
   vm.runInNewContext(SRC, win, { filename: 'crm-list-view.js' });
@@ -204,6 +213,54 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
     card('a').h.touchmove({ touches: [{ clientX: 360, clientY: 302 }] });
     card('a').h.touchend({});
     ok('a swipe that starts on a control is ignored', t.moves.length === before);
+  }
+
+  // 2026-09-25 phone audit: the select and the swipe used the CURRENT VIEW's
+  // columns, and the Ins view stops at Contract Signed — so a job being
+  // installed read "New Lead" (a select with no matching option shows its
+  // first) and swiping it said "Already at the last stage". Both now use the
+  // lead's own track (stageOptionsForType, what the board's ⋮ submenu offers).
+  console.log('\nFIELD CARDS — the lead\'s own track');
+  {
+    const TRACK = ['new', 'contacted', 'inspected', 'contract_signed', 'job_created', 'install_in_progress',
+      'install_complete', 'collections', 'closed', 'warranty_claim', 'lost'];
+    const leads = [
+      { id: 'i', stage: 'install_in_progress', phone: '' },
+      { id: 'k', stage: 'collections', phone: '' },
+      { id: 'x', stage: 'custom_mystery', phone: '5135550109' },
+    ];
+    const t = loadCards({ phone: true, leads, stageOptionsForType: () => TRACK.map((k) => ({ value: k, label: k.toUpperCase() })) });
+    const html = t.wrap.innerHTML;
+    const selectOf = (id) => (html.split('class="cl-card" data-id="' + id + '"')[1] || '').split('</select>')[0];
+    const selected = (id) => { const m = /<option value="([^"]*)" selected>/.exec(selectOf(id)); return m && m[1]; };
+    const card = (id) => t.cards.find((c) => c.attrs['data-id'] === id);
+    ok('a stage outside the view (Installing) is the selected option', selected('i') === 'install_in_progress');
+    ok('the select offers the whole track, job stages included', /value="install_complete"/.test(selectOf('i')) && /value="closed"/.test(selectOf('i')));
+    ok('a stage outside the track still gets its own selected option', selected('x') === 'custom_mystery');
+    t.swipe(card('i'), -120);
+    await settle(); await settle();
+    ok('swipe-left on an installing job moves it to Install Done', t.moves.some((m) => m[0] === 'i' && m[1] === 'install_complete'));
+    ok('...with no false "last stage" toast', !t.toasts.includes('Already at the last stage'));
+    t.swipe(card('k'), -120);
+    ok('Collections stops in front of Closed instead of jumping to Warranty Claim',
+      !t.moves.some((m) => m[0] === 'k') && t.toasts.includes('Next is CLOSED — pick it from the stage list'));
+    t.swipe(card('x'), -120);
+    ok('an off-track stage points at the stage list', !t.moves.some((m) => m[0] === 'x') && t.toasts.includes('Pick the next stage from the stage list'));
+
+    // touchcancel (the OS takes the gesture: notification shade, a call)
+    // resets the card and never acts; before, no listener existed and the
+    // card stayed 120px sideways in the green "call" state.
+    const c = card('x');
+    const nMoves = t.moves.length, hrefBefore = t.href();
+    c.h.touchstart({ target: {}, touches: [{ clientX: 100, clientY: 300 }] });
+    c.h.touchmove({ touches: [{ clientX: 230, clientY: 301 }] });
+    ok('mid-swipe the card is offset and marked', c.style.transform === 'translateX(130px)' && c.cls.has('cl-card-swipe-call'));
+    ok('a touchcancel listener exists', typeof c.h.touchcancel === 'function');
+    if (c.h.touchcancel) c.h.touchcancel({});
+    ok('touchcancel snaps the card back', c.style.transform === '' && !c.cls.has('cl-card-swipe-call') && !c.cls.has('cl-card-swipe-next'));
+    ok('...and neither calls nor moves', t.moves.length === nMoves && t.href() === hrefBefore);
+    if (c.h.touchend) c.h.touchend({});
+    ok('a stray touchend after the cancel does nothing', t.moves.length === nMoves && t.href() === hrefBefore);
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);

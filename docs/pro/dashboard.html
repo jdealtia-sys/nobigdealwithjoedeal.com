@@ -45,7 +45,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm-leads.js?v=2" as="script">
-<link rel="preload" href="js/crm-pipeline.js?v=3" as="script">
+<link rel="preload" href="js/crm-pipeline.js?v=4" as="script">
 <link rel="modulepreload" href="js/stage-write.js">
 <link rel="preload" href="js/crm-snooze.js?v=2" as="script">
 <link rel="preload" href="js/crm-portal-bridge.js?v=4" as="script">
@@ -119,9 +119,9 @@
 <!-- Main app CSS — extracted to css/dashboard-app.css (Rock 4 Phase 2b).
      Was a 4,500-line anonymous inline <style>; external file caches per the
      /pro/css revalidation policy instead of shipping in every HTML load. -->
-<link rel="stylesheet" href="css/dashboard-app.css?v=4">
+<link rel="stylesheet" href="css/dashboard-app.css?v=5">
 <!-- Kanban force CSS — extracted to css/kanban-force.css (Rock 4 Phase 2c). -->
-<link rel="stylesheet" href="css/kanban-force.css?v=2" id="kanban-force-css-link">
+<link rel="stylesheet" href="css/kanban-force.css?v=3" id="kanban-force-css-link">
 <!-- v5→DS theme bridge — extracted to css/theme-bridge.css (Rock 4 Phase 2d). -->
 <link rel="stylesheet" href="css/theme-bridge.css?v=2" id="nbd-theme-bridge-link">
 
@@ -5177,14 +5177,14 @@
       <div class="mfield"><label>Source</label>
         <select id="lSource"><option>Door Knock</option><option>Storm Canvass</option><option>Referral</option><option>Thumbtack</option><option>Yelp</option><option>Angi</option><option>Website</option><option>Online</option><option>Other</option></select>
       </div>
-      <div class="mfield"><label>Referral Code <span style="opacity:.6;font-weight:400;">(if referred)</span></label>
+      <div class="mfield"><label>Referral Code <span class="mlabel-hint" style="opacity:.6;font-weight:400;">(if referred)</span></label>
         <input type="text" id="lReferralCode" placeholder="e.g. JOHN-AB12" autocapitalize="characters" maxlength="32">
       </div>
     </div>
     <div class="mrow">
       <div class="mfield"><label>Damage Type</label>
         <select id="lDamageType">
-          <option value="">Select damage type...</option>
+          <option value="">Select…</option>
           <option value="Roof - Hail">Roof — Hail</option>
           <option value="Roof - Wind">Roof — Wind</option>
           <option value="Roof - Hail & Wind">Roof — Hail &amp; Wind</option>
@@ -5645,8 +5645,8 @@
      classic dashboard-actions.js mount/unmount wiring to call. -->
 <script type="module" src="js/voice-intel-dashboard-bridge.module.js?v=1"></script>
 <script defer src="js/estimate-preview.js?v=2"></script>
-<script defer src="js/dashboard-widgets.js?v=5"></script>
-<script defer src="js/dashboard-ui.js?v=6"></script>
+<script defer src="js/dashboard-widgets.js?v=6"></script>
+<script defer src="js/dashboard-ui.js?v=7"></script>
 <script defer src="js/dashboard-actions.js?v=12"></script>
 <script defer src="js/dashboard-main.js?v=6"></script>
 
@@ -6487,7 +6487,7 @@
      of window.* exports in the shim can reach functions defined
      in the split files via classic-script sibling-scope globals. -->
 <script defer src="js/crm-leads.js?v=2"></script>
-<script defer src="js/crm-pipeline.js?v=3"></script>
+<script defer src="js/crm-pipeline.js?v=4"></script>
 <script defer src="js/crm-snooze.js?v=2"></script>
 <!-- FCM Web Push token registration — registers the messaging SW, mints a
      push token via getToken({vapidKey}), and persists it to
@@ -6497,7 +6497,7 @@
 <script defer src="js/push-actions.js?v=1"></script>
 <script defer src="js/crm-portal-bridge.js?v=4"></script>
 <script defer src="js/crm.js?v=34"></script>
-<script defer src="js/crm-list-view.js?v=5"></script>
+<script defer src="js/crm-list-view.js?v=6"></script>
 <script defer src="js/tasks.js?v=5"></script>
 <script defer src="js/notif-bell.js?v=3"></script>
 <script defer src="js/buying-intent-strike.js?v=2"></script>
@@ -6521,7 +6521,7 @@
 <!-- Wave 42: portal-link helpers must load BEFORE kanban-context-menu
      so the menu picks up Copy/Text Portal Link items on first render. -->
 <script defer src="js/portal-link-helpers.js?v=3"></script>
-<script defer src="js/kanban-context-menu.js?v=2"></script>
+<script defer src="js/kanban-context-menu.js?v=3"></script>
 <script defer src="js/customer-engagement-score.js?v=2"></script>
 <script defer src="js/engagement-cohort-widget.js?v=2"></script>
 <script defer src="js/templates-library.js?v=2"></script>

@@ -945,6 +945,21 @@ function updatePinStats() {
 // ══════════════════════════════════════════════════════════════════════
 // KANBAN CARD DETAIL MODAL
 // ══════════════════════════════════════════════════════════════════════
+// Text colour for a stage / job-type chip (2026-09-25 phone audit). The
+// chips used the raw stage colour as their text on a 14% tint of itself,
+// and those colours are picked for column headers, not for text on the
+// theme's own surface: New Lead's #374151 on the default navy top bar
+// measured 1.25:1 (1.37:1 on the desktop card-detail chip) — the phone
+// chip read as a blank pill, on the most common stage there is, and the
+// one unknown stages fall back to. Insurance purple was 2.1:1. Mixing the
+// hue with the theme's own text colour keeps the stage's colour identity
+// and lands >= 4.5:1 for every built-in stage and type colour, on dark
+// and light themes alike (--t is light on dark themes, dark on light
+// ones). Border and tint keep the raw colour.
+function _nbdChipInk(color) {
+  return 'color-mix(in srgb, ' + color + ' 40%, var(--t))';
+}
+
 function openCardDetailModal(leadId) {
   const lead = (window._leads || []).find(l => l.id === leadId);
   if (!lead) return;
@@ -973,7 +988,7 @@ function openCardDetailModal(leadId) {
       ? window.stageColor(rawStage)
       : 'var(--m)';
     stageEl.textContent = label;
-    stageEl.style.color = color;
+    stageEl.style.color = _nbdChipInk(color);
     stageEl.style.borderColor = `color-mix(in srgb, ${color} 50%, var(--br))`;
     stageEl.style.background = `color-mix(in srgb, ${color} 14%, var(--s2))`;
   }
@@ -990,7 +1005,7 @@ function openCardDetailModal(leadId) {
     const labelTxt = meta ? `${meta.icon || ''} ${meta.label}`.trim() : 'Set type';
     const tColor = meta?.color || 'var(--m)';
     typeEl.textContent = labelTxt;
-    typeEl.style.color = tColor;
+    typeEl.style.color = _nbdChipInk(tColor);
     typeEl.style.borderColor = `color-mix(in srgb, ${tColor} 50%, var(--br))`;
     typeEl.style.background = `color-mix(in srgb, ${tColor} 14%, var(--s2))`;
   }
@@ -1052,14 +1067,14 @@ function refreshCardDetailChips(leadId) {
   const desktopStage = document.getElementById('cardDetailStage');
   if (desktopStage) {
     desktopStage.textContent = stageLabel;
-    desktopStage.style.color = stageColor;
+    desktopStage.style.color = _nbdChipInk(stageColor);
     desktopStage.style.borderColor = `color-mix(in srgb, ${stageColor} 50%, var(--br))`;
     desktopStage.style.background = `color-mix(in srgb, ${stageColor} 14%, var(--s2))`;
   }
   const desktopType = document.getElementById('cardDetailJobType');
   if (desktopType) {
     desktopType.textContent = typeLabel;
-    desktopType.style.color = tColor;
+    desktopType.style.color = _nbdChipInk(tColor);
     desktopType.style.borderColor = `color-mix(in srgb, ${tColor} 50%, var(--br))`;
     desktopType.style.background = `color-mix(in srgb, ${tColor} 14%, var(--s2))`;
   }
@@ -1068,14 +1083,14 @@ function refreshCardDetailChips(leadId) {
   const mobileStage = document.getElementById('mJdStatus');
   if (mobileStage) {
     mobileStage.textContent = stageLabel;
-    mobileStage.style.color = stageColor;
+    mobileStage.style.color = _nbdChipInk(stageColor);
     mobileStage.style.background = `color-mix(in srgb, ${stageColor} 14%, transparent)`;
     mobileStage.style.borderColor = `color-mix(in srgb, ${stageColor} 30%, transparent)`;
   }
   const mobileType = document.getElementById('mJdJobType');
   if (mobileType) {
     mobileType.textContent = typeLabel;
-    mobileType.style.color = tColor;
+    mobileType.style.color = _nbdChipInk(tColor);
     mobileType.style.background = `color-mix(in srgb, ${tColor} 14%, transparent)`;
     mobileType.style.borderColor = `color-mix(in srgb, ${tColor} 30%, transparent)`;
   }
@@ -1182,7 +1197,7 @@ function openMobileJobDetail(leadId) {
     const color = (typeof window.stageColor === 'function')
       ? window.stageColor(rawStage) : 'var(--orange)';
     stageEl.textContent = label;
-    stageEl.style.color = color;
+    stageEl.style.color = _nbdChipInk(color);
     stageEl.style.background = 'color-mix(in srgb, ' + color + ' 14%, transparent)';
     stageEl.style.borderColor = 'color-mix(in srgb, ' + color + ' 30%, transparent)';
   }
@@ -1194,7 +1209,7 @@ function openMobileJobDetail(leadId) {
     const meta = (window.JOB_TYPE_META && jt) ? window.JOB_TYPE_META[jt] : null;
     typeEl.textContent = meta ? `${meta.icon || ''} ${meta.label}`.trim() : 'Set type';
     const tColor = meta?.color || 'var(--m)';
-    typeEl.style.color = tColor;
+    typeEl.style.color = _nbdChipInk(tColor);
     typeEl.style.background = 'color-mix(in srgb, ' + tColor + ' 14%, transparent)';
     typeEl.style.borderColor = 'color-mix(in srgb, ' + tColor + ' 30%, transparent)';
   }
