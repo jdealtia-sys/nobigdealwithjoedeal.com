@@ -95,7 +95,7 @@
      See docs/pro/js/state-store.js. -->
 <script src="js/state-store.js?v=1"></script>
 <!-- Lazy script loader — must load BEFORE any code that calls goTo(). -->
-<script src="js/script-loader.js?v=7"></script>
+<script src="js/script-loader.js?v=8"></script>
 <!-- nbdModal — canonical .modal-bg/.modal open/close/confirm helper.
      Eager (like the other small utilities above) so converted subsystems
      can call window.nbdModal from their first render. Contract lives in
@@ -1293,12 +1293,16 @@
         <div class="gutter-result" id="gutterResult">
           <div class="gr-row"><span class="gr-key">Total Gutter LF</span><span class="gr-val" id="gr-total">0 ft</span></div>
           <div class="gr-row"><span class="gr-key">Downspouts (est)</span><span class="gr-val" id="gr-ds">0</span></div>
+          <div class="gr-runs" id="gr-runs" style="font-size:10px;color:var(--m);padding:2px 0;"></div>
+          <!-- Draw lane L2 (2026-09-25): a gutter run ends here, or on Enter / a tap on its last point / Stop -->
+          <button class="draw-btn" id="gutterFinishBtn" style="width:100%;margin-top:4px;" data-action="call" data-fn="finishGutterRun" disabled>✓ Finish run</button>
         </div>
 
         <div class="slabel2">Controls</div>
         <div class="draw-btns">
           <button class="draw-btn go" id="drawToggle" data-action="toggle" data-target="drawing">▶ Draw</button>
           <button class="draw-btn" data-action="call" data-fn="undoLine">↩ Undo</button>
+          <button class="draw-btn" id="drawRedoBtn" data-action="call" data-fn="redoLine" title="Redo (Shift+Z)" disabled>↪ Redo</button>
           <button class="draw-btn" style="border-color:var(--red);color:var(--red);" data-action="call" data-fn="clearDraw">✕</button>
         </div>
         <div class="slabel2">Lines</div>
@@ -1336,11 +1340,15 @@
           </div>
         </div>
         <div class="calc-result">
-          <div class="cr-row"><span class="cr-key">Base Area</span><span class="cr-val" id="cr-base">0 sf</span></div>
+          <div class="cr-row"><span class="cr-key">Base Area <span id="cr-est-badge" hidden style="color:var(--gold,#EAB308);font-weight:700;" title="Guessed from lines — close a perimeter for a measured area">est.</span> <span id="cr-scope" style="font-size:9px;"></span></span><span class="cr-val" id="cr-base">0 sf</span></div>
           <div class="cr-row"><span class="cr-key">Pitched</span><span class="cr-val" id="cr-pitched">0 sf</span></div>
           <div class="cr-row"><span class="cr-key">With Waste</span><span class="cr-val" id="cr-waste">0 sf</span></div>
           <div class="cr-row hl"><span class="cr-key">Squares</span><span class="cr-val" id="cr-sq">0.0 sq</span></div>
         </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--m);margin:6px 0 8px;cursor:pointer;">
+          <input type="checkbox" id="slopeLfToggle" checked data-on-change="setSlopeLf" data-on-pass="checked">
+          Slope-correct rake, hip &amp; valley LF for the estimate
+        </label>
         <!-- SMART WASTE -->
         <button class="btn btn-ghost" style="width:100%;justify-content:center;font-size:11px;margin-bottom:4px;border-color:var(--green);color:var(--green);" data-action="call" data-fn="applySmartWaste" title="Calculate waste based on roof complexity">🧠 Smart Waste (AI)</button>
         <div id="smartWasteInfo" style="display:none;font-size:10px;color:var(--m);padding:4px 6px;background:var(--s2);border-radius:5px;margin-bottom:8px;"></div>

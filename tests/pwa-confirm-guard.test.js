@@ -61,9 +61,9 @@ const ALLOWLIST = {
   // modal helper is absent (i.e. desktop). Converting it would remove the
   // fallback the whole idiom depends on.
   'dashboard-actions.js': { count: 1, why: 'native tail of _prospectConfirm, after its nbdConfirm branch' },
-  // Not a guard — a preference. Auto-YES picks the V2 estimate builder, which
-  // is the better builder anyway and is trivially undone by going back.
-  'maps-routing.js': { count: 1, why: 'benign V2-builder preference, nothing destroyed on auto-YES' },
+  // (maps-routing.js's one site — Generate Estimate's V2-or-Classic native
+  // confirm — is gone: draw lane L2, 2026-09-25, replaced it with an in-page
+  // chooser that names both builders. The list shrank, as intended.)
   // Public pricing page. standalone-compat never runs there (it is not the
   // installed app), so native confirm behaves natively.
   'pricing-page.module.js': { count: 1, why: 'public pricing page — never standalone, patch never applies' },

@@ -77,9 +77,16 @@ let perimPolygon   = null;
 let perimBaseArea  = 0;
 let perimCloseRing = null;
 
-// Gutter state (separate from perim)
+// Gutter state (separate from perim). gutterPoints / gutterDots are the OPEN
+// run only; gutterRunId is its id (null = no run open). 2026-09-25 (draw lane
+// L2, audit B5): there used to be no run at all — every gutter tap chained
+// onto the last point ever placed, so a second run started with a fake
+// segment bridging from the first (81.8 real ft read 121.4 ft, 3 downspouts
+// became 4). A run now ends on Finish run, Enter, a tap on its last point,
+// Stop, or a mode / structure switch, and every segment carries its runId.
 let gutterPoints = [];
 let gutterDots   = [];
+let gutterRunId  = null;
 
 // Line select
 let selectedLineId = null;
@@ -91,9 +98,39 @@ let currentLayerType = 'satellite';
 // Snap
 const SNAP_PX = 12;
 
-// Multi-structure support
-let structures = []; // [{name, facets[], lines[], gutterPts[], gutterDots[], pitch}]
-let activeStructureIdx = 0;
+// Multi-structure support. 2026-09-25 (L2, Jo's decision 3): real
+// per-structure drawings. Every line, facet and accessory carries the
+// structureId it was drawn on and stays on the map; switching only changes
+// where NEW geometry goes. (It used to wipe the drawing — "simplified: just
+// clear" — with no way back, audit B6.) There is always at least one.
+let structures = [{ id: 1, name: 'Structure 1' }];
+let activeStructureId = 1;
+
+// ── Draw lane L2 (2026-09-25) — ids, pending taps, undo ──
+// Line ids are integers from this sequence. They were Date.now()+Math.random()
+// decimals, and the list / popup handlers parseInt()'d them, so Delete,
+// retype and row select silently matched nothing (audit B3).
+let _nextLineId = 1, _nextRunId = 1, _nextFacetId = 1, _nextStructId = 2;
+// Line mode's first tap is pending until the second; perimeter corners are
+// pending until Eave/Rake is chosen. Their dots, and whether this tap made
+// the dot (a snapped tap reuses a corner's existing dot, which must survive
+// a cancel).
+let drawStartDot = null, drawStartDotNew = false;
+let perimPendingDot = null, perimPendingDotNew = false;
+// Every draggable dot on the map, so a tap on an existing corner reuses its
+// dot and a drag moves every line that meets there.
+let _allDots = [];
+// Undo / Redo: whole-drawing snapshots (the autosave payload) taken before
+// each action — a point, an edge, a close, a finished run, a move, a retype,
+// a flip, a delete, a clear, an accessory. The old undoLine() removed the
+// last LINE of any type plus the current mode's last dot, so it deleted
+// finished work while a pending point survived (audit H6).
+const _undoStack = [], _redoStack = [];
+const UNDO_MAX = 60;
+// Jo's decision 7: rake / hip / valley go to the estimate slope-corrected,
+// shown beside the flat feet, behind one switch — default ON.
+let slopeLfOn = true;
+const SLOPE_PREF_KEY = 'nbd_draw_slope_lf';
 
 // Shadow pitch estimation
 let shadowMode = false;
@@ -285,7 +322,10 @@ function initDrawMap() {
     const active = document.getElementById('view-draw');
     if(!active || active.style.display==='none' || !active.offsetParent) return;
     if(e.key==='d'||e.key==='D') { e.preventDefault(); toggleDraw(); }
+    // Shift+Z = Redo, Z = Undo (2026-09-25, L2 — Redo is new).
+    else if((e.key==='z'||e.key==='Z') && e.shiftKey) { e.preventDefault(); redoLine(); }
     else if(e.key==='z'||e.key==='Z') { e.preventDefault(); undoLine(); }
+    else if(e.key==='Enter' && drawMode==='gutter' && gutterRunId !== null) { e.preventDefault(); finishGutterRun(); }
     else if(e.key==='c'&&!e.ctrlKey&&!e.metaKey) { e.preventDefault(); clearDraw(); }
     else if(e.key==='Escape') { e.preventDefault(); if(drawOn) toggleDraw(); }
     else if(e.key>='1'&&e.key<='9') { const i=parseInt(e.key)-1; if(i<LT.length){ const btn=document.querySelectorAll('.lt-btn')[i]; if(btn) selLT(i,btn); }}
@@ -295,9 +335,15 @@ function initDrawMap() {
   // Show shortcut hint briefly
   showShortcutHint();
 
+  // Jo's slope switch: a per-viewer preference, default ON.
+  try { slopeLfOn = localStorage.getItem(SLOPE_PREF_KEY) !== '0'; } catch (e) { slopeLfOn = true; }
+  const slopeBox = document.getElementById('slopeLfToggle');
+  if (slopeBox) slopeBox.checked = slopeLfOn;
+
   // Try restore previous drawing
   tryRestoreDrawing();
 
+  renderStructureList();
   recalc();
 }
 
@@ -391,6 +437,9 @@ function goToMyLocation() {
 // ── DRAW MODE SWITCHER ───────────────────────
 function setDrawMode(mode, btn) {
   if(drawOn) toggleDraw();
+  // A mode switch ends the gutter run (B5) and drops any pending tap (B9).
+  finishGutterRun({ quiet: true });
+  resetPendingState();
   hideReChooser();
 
   drawMode = mode;
@@ -410,22 +459,18 @@ function setDrawMode(mode, btn) {
   if(mode === 'line') {
     ltGrid.style.display = '';
     ltLabel.style.display = '';
-    setERListeners(false);
   } else if(mode === 'perim') {
     ltGrid.style.display = 'none';
     ltLabel.style.display = 'none';
     perimBar.classList.add('visible');
-    setERListeners(false);
   } else if(mode === 'er') {
     ltGrid.style.display = 'none';
     ltLabel.style.display = 'none';
     erBar.classList.add('visible');
-    setERListeners(true);
   } else if(mode === 'gutter') {
     ltGrid.style.display = 'none';
     ltLabel.style.display = 'none';
     gutterResult.classList.add('visible');
-    setERListeners(false);
     recalcGutters();
   }
 }
@@ -433,41 +478,62 @@ function setDrawMode(mode, btn) {
 // ── LINE MODE ────────────────────────────────
 function handleLineClick(latlng) {
   if(!drawStart) {
+    // The first tap is PENDING (Undo cancels it); the line is the action.
     drawStart = latlng;
-    const dot = makeDraggableDot(latlng, LT[drawLT].color);
-    drawStart._dot = dot;
+    const hit = _findDot(latlng);
+    drawStartDot = hit || makeDraggableDot(latlng, LT[drawLT].color);
+    drawStartDotNew = !hit;
   } else {
-    const endDot = makeDraggableDot(latlng, LT[drawLT].color);
-    finalizeLine(drawStart, latlng, drawStart._dot, endDot);
-    drawStart = null;
+    _pushUndo();
+    const endDot = _dotAt(latlng, LT[drawLT].color);
+    finalizeLine(drawStart, latlng, drawStartDot, endDot);
+    drawStart = null; drawStartDot = null; drawStartDotNew = false;
   }
 }
 
+// ── LABEL ICONS ──────────────────────────────
+// iconSize:null (2026-09-25, L2, audit H10): a divIcon defaults to 12x12, so
+// the dark .meas-label chip was 12px wide under ~28px of white text that
+// spilled onto the imagery. null lets the chip size to its text.
+function _measIcon(dist, color) {
+  return L.divIcon({html:`<div class="meas-label" style="border-color:${color}">${dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10], iconSize:null});
+}
+// While drawing, length chips let a tap through to the map (audit H4: "taps
+// on the measurement labels are swallowed"). Their own click only edits a
+// length, which editLineLength() refuses while drawing anyway. Needed more
+// now that a chip is as wide as its text (iconSize:null above).
+function _labelPassThrough(lbl, on) {
+  const el = lbl && lbl.getElement && lbl.getElement();
+  if (!el) return;
+  el.style.pointerEvents = on ? 'none' : '';
+  const chip = el.firstElementChild;
+  if (chip) chip.style.pointerEvents = on ? 'none' : '';
+}
+function _syncLabelPassThrough() {
+  drawnLines.forEach(l => _labelPassThrough(l.lbl, drawOn));
+}
+
 // ── DRAGGABLE DOT FACTORY ────────────────────
-// Handles both mouse and touch input. Leaflet's `mousedown` event does
-// NOT fire on touch-only devices (iOS Safari, iPad), so we also bind
-// native `touchstart`/`touchmove`/`touchend` on the rendered SVG path
-// element. Two-finger gestures fall through to Leaflet for zoom/pan.
+// Desktop mouse drag only. 2026-09-25 (L2): the touch path is gone — it
+// bound to dot._path, which never exists under the canvas renderer
+// (preferCanvas:true), so every dot re-polled setTimeout(30) forever (198
+// timers/s with 6 dots, 330/s after two Clears) and a finger drag panned the
+// map anyway (audit B2). Finger vertex editing is the crosshair lane's job.
 function makeDraggableDot(latlng, color, opts) {
   const dot = L.circleMarker(latlng, {
     radius:6, color:'#fff', fillColor:color, fillOpacity:1, weight:2,
     draggable:true, ...(opts||{})
   }).addTo(drawMap);
+  _allDots.push(dot);
 
-  let dragging = false;
-
-  function containerPointToLatLng(clientX, clientY) {
-    // Leaflet expects point relative to the map container
-    const rect = drawMap.getContainer().getBoundingClientRect();
-    return drawMap.containerPointToLatLng([clientX - rect.left, clientY - rect.top]);
-  }
+  let dragging = false, from = null, snap = null;
 
   function startDrag() {
     if (drawOn) return false; // Don't drag while actively drawing
     dragging = true;
+    from = dot.getLatLng();
+    snap = _snapshot(); // pushed as an undo step only if the dot really moves
     drawMap.dragging.disable();
-    // Stop touch scrolling on the whole map while a dot is being dragged
-    drawMap.getContainer().style.touchAction = 'none';
     return true;
   }
 
@@ -475,17 +541,22 @@ function makeDraggableDot(latlng, color, opts) {
     if (!dragging) return;
     dragging = false;
     drawMap.dragging.enable();
-    drawMap.getContainer().style.touchAction = '';
-    updateLinesForDot(dot, dot.getLatLng());
-    recalc(); recalcGutters(); autoSaveDrawing();
-    // Update facet polygons
+    const to = dot.getLatLng();
+    if (from && !_sameLL(from, to)) _pushUndo(snap);
+    snap = null;
+    updateLinesForDot(dot, to);
+    // Facet corners, and the open outline / gutter run points, follow the
+    // dot too — the next edge used to start from the corner's OLD position.
     facets.forEach((f,fi) => {
-      const dotIdx = f.dots.indexOf(dot);
-      if(dotIdx >= 0) { f.points[dotIdx] = dot.getLatLng(); rebuildFacetPolygon(fi); }
+      let hit = false;
+      f.dots.forEach((d, di) => { if (d === dot) { f.points[di] = to; hit = true; } });
+      if (hit) rebuildFacetPolygon(fi);
     });
+    perimDots.forEach((d, di) => { if (d === dot) perimPoints[di] = to; });
+    gutterDots.forEach((d, di) => { if (d === dot) gutterPoints[di] = to; });
+    recalc(); recalcGutters(); autoSaveDrawing();
   }
 
-  // ── Mouse path (desktop) ──
   dot.on('mousedown', e => {
     L.DomEvent.stopPropagation(e);
     if (!startDrag()) return;
@@ -495,56 +566,39 @@ function makeDraggableDot(latlng, color, opts) {
   function onMouseMove(e) {
     if (!dragging) return;
     dot.setLatLng(e.latlng);
-    updateLinesForDot(dot, e.latlng);
+    updateLinesForDot(dot, e.latlng, true);
   }
   function onMouseUp() {
     drawMap.off('mousemove', onMouseMove);
     drawMap.off('mouseup', onMouseUp);
     endDrag();
   }
-
-  // ── Touch path (iOS/Android) ──
-  // Bind on the underlying SVG path element once Leaflet has rendered it.
-  // Retry in a microtask because the path isn't in the DOM until addTo().
-  function bindTouch() {
-    const el = dot._path || dot.getElement?.();
-    if (!el) { setTimeout(bindTouch, 30); return; }
-    el.style.touchAction = 'none'; // Prevent browser gesture on the dot itself
-
-    el.addEventListener('touchstart', onTouchStart, { passive: false });
-
-    function onTouchStart(ev) {
-      if (ev.touches.length !== 1) return; // Ignore pinch/multi-touch
-      ev.preventDefault();
-      ev.stopPropagation();
-      if (!startDrag()) return;
-      document.addEventListener('touchmove', onTouchMove, { passive: false });
-      document.addEventListener('touchend', onTouchEnd);
-      document.addEventListener('touchcancel', onTouchEnd);
-    }
-    function onTouchMove(ev) {
-      if (!dragging) return;
-      if (ev.touches.length !== 1) return;
-      ev.preventDefault();
-      const t = ev.touches[0];
-      const newLatLng = containerPointToLatLng(t.clientX, t.clientY);
-      dot.setLatLng(newLatLng);
-      updateLinesForDot(dot, newLatLng);
-    }
-    function onTouchEnd() {
-      document.removeEventListener('touchmove', onTouchMove);
-      document.removeEventListener('touchend', onTouchEnd);
-      document.removeEventListener('touchcancel', onTouchEnd);
-      endDrag();
-    }
-  }
-  bindTouch();
-
-  dot._nbd_id = Date.now() + Math.random();
   return dot;
 }
 
-function updateLinesForDot(dot, newLatLng) {
+function _sameLL(a, b) {
+  return !!a && !!b && Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lng - b.lng) < 1e-7;
+}
+// The live dot already sitting on this corner, if any.
+function _findDot(latlng) {
+  _allDots = _allDots.filter(d => drawMap && drawMap.hasLayer(d));
+  return _allDots.find(d => _sameLL(d.getLatLng(), latlng)) || null;
+}
+// Reuse the corner's dot, or make one — so lines that meet share a dot and a
+// drag moves all of them (they used to get stacked dots and tear apart).
+function _dotAt(latlng, color) {
+  return _findDot(latlng) || makeDraggableDot(latlng, color);
+}
+function _removeDotIfOrphan(dot) {
+  if (!dot || !drawMap.hasLayer(dot)) return;
+  const used = drawnLines.some(l => l.dot1 === dot || l.dot2 === dot)
+    || facets.some(f => f.dots.indexOf(dot) >= 0)
+    || perimDots.indexOf(dot) >= 0 || gutterDots.indexOf(dot) >= 0
+    || dot === drawStartDot || dot === perimPendingDot;
+  if (!used) drawMap.removeLayer(dot);
+}
+
+function updateLinesForDot(dot, newLatLng, dragging) {
   drawnLines.forEach(l => {
     let changed = false;
     if(l.dot1 === dot) { l.p1 = newLatLng; changed = true; }
@@ -552,11 +606,11 @@ function updateLinesForDot(dot, newLatLng) {
     if(changed) {
       l.line.setLatLngs([l.p1, l.p2]);
       l.dist = hav(l.p1, l.p2);
-      drawMap.removeLayer(l.lbl);
-      l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${l.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
+      l.lbl.setLatLng(mid(l.p1, l.p2));
+      l.lbl.setIcon(_measIcon(l.dist, l.color)); _labelPassThrough(l.lbl, drawOn);
     }
   });
-  renderLineList();
+  if (!dragging) renderLineList();
 }
 
 function selLT(i, el) {
@@ -572,6 +626,10 @@ function toggleDraw() {
   if(drawOn) {
     btn.textContent = '⏹ Stop'; btn.className = 'draw-btn stop';
     drawMap.getContainer().style.cursor = 'crosshair';
+    // A double-click/double-tap while drawing is two points, not a zoom
+    // (2026-09-25, L2, audit H4).
+    if (drawMap.doubleClickZoom) drawMap.doubleClickZoom.disable();
+    _syncLabelPassThrough();
     // On touch devices in Draw mode, disable map dragging so
     // taps register as drawing points instead of panning.
     if (typeof drawNavMode !== 'undefined' && drawNavMode === 'draw') {
@@ -580,7 +638,12 @@ function toggleDraw() {
   } else {
     btn.textContent = '▶ Draw'; btn.className = 'draw-btn go';
     drawMap.getContainer().style.cursor = '';
-    drawStart = null; clearTemp();
+    // Stop ends the gutter run (B5) and drops a pending line start point.
+    finishGutterRun({ quiet: true });
+    _cancelLineStart();
+    clearTemp();
+    if (drawMap.doubleClickZoom) drawMap.doubleClickZoom.enable();
+    _syncLabelPassThrough();
     // Re-enable dragging when drawing stops
     drawMap.dragging.enable();
   }
@@ -593,23 +656,57 @@ function clearTemp() {
   if(perimTempLbl)  { drawMap.removeLayer(perimTempLbl);  perimTempLbl  = null; }
 }
 
-function finalizeLine(p1, p2, dot1, dot2) {
-  const lt = LT[drawLT], d = hav(p1, p2);
-  const dash = lt.dash || null;
-  const line = L.polyline([p1, p2], {color:lt.color, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
-  const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  // Editable label on click
-  lbl.on('click', () => editLineLength(id));
-  const id = Date.now() + Math.random();
-  drawnLines.push({id, type:drawLT, name:lt.n, color:lt.color, dist:d, line, lbl, p1, p2, dot1, dot2, subtype:'line'});
-  // ── Click line on map → type picker popup (April 2026) ──
+// ── ONE LINE FACTORY (2026-09-25, draw lane L2) ──
+// Every drawn line — Line mode, perimeter edges, gutter segments, voice,
+// autosave restore, Undo/Redo, Load from Customer — is built here, so they
+// all get the same id sequence, the same popup, the same label and the same
+// single click handler. rec: {type, p1, p2, dot1, dot2, dist?, id?, subtype,
+// isPerim?, runId?, facetId?, structureId?, color?}.
+function _addLine(rec) {
+  const lt = LT[rec.type] || LT[0];
+  const color = rec.color || lt.color;
+  const d = Number.isFinite(rec.dist) ? rec.dist : hav(rec.p1, rec.p2);
+  const line = L.polyline([rec.p1, rec.p2], {color, weight:4, opacity:.95, dashArray:lt.dash||null}).addTo(drawMap);
+  const lbl  = L.marker(mid(rec.p1, rec.p2), {icon:_measIcon(d, color)}).addTo(drawMap);
+  const id = (Number.isSafeInteger(rec.id) && rec.id > 0) ? rec.id : _nextLineId++;
+  if (id >= _nextLineId) _nextLineId = id + 1;
+  const l = {
+    id, type:rec.type, name:lt.n, color, dist:d, line, lbl, p1:rec.p1, p2:rec.p2,
+    dot1:rec.dot1||null, dot2:rec.dot2||null, subtype:rec.subtype||null,
+    isPerim:!!rec.isPerim, runId:rec.runId||null, facetId:rec.facetId||null,
+    structureId:rec.structureId||activeStructureId
+  };
+  drawnLines.push(l);
+  // Dots above their line: the canvas renderer hit-tests the TOPMOST layer,
+  // and a line drawn after its end dot covered the dot's centre, so a desktop
+  // drag grabbed dead-centre caught the line instead (audit B2, desktop).
+  if (l.dot1) l.dot1.bringToFront();
+  if (l.dot2) l.dot2.bringToFront();
+  lbl.on('click', () => editLineLength(l.id));
+  if (drawOn) _labelPassThrough(lbl, true);
+  // ONE click handler per line, created once, dispatching on the mode. The
+  // Eave/Rake toggle used to add a handler on every mode entry (3 on a fresh
+  // facet: one tap fired "Rake / Eave / Rake", audit B8); and the popup
+  // handler called stopPropagation even while drawing, so a tap within 2px
+  // of a line never reached the map (audit H4).
   line.on('click', function(e) {
+    if (drawMode === 'er' && (l.type === 4 || l.type === 5)) {
+      L.DomEvent.stopPropagation(e);
+      erToggleSegment(l.id);
+      return;
+    }
+    if (drawOn) return; // drawing: the tap is a point on the map
     L.DomEvent.stopPropagation(e);
-    if (drawOn) return; // don't open picker while actively drawing
-    openLineTypePicker(id, e.latlng);
+    openLineTypePicker(l.id, e.latlng);
   });
-  clearTemp(); renderLineList(); recalc(); autoSaveDrawing();
-  return id;
+  return l;
+}
+
+function finalizeLine(p1, p2, dot1, dot2) {
+  // A Gutters line drawn in Line mode is a one-segment run of its own.
+  const l = _addLine({type:drawLT, p1, p2, dot1, dot2, subtype:'line', runId: drawLT === 10 ? _nextRunId++ : null});
+  clearTemp(); renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
+  return l.id;
 }
 
 // ── LINE TYPE PICKER POPUP ──
@@ -620,15 +717,15 @@ function openLineTypePicker(lineId, latlng) {
   const COMMON = [5, 4, 0, 2, 3, 10]; // Eave, Rake, Ridge, Hip, Valley, Gutters
   const EXTRA = [1, 6, 7, 8, 9];       // Ridge Vent, Flashing, Step Flash, Drip Edge, Parapet
 
+  // No onmouseenter/onmouseleave (2026-09-25, L2): prod CSP
+  // (script-src-attr 'none') blocked those inline hover handlers anyway.
   const makeBtn = (idx) => {
     const lt = LT[idx];
     return '<button style="background:' + lt.color + '20;border:2px solid ' + lt.color + ';color:' + lt.color + ';'
       + 'padding:6px 10px;border-radius:5px;cursor:pointer;font-family:\'Barlow Condensed\',sans-serif;'
       + 'font-size:11px;font-weight:700;letter-spacing:.03em;white-space:nowrap;'
       + 'transition:all .12s;min-height:32px;" '
-      + 'data-mr-action="retypeLine" data-mr-id="' + lineId + '" data-mr-arg2="' + idx + '" '
-      + 'onmouseenter="this.style.background=\'' + lt.color + '\';this.style.color=\'#fff\';" '
-      + 'onmouseleave="this.style.background=\'' + lt.color + '20\';this.style.color=\'' + lt.color + '\';"'
+      + 'data-mr-action="retypeLine" data-mr-id="' + lineId + '" data-mr-arg2="' + idx + '"'
       + '>' + lt.n + '</button>';
   };
 
@@ -660,6 +757,7 @@ function editLineLength(lineId) {
   if(!val || isNaN(parseFloat(val))) return;
   const newDist = parseFloat(val);
   if(newDist <= 0) return;
+  _pushUndo();
   const ratio = newDist / l.dist;
   // Scale line from p1 toward p2
   const newLat = l.p1.lat + (l.p2.lat - l.p1.lat) * ratio;
@@ -669,20 +767,24 @@ function editLineLength(lineId) {
   l.dist = newDist;
   l.line.setLatLngs([l.p1, l.p2]);
   if(l.dot2) l.dot2.setLatLng(newP2);
-  drawMap.removeLayer(l.lbl);
-  l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${l.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  l.lbl.on('click', () => editLineLength(lineId));
-  renderLineList(); recalc(); autoSaveDrawing();
+  l.lbl.setLatLng(mid(l.p1, l.p2));
+  l.lbl.setIcon(_measIcon(l.dist, l.color)); _labelPassThrough(l.lbl, drawOn);
+  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
   showToast(`Updated to ${newDist.toFixed(1)} ft`);
 }
 
 // ── PERIMETER MODE (multi-facet) ─────────────
 function handlePerimClick(latlng) {
-  if(perimClosed) {
-    // Current facet closed — start new facet
-    saveFacet();
-    resetPerimState();
-  }
+  // 2026-09-25 (L2, audit B4): this used to begin with
+  //   if(perimClosed) { saveFacet(); resetPerimState(); }
+  // but perimChooseType() had ALREADY saved the closed facet, so the first
+  // tap of the next section saved it a second time: 1,075 sf read 2,150 sf
+  // (15.12 sq -> 30.24) and went to the estimate doubled. A facet is now
+  // saved exactly once, when it closes, and the outline state resets there.
+  //
+  // A corner waiting for Eave/Rake blocks every other tap — checked FIRST,
+  // so a tap near the first dot cannot overwrite the pending corner.
+  if(perimPendingP2) return;
   // Check if clicking near first point to close
   if(perimPoints.length >= 3) {
     const first = perimPoints[0];
@@ -692,26 +794,27 @@ function handlePerimClick(latlng) {
       return;
     }
   }
-  if(perimPendingP1 !== null) return;
 
   const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
-  const dot = makeDraggableDot(latlng, facetColor);
 
   if(perimPoints.length === 0) {
-    perimCloseRing = L.circleMarker(latlng, {radius:14, color:facetColor, fillColor:'transparent', weight:2, dashArray:'4,3', opacity:.6}).addTo(drawMap);
-  }
-
-  if(perimPoints.length > 0) {
-    perimPendingP1 = perimPoints[perimPoints.length - 1];
-    perimPendingP2 = latlng;
-    perimDots.push(dot);
-    clearTemp();
-    showReChooser();
+    // The outline's first corner is an action of its own (Undo removes it).
+    _pushUndo();
+    perimCloseRing = L.circleMarker(latlng, {radius:14, color:facetColor, fillColor:'transparent', weight:2, dashArray:'4,3', opacity:.6, interactive:false}).addTo(drawMap);
+    perimPoints.push(latlng);
+    perimDots.push(_dotAt(latlng, facetColor));
+    autoSaveDrawing();
     return;
   }
 
-  perimPoints.push(latlng);
-  perimDots.push(dot);
+  // Every later corner waits for Eave/Rake; nothing is committed until then.
+  perimPendingP1 = perimPoints[perimPoints.length - 1];
+  perimPendingP2 = latlng;
+  const hit = _findDot(latlng);
+  perimPendingDot = hit || makeDraggableDot(latlng, facetColor);
+  perimPendingDotNew = !hit;
+  clearTemp();
+  showReChooser();
 }
 
 function showReChooser() {
@@ -729,86 +832,141 @@ function hideReChooser() {
   perimPendingP2 = null;
 }
 
-function perimChooseType(subtype) {
-  if(!perimPendingP1 || !perimPendingP2) return;
-  const p1 = perimPendingP1;
-  const p2 = perimPendingP2;
-  addPerimSegment(p1, p2, subtype);
-  if(!_perimClosing) {
-    perimPoints.push(p2);
-  } else {
+// ── PENDING STATE (2026-09-25, L2, audit B9) ──
+// One reset for every "tapped but not committed" thing: a Line-mode start
+// point, a perimeter corner waiting for Eave/Rake, and a close waiting for
+// its last edge. _perimClosing used to survive Clear / Undo / a mode switch,
+// so the NEXT outline's first edge "closed" a 1-point facet: "Facet 1 closed
+// — 0 sf", then a bogus 103 sf. Returns true when it dropped something.
+function _cancelLineStart() {
+  if (!drawStart) return false;
+  const dot = drawStartDot, wasNew = drawStartDotNew;
+  drawStart = null; drawStartDot = null; drawStartDotNew = false;
+  if (dot && wasNew) _removeDotIfOrphan(dot);
+  clearTemp();
+  return true;
+}
+function resetPendingState() {
+  let dropped = _cancelLineStart();
+  if (perimPendingP2 || _perimClosing) {
+    const dot = perimPendingDot, wasNew = perimPendingDotNew;
+    perimPendingDot = null; perimPendingDotNew = false;
+    perimPendingP1 = null; perimPendingP2 = null;
     _perimClosing = false;
-    perimClosed = true;
-    const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
-    if(perimPolygon) drawMap.removeLayer(perimPolygon);
-    perimPolygon = L.polygon(perimPoints, {color:facetColor, weight:1, fillColor:facetColor, fillOpacity:.12}).addTo(drawMap);
-    perimBaseArea = shoelaceArea(perimPoints);
-    // Add area label on polygon
-    addAreaLabel(perimPoints, perimBaseArea, facets.length);
-    showToast('Facet '+(facets.length+1)+' closed — '+perimBaseArea.toFixed(0)+' sf');
-    const bar = document.getElementById('perimBar');
-    bar.textContent = '⬡ Facet '+(facets.length+1)+' — '+perimBaseArea.toFixed(0)+' sf · click to start new facet';
-    if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); perimCloseRing = null; }
-    saveFacet();
-    recalc(); autoSaveDrawing();
+    if (dot && wasNew) _removeDotIfOrphan(dot);
+    hideReChooser();
+    dropped = true;
   }
-  hideReChooser();
+  _perimClosing = false;
+  return dropped;
 }
 
-function addPerimSegment(p1, p2, subtype) {
-  const eaveColor = '#BE185D', rakeColor = '#EC4899';
-  const segColor  = subtype === 'eave' ? eaveColor : rakeColor;
-  const dash      = subtype === 'eave' ? null : '8,5';
-  const d = hav(p1, p2);
-  const line = L.polyline([p1, p2], {color:segColor, weight:4, opacity:.95, dashArray:dash}).addTo(drawMap);
-  const lbl  = L.marker(mid(p1, p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${segColor}">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  lbl.on('click', () => editLineLength(id));
-  const id = Date.now() + Math.random();
-  const dot1 = perimDots.find(d => {
-    const ll = d.getLatLng();
-    return Math.abs(ll.lat-p1.lat)<0.0000001 && Math.abs(ll.lng-p1.lng)<0.0000001;
+function perimChooseType(subtype) {
+  if(!perimPendingP1 || !perimPendingP2) return;
+  _pushUndo();
+  const p1 = perimPendingP1;
+  const p2 = perimPendingP2;
+  const closing = _perimClosing;
+  const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
+  const pendDot = perimPendingDot;
+  perimPendingDot = null; perimPendingDotNew = false;
+  _perimClosing = false;
+  addPerimSegment(p1, p2, subtype, pendDot);
+  if(!closing) {
+    perimPoints.push(p2);
+    perimDots.push(pendDot || _dotAt(p2, facetColor));
+  } else {
+    // Close: the facet is saved HERE, once (see handlePerimClick, B4).
+    const f = _addFacet({
+      points:[...perimPoints], dots:[...perimDots], segments:[...perimSegments],
+      pitch: parseFloat(document.getElementById('pitchSel')?.value || 1.202)
+    });
+    showToast(f.label+' closed — '+f.baseArea.toFixed(0)+' sf');
+    const bar = document.getElementById('perimBar');
+    if (bar) bar.textContent = '⬡ '+f.label+' — '+f.baseArea.toFixed(0)+' sf · click to start new facet';
+    _resetPerimTrace();
+  }
+  hideReChooser();
+  renderLineList(); recalc(); autoSaveDrawing();
+}
+
+function addPerimSegment(p1, p2, subtype, dot2Hint) {
+  const facetColor = FACET_COLORS[facets.length % FACET_COLORS.length];
+  const seg = _addLine({
+    type: subtype==='eave' ? 5 : 4, p1, p2,
+    dot1: _dotAt(p1, facetColor), dot2: dot2Hint || _dotAt(p2, facetColor),
+    subtype, isPerim:true
   });
-  const dot2 = perimDots.find(d => {
-    const ll = d.getLatLng();
-    return Math.abs(ll.lat-p2.lat)<0.0000001 && Math.abs(ll.lng-p2.lng)<0.0000001;
-  });
-  const seg = {id, type: subtype==='eave' ? 5 : 4, name: subtype==='eave'?'Eave':'Rake', color:segColor, dist:d, line, lbl, p1, p2, dot1:dot1||null, dot2:dot2||null, subtype, isPerim:true};
   perimSegments.push(seg);
-  drawnLines.push(seg);
-  line.on('click', () => { if(drawMode === 'er') erToggleSegment(id); });
-  renderLineList(); recalc();
-  return id;
+  return seg.id;
 }
 
 function closePerimeter() {
-  if(perimPoints.length < 3) return;
+  if(perimPoints.length < 3 || perimPendingP2) return;
   const last  = perimPoints[perimPoints.length - 1];
   const first = perimPoints[0];
   perimPendingP1 = last;
   perimPendingP2 = first;
+  perimPendingDot = perimDots[0] || null;
+  perimPendingDotNew = false;
   _perimClosing = true;
   showReChooser();
 }
 
 // ── FACET MANAGEMENT ─────────────────────────
-function saveFacet() {
-  if(perimPoints.length < 3) return;
-  const pitch = parseFloat(document.getElementById('pitchSel')?.value || 1.202);
-  facets.push({
-    points:[...perimPoints], dots:[...perimDots], segments:[...perimSegments],
-    closed:perimClosed, polygon:perimPolygon, baseArea:perimBaseArea,
-    closeRing:perimCloseRing, pitch, label:'Facet '+(facets.length+1),
-    areaLabel: null // set by addAreaLabel
-  });
+// Builds a CLOSED facet (id, label, colour, polygon, area label) from its
+// corners. Used by the close above, auto-detect and the restore path.
+// The polygon is interactive:false — it sat over its own edges and ate
+// every tap aimed at them, so the Eave/Rake toggle only answered 1px
+// OUTSIDE the edge (audit B8).
+function _addFacet(o) {
+  const idx = facets.length;
+  const id = (Number.isSafeInteger(o.id) && o.id > 0) ? o.id : _nextFacetId++;
+  if (id >= _nextFacetId) _nextFacetId = id + 1;
+  const color = o.color || FACET_COLORS[idx % FACET_COLORS.length];
+  const f = {
+    id, label: o.label || ('Facet '+(idx+1)), color,
+    points: o.points, dots: o.dots || o.points.map(p => _dotAt(p, color)),
+    segments: o.segments || [],
+    closed: true, polygon: null, baseArea: shoelaceArea(o.points),
+    pitch: Number.isFinite(o.pitch) && o.pitch >= 1 ? o.pitch : 1.202,
+    structureId: o.structureId || activeStructureId, areaLabel: null, closeRing: null
+  };
+  f.segments.forEach(s => { s.facetId = id; });
+  f.polygon = L.polygon(f.points, {color, weight:1, fillColor:color, fillOpacity:.12, interactive:false}).addTo(drawMap);
+  facets.push(f);
   activeFacetIdx = facets.length - 1;
+  // After the push, so the label is stored on the facet (it used to run
+  // first and the label was orphaned: Clear left "F1: 1075 sf" behind).
+  addAreaLabel(f.points, f.baseArea, idx);
   renderFacetList();
+  return f;
 }
 
-function resetPerimState() {
+// Legacy entry point (auto-detect): save the current, closed outline.
+function saveFacet() {
+  if(perimPoints.length < 3) return null;
+  const f = _addFacet({
+    points:[...perimPoints], dots:[...perimDots], segments:[...perimSegments],
+    pitch: parseFloat(document.getElementById('pitchSel')?.value || 1.202)
+  });
+  _resetPerimTrace();
+  return f;
+}
+
+// Forget the outline being traced (its committed edges stay as lines).
+function _resetPerimTrace() {
+  if(perimPolygon) { drawMap.removeLayer(perimPolygon); }
+  if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); }
   perimPoints = []; perimDots = []; perimSegments = [];
   perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
   perimPolygon = null; perimBaseArea = 0; perimCloseRing = null;
+  perimPendingDot = null; perimPendingDotNew = false;
   _perimClosing = false;
+}
+
+function resetPerimState() {
+  _resetPerimTrace();
   const bar = document.getElementById('perimBar');
   if(bar) bar.textContent = '⬡ Perimeter mode — click to trace Facet '+(facets.length+1)+'. Click first dot to close.';
 }
@@ -816,13 +974,12 @@ function resetPerimState() {
 function rebuildFacetPolygon(fi) {
   const f = facets[fi];
   if(!f || !f.closed) return;
-  if(f.polygon) drawMap.removeLayer(f.polygon);
-  const color = FACET_COLORS[fi % FACET_COLORS.length];
-  f.polygon = L.polygon(f.points, {color, weight:1, fillColor:color, fillOpacity:.12}).addTo(drawMap);
+  f.polygon.setLatLngs(f.points);
   f.baseArea = shoelaceArea(f.points);
   // Update area label
   if(f.areaLabel) drawMap.removeLayer(f.areaLabel);
   addAreaLabel(f.points, f.baseArea, fi);
+  renderFacetList();
   recalc();
 }
 
@@ -831,23 +988,26 @@ function addAreaLabel(points, area, facetIdx) {
   // Center point
   const cLat = points.reduce((s,p)=>s+p.lat,0)/points.length;
   const cLng = points.reduce((s,p)=>s+p.lng,0)/points.length;
-  const color = FACET_COLORS[facetIdx % FACET_COLORS.length];
-  const lbl = L.marker([cLat,cLng], {icon:L.divIcon({
+  const f = facets[facetIdx];
+  const color = (f && f.color) || FACET_COLORS[facetIdx % FACET_COLORS.length];
+  const lbl = L.marker([cLat,cLng], {interactive:false, icon:L.divIcon({
     html:`<div class="facet-area-label" style="border-color:${color};color:${color}">F${facetIdx+1}: ${area.toFixed(0)} sf</div>`,
-    className:'', iconAnchor:[40,12]
+    className:'', iconAnchor:[40,12], iconSize:null
   })}).addTo(drawMap);
-  if(facets[facetIdx]) facets[facetIdx].areaLabel = lbl;
+  if(f) f.areaLabel = lbl;
 }
 
 function renderFacetList() {
   const el = document.getElementById('facetList');
   if(!el) return;
   if(!facets.length) { el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:4px;">No facets yet.</p>'; return; }
+  const multi = structures.length > 1;
   el.innerHTML = facets.map((f,i) => {
-    const color = FACET_COLORS[i % FACET_COLORS.length];
+    const color = f.color || FACET_COLORS[i % FACET_COLORS.length];
     const pitched = f.baseArea * f.pitch;
+    const s = multi ? structures.find(x => x.id === f.structureId) : null;
     return `<div class="facet-row" style="border-left:3px solid ${color};">
-      <span class="facet-name">${f.label}</span>
+      <span class="facet-name">${_esc(f.label)}${s ? ' <span style="color:var(--m);font-weight:400;">· '+_esc(s.name)+'</span>' : ''}</span>
       <span class="facet-area">${f.baseArea.toFixed(0)} sf</span>
       <select class="facet-pitch-sel" data-mr-pitch="${i}" title="Facet pitch">
         <option value="1.0" ${f.pitch===1?'selected':''}>Flat</option>
@@ -873,7 +1033,8 @@ function renderFacetList() {
 function updateFacetPitch(fi, val) {
   if(!facets[fi]) return;
   facets[fi].pitch = parseFloat(val);
-  recalc(); autoSaveDrawing();
+  // The facet's rakes re-slope with it (the sloped chips read facet pitch).
+  renderLineList(); recalc(); autoSaveDrawing();
 }
 
 // ── AREA LABEL ON MAP ────────────────────────
@@ -899,69 +1060,87 @@ function shoelaceArea(pts) {
 }
 
 // ── EAVE/RAKE TOGGLE MODE ─────────────────────
-function setERListeners(on) {
-  const allSegs = [...perimSegments];
-  facets.forEach(f => allSegs.push(...f.segments));
-  allSegs.forEach(seg => {
-    if(on) {
-      seg.line.on('click', () => erToggleSegment(seg.id));
-    } else {
-      seg.line.off('click');
-      seg.line.on('click', () => { if(drawMode === 'er') erToggleSegment(seg.id); });
-    }
-  });
-}
-
+// (setERListeners is gone — each line's single click handler in _addLine
+// dispatches on drawMode, so nothing stacks.) Any Eave or Rake line
+// toggles, as the #erBar copy has always promised.
 function erToggleSegment(id) {
-  // Find in current segments or facet segments
-  let seg = perimSegments.find(s => s.id === id);
-  if(!seg) { for(const f of facets) { seg = f.segments.find(s => s.id === id); if(seg) break; } }
-  if(!seg) return;
-  const newSub  = seg.subtype === 'eave' ? 'rake' : 'eave';
-  const newColor = newSub === 'eave' ? '#BE185D' : '#EC4899';
-  const newDash  = newSub === 'eave' ? null : '8,5';
-  const newType  = newSub === 'eave' ? 5 : 4;
-  const newName  = newSub === 'eave' ? 'Eave' : 'Rake';
-
-  seg.line.setStyle({color:newColor, dashArray:newDash});
-  drawMap.removeLayer(seg.lbl);
-  seg.lbl = L.marker(mid(seg.p1, seg.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${newColor}">${seg.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  seg.subtype = newSub; seg.color = newColor; seg.type = newType; seg.name = newName;
-
-  const dl = drawnLines.find(l => l.id === id);
-  if(dl) { dl.subtype=newSub; dl.color=newColor; dl.type=newType; dl.name=newName; }
-
+  const seg = drawnLines.find(l => l.id === id);
+  if(!seg || (seg.type !== 4 && seg.type !== 5)) return;
+  _pushUndo();
+  const newType  = seg.type === 5 ? 4 : 5;
+  const lt = LT[newType];
+  if (seg.isPerim) seg.subtype = newType === 5 ? 'eave' : 'rake';
+  seg.type = newType; seg.name = lt.n; seg.color = lt.color;
+  seg.line.setStyle({color:lt.color, dashArray:lt.dash||null});
+  seg.lbl.setIcon(_measIcon(seg.dist, lt.color)); _labelPassThrough(seg.lbl, drawOn);
   renderLineList(); recalc(); autoSaveDrawing();
-  showToast(`Toggled to ${newName}`);
+  showToast(`Toggled to ${lt.n}`);
 }
 
 // ── GUTTER MODE (separate from perimeter) ────
 function handleGutterClick(latlng) {
-  const dot = makeDraggableDot(latlng, '#06B6D4');
+  if(gutterPoints.length > 0) {
+    // A tap on the run's last point finishes the run (2026-09-25, L2).
+    const last = gutterPoints[gutterPoints.length-1];
+    const px = drawMap.latLngToContainerPoint(last).distanceTo(drawMap.latLngToContainerPoint(latlng));
+    if (px <= SNAP_PX) { finishGutterRun(); return; }
+  }
+  _pushUndo();
+  if (gutterRunId === null) gutterRunId = _nextRunId++;
+  const dot = _dotAt(latlng, '#06B6D4');
   if(gutterPoints.length > 0) {
     const prev = gutterPoints[gutterPoints.length-1];
-    const d = hav(prev, latlng);
-    const line = L.polyline([prev, latlng], {color:'#06B6D4', weight:4, opacity:.95, dashArray:'10,4'}).addTo(drawMap);
-    const lbl  = L.marker(mid(prev, latlng), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:#06B6D4">${d.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
     const prevDot = gutterDots[gutterDots.length-1]||null;
-    const id = Date.now() + Math.random();
-    drawnLines.push({id, type:10, name:'Gutters', color:'#06B6D4', dist:d, line, lbl, p1:prev, p2:latlng, dot1:prevDot, dot2:dot, subtype:'gutter'});
-    clearTemp(); renderLineList(); recalcGutters(); autoSaveDrawing();
+    _addLine({type:10, p1:prev, p2:latlng, dot1:prevDot, dot2:dot, subtype:'gutter', runId:gutterRunId});
   }
+  // Push BEFORE the autosave (L1 note): the save used to run first and the
+  // stored run always lacked its last point.
   gutterPoints.push(latlng);
   gutterDots.push(dot);
+  clearTemp(); renderLineList(); recalcGutters(); autoSaveDrawing();
 }
 
+// Close the open gutter run. The next gutter tap starts a new run instead of
+// chaining a fake segment onto this one (audit B5). A lone first point (no
+// segment yet) is not a run: its dot goes.
+function finishGutterRun(opts) {
+  const quiet = !!(opts && opts.quiet);
+  if (gutterRunId === null && !gutterPoints.length) return;
+  const runId = gutterRunId;
+  const segs = drawnLines.filter(l => l.type === 10 && l.runId === runId);
+  if (!quiet && segs.length) _pushUndo();
+  const lone = segs.length ? [] : gutterDots.slice();
+  gutterPoints = []; gutterDots = []; gutterRunId = null;
+  lone.forEach(_removeDotIfOrphan);
+  clearTemp();
+  recalcGutters(); autoSaveDrawing();
+  if (!quiet && segs.length) {
+    const lf = segs.reduce((s, l) => s + l.dist, 0);
+    showToast('Gutter run finished — ' + lf.toFixed(1) + ' ft', 'ok');
+  }
+}
+
+// #gr-total / #gr-ds keep their text contracts ("<n.n> ft", an integer).
+// Downspouts: at least one per run (Jo, decision 7) — draw-geom counts.
 function recalcGutters() {
   const gutterLines = drawnLines.filter(l => l.type === 10);
-  const total = gutterLines.reduce((s, l) => s + l.dist, 0);
-  const ds = Math.ceil(total / 40);
+  const tot = _totals().combined;
   const totalEl = document.getElementById('gr-total');
   const dsEl    = document.getElementById('gr-ds');
-  if (totalEl) totalEl.textContent = total.toFixed(1) + ' ft';
-  if (dsEl)    dsEl.textContent = ds;
+  if (totalEl) totalEl.textContent = tot.text.gutter;
+  if (dsEl)    dsEl.textContent = tot.text.ds;
+  // Per-run breakdown in a SIBLING element, never inside #gr-*.
+  const runsEl = document.getElementById('gr-runs');
+  if (runsEl) {
+    const runs = window.NBDDrawGeom.gutterRuns(drawnLines);
+    runsEl.textContent = runs.length > 1
+      ? runs.map((r, i) => 'Run ' + (i + 1) + ': ' + r.lf.toFixed(1) + ' ft').join(' · ')
+      : '';
+  }
+  const fin = document.getElementById('gutterFinishBtn');
+  if (fin) fin.disabled = gutterRunId === null;
   const el = document.getElementById('gutterResult');
-  if(el) el.classList.toggle('visible', gutterLines.length > 0);
+  if(el) el.classList.toggle('visible', gutterLines.length > 0 || drawMode === 'gutter');
 }
 
 // ── LINE SELECTION ─────────────────────────────
@@ -981,47 +1160,73 @@ function deselectLine() {
 
 function retypeLine(id, ltIndex) {
   const l = drawnLines.find(x => x.id === id);
-  if(!l) return;
   const lt = LT[ltIndex];
+  if(!l || !lt || l.type === ltIndex) return;
+  _pushUndo();
   l.type = ltIndex; l.name = lt.n; l.color = lt.color;
+  // A line retyped TO Gutters is its own run; retyped away, it leaves one.
+  l.runId = ltIndex === 10 ? (l.runId || _nextRunId++) : null;
   l.line.setStyle({color:lt.color, dashArray:lt.dash||null});
-  drawMap.removeLayer(l.lbl);
-  l.lbl = L.marker(mid(l.p1, l.p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  l.lbl.on('click', () => editLineLength(id));
-  renderLineList(); recalc(); autoSaveDrawing();
+  l.lbl.setIcon(_measIcon(l.dist, lt.color)); _labelPassThrough(l.lbl, drawOn);
+  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
 }
 
 // ── UNDO / DELETE / CLEAR ─────────────────────
 function deleteLine(id) {
   const i = drawnLines.findIndex(l => l.id === id); if(i < 0) return;
+  _pushUndo();
+  _removeLine(i);
+  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
+}
+function _removeLine(i) {
   const l = drawnLines[i];
+  const id = l.id;
   drawMap.removeLayer(l.line);
   drawMap.removeLayer(l.lbl);
-  if(l.dot1 && !isSharedDot(l.dot1, id)) drawMap.removeLayer(l.dot1);
-  if(l.dot2 && !isSharedDot(l.dot2, id)) drawMap.removeLayer(l.dot2);
-  const pi = perimSegments.findIndex(s => s.id === id);
+  const pi = perimSegments.indexOf(l);
   if(pi >= 0) perimSegments.splice(pi, 1);
+  facets.forEach(f => { const k = f.segments.indexOf(l); if (k >= 0) f.segments.splice(k, 1); });
   drawnLines.splice(i, 1);
+  _removeDotIfOrphan(l.dot1);
+  _removeDotIfOrphan(l.dot2);
   if(selectedLineId === id) deselectLine();
-  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
 }
 
 function isSharedDot(dot, excludeLineId) {
   return drawnLines.some(l => l.id !== excludeLineId && (l.dot1 === dot || l.dot2 === dot));
 }
 
+// ── UNDO / REDO (2026-09-25, draw lane L2, audit H6) ──
+// Undo first drops a PENDING tap (a Line-mode start point, a corner or a
+// close waiting for Eave/Rake); otherwise it restores the snapshot taken
+// before the last action. Snapshots are the autosave payload, so Undo
+// rebuilds through the same restore path as a reload.
+function _snapshot() { return JSON.stringify(_serializeDrawing()); }
+function _pushUndo(snap) {
+  _undoStack.push(snap || _snapshot());
+  if (_undoStack.length > UNDO_MAX) _undoStack.shift();
+  _redoStack.length = 0;
+  _syncUndoButtons();
+}
+function _syncUndoButtons() {
+  const r = document.getElementById('drawRedoBtn');
+  if (r) r.disabled = !_redoStack.length;
+}
 function undoLine() {
-  if(drawnLines.length) deleteLine(drawnLines[drawnLines.length-1].id);
-  if(drawMode === 'perim' && perimDots.length > 0 && !perimClosed) {
-    const d = perimDots.pop();
-    drawMap.removeLayer(d);
-    if(perimPoints.length > 0) perimPoints.pop();
-  }
-  if(drawMode === 'gutter' && gutterDots.length > 0) {
-    const d = gutterDots.pop();
-    drawMap.removeLayer(d);
-    if(gutterPoints.length > 0) gutterPoints.pop();
-  }
+  if (resetPendingState()) { recalc(); return; }
+  if (!_undoStack.length) { showToast('Nothing to undo', 'info'); return; }
+  _redoStack.push(_snapshot());
+  _applyPayload(JSON.parse(_undoStack.pop()), { keepView: true });
+  autoSaveDrawing();
+  _syncUndoButtons();
+}
+function redoLine() {
+  resetPendingState();
+  if (!_redoStack.length) { showToast('Nothing to redo', 'info'); return; }
+  _undoStack.push(_snapshot());
+  _applyPayload(JSON.parse(_redoStack.pop()), { keepView: true });
+  autoSaveDrawing();
+  _syncUndoButtons();
 }
 
 async function clearDraw() {
@@ -1031,33 +1236,44 @@ async function clearDraw() {
   // modal in PWA mode, falls back to native confirm on desktop.
   const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
   if (!(await _ask('Clear all lines and facets?'))) return;
-  drawnLines.forEach(l => {
-    drawMap.removeLayer(l.line);
-    drawMap.removeLayer(l.lbl);
-    if(l.dot1) drawMap.removeLayer(l.dot1);
-    if(l.dot2) drawMap.removeLayer(l.dot2);
-  });
-  perimDots.forEach(d => drawMap.removeLayer(d));
-  gutterDots.forEach(d => drawMap.removeLayer(d));
-  if(perimPolygon) { drawMap.removeLayer(perimPolygon); perimPolygon = null; }
-  if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); perimCloseRing = null; }
-  clearTemp();
-  // Clear facets
+  // Clear is undoable (2026-09-25, L2): the snapshot keeps the drawing.
+  resetPendingState();
+  if (drawnLines.length || facets.length || perimPoints.length || gutterPoints.length || placedAccessories.length) _pushUndo();
+  _teardownDrawing();
+  const pb = document.getElementById('perimBar');
+  if (pb) pb.textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
+  renderLineList(); renderFacetList(); renderStructureList(); renderAccessoryPanel(); recalc(); recalcGutters();
+  clearSavedDrawing();
+}
+
+// Remove every drawn layer and reset the drawing state (no prompt). Shared by
+// Clear, Undo/Redo, restore and Load. Structures survive (their geometry
+// does not); area and angle labels go too — they used to be left behind as
+// ghosts ("F1: 1075 sf" over a 0 sf calculator).
+function _teardownDrawing() {
+  drawnLines.forEach(l => { drawMap.removeLayer(l.line); drawMap.removeLayer(l.lbl); });
   facets.forEach(f => {
     if(f.polygon) drawMap.removeLayer(f.polygon);
     if(f.areaLabel) drawMap.removeLayer(f.areaLabel);
-    f.dots.forEach(d => { try{drawMap.removeLayer(d);}catch(e){} });
   });
+  _allDots.forEach(d => { if (drawMap.hasLayer(d)) drawMap.removeLayer(d); });
+  _allDots = [];
+  placedAccessories.forEach(a => { if (a.marker && drawMap.hasLayer(a.marker)) drawMap.removeLayer(a.marker); });
+  placedAccessories = [];
+  if(perimPolygon) { drawMap.removeLayer(perimPolygon); }
+  if(perimCloseRing) { drawMap.removeLayer(perimCloseRing); }
+  clearTemp();
+  _clearAngleLabels();
   facets = []; activeFacetIdx = -1;
   drawnLines = []; perimSegments = []; perimPoints = []; perimDots = [];
-  gutterPoints = []; gutterDots = [];
+  gutterPoints = []; gutterDots = []; gutterRunId = null;
   perimClosed = false; perimPendingP1 = null; perimPendingP2 = null;
+  perimPendingDot = null; perimPendingDotNew = false; _perimClosing = false;
+  drawStart = null; drawStartDot = null; drawStartDotNew = false;
+  perimPolygon = null; perimCloseRing = null;
   perimBaseArea = 0; selectedLineId = null;
+  if (drawMap) drawMap.closePopup();
   hideReChooser();
-  const pb = document.getElementById('perimBar');
-  if (pb) pb.textContent = '⬡ Perimeter mode — click map to trace. Click first dot to close.';
-  renderLineList(); renderFacetList(); recalc(); recalcGutters();
-  clearSavedDrawing();
 }
 
 // ── ANGLE DISPLAY ────────────────────────────
@@ -1084,7 +1300,7 @@ function showAngles() {
     vertices.get(k2).push({other:l.p1, id:l.id});
   });
   // Remove old angle labels
-  document.querySelectorAll('.angle-label-marker').forEach(e=>e.remove());
+  _clearAngleLabels();
   vertices.forEach((edges, key) => {
     if(edges.length < 2) return;
     const [lat,lng] = key.split(',').map(Number);
@@ -1093,37 +1309,53 @@ function showAngles() {
       for(let j=i+1; j<edges.length; j++) {
         const angle = calcAngle(edges[i].other, center, edges[j].other);
         if(angle > 1 && angle < 179) {
-          L.marker(center, {icon:L.divIcon({
+          _angleMarkers.push(L.marker(center, {interactive:false, icon:L.divIcon({
             html:`<div class="angle-label">${angle.toFixed(0)}°</div>`,
-            className:'angle-label-marker', iconAnchor:[12,-8]
-          })}).addTo(drawMap);
+            className:'angle-label-marker', iconAnchor:[12,-8], iconSize:null
+          })}).addTo(drawMap));
         }
       }
     }
   });
 }
+// Angle markers are tracked and removed from the MAP (2026-09-25, L2). They
+// used to be removed from the DOM only, leaving the markers registered on the
+// map; and with no lines left, renderLineList returned before this ran, so
+// Clear left every angle on the imagery.
+let _angleMarkers = [];
+function _clearAngleLabels() {
+  _angleMarkers.forEach(m => { if (drawMap && drawMap.hasLayer(m)) drawMap.removeLayer(m); });
+  _angleMarkers = [];
+  document.querySelectorAll('.angle-label-marker').forEach(e=>e.remove());
+}
 
 function renderLineList() {
   const el = document.getElementById('lineList');
+  if(!el) return;
   if(!drawnLines.length) {
     el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:8px;">No lines yet.</p>';
     el.onclick = null;
     el.onchange = null;
+    _clearAngleLabels(); // with no lines there are no angles (was: ghosts)
     return;
   }
   // Per-type aggregates (count + total feet), preserving LT order
-  const totals = LT.map(() => ({count:0, len:0}));
+  const totals = LT.map(() => ({count:0, len:0, sloped:0}));
   drawnLines.forEach(l => {
-    if (totals[l.type]) { totals[l.type].count++; totals[l.type].len += l.dist; }
+    if (totals[l.type]) { totals[l.type].count++; totals[l.type].len += l.dist; totals[l.type].sloped += l.dist * _slopeFactorFor(l); }
   });
   const chips = totals.map((t, idx) => {
     if (!t.count) return '';
     const lt = LT[idx];
+    // Rake / hip / valley: the slope-corrected feet ride BESIDE the flat
+    // feet (Jo, decision 7) — a sibling span, the flat number unchanged.
+    const sl = slopeLfOn && (idx === 2 || idx === 3 || idx === 4) && t.sloped - t.len >= 0.05
+      ? `<span class="line-total-chip-meta" title="Slope-corrected (sent to the estimate)">→ ${t.sloped.toFixed(1)} sloped</span>` : '';
     return `<span class="line-total-chip" title="${lt.n}: ${t.count} line${t.count===1?'':'s'}, ${t.len.toFixed(1)} ft total">
       <span class="lt-dot" style="background:${lt.color};${idx===4?'border:1px dashed #fff;':''}"></span>
       <span class="line-total-chip-name">${lt.n}</span>
       <span class="line-total-chip-meta">×${t.count}</span>
-      <span class="line-total-chip-len">${t.len.toFixed(1)} ft</span>
+      <span class="line-total-chip-len">${t.len.toFixed(1)} ft</span>${sl}
     </span>`;
   }).join('');
   // Per-type ordinal (#N) numbering as we iterate drawnLines in original order
@@ -1148,11 +1380,13 @@ function renderLineList() {
   }
   // CSP-safe delegated handlers via DOM-property assignment (NOT inline onclick=
   // attribute, which is blocked by the prod CSP `script-src-attr 'none'`).
+  // Ids are integers now; Number() (never parseInt) so a legacy decimal id
+  // could still resolve (audit B3: parseInt('1790343678400.5168') missed).
   el.onclick = function(ev) {
     const target = ev.target.closest('[data-action]');
     if (!target) return;
     const action = target.dataset.action;
-    const id = parseInt(target.dataset.lineId, 10);
+    const id = Number(target.dataset.lineId);
     if (action === 'deleteLine')      { ev.stopPropagation(); deleteLine(id); }
     else if (action === 'selectLine') { selectLine(id); }
     else if (action === 'retypeLine') { ev.stopPropagation(); /* change-handler does the work */ }
@@ -1160,56 +1394,75 @@ function renderLineList() {
   el.onchange = function(ev) {
     const target = ev.target.closest('[data-action="retypeLine"]');
     if (!target) return;
-    retypeLine(parseInt(target.dataset.lineId, 10), parseInt(target.value, 10));
+    retypeLine(Number(target.dataset.lineId), Number(target.value));
   };
   // Show angles when lines exist
   showAngles();
 }
 
+// ── TOTALS (2026-09-25, draw lane L2) ──
+// recalc() is draw-geom's structureTotals(): each structure's own
+// computeTotals() (the L1 copy of the old recalc, plus the open-outline
+// guard), summed for the job. #cr-* read the JOB total — every consumer
+// (estimate, Save, reports) parseFloats them — and each structure's own
+// numbers show in the Structures list.
+function _linesForTotals() {
+  const open = new Set(perimSegments.map(s => s.id));
+  return drawnLines.map(l => open.has(l.id) ? Object.assign({}, l, {openPerim:true}) : l);
+}
+function _totals() {
+  const G = window.NBDDrawGeom;
+  return G.structureTotals(_linesForTotals(), facets, structures,
+    document.getElementById('pitchSel')?.value || 1.202,
+    document.getElementById('wasteSel')?.value || 1.17);
+}
 function recalc() {
-  const globalPitch = parseFloat(document.getElementById('pitchSel')?.value || 1.202);
-  const waste = parseFloat(document.getElementById('wasteSel')?.value || 1.17);
-  const eave  = drawnLines.filter(l => l.type === 5);
-  const rake  = drawnLines.filter(l => l.type === 4);
-  let base = 0, pitched = 0;
-
-  // Multi-facet: sum each facet with its own pitch
-  if(facets.length > 0) {
-    facets.forEach(f => {
-      if(f.closed && f.baseArea > 0) {
-        base += f.baseArea;
-        pitched += f.baseArea * f.pitch;
-      }
-    });
-    // Add any open perimeter
-    if(perimClosed && perimBaseArea > 0 && !facets.find(f => f.baseArea === perimBaseArea)) {
-      base += perimBaseArea;
-      pitched += perimBaseArea * globalPitch;
-    }
-  }
-  // Fallback: single perimeter or line-based
-  else if(perimClosed && perimBaseArea > 0) {
-    base = perimBaseArea;
-    pitched = base * globalPitch;
-  }
-  else if(eave.length && rake.length) {
-    base = eave.reduce((s,l) => s+l.dist, 0) * (rake.reduce((s,l) => s+l.dist, 0) / rake.length);
-    pitched = base * globalPitch;
-  }
-  else if(drawnLines.filter(l=>l.type!==10).length) {
-    const tot = drawnLines.filter(l=>l.type!==10).reduce((s,l) => s+l.dist, 0);
-    base = (tot/4) * (tot/4);
-    pitched = base * globalPitch;
-  }
-
-  const w = pitched * waste, sq = w / 100;
+  const t = _totals();
+  const c = t.combined;
   // Draw-tool readout — only present when #view-draw is in DOM. Guard
   // each one so a partial-view render doesn't blow up the calc loop.
   const setTxt = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-  setTxt('cr-base',    base.toFixed(0) + ' sf');
-  setTxt('cr-pitched', pitched.toFixed(0) + ' sf');
-  setTxt('cr-waste',   w.toFixed(0) + ' sf');
-  setTxt('cr-sq',      sq.toFixed(2) + ' sq');
+  setTxt('cr-base',    c.text.base);
+  setTxt('cr-pitched', c.text.pitched);
+  setTxt('cr-waste',   c.text.waste);
+  setTxt('cr-sq',      c.text.sq);
+  // "est." when an area is guessed from lines, not a closed section — a
+  // sibling of #cr-base, never inside it (8+ consumers parseFloat #cr-*).
+  const badge = document.getElementById('cr-est-badge');
+  if (badge) badge.hidden = !(c.estimated && c.base > 0);
+  const scope = document.getElementById('cr-scope');
+  if (scope) scope.textContent = structures.length > 1 ? '(all ' + structures.length + ' structures)' : '';
+  _renderStructureTotals(t);
+  // #pitchSel changed (its data-on-change is recalc): the sloped chips of
+  // lines that take the global pitch are stale — repaint the list once.
+  const gp = document.getElementById('pitchSel')?.value;
+  if (gp !== _lastGlobalPitch) { _lastGlobalPitch = gp; if (drawnLines.length) renderLineList(); }
+}
+let _lastGlobalPitch = null;
+
+// Slope correction for one line (Jo's switch, decision 7). A perimeter edge
+// uses its facet's pitch; everything else the #pitchSel pitch. Rake climbs
+// the full pitch, hip/valley half as steeply (draw-geom slopeFactors).
+function _riseFor(l) {
+  const f = l.facetId ? facets.find(x => x.id === l.facetId) : null;
+  const factor = f ? f.pitch : parseFloat(document.getElementById('pitchSel')?.value || 1.202);
+  return window.NBDDrawGeom.riseFromFactor(factor);
+}
+function _slopeFactorFor(l) {
+  if (l.type !== 2 && l.type !== 3 && l.type !== 4) return 1;
+  const sf = window.NBDDrawGeom.slopeFactors(_riseFor(l));
+  return l.type === 4 ? sf.rake : sf.hipValley;
+}
+function setSlopeLf(on) {
+  slopeLfOn = on !== false;
+  try { localStorage.setItem(SLOPE_PREF_KEY, slopeLfOn ? '1' : '0'); } catch (e) { /* storage blocked */ }
+  const box = document.getElementById('slopeLfToggle');
+  if (box) box.checked = slopeLfOn;
+  renderLineList();
+}
+
+function _esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 // ── ZOOM TO FIT ──────────────────────────────
@@ -1260,85 +1513,183 @@ function screenshotMap() {
   } catch(e) { showToast('Screenshot failed: '+e.message,'error'); }
 }
 
+// ── GENERATE ESTIMATE (2026-09-25, draw lane L2 — audit B7) ──
+// What it used to do wrong, all money:
+//   - it mapped LT indices from a stale comment ("1=valley, 3=rake,
+//     4=wall"): a drawn Valley priced as rake/drip edge, a Ridge Vent as
+//     valley, every Rake as wall/step flashing;
+//   - drawn gutter feet and placed accessories never reached the estimate;
+//   - a Flat drawing went as pitch 8 ('|| 8'), the steep band;
+//   - "Classic" (native confirm's Cancel) threw ReferenceError on
+//     updateEstCalc after opening the V2 template chooser instead.
+// Now draw-geom's estimateImport() builds both payloads (see its header for
+// the rules: Jo's decisions 2, 6 and 7), and an in-page chooser names both
+// builders, shows the numbers (flat beside sloped) and the per-structure
+// breakdown, and makes the rep acknowledge a missing or guessed roof area.
+// IMPORTANT (kept): `rawSqft` is the PITCHED area — the builders apply only
+// waste (estimate-logic-engine.js: 'rawSqft', // Actual roof area (pitch
+// applied)); sending the footprint under-counted every estimate by 12-41%.
+function _estimatePlan() {
+  const t = _totals();
+  const lines = drawnLines.map(l => ({type:l.type, dist:l.dist, rise:_riseFor(l), p1:l.p1, p2:l.p2, runId:l.runId}));
+  const imp = window.NBDDrawGeom.estimateImport({
+    lines, accessories: placedAccessories.map(a => ({type:a.type})),
+    pitchFactor: document.getElementById('pitchSel')?.value || 1.202,
+    slope: slopeLfOn,
+    totals: {base:t.combined.base, pitched:t.combined.pitched, estimated:t.combined.estimated},
+    downspouts: t.combined.downspouts
+  });
+  return { t, imp };
+}
+
 function importToEstimate() {
-  // Collect all measurements from the drawing tool.
-  //
-  // IMPORTANT: the estimate builders expect `rawSqft` = actual roof surface
-  // area with pitch ALREADY APPLIED (see estimate-logic-engine.js:43 comment
-  // — "'rawSqft', // Actual roof area (pitch applied)"). The drawing tool's
-  // `cr-pitched` readout is that value; `cr-base` is the unpitched footprint
-  // and was the historical import source — sending it meant every estimate
-  // was under-counted by the pitch factor (12–41% depending on pitch).
-  const addr = document.getElementById('drawSearch').value || '';
-  const pitchedSqft = parseFloat(document.getElementById('cr-pitched').textContent) || 0;
-  const baseSqft = parseFloat(document.getElementById('cr-base').textContent) || 0;
-  // Line types: 0=ridge, 1=valley, 2=hip, 3=rake, 4=wall, 5=eave
-  const ridgeLf = Math.round(drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0));
-  const eaveLf = Math.round(drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0));
-  const hipLf = Math.round(drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0));
-  const valleyLf = Math.round(drawnLines.filter(l => l.type === 1).reduce((s, l) => s + l.dist, 0));
-  const rakeLf = Math.round(drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0));
-  const wallLf = Math.round(drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0));
+  const plan = _estimatePlan();
+  if (plan.imp.warning === 'empty') { showToast('Nothing to estimate yet — draw the roof first', 'info'); return; }
+  _openEstimateChooser(plan);
+}
 
-  // The global pitch selector value is "<multiplier>" (e.g. "1.202" for 8/12).
-  // Multi-facet drawings already compose per-facet pitch into `cr-pitched`,
-  // so we just need a representative pitch rise to pass through for rules
-  // like pitch-surcharge pricing.
-  const globalPitchMult = parseFloat(document.getElementById('pitchSel')?.value || 1.202) || 1.202;
-  // Invert sqrt(1 + (rise/12)^2) to recover rise from multiplier
-  const pitchRise = Math.round(12 * Math.sqrt(Math.max(0, globalPitchMult * globalPitchMult - 1))) || 8;
+function _sendToV2(imp) {
+  // Measurements ride through open(opts), never a setTimeout DOM poke: the
+  // builder may still be lazy-loading (openEstimateV2Builder can be the
+  // load-then-run stub, which forwards arguments) and open() restores any
+  // nbd_v2_draft_v1 draft asynchronously; it applies these AFTER the draft
+  // restore and owns the toast (NEW-D39, d8 sweep).
+  window.openEstimateV2Builder({ importMeasurements: Object.assign({}, imp.v2) });
+}
 
-  // Ask which builder to use
-  const useV2 = window.openEstimateV2Builder && confirm(
-    'Open V2 Builder (line-item mode) with these measurements?\n\n'
-    + 'Pitched area: ' + Math.round(pitchedSqft) + ' SF '
-    + '(footprint ' + Math.round(baseSqft) + ' SF × pitch)\n'
-    + 'Eave: ' + eaveLf + ' LF · Ridge: ' + ridgeLf + ' LF\n'
-    + 'Rake: ' + rakeLf + ' LF · Hip: ' + hipLf + ' LF\n'
-    + 'Valley: ' + valleyLf + ' LF · Wall: ' + wallLf + ' LF\n\n'
-    + 'Click OK for V2 Builder, Cancel for Classic Builder.'
-  );
-
-  if (useV2) {
-    // V2 Builder: rawSqft is pitched area (logic engine only applies waste).
-    // Measurements ride through open(opts) instead of a setTimeout DOM poke:
-    // the builder may still be lazy-loading (openEstimateV2Builder can be the
-    // load-then-run stub, which forwards arguments) and open() restores any
-    // nbd_v2_draft_v1 draft asynchronously — a fixed 300ms timer lost both
-    // races, so the import silently no-opd or was overridden by the stale
-    // draft while the success toast still fired (NEW-D39, d8 sweep). The
-    // builder now applies these AFTER draft restore and owns the toast.
-    window.openEstimateV2Builder({
-      importMeasurements: {
-        rawSqft: Math.round(pitchedSqft),
-        pitch: pitchRise,
-        eaveLf, ridgeLf, rakeLf, hipLf, valleyLf, wallLf
-      }
-    });
-  } else {
-    // Classic builder: `updateEstCalc` does raw × pitch × waste. The drawing
-    // tool already baked pitch (and per-facet pitch on multi-facet drawings)
-    // into cr-pitched, so we pass pitched area AND pin the classic pitch
-    // selector to Flat (1.000×) so it isn't multiplied a second time.
-    goTo('est');
-    startNewEstimate();
-    setTimeout(() => {
-      document.getElementById('estAddr').value = addr;
-      document.getElementById('estRawSqft').value = Math.round(pitchedSqft);
-      const pitchSelEl = document.getElementById('estPitch');
-      if (pitchSelEl) pitchSelEl.value = '1.0|Flat';
-      document.getElementById('estRidge').value = ridgeLf;
-      document.getElementById('estEave').value = eaveLf;
-      document.getElementById('estHip').value = hipLf;
-      const noteEl = document.getElementById('drawImportNote');
-      if (noteEl) {
-        noteEl.style.display = 'block';
-        noteEl.textContent = 'Pitched area imported from drawing tool. Pitch set to Flat so your '
-          + pitchRise + '/12 drawing pitch is not applied twice.';
-      }
-      updateEstCalc();
-    }, 100);
+async function _sendToClassic(imp) {
+  // Classic builder: `updateEstCalc` does raw × pitch × waste. The drawing
+  // already baked pitch (and per-facet pitch) into cr-pitched, so we pass
+  // pitched area AND pin the classic pitch selector to Flat (1.000×) so it
+  // isn't multiplied a second time. startNewEstimate() now opens the V2
+  // template chooser, so the classic form is opened with the classic entry
+  // point, AFTER the lazy 'estimates' bundle has loaded.
+  const addr = document.getElementById('drawSearch')?.value || '';
+  goTo('est');
+  try { if (window.ScriptLoader && window.ScriptLoader.loadBundle) await window.ScriptLoader.loadBundle('estimates'); }
+  catch (e) { showToast('Estimate builder did not load — try again', 'error'); return; }
+  if (typeof window.startNewEstimateOriginal !== 'function' || typeof window.updateEstCalc !== 'function') {
+    showToast('Classic builder unavailable — opening the Estimate Builder instead', 'warning');
+    _sendToV2(imp);
+    return;
   }
+  window.startNewEstimateOriginal();
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  const c = imp.classic;
+  set('estAddr', addr);
+  set('estRawSqft', c.rawSqft);
+  set('estPitch', '1.0|Flat');
+  set('estRidge', c.ridge);
+  set('estEave', c.eave);
+  set('estHip', c.hip);
+  // Drawn gutter feet price the classic gutter add-on (its only gutter line).
+  if (c.gutterLF > 0) set('estGutterLF', c.gutterLF);
+  const noteEl = document.getElementById('drawImportNote');
+  if (noteEl) {
+    noteEl.style.display = 'block';
+    noteEl.textContent = 'Pitched area imported from drawing tool. Pitch set to Flat so your '
+      + imp.drawnRise + '/12 drawing pitch is not applied twice.';
+  }
+  window.updateEstCalc();
+}
+
+// The in-page chooser (was a native confirm() whose OK/Cancel meant
+// V2/Classic, and which the installed app answers YES on its own).
+function _openEstimateChooser(plan) {
+  const imp = plan.imp, t = plan.t;
+  // Toasts stack ABOVE modals (--z-toast): on an iPhone "Gutter run
+  // finished — 66.6 ft" sat over this chooser's buttons (WebKit check,
+  // 2026-09-25). The rep's attention is here now; clear them.
+  document.querySelectorAll('#toastContainer .toast').forEach(el => {
+    if (typeof window._closeToast === 'function') window._closeToast(el.id); else el.remove();
+  });
+  let bg = document.getElementById('drawEstChooser');
+  if (bg) bg.remove();
+  bg = document.createElement('div');
+  bg.className = 'modal-bg';
+  bg.id = 'drawEstChooser';
+  const card = document.createElement('div');
+  card.className = 'modal';
+  card.setAttribute('role', 'dialog');
+  card.setAttribute('aria-label', 'Generate estimate');
+  card.style.cssText = 'max-width:440px;max-height:86vh;overflow-y:auto;';
+  const el = (tag, css, text) => { const n = document.createElement(tag); if (css) n.style.cssText = css; if (text !== undefined) n.textContent = text; return n; };
+  card.appendChild(el('h3', "font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;", 'Generate Estimate'));
+
+  const v = imp.v2;
+  const rows = [
+    ['Roof area (pitched)', v.rawSqft + ' sf' + (t.combined.base > 0 ? '  ·  footprint ' + Math.round(t.combined.base) + ' sf' : '')],
+    ['Pitch', (imp.drawnRise === 0 ? 'Flat' : imp.drawnRise + '/12') + (imp.drawnRise !== imp.pitchRise ? '  →  sent as ' + imp.pitchRise + '/12 (the builder’s lowest)' : '')],
+    ['Eave', v.eaveLf + ' LF'], ['Ridge', v.ridgeLf + ' LF']
+  ];
+  [['Rake', 'rakeLf'], ['Hip', 'hipLf'], ['Valley', 'valleyLf']].forEach(([n, k]) => {
+    rows.push([n, imp.slope && imp.sloped[k] !== imp.flat[k]
+      ? imp.flat[k] + ' LF flat  →  ' + imp.sloped[k] + ' LF sloped (sent)'
+      : v[k] + ' LF']);
+  });
+  rows.push(['Wall / step flashing', v.wallLf + ' LF']);
+  if (imp.guttersLf > 0) rows.push(['Gutters', imp.guttersLf + ' LF  ·  ' + imp.downspouts + ' downspout' + (imp.downspouts === 1 ? '' : 's')]);
+  ['pipes', 'chimneys', 'skylights'].forEach(k => { if (v[k]) rows.push([k[0].toUpperCase() + k.slice(1), String(v[k])]); });
+  if (imp.notPriced.ridgeVentLf > 0) rows.push(['Ridge vent (not sent)', imp.notPriced.ridgeVentLf + ' LF — the builder sizes ridge vent from Ridge']);
+  if (imp.notPriced.dripEdgeLf > 0) rows.push(['Drip edge (not sent)', imp.notPriced.dripEdgeLf + ' LF — the builder sizes it from eave + rake']);
+  const tbl = el('div', 'font-size:12px;line-height:1.5;margin-bottom:10px;');
+  tbl.dataset.role = 'est-rows';
+  rows.forEach(([k, val]) => {
+    const r = el('div', 'display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--br,#2a2f35);padding:3px 0;');
+    r.appendChild(el('span', 'color:var(--m);', k));
+    r.appendChild(el('span', 'font-weight:700;text-align:right;', val));
+    tbl.appendChild(r);
+  });
+  card.appendChild(tbl);
+
+  // Per-structure breakdown (Jo, decision 3) — the estimate gets the total.
+  if (t.per.length > 1) {
+    const sb = el('div', 'font-size:11px;color:var(--m);margin-bottom:10px;');
+    sb.dataset.role = 'est-structures';
+    sb.appendChild(el('div', 'font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;', 'By structure'));
+    t.per.forEach(p => sb.appendChild(el('div', '', p.name + ': ' + p.text.pitched + ' pitched · ' + p.text.sq + (p.gutterLf > 0 ? ' · ' + p.text.gutter + ' gutter' : ''))));
+    card.appendChild(sb);
+  }
+
+  // Missing / guessed roof area must be acknowledged (Jo, decision 7).
+  let ack = null;
+  if (imp.warning === 'no-roof' || imp.warning === 'estimated-area') {
+    const warn = el('div', 'background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.45);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px;');
+    warn.dataset.role = 'est-warning';
+    warn.appendChild(el('div', 'font-weight:700;margin-bottom:4px;', imp.warning === 'no-roof' ? 'No roof area drawn' : 'Roof area is estimated, not measured'));
+    warn.appendChild(el('div', '', imp.warning === 'no-roof'
+      ? 'Nothing is outlined, so the estimate gets 0 sf of roof — only the lengths above.'
+      : 'No roof section is closed, so the ' + Math.round(t.combined.base) + ' sf footprint is guessed from your lines. Close a perimeter for a measured area.'));
+    const lab = el('label', 'display:flex;gap:8px;align-items:center;margin-top:6px;font-weight:700;cursor:pointer;');
+    ack = document.createElement('input');
+    ack.type = 'checkbox';
+    ack.id = 'drawEstAck';
+    lab.appendChild(ack);
+    lab.appendChild(el('span', '', 'I understand — continue'));
+    warn.appendChild(lab);
+    card.appendChild(warn);
+  }
+
+  const row = el('div', 'display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;');
+  const btn = (label, cls, role) => { const b = el('button', 'min-height:44px;', label); b.type = 'button'; b.className = 'btn ' + cls; b.dataset.role = role; return b; };
+  const cancel = btn('Cancel', 'btn-ghost', 'est-cancel');
+  const classic = btn('Classic builder', 'btn-ghost', 'est-classic');
+  const v2 = btn('Estimate Builder (V2)', 'btn-orange', 'est-v2');
+  v2.setAttribute('autofocus', '');
+  if (!window.openEstimateV2Builder) v2.disabled = true;
+  row.appendChild(cancel); row.appendChild(classic); row.appendChild(v2);
+  card.appendChild(row);
+  bg.appendChild(card);
+  document.body.appendChild(bg);
+
+  const gate = () => { const ok = !ack || ack.checked; v2.disabled = !ok || !window.openEstimateV2Builder; classic.disabled = !ok; };
+  if (ack) ack.addEventListener('change', gate);
+  gate();
+  const close = () => { if (window.nbdModal) window.nbdModal.close(bg); bg.classList.remove('open'); setTimeout(() => bg.remove(), 300); };
+  cancel.addEventListener('click', close);
+  v2.addEventListener('click', () => { if (v2.disabled) return; close(); _sendToV2(imp); });
+  classic.addEventListener('click', () => { if (classic.disabled) return; close(); _sendToClassic(imp); });
+  if (window.nbdModal) window.nbdModal.open(bg); else bg.classList.add('open');
 }
 
 async function searchDraw() {
@@ -1375,36 +1726,59 @@ async function saveDrawingToCustomer() {
     return lNorm && addrNorm && (lNorm.includes(addrNorm.substring(0, 12)) || addrNorm.includes(lNorm.substring(0, 12)));
   });
 
+  const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
   let leadId = matched?.id;
   if (!leadId) {
     // No match — ask if they want to create a new lead
     // Batch 2 (iOS PWA): nbdConfirm gates the unlinked-save fallback.
-    const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
     if (!(await _ask('No customer found for "' + addr + '". Save as an unlinked drawing?\n\n(You can link it to a customer later.)'))) return;
     leadId = '_unlinked_' + window._user.uid;
+  } else {
+    // 2026-09-25 (L2): Save used to throw for every drawing with a facet
+    // (facets[].name was undefined — Firestore rejects undefined). Now that
+    // it works, the fuzzy match above (the first 12 normalized address
+    // characters, either way round) CAN pick the wrong customer ("123 Main
+    // St" matches "123 Main Street Apt 4"), so the rep confirms the named
+    // lead before anything is written.
+    const who = [matched.firstName, matched.lastName].filter(Boolean).join(' ') || matched.name || 'this customer';
+    if (!(await _ask('Save this drawing to ' + who + (matched.address ? ' — ' + matched.address : '') + '?'))) return;
   }
 
-  // Build the drawing data (GeoJSON + metadata)
-  const drawingData = {
+  // No closed roof section = no measured area: say so before saving it.
+  const tot = _totals();
+  if (!tot.combined.measured) {
+    const what = tot.combined.base > 0 ? 'Its ' + Math.round(tot.combined.base) + ' sf area is guessed from your lines.' : 'It has no roof area.';
+    if (!(await _ask('No roof section is closed on this drawing. ' + what + ' Save it anyway?'))) return;
+  }
+
+  // Build the drawing data. Every v1 key is kept (loadDrawingFromCustomer on
+  // older builds, the data export and erasure paths read them); v2 adds
+  // schemaVersion, gutter feet, downspouts, accessories, structures and the
+  // per-line / per-facet fields the one restore path needs. stripUndefined()
+  // makes the doc Firestore-safe whatever a field holds.
+  const agg = window.NBDDrawGeom.aggregateForEstimate(drawnLines, []);
+  const drawingData = window.NBDDrawGeom.stripUndefined({
     address: addr,
     measurements: {
       totalAreaSF: parseFloat(document.getElementById('cr-base')?.textContent) || 0,
       pitchedAreaSF: parseFloat(document.getElementById('cr-pitched')?.textContent) || 0,
       withWasteSF: parseFloat(document.getElementById('cr-waste')?.textContent) || 0,
       squares: parseFloat(document.getElementById('cr-sq')?.textContent) || 0,
-      ridgeLF: drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0),
-      eaveLF: drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0),
-      rakeLF: drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0),
-      hipLF: drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0),
-      valleyLF: drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0)
+      ridgeLF: agg.exact.ridgeLf,
+      eaveLF: agg.exact.eaveLf,
+      rakeLF: agg.exact.rakeLf,
+      hipLF: agg.exact.hipLf,
+      valleyLF: agg.exact.valleyLf
     },
     lines: drawnLines.map(l => ({
-      type: l.type, name: l.name, dist: l.dist,
+      id: l.id, type: l.type, name: l.name, dist: l.dist, subtype: l.subtype || null,
+      isPerim: !!l.isPerim, runId: l.runId || null, facetId: l.facetId || null, structureId: l.structureId,
       p1: { lat: l.p1.lat, lng: l.p1.lng },
       p2: { lat: l.p2.lat, lng: l.p2.lng }
     })),
     facets: facets.map(f => ({
-      name: f.name, pitch: f.pitch, closed: f.closed, baseArea: f.baseArea,
+      id: f.id, name: f.label, label: f.label, color: f.color || null,
+      pitch: f.pitch, closed: f.closed, baseArea: f.baseArea, structureId: f.structureId,
       points: f.points.map(p => ({ lat: p.lat, lng: p.lng }))
     })),
     pitch: document.getElementById('pitchSel')?.value || '1.202',
@@ -1412,9 +1786,14 @@ async function saveDrawingToCustomer() {
     userId: window._user.uid,
     leadId: leadId,
     version: 1,
+    schemaVersion: 2,
+    gutterLF: tot.combined.gutterLf,
+    downspouts: tot.combined.downspouts,
+    accessories: placedAccessories.map(a => ({ type: a.type, lat: a.latlng.lat, lng: a.latlng.lng, structureId: a.structureId })),
+    structures: structures.map(s => ({ id: s.id, name: s.name })),
     createdAt: window.serverTimestamp(),
     updatedAt: window.serverTimestamp()
-  };
+  });
 
   try {
     // Check for existing drawings to increment version
@@ -1491,97 +1870,20 @@ async function loadDrawingFromCustomer() {
       if (!(await _ask('Replace the current drawing with v' + (data.version || '?') + ' from ' + (matched?.firstName || matched?.address || 'customer') + '?'))) return;
     }
 
-    // Clear current state.
-    //
-    // `clearAll` is undefined at this scope — it exists nowhere in the repo — so
-    // this always took the fallback, which reset the ARRAYS without removing
-    // anything from the map. The previous drawing's polylines, labels and facet
-    // polygons stayed painted, on top of the drawing being loaded.
-    //
-    // Not clearDraw() either: that prompts "Clear all lines and facets?", and we
-    // have already asked "Replace the current drawing…?" above. Double-prompting
-    // a rep mid-load is its own bug. Same teardown, without the confirm.
-    try {
-      drawnLines.forEach((l) => {
-        if (l.line) drawMap.removeLayer(l.line);
-        if (l.lbl) drawMap.removeLayer(l.lbl);
-        if (l.dot1) drawMap.removeLayer(l.dot1);
-        if (l.dot2) drawMap.removeLayer(l.dot2);
-      });
-      facets.forEach((f) => {
-        if (f.polygon) drawMap.removeLayer(f.polygon);
-        if (f.areaLabel) drawMap.removeLayer(f.areaLabel);
-        (f.dots || []).forEach((d) => { try { drawMap.removeLayer(d); } catch (e) {} });
-      });
-      if (typeof clearTemp === 'function') clearTemp();
-    } catch (e) {
-      console.warn('[maps-routing] teardown before load failed:', e && e.message);
-    }
-    drawnLines = [];
-    facets = [];
-
-    // Restore pitch/waste selectors
-    const pitchSel = document.getElementById('pitchSel');
-    if (pitchSel && data.pitch) pitchSel.value = String(data.pitch);
-    const wasteSel = document.getElementById('wasteSel');
-    if (wasteSel && data.waste) wasteSel.value = String(data.waste);
-
-    // Rehydrate lines — and PAINT them.
-    //
-    // These pushes used to create plain data objects with no Leaflet layers,
-    // on the assumption that a later redrawAll() would build them. redrawAll
-    // does not exist, so nothing was ever added to the map: the rep clicked
-    // "Load from Customer", the map panned onto the drawing's bounds, the
-    // Base/Pitched/Waste/SQ readout updated and a green "Loaded v3 from Smith"
-    // toast fired — over a completely empty canvas, with an empty Lines list.
-    // Mirrors the layer construction in finalizeLine().
-    (data.lines || []).forEach(l => {
-      try {
-        const p1 = L.latLng(l.p1.lat, l.p1.lng);
-        const p2 = L.latLng(l.p2.lat, l.p2.lng);
-        const lt = (typeof LT !== 'undefined' && LT[l.type]) || {};
-        const color = lt.color || '#4A9EFF';
-        const line = L.polyline([p1, p2], {
-          color, weight: 4, opacity: .95, dashArray: lt.dash || null,
-        }).addTo(drawMap);
-        const dist = Number(l.dist) || 0;
-        const lbl = L.marker(mid(p1, p2), {
-          icon: L.divIcon({
-            html: '<div class="meas-label" style="border-color:' + color + '">' + dist.toFixed(1) + ' ft</div>',
-            className: '', iconAnchor: [0, 10],
-          }),
-        }).addTo(drawMap);
-        drawnLines.push({
-          id: Date.now() + Math.random(),
-          type: l.type, name: l.name || lt.n, color, dist,
-          line, lbl, p1, p2, subtype: 'line',
-        });
-      } catch (err) { /* skip malformed line */ }
-    });
-
-    // Rehydrate facets — and paint them too.
-    (data.facets || []).forEach(f => {
-      try {
-        const points = (f.points || []).map(p => L.latLng(p.lat, p.lng));
-        const rec = {
-          name: f.name, pitch: f.pitch, closed: !!f.closed, baseArea: f.baseArea,
-          points, dots: [],
-        };
-        if (points.length >= 3) {
-          const color = f.color || '#4A9EFF';
-          rec.polygon = L.polygon(points, {
-            color, weight: 1, fillColor: color, fillOpacity: .12,
-          }).addTo(drawMap);
-        }
-        facets.push(rec);
-      } catch (err) { /* skip malformed facet */ }
-    });
-
-    // Repaint the sidebars — the geometry is on the map now, but the Lines and
-    // Facets lists render from these arrays and were never asked to redraw.
-    if (typeof renderLineList === 'function') renderLineList();
-    if (typeof renderFacetList === 'function') renderFacetList();
-    if (typeof recalc === 'function') recalc();
+    // Replace the current drawing — through the ONE restore path (2026-09-25,
+    // draw lane L2): _applyPayload() tears down every layer without a second
+    // prompt (not clearDraw(), which asks "Clear all lines and facets?" after
+    // we already asked "Replace the current drawing…?"), then normalizes the
+    // doc — v1 (lines + facets only) or v2 (runs, structures, accessories) —
+    // and PAINTS it: every line with its dots, label and popup, every facet
+    // with its polygon and "F#" label, then renderLineList(); renderFacetList();
+    // recalc(). (History: the old loop pushed plain objects and waited for a
+    // redrawAll() that never existed, so a load showed an empty canvas; the
+    // fix after that painted lines and polygons but no dots, popups, labels
+    // or gutter readout.) Undoable: the snapshot keeps what was replaced.
+    _pushUndo();
+    _applyPayload(data, { selects: true });
+    autoSaveDrawing();
 
     // Center map on drawing bounds if possible
     try {
@@ -1640,33 +1942,51 @@ function placeAccessory(latlng) {
   if (!accessoryMode) return false;
   const acc = ACCESSORIES.find(a => a.id === accessoryMode);
   if (!acc) return false;
+  _pushUndo();
+  _addAccessoryMarker({ type: accessoryMode, lat: latlng.lat, lng: latlng.lng, structureId: activeStructureId });
+  renderAccessoryPanel();
+  autoSaveDrawing();
+  return true;
+}
 
+// One marker factory for placing and restoring (2026-09-25, L2): the marker
+// was draggable but its new position was never stored, and accessories were
+// not in the autosave at all — a reload lost every one of them.
+let _nextAccId = 1;
+function _addAccessoryMarker(a) {
+  const acc = ACCESSORIES.find(x => x.id === a.type);
+  if (!acc) return null;
   const icon = L.divIcon({
     html: '<div style="background:' + acc.color + '20;border:2px solid ' + acc.color + ';width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,.3);">' + acc.icon + '</div>',
     iconSize: [28, 28],
     className: ''
   });
-
+  const latlng = L.latLng(a.lat, a.lng);
   const marker = L.marker(latlng, { icon, draggable: true }).addTo(drawMap);
-  const id = Date.now() + Math.random();
-  placedAccessories.push({ id, type: accessoryMode, latlng, marker });
-
+  const rec = { id: _nextAccId++, type: a.type, latlng, marker, structureId: a.structureId || activeStructureId };
+  placedAccessories.push(rec);
+  let before = null;
+  marker.on('dragstart', () => { before = _snapshot(); });
+  marker.on('dragend', () => {
+    if (before) _pushUndo(before);
+    before = null;
+    rec.latlng = marker.getLatLng();
+    autoSaveDrawing();
+  });
   // Click to remove
   // Batch 2 (iOS PWA): nbdConfirm gates the destructive remove via a
   // real modal in standalone mode. Native confirm falls through on desktop.
   marker.on('click', async function() {
     const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
     if (await _ask('Remove this ' + acc.label + '?')) {
+      _pushUndo();
       drawMap.removeLayer(marker);
-      placedAccessories = placedAccessories.filter(a => a.id !== id);
+      placedAccessories = placedAccessories.filter(x => x !== rec);
       renderAccessoryPanel();
       autoSaveDrawing();
     }
   });
-
-  renderAccessoryPanel();
-  autoSaveDrawing();
-  return true;
+  return rec;
 }
 
 function getAccessoryCounts() {
@@ -1839,6 +2159,10 @@ async function generateScopeFromDrawing() {
   const rakeLF = drawnLines.filter(l => l.type === 4).reduce((s, l) => s + l.dist, 0).toFixed(1);
   const hipLF = drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0).toFixed(1);
   const valleyLF = drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0).toFixed(1);
+  // Ridge vent is its own line (Jo, decision 6): drawn Ridge Vent sizes the
+  // ventilation; with none drawn it follows the ridge, as it always has.
+  const ventDrawn = drawnLines.filter(l => l.type === 1).reduce((s, l) => s + l.dist, 0);
+  const ventLF = (ventDrawn > 0 ? ventDrawn : parseFloat(ridgeLF)).toFixed(1);
   const counts = typeof getAccessoryCounts === 'function' ? getAccessoryCounts() : {};
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Scope of Work — ${addr}</title>
@@ -1882,7 +2206,7 @@ ${parseFloat(valleyLF) > 0 ? '<div class="scope-item"><span class="scope-check">
 ${(counts.pipe || 0) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Replace pipe boot flashings</span><span class="scope-qty">' + counts.pipe + ' EA</span></div>' : ''}
 ${(counts.skylight || 0) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Re-flash skylights</span><span class="scope-qty">' + counts.skylight + ' EA</span></div>' : ''}
 ${(counts.chimney || 0) > 0 ? '<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Re-flash chimney</span><span class="scope-qty">' + counts.chimney + ' EA</span></div>' : ''}
-<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install ridge ventilation</span><span class="scope-qty">${ridgeLF} LF</span></div>
+<div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Install ridge ventilation</span><span class="scope-qty">${ventLF} LF</span></div>
 <div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Complete cleanup and debris removal</span><span class="scope-qty">1 JOB</span></div>
 <div class="scope-item"><span class="scope-check">✓</span><span class="scope-text">Final inspection and walkthrough with homeowner</span><span class="scope-qty">1 JOB</span></div>
 
@@ -1969,28 +2293,100 @@ function _drawStorageKey() {
   return 'nbd_draw_' + (addr ? addr.replace(/\s+/g,'_').substring(0,60) : 'default');
 }
 
+// The whole drawing as plain data — the autosave payload, the Undo/Redo
+// snapshot, and (reshaped) the Firestore doc. v2 (2026-09-25, L2) adds
+// structures, gutter runs, the open outline's edges, accessories and the id
+// sequences; every v1 key is still written (older builds and the test
+// harness read lines / facets / perimPoints / perimClosed / gutterPoints).
+function _serializeDrawing() {
+  const ll = p => ({lat:p.lat, lng:p.lng});
+  return {
+    v: 2,
+    address: document.getElementById('drawSearch')?.value || '',
+    lines: drawnLines.map(l => ({
+      id:l.id, type:l.type, name:l.name, color:l.color, dist:l.dist,
+      p1:ll(l.p1), p2:ll(l.p2), subtype:l.subtype||null,
+      isPerim:!!l.isPerim, runId:l.runId||null, facetId:l.facetId||null, structureId:l.structureId
+    })),
+    facets: facets.map(f => ({
+      id:f.id, name:f.label, label:f.label, color:f.color, pitch:f.pitch, closed:f.closed, baseArea:f.baseArea,
+      structureId:f.structureId, points: f.points.map(ll)
+    })),
+    perimPoints: perimPoints.map(ll),
+    perimSegIds: perimSegments.map(s => s.id),
+    perimClosed: false,
+    gutterPoints: gutterPoints.map(ll),
+    gutterRun: gutterRunId !== null ? {runId:gutterRunId, points:gutterPoints.map(ll)} : null,
+    accessories: placedAccessories.map(a => ({type:a.type, lat:a.latlng.lat, lng:a.latlng.lng, structureId:a.structureId})),
+    structures: structures.map(s => ({id:s.id, name:s.name})),
+    activeStructureId,
+    seq: {line:_nextLineId, run:_nextRunId, facet:_nextFacetId, struct:_nextStructId},
+    pitch: document.getElementById('pitchSel')?.value || '1.202',
+    waste: document.getElementById('wasteSel')?.value || '1.17',
+    ts: Date.now()
+  };
+}
+
 function autoSaveDrawing() {
   try {
-    const data = {
-      address: document.getElementById('drawSearch')?.value || '',
-      lines: drawnLines.map(l => ({
-        id:l.id, type:l.type, name:l.name, color:l.color, dist:l.dist,
-        p1:{lat:l.p1.lat,lng:l.p1.lng}, p2:{lat:l.p2.lat,lng:l.p2.lng},
-        subtype:l.subtype||null
-      })),
-      facets: facets.map(f => ({
-        name:f.name, color:f.color, pitch:f.pitch, closed:f.closed, baseArea:f.baseArea,
-        points: f.points.map(p=>({lat:p.lat,lng:p.lng}))
-      })),
-      perimPoints: perimPoints.map(p=>({lat:p.lat,lng:p.lng})),
-      perimClosed: perimClosed,
-      gutterPoints: gutterPoints.map(p=>({lat:p.lat,lng:p.lng})),
-      pitch: document.getElementById('pitchSel')?.value || '1.202',
-      waste: document.getElementById('wasteSel')?.value || '1.17',
-      ts: Date.now()
-    };
-    localStorage.setItem(_drawStorageKey(), JSON.stringify(data));
+    localStorage.setItem(_drawStorageKey(), JSON.stringify(_serializeDrawing()));
   } catch(e) { /* quota or private browsing — silently fail */ }
+}
+
+// THE restore path (2026-09-25, draw lane L2). draw-geom's
+// normalizeDrawing() repairs the data (integer ids, one copy of a
+// B4-duplicated facet, facet labels, run ids, a default structure — see its
+// header); this paints it with the same factories live drawing uses. It
+// replaced four divergent copies: the old autosave restore labelled facets
+// "undefined" / "FNaN: 1205 sf", stacked two dots on every shared corner (29
+// dots for 9 lines), dropped the line popup, and re-opened the last gutter
+// chain so the next tap bridged onto it.
+// opts.selects: also restore #pitchSel / #wasteSel (reload and Load — not Undo).
+function _applyPayload(raw, opts) {
+  const o = opts || {};
+  const G = window.NBDDrawGeom;
+  const d = G.normalizeDrawing(raw);
+  _teardownDrawing();
+  structures = d.structures.map(s => ({id:s.id, name:s.name}));
+  activeStructureId = d.activeStructureId;
+  _nextLineId = d.seq.line; _nextRunId = d.seq.run; _nextFacetId = d.seq.facet;
+  _nextStructId = Math.max(_nextStructId, d.seq.struct);
+  const LL = p => L.latLng(p.lat, p.lng);
+  const segsByFacet = new Map();
+  d.lines.forEach(l => {
+    const color = LT[l.type].color;
+    const p1 = LL(l.p1), p2 = LL(l.p2);
+    const rec = _addLine({
+      id:l.id, type:l.type, p1, p2, dist:l.dist, dot1:_dotAt(p1, color), dot2:_dotAt(p2, color),
+      subtype:l.subtype, isPerim:l.isPerim, runId:l.runId, facetId:l.facetId, structureId:l.structureId
+    });
+    if (l.facetId) { if (!segsByFacet.has(l.facetId)) segsByFacet.set(l.facetId, []); segsByFacet.get(l.facetId).push(rec); }
+  });
+  d.facets.forEach(f => {
+    const pts = f.points.map(LL);
+    const color = f.color || FACET_COLORS[facets.length % FACET_COLORS.length];
+    _addFacet({ id:f.id, label:f.label, color, points:pts, dots:pts.map(p => _dotAt(p, color)),
+      segments: segsByFacet.get(f.id) || [], pitch:f.pitch, structureId:f.structureId });
+  });
+  if (d.perimPoints.length) {
+    const color = FACET_COLORS[facets.length % FACET_COLORS.length];
+    perimPoints = d.perimPoints.map(LL);
+    perimDots = perimPoints.map(p => _dotAt(p, color));
+    perimSegments = drawnLines.filter(l => d.perimSegIds.indexOf(l.id) >= 0);
+    perimCloseRing = L.circleMarker(perimPoints[0], {radius:14, color, fillColor:'transparent', weight:2, dashArray:'4,3', opacity:.6, interactive:false}).addTo(drawMap);
+  }
+  if (d.gutterRun) {
+    gutterRunId = d.gutterRun.runId;
+    gutterPoints = d.gutterRun.points.map(LL);
+    gutterDots = gutterPoints.map(p => _dotAt(p, '#06B6D4'));
+  }
+  d.accessories.forEach(a => _addAccessoryMarker(a));
+  if (o.selects) {
+    if(d.pitch) { const el = document.getElementById('pitchSel'); if(el) el.value = d.pitch; }
+    if(d.waste) { const el = document.getElementById('wasteSel'); if(el) el.value = d.waste; }
+  }
+  renderLineList(); renderFacetList(); renderStructureList(); renderAccessoryPanel(); recalc(); recalcGutters();
+  return d;
 }
 
 function tryRestoreDrawing() {
@@ -2001,75 +2397,12 @@ function tryRestoreDrawing() {
     const data = JSON.parse(raw);
     // Only restore if less than 30 days old (extended from 7 days)
     if(Date.now() - (data.ts||0) > 30*24*60*60*1000) { localStorage.removeItem(key); return; }
-    if(!data.lines || !data.lines.length) return;
-
-    // Restore lines
-    data.lines.forEach(l => {
-      const p1 = L.latLng(l.p1.lat, l.p1.lng);
-      const p2 = L.latLng(l.p2.lat, l.p2.lng);
-      const lt = LT[l.type] || LT[0];
-      const color = l.color || lt.color;
-      const line = L.polyline([p1,p2], {color:color, weight:4, opacity:.95, dashArray:lt.dash||null}).addTo(drawMap);
-      const lbl = L.marker(mid(p1,p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${color}">${l.dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-      lbl.on('click', () => editLineLength(l.id));
-      const dot1 = makeDraggableDot(p1, color);
-      const dot2 = makeDraggableDot(p2, color);
-      drawnLines.push({id:l.id, type:l.type, name:l.name, color:color, dist:l.dist, line, lbl, p1, p2, dot1, dot2, subtype:l.subtype});
-      // Track perimeter segments
-      if(l.type === 4 || l.type === 5) {
-        perimSegments.push({id:l.id, line, lbl, p1, p2, dist:l.dist, type:l.type, name:l.name, color:color, subtype:l.subtype||'eave'});
-      }
-    });
-
-    // Restore perimeter points
-    if(data.perimPoints && data.perimPoints.length) {
-      data.perimPoints.forEach(p => {
-        const ll = L.latLng(p.lat, p.lng);
-        perimPoints.push(ll);
-        perimDots.push(makeDraggableDot(ll, '#4A9EFF'));
-      });
-      perimClosed = !!data.perimClosed;
-      if(perimClosed && perimPoints.length >= 3) {
-        perimPolygon = L.polygon(perimPoints, {color:'#4A9EFF', fillColor:'#4A9EFF', fillOpacity:.12, weight:0}).addTo(drawMap);
-        perimBaseArea = shoelaceArea(perimPoints);
-        addAreaLabel(perimPoints, perimBaseArea);
-      }
-    }
-
-    // Restore facets
-    if(data.facets && data.facets.length) {
-      data.facets.forEach(fd => {
-        const pts = fd.points.map(p => L.latLng(p.lat, p.lng));
-        const f = {
-          name:fd.name, color:fd.color, pitch:fd.pitch, closed:fd.closed,
-          baseArea:fd.baseArea, points:pts, dots:[], segments:[], polygon:null, areaLabel:null
-        };
-        pts.forEach(p => f.dots.push(makeDraggableDot(p, fd.color)));
-        if(fd.closed && pts.length >= 3) {
-          f.polygon = L.polygon(pts, {color:fd.color, fillColor:fd.color, fillOpacity:.12, weight:0}).addTo(drawMap);
-          addAreaLabel(pts, fd.baseArea);
-        }
-        facets.push(f);
-      });
-      activeFacetIdx = facets.length - 1;
-    }
-
-    // Restore gutter points
-    if(data.gutterPoints && data.gutterPoints.length) {
-      data.gutterPoints.forEach(p => {
-        const ll = L.latLng(p.lat, p.lng);
-        gutterPoints.push(ll);
-        gutterDots.push(makeDraggableDot(ll, '#06B6D4'));
-      });
-    }
-
-    // Restore pitch/waste selectors
-    if(data.pitch) { const el = document.getElementById('pitchSel'); if(el) el.value = data.pitch; }
-    if(data.waste) { const el = document.getElementById('wasteSel'); if(el) el.value = data.waste; }
-
-    renderLineList(); renderFacetList(); recalc(); recalcGutters();
+    const hasWork = (data.lines && data.lines.length) || (data.facets && data.facets.length)
+      || (data.accessories && data.accessories.length) || (data.perimPoints && data.perimPoints.length);
+    if(!hasWork) return;
+    _applyPayload(data, { selects: true });
     showToast('Previous drawing restored','ok');
-  } catch(e) { /* corrupted data — ignore */ }
+  } catch(e) { console.warn('[maps-routing] drawing restore failed:', e && e.message); }
 }
 
 function clearSavedDrawing() {
@@ -2085,7 +2418,9 @@ function clearSavedDrawing() {
 function calcSmartWaste() {
   const valleys = drawnLines.filter(l => l.type === 3);
   const hips    = drawnLines.filter(l => l.type === 2);
-  const ridges  = drawnLines.filter(l => l.type === 0 || l.type === 1);
+  // Ridge lines only — Ridge Vent is drawn along a ridge, not as more of it
+  // (Jo, decision 6, 2026-09-25).
+  const ridges  = drawnLines.filter(l => l.type === 0);
   const flashings = drawnLines.filter(l => l.type === 6 || l.type === 7);
   const nFacets = Math.max(facets.length, 1);
 
@@ -2201,16 +2536,26 @@ function generateMaterialTakeoff() {
   const wasteArea = pitched * sw.multiplier;
   const squares = wasteArea / 100;
 
-  // Line totals by type
-  const ridgeLF  = drawnLines.filter(l => l.type === 0 || l.type === 1).reduce((s,l) => s+l.dist, 0);
-  const hipLF    = drawnLines.filter(l => l.type === 2).reduce((s,l) => s+l.dist, 0);
-  const valleyLF = drawnLines.filter(l => l.type === 3).reduce((s,l) => s+l.dist, 0);
-  const rakeLF   = drawnLines.filter(l => l.type === 4).reduce((s,l) => s+l.dist, 0);
-  const eaveLF   = drawnLines.filter(l => l.type === 5).reduce((s,l) => s+l.dist, 0);
-  const flashLF  = drawnLines.filter(l => l.type === 6).reduce((s,l) => s+l.dist, 0);
-  const stepLF   = drawnLines.filter(l => l.type === 7).reduce((s,l) => s+l.dist, 0);
-  const dripLF   = drawnLines.filter(l => l.type === 8).reduce((s,l) => s+l.dist, 0);
-  const gutterLF = drawnLines.filter(l => l.type === 10).reduce((s,l) => s+l.dist, 0);
+  // Line totals by type. 2026-09-25 (draw lane L2):
+  //   - ridge cap comes from Ridge lines only; drawn Ridge Vent sizes the
+  //     vent pieces, and with none drawn the vent follows the ridge as
+  //     before (Jo, decision 6). Ridge Vent used to count as ridge cap too;
+  //   - rake / hip / valley use the slope-corrected feet while Jo's switch
+  //     is on (decision 7) — the same numbers Generate Estimate sends;
+  //   - downspouts are per gutter run, at least one each (decision 7).
+  const sumBy = (t, slope) => drawnLines.filter(l => l.type === t).reduce((s,l) => s + l.dist * (slope && slopeLfOn ? _slopeFactorFor(l) : 1), 0);
+  const ridgeLF  = sumBy(0);
+  const ventDrawnLF = sumBy(1);
+  const ventLF   = ventDrawnLF > 0 ? ventDrawnLF : ridgeLF;
+  const hipLF    = sumBy(2, true);
+  const valleyLF = sumBy(3, true);
+  const rakeLF   = sumBy(4, true);
+  const eaveLF   = sumBy(5);
+  const flashLF  = sumBy(6);
+  const stepLF   = sumBy(7);
+  const dripLF   = sumBy(8);
+  const gutterLF = sumBy(10);
+  const gutterDs = _totals().combined.downspouts;
 
   const M = MATERIAL_SPECS;
   const materials = [
@@ -2234,12 +2579,12 @@ function generateMaterialTakeoff() {
   if(flashLF > 0) {
     materials.push({ name: 'Flashing (misc)', qty: Math.ceil(flashLF / 10), unit: 'pc', note: `${flashLF.toFixed(0)} LF` });
   }
-  if(ridgeLF > 0) {
-    materials.push({ name: 'Ridge Vent', qty: Math.ceil(ridgeLF / 4), unit: 'pc (4ft)', note: `${ridgeLF.toFixed(0)} LF ridge` });
+  if(ventLF > 0) {
+    materials.push({ name: 'Ridge Vent', qty: Math.ceil(ventLF / 4), unit: 'pc (4ft)', note: `${ventLF.toFixed(0)} LF ${ventDrawnLF > 0 ? 'ridge vent' : 'ridge'}` });
   }
   if(gutterLF > 0) {
     materials.push({ name: 'Gutter Sections (10ft)', qty: Math.ceil(gutterLF / 10), unit: 'pc', note: `${gutterLF.toFixed(0)} LF gutter` });
-    materials.push({ name: 'Downspouts', qty: Math.ceil(gutterLF / 40), unit: 'pc', note: '1 per 40 LF' });
+    materials.push({ name: 'Downspouts', qty: gutterDs, unit: 'pc', note: '1 per 40 LF, at least 1 per run' });
   }
   // Always add nails + pipe boots
   materials.push({ name: 'Roofing Nails (coil)', qty: Math.ceil(squares / 4), unit: 'box', note: '~4 sq per box' });
@@ -2664,26 +3009,24 @@ function perpDist(p, a, b) {
 function acceptAutoDetect() {
   const ad = window._autoDetectPreview;
   if(!ad) return;
-  // Convert to perimeter points
-  ad.points.forEach(p => {
-    perimPoints.push(p);
-    perimDots.push(makeDraggableDot(p, '#4A9EFF'));
-  });
-  // Auto-close if enough points
+  // Auto-close if enough points. 2026-09-25 (L2): builds the facet through
+  // the same path a traced close uses (it used to hand-roll a second
+  // polygon + label beside the saved facet's).
+  const accepted = [];
   if(ad.points.length >= 3) {
+    _pushUndo();
+    resetPendingState();
+    _resetPerimTrace();
+    ad.points.forEach(p => { perimPoints.push(p); perimDots.push(_dotAt(p, '#4A9EFF')); accepted.push(p); });
     // Create segments between consecutive points
     for(let i = 0; i < ad.points.length; i++) {
       const p1 = ad.points[i];
       const p2 = ad.points[(i+1) % ad.points.length];
       addPerimSegment(p1, p2, 'eave'); // Default all to eave — user can toggle with E/R mode
     }
-    perimClosed = true;
-    perimPolygon = L.polygon(perimPoints, {color:'#4A9EFF', fillColor:'#4A9EFF', fillOpacity:.12, weight:0}).addTo(drawMap);
-    perimBaseArea = shoelaceArea(perimPoints);
-    addAreaLabel(perimPoints, perimBaseArea);
-    saveFacet();
+    const f = saveFacet();
     renderLineList(); renderFacetList(); recalc(); autoSaveDrawing();
-    showToast(`Auto-detected facet: ${perimBaseArea.toFixed(0)} sf — switch to Eave/Rake mode to classify edges`, 'ok');
+    showToast(`Auto-detected facet: ${(f ? f.baseArea : 0).toFixed(0)} sf — switch to Eave/Rake mode to classify edges`, 'ok');
   }
   // ── ML FEEDBACK DATA PIPELINE (April 2026) ──
   // Save the auto-detected outline (before) and the user's
@@ -2698,7 +3041,7 @@ function acceptAutoDetect() {
         address: document.getElementById('drawSearch')?.value || '',
         timestamp: window.serverTimestamp(),
         autoDetected: ad.points.map(p => ({ lat: p.lat, lng: p.lng })),
-        userCorrected: perimPoints.map(p => ({ lat: p.lat, lng: p.lng })),
+        userCorrected: accepted.map(p => ({ lat: p.lat, lng: p.lng })),
         accepted: true, // user accepted (with possible corrections)
         mapCenter: drawMap.getCenter ? { lat: drawMap.getCenter().lat, lng: drawMap.getCenter().lng } : null,
         zoom: drawMap.getZoom ? drawMap.getZoom() : null
@@ -2851,15 +3194,11 @@ function voiceAddMeasurement(typeIdx, dist) {
   // Default: extend east
   p2 = L.latLng(p1.lat, p1.lng + dist * ftToLng);
 
-  const dot1 = makeDraggableDot(p1, lt.color);
-  const dot2 = makeDraggableDot(p2, lt.color);
-  const line = L.polyline([p1, p2], {color:lt.color, weight:4, opacity:.95, dashArray:lt.dash||null}).addTo(drawMap);
-  const lbl  = L.marker(mid(p1,p2), {icon:L.divIcon({html:`<div class="meas-label" style="border-color:${lt.color}">${dist.toFixed(1)} ft</div>`, className:'', iconAnchor:[0,10]})}).addTo(drawMap);
-  lbl.on('click', () => editLineLength(id));
-  const id = Date.now() + Math.random();
-  drawnLines.push({id, type:typeIdx, name:lt.n, color:lt.color, dist, line, lbl, p1, p2, dot1, dot2, subtype:null});
-  drawStart = p2; // Chain from end
-  renderLineList(); recalc(); autoSaveDrawing();
+  _pushUndo();
+  _addLine({type:typeIdx, p1, p2, dist, dot1:_dotAt(p1, lt.color), dot2:_dotAt(p2, lt.color), subtype:null, runId: typeIdx === 10 ? _nextRunId++ : null});
+  // Chain from end (voice keeps its chaining; the next voice line starts here)
+  drawStart = p2; drawStartDot = _findDot(p2); drawStartDotNew = false;
+  renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
   showToast(`Added ${lt.n}: ${dist} ft (voice)`, 'ok');
 }
 
@@ -3005,115 +3344,112 @@ function showOnlyLayers(type) {
 
 
 // ── FEATURE 8: MULTI-STRUCTURE SUPPORT ───────────────────────────
+// 2026-09-25 (draw lane L2, Jo's decision 3): real per-structure totals.
+// Each line / facet / accessory carries its structureId and STAYS on the
+// map; switching only chooses where new geometry goes, so it can never
+// erase anything (it used to wipe the drawing unrecoverably, audit B6). The
+// job total (the #cr-* readouts, the estimate) is the sum; each structure's
+// own numbers show on its row. Rows are addressed by structure id.
 function addStructure(name) {
-  const structName = name || `Structure ${structures.length + 1}`;
-  structures.push({
-    name: structName,
-    facets: [],
-    lines: [],
-    gutterPts: [],
-    gutterDts: [],
-    pitch: 1.202
-  });
-  activeStructureIdx = structures.length - 1;
-  renderStructureList();
-  showToast(`Added: ${structName}`, 'ok');
+  if (!_canSwitchStructure()) return;
+  const id = _nextStructId++;
+  const structName = (typeof name === 'string' && name.trim()) ? name.trim().slice(0, 60) : `Structure ${structures.length + 1}`;
+  structures.push({ id, name: structName });
+  _enterStructure(id);
+  showToast(`Added: ${structName} — new drawing goes here`, 'ok');
 }
 
-function switchStructure(idx) {
-  if(idx < 0 || idx >= structures.length) return;
-  // Save current state to current structure
-  saveCurrentToStructure();
-  activeStructureIdx = idx;
-  loadStructureState(idx);
-  renderStructureList();
-  showToast(`Switched to: ${structures[idx].name}`, 'info');
+// An outline half-traced on one structure cannot move to another.
+function _canSwitchStructure() {
+  if (perimPoints.length) {
+    showToast('Finish the outline first — tap its first corner to close it, or Undo', 'info');
+    return false;
+  }
+  return true;
+}
+function _enterStructure(id) {
+  finishGutterRun({ quiet: true });
+  resetPendingState();
+  activeStructureId = id;
+  renderStructureList(); renderFacetList(); recalc(); recalcGutters(); autoSaveDrawing();
 }
 
-function saveCurrentToStructure() {
-  if(structures.length === 0) return;
-  const s = structures[activeStructureIdx];
-  if(!s) return;
-  s.facets = [...facets];
-  s.lines = drawnLines.map(l => ({...l}));
-  s.gutterPts = [...gutterPoints];
+function switchStructure(id) {
+  const s = structures.find(x => x.id === id);
+  if (!s || id === activeStructureId) return;
+  if (!_canSwitchStructure()) return;
+  _enterStructure(id);
+  showToast(`Drawing on: ${s.name}`, 'info');
 }
 
-function loadStructureState(idx) {
-  const s = structures[idx];
-  if(!s) return;
-  // Clear current visual state
-  drawnLines.forEach(l => {
-    drawMap.removeLayer(l.line);
-    drawMap.removeLayer(l.lbl);
-    if(l.dot1) drawMap.removeLayer(l.dot1);
-    if(l.dot2) drawMap.removeLayer(l.dot2);
-  });
-  facets.forEach(f => {
-    if(f.polygon) drawMap.removeLayer(f.polygon);
-    if(f.areaLabel) drawMap.removeLayer(f.areaLabel);
-  });
-  // Load structure state — simplified: just clear for new drawing
-  drawnLines = [];
-  facets = [];
-  perimPoints = [];
-  perimDots = [];
-  perimSegments = [];
-  perimClosed = false;
-  perimBaseArea = 0;
-  gutterPoints = [];
-  gutterDots = [];
-  renderLineList(); renderFacetList(); recalc(); recalcGutters();
-}
-
-function renameStructure(idx) {
-  const s = structures[idx];
+function renameStructure(id) {
+  const s = structures.find(x => x.id === id);
   if(!s) return;
   const name = prompt('Rename structure:', s.name);
   if(name && name.trim()) {
-    s.name = name.trim();
-    renderStructureList();
+    s.name = name.trim().slice(0, 60);
+    renderStructureList(); renderFacetList(); recalc(); autoSaveDrawing();
   }
 }
 
-async function removeStructure(idx) {
+async function removeStructure(id) {
+  const s = structures.find(x => x.id === id);
+  if (!s || structures.length < 2) return;
+  const nL = drawnLines.filter(l => l.structureId === id).length;
+  const nF = facets.filter(f => f.structureId === id).length;
+  const what = (nL || nF) ? ` and its ${nL} line${nL===1?'':'s'}${nF ? ', ' + nF + ' section' + (nF===1?'':'s') : ''}` : '';
   // Batch 2 (iOS PWA): see clearDraw above — real async modal in PWA.
   const _ask = window.nbdConfirm || ((m) => Promise.resolve(window.confirm(m)));
-  if (!(await _ask(`Remove "${structures[idx]?.name}"?`))) return;
-  structures.splice(idx, 1);
-  if(activeStructureIdx >= structures.length) activeStructureIdx = Math.max(0, structures.length-1);
-  renderStructureList();
-  if(structures.length) loadStructureState(activeStructureIdx);
+  if (!(await _ask(`Remove "${s.name}"${what}?`))) return;
+  resetPendingState();
+  finishGutterRun({ quiet: true });
+  _pushUndo(); // undoable, like Clear
+  const snap = _serializeDrawing();
+  snap.lines = snap.lines.filter(l => l.structureId !== id);
+  snap.facets = snap.facets.filter(f => f.structureId !== id);
+  snap.accessories = snap.accessories.filter(a => a.structureId !== id);
+  snap.structures = snap.structures.filter(x => x.id !== id);
+  if (snap.activeStructureId === id) snap.activeStructureId = snap.structures[0].id;
+  if (perimPoints.length && activeStructureId === id) { snap.perimPoints = []; snap.perimSegIds = []; }
+  _applyPayload(snap);
+  autoSaveDrawing();
 }
 
 function renderStructureList() {
   const el = document.getElementById('structureList');
   if(!el) return;
-  if(!structures.length) {
+  if(structures.length < 2) {
     el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:6px;">Single structure. Add more for garage, shed, etc.</p>';
     return;
   }
   el.innerHTML = structures.map((s, i) => `
-    <div class="structure-row ${i===activeStructureIdx?'structure-active':''}" data-mr-action="switchStructure" data-mr-id="${i}">
+    <div class="structure-row ${s.id===activeStructureId?'structure-active':''}" data-mr-action="switchStructure" data-mr-id="${s.id}" data-structure-id="${s.id}">
       <span class="structure-icon">${i===0?'🏠':i===1?'🏗️':'🏚️'}</span>
-      <span class="structure-name">${s.name}</span>
-      <button class="structure-rename" data-mr-action="renameStructure" data-mr-id="${i}" data-mr-stop="1" title="Rename">✏️</button>
-      ${i>0?`<button class="structure-del" data-mr-action="removeStructure" data-mr-id="${i}" data-mr-stop="1" title="Remove">✕</button>`:''}
+      <span class="structure-name">${_esc(s.name)}<span class="structure-totals" style="display:block;font-weight:400;text-transform:none;letter-spacing:0;font-family:inherit;color:var(--m);font-size:10px;"></span></span>
+      <button class="structure-rename" data-mr-action="renameStructure" data-mr-id="${s.id}" data-mr-stop="1" title="Rename">✏️</button>
+      ${i>0?`<button class="structure-del" data-mr-action="removeStructure" data-mr-id="${s.id}" data-mr-stop="1" title="Remove">✕</button>`:''}
     </div>
   `).join('');
+  _renderStructureTotals(_totals());
+}
+
+// Each structure's own numbers on its row (textContent only).
+function _renderStructureTotals(t) {
+  const el = document.getElementById('structureList');
+  if (!el || structures.length < 2) return;
+  t.per.forEach(p => {
+    const row = el.querySelector('[data-structure-id="' + p.id + '"] .structure-totals');
+    if (!row) return;
+    const bits = [p.text.base + ' · ' + p.text.sq];
+    if (p.gutterLf > 0) bits.push(p.text.gutter + ' gutter');
+    if (p.source === 'eave-rake' || p.source === 'lines') bits.push('area est.');
+    row.textContent = bits.join(' · ');
+  });
 }
 
 function recalcAllStructures() {
-  let totalBase = 0, totalPitched = 0;
-  structures.forEach(s => {
-    s.facets.forEach(f => {
-      if(f.closed && f.baseArea > 0) {
-        totalBase += f.baseArea;
-        totalPitched += f.baseArea * (f.pitch || 1.202);
-      }
-    });
-  });
-  return { totalBase, totalPitched };
+  const c = _totals().combined;
+  return { totalBase: c.base, totalPitched: c.pitched };
 }
 
 
@@ -3325,9 +3661,12 @@ function renderComparison() {
   const el = document.getElementById('comparisonResults');
   if(!el) return;
 
-  // Our measurements
-  const ourArea = parseFloat(document.getElementById('cr-base')?.textContent) || 0;
-  const ourRidge = drawnLines.filter(l=>l.type===0||l.type===1).reduce((s,l)=>s+l.dist,0);
+  // Our measurements. 2026-09-25 (L2): "Total Area" is the PITCHED roof
+  // area — a report's total roof area is surface area; comparing it with
+  // our flat footprint (cr-base) under-stated ours by the pitch factor.
+  // Ridge is Ridge lines only (Jo, decision 6: ridge vent is separate).
+  const ourArea = parseFloat(document.getElementById('cr-pitched')?.textContent) || 0;
+  const ourRidge = drawnLines.filter(l=>l.type===0).reduce((s,l)=>s+l.dist,0);
   const ourHip = drawnLines.filter(l=>l.type===2).reduce((s,l)=>s+l.dist,0);
   const ourValley = drawnLines.filter(l=>l.type===3).reduce((s,l)=>s+l.dist,0);
   const ourEave = drawnLines.filter(l=>l.type===5).reduce((s,l)=>s+l.dist,0);
@@ -3430,8 +3769,9 @@ async function generateSupplementFromComparison() {
   if (!comparisonData) { showToast('Run a comparison first', 'error'); return; }
   const ext = comparisonData.measurements;
   const addr = document.getElementById('drawSearch')?.value || 'Property Address';
-  const ourArea = parseFloat(document.getElementById('cr-base')?.textContent) || 0;
-  const ourRidge = drawnLines.filter(l => l.type === 0 || l.type === 1).reduce((s, l) => s + l.dist, 0);
+  // Pitched area, and ridge lines only — same reasons as renderComparison().
+  const ourArea = parseFloat(document.getElementById('cr-pitched')?.textContent) || 0;
+  const ourRidge = drawnLines.filter(l => l.type === 0).reduce((s, l) => s + l.dist, 0);
   const ourHip = drawnLines.filter(l => l.type === 2).reduce((s, l) => s + l.dist, 0);
   const ourValley = drawnLines.filter(l => l.type === 3).reduce((s, l) => s + l.dist, 0);
   const ourEave = drawnLines.filter(l => l.type === 5).reduce((s, l) => s + l.dist, 0);
@@ -3520,9 +3860,11 @@ td{font-size:12px;}.note{background:#fff8f0;border-left:4px solid #BD5728;paddin
     const arg2 = t.dataset.mrArg2;
     try {
       switch (action) {
-        case 'retypeLine':       if (typeof retypeLine === 'function') retypeLine(parseInt(id, 10), parseInt(arg2, 10)); closeDrawMapPopup(); break;
-        case 'deleteLine':       if (typeof deleteLine === 'function') deleteLine(parseInt(id, 10)); closeDrawMapPopup(); break;
-        case 'editLineLength':   if (typeof editLineLength === 'function') editLineLength(parseInt(id, 10)); closeDrawMapPopup(); break;
+        // Number(), never parseInt (audit B3): line ids were decimals, and
+        // parseInt cut them to a whole number that matched no line.
+        case 'retypeLine':       if (typeof retypeLine === 'function') retypeLine(Number(id), Number(arg2)); closeDrawMapPopup(); break;
+        case 'deleteLine':       if (typeof deleteLine === 'function') deleteLine(Number(id)); closeDrawMapPopup(); break;
+        case 'editLineLength':   if (typeof editLineLength === 'function') editLineLength(Number(id)); closeDrawMapPopup(); break;
         case 'toggleAccessoryMode': if (typeof toggleAccessoryMode === 'function') toggleAccessoryMode(id); break;
         case 'presentPrev':      if (typeof presentPrev === 'function') presentPrev(); break;
         case 'presentNext':      if (typeof presentNext === 'function') presentNext(); break;
@@ -3637,6 +3979,11 @@ Object.assign(window.__NBD_CALL_REGISTRY, {
   toggleHistoricalImagery: toggleHistoricalImagery,
   toggleVoiceControl: toggleVoiceControl,
   closeComparisonMode: closeComparisonMode,
-  closeHistoricalImagery: closeHistoricalImagery
+  closeHistoricalImagery: closeHistoricalImagery,
+  // Draw lane L2 (2026-09-25): the Finish-run and Redo buttons and the
+  // slope switch in tpl-view-draw. Registered, never put on window.
+  finishGutterRun: finishGutterRun,
+  redoLine: redoLine,
+  setSlopeLf: setSlopeLf
 });
 })();
