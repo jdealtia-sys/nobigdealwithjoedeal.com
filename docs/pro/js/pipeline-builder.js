@@ -42,6 +42,19 @@
 (function () {
   'use strict';
 
+  // ONE copy (2026-09-25, phone-audit follow-up). This file ships inside the
+  // lazily-hydrated settings <template>, and _hydrateViewTemplate
+  // (dashboard-ui.js) executes its scripts TWICE: once when the cloned
+  // <script> is inserted, again when it swaps in a fresh one (measured: two
+  // runs, one fetch, in Chromium and WebKit). Each run had its own _cfg /
+  // _dirty. The _pbWrapped check only kept the second copy from wrapping
+  // switchSettingsTab when nothing else had wrapped it in between — when a
+  // Billing / Connect / Team wrapper landed first (the usual order in WebKit),
+  // both copies drove one panel: the first wired the edit handlers, the second
+  // re-rendered the saved config over the edits. window.PipelineBuilder is set
+  // at the end of the first run, so the second stops here.
+  if (window.PipelineBuilder) return;
+
   var ROOT_ID = 'pipelineBuilderRoot';
   var _cfg = null;      // working config (raw overrides), cloned from companyProfile.pipelines
   // true ONLY when _cfg was cloned from a definitively-loaded profile
