@@ -386,8 +386,9 @@ const RUNNABLE = ['node', 'smoke'];
 //               rebasing onto 7933ce35 (#1762, lane "prices", merged first).
 //   2026-09-25  188/68/277 -> 189/68/278, tests/deposit-rule.test.js (the one
 //               deposit rule, every surface). MEASURED via --check on a branch
-//               cut from origin/main at 918af3d8 (#1763); whoever merges last
-//               re-measures.
+//               cut from origin/main at 918af3d8 (#1763); RE-MEASURED on
+//               9d4c82bc (#1764) with the review fixes — unchanged; whoever
+//               merges last re-measures.
 const FLOORS = { node: 189, smoke: 68, disk: 278 };
 
 // ── Argument parsing ───────────────────────────────────────────────
