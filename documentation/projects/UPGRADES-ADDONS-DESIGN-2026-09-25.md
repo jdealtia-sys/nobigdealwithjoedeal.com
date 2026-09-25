@@ -97,8 +97,10 @@ Jo's base gutter pricing, for context:
 
 1. The Alu-Rex retail price (from the sub's price to NBD).
 2. A LeafBlaster PRO Frame-Reinforced price.
-3. The workmanship warranty split. Recommended: **5 years** on new gutter systems (only if the installing sub backs 5 in writing), **2 years** on guard-only installs, **1 year** on repairs. Jo's current proposals say 2 years across the board.
+3. ~~The workmanship warranty split.~~ **Decided by Jo, 2026-09-25:** 5 years on new gutter systems, 2 years on guard-only installs, 2 years on every other install. Repairs get a per-estimate 1-year box that starts off, because "some repairs won't get any depending on severity". Roofing keeps its current wording. Built in slice 0 ([PR #1758](https://github.com/jdealtia-sys/nobigdealwithjoedeal.com/pull/1758)).
 4. Later: OK to make the asphalt "Best" template = Class 4 shingle only, with its other extras as upgrades? (Its default price drops a lot.)
+5. **Added 2026-09-25 (slice 0 review).** Should a roof plus a **new gutter system** on one estimate also print the gutter's own sentence ("5-year workmanship warranty on Seamless K5…")? Today the roofing wording covers the whole estimate, so the gutters read as lifetime. The roofing sentence itself stays byte-identical either way. (A roof plus a **repair** no longer shows the 1-year box, because it changed nothing there.)
+6. **Added 2026-09-25 (slice 0 review, for slice 2).** A new roofing *template* estimate saves no tier. So the portal, the estimate chips and the customer PDF "Tier:" line show none. Its proposal, contract and certificates still print "Preferred: Lifetime Workmanship", because roofing wording stays byte-identical. Nothing false prints, but the two surfaces disagree. The asphalt ladder in slice 2 should settle which label a roof template gets.
 
 ## Related
 
