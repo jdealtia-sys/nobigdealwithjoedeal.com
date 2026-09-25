@@ -88,7 +88,10 @@ function probeFn(sel) {
   if (!el) return null;
   const r = el.getBoundingClientRect();
   const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  return { w: r.width, h: r.height, left: r.left, right: r.right, top: r.top, reach: !!hit && (hit === el || el.contains(hit)) };
+  const reach = !!hit && (hit === el || el.contains(hit));
+  // What is on top instead, so a red run names the cover.
+  const by = reach ? '' : (hit ? hit.tagName.toLowerCase() + (hit.id ? '#' + hit.id : '') + (typeof hit.className === 'string' && hit.className ? '.' + hit.className.trim().split(/\s+/).join('.') : '') : 'nothing');
+  return { w: r.width, h: r.height, left: r.left, right: r.right, top: r.top, reach, by };
 }
 
 // Draw a stroke on a signature pad inside the document frame the way a
@@ -304,6 +307,10 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
             expect(contract, 'generator produced a contract with signature pads').toMatch(/data-nbd-sig="homeowner"/);
           }
           await p.waitForFunction(() => window.NBDDocViewer && typeof window.NBDDocViewer.open === 'function', null, { timeout: 30_000 });
+          // The dashboard's boot splash (#nbd-loader, z 99999) removes itself
+          // ~0.7s after DOMContentLoaded; a rep cannot open a document before
+          // then, so neither does this test (it once measured the splash).
+          await p.waitForSelector('#nbd-loader', { state: 'detached', timeout: 20_000 });
           if (phone) expect(await forceStandalone(p), 'found the installed-app rules to force').toBeGreaterThan(200);
           await safeEvaluate(p, () => {
             window.__e2eDoc = { persisted: [], pdf: null, print: null };
@@ -332,20 +339,20 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
           if (phone) {
             // Nothing of the installed app's chrome sits over the viewer.
             const frameProbe = await p.evaluate(probeFn, '#nbdv-iframe');
-            expect(frameProbe.w, 'viewer frame spans the phone').toBeGreaterThanOrEqual(width - 1);
-            expect(frameProbe.reach, 'viewer frame is the element under its own centre').toBe(true);
+            expect(frameProbe.w, `${width}px: viewer frame spans the phone`).toBeGreaterThanOrEqual(width - 1);
+            expect(frameProbe.reach, `${width}px: viewer frame is the element under its own centre (covered by ${frameProbe.by})`).toBe(true);
             for (const sel of ['#nbdv-close', '.nbdv-action-btn.primary']) {
               const b = await p.evaluate(probeFn, sel);
-              expect(b.h, `${sel} height`).toBeGreaterThanOrEqual(44);
-              expect(b.reach, `${sel} is the element under its own centre`).toBe(true);
+              expect(b.h, `${width}px: ${sel} height`).toBeGreaterThanOrEqual(44);
+              expect(b.reach, `${width}px: ${sel} is the element under its own centre (covered by ${b.by})`).toBe(true);
             }
           }
 
           await drawSignature(p, f, frameEl, 'homeowner');
           if (phone) {
             const clear = await f.evaluate(probeFn, '[data-nbd-sig="homeowner"] [data-nbd-sig-action="clear"]');
-            expect(clear.h, 'Clear under the pad height').toBeGreaterThanOrEqual(40);
-            expect(clear.reach, 'Clear is the element under its own centre').toBe(true);
+            expect(clear.h, `${width}px: Clear under the pad height`).toBeGreaterThanOrEqual(40);
+            expect(clear.reach, `${width}px: Clear is the element under its own centre (covered by ${clear.by})`).toBe(true);
           }
           await drawSignature(p, f, frameEl, 'contractor');
           const press = (label) => { const b = p.locator('.nbdv-action-btn', { hasText: label }); return phone ? b.tap() : b.click(); };
