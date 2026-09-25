@@ -281,7 +281,7 @@
     banner.id = 'liveBanner';
     banner.setAttribute('role', 'status');
     banner.setAttribute('aria-live', 'polite');
-    banner.style.cssText = 'position:fixed;top:14px;left:50%;transform:translate(-50%, -120%);background:var(--green, #2ecc8a);color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:9999;cursor:pointer;max-width:90vw;transition:transform .35s cubic-bezier(.22,.61,.36,1);';
+    banner.style.cssText = 'position:fixed;top:14px;left:50%;transform:translate(-50%, -120%);background:var(--green, #2ecc8a);color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:var(--z-toast, 10002);cursor:pointer;max-width:90vw;transition:transform .35s cubic-bezier(.22,.61,.36,1);';
     // Stack the messages — typically 1-2; cap at 3 lines so it can't
     // grow off-screen if a slow homeowner returns to a much-updated page.
     banner.innerHTML = events.slice(0, 3).map(e => `<div>${e.msg}</div>`).join('');
@@ -300,11 +300,21 @@
   // Tiny "🟢 Live" indicator pinned to the page corner so the homeowner
   // sees this is current data, not a snapshot. Gently pulses when a
   // poll fires so they get visual confirmation the page is alive.
+  //
+  // Phone audit (2026-09-25): it is a label, not a control, but it was
+  // pointer-events:auto at z-index 9998 — so on a phone, whatever scrolled
+  // under the bottom-right corner (the right end of "Choose a photo", the
+  // warranty box, Send) ignored taps there, and it sat undimmed ON TOP of
+  // the document viewer (.doc-modal-overlay was z-index 1000). Now taps pass
+  // through it, and it sits on the rep side's z ladder (dashboard-app.css):
+  // --z-fab, "floating — always UNDER overlays", with the viewer at
+  // --z-overlay and the update banner at --z-toast. That stylesheet is not
+  // loaded here, so the fallbacks carry the same numbers.
   function _showLivePill() {
     if (document.getElementById('livePill')) return;
     const pill = document.createElement('div');
     pill.id = 'livePill';
-    pill.style.cssText = 'position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:6px 10px;border-radius:999px;font-weight:500;letter-spacing:.04em;backdrop-filter:blur(6px);z-index:9998;display:flex;align-items:center;gap:6px;';
+    pill.style.cssText = 'position:fixed;bottom:14px;right:14px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:6px 10px;border-radius:999px;font-weight:500;letter-spacing:.04em;backdrop-filter:blur(6px);z-index:var(--z-fab, 9900);pointer-events:none;display:flex;align-items:center;gap:6px;';
     pill.innerHTML = '<span id="livePillDot" style="width:6px;height:6px;border-radius:50%;background:#2ecc8a;display:inline-block;transition:transform .2s;"></span><span>Live</span>';
     document.body.appendChild(pill);
   }
@@ -908,7 +918,10 @@
           '<div class="card-label">' + esc(label) + '</div>' +
           '<div class="card-title">' + esc(title) + '</div>' +
           '<p style="color:var(--muted);margin:0 0 14px;">' + esc(subtitle) + '</p>' +
-          '<iframe class="cal-embed" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
+          // data-embed="booking": portal.html hides this frame on phones,
+          // where the button below is the booking path (phone audit,
+          // 2026-09-25 — see the .cal-embed rule there).
+          '<iframe class="cal-embed" data-embed="booking" src="' + esc(embedSrc) + '" title="Schedule" loading="lazy" referrerpolicy="no-referrer"></iframe>' +
           '<div style="margin-top:10px;"><a class="btn" href="' + esc(safeUrl(primary.url)) + '" target="_blank" rel="noopener">Open Booking Page →</a></div>' +
           othersHtml +
         '</div>'

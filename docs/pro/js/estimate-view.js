@@ -34,30 +34,132 @@
     if (!isFinite(v)) return '$0';
     return '$' + Math.round(v).toLocaleString();
   }
-  function showError(msg) {
-    root.innerHTML = '<div class="ev-error">' + escHtml(msg) + '</div>';
+  // ─── "Back to your project" (phone audit, 2026-09-25) ───────────
+  // The Back button used to be a bare history.back(). That only works when
+  // this page was reached in the SAME tab, and it almost never is: the
+  // portal's "See what's included →" opens it with target=_blank, and the
+  // rep's share builders (customer-bootstrap.module.js shareEstimateViewLink,
+  // job-templates-ui.js) text or email this URL straight to the homeowner,
+  // who opens it in a fresh tab. Both land with history.length === 1, where
+  // history.back() does nothing at all — a labelled button that silently
+  // ignores the tap, measured at 412 and 360.
+  //
+  // So Back is now a real link to the homeowner's portal. The token in this
+  // URL IS a portal token (getEstimateForView validates it against
+  // portal_tokens and refuses an estimate on any other lead), so the link
+  // grants nothing the homeowner does not already hold — the same argument
+  // portal.js makes for the link in the other direction. Relative on
+  // purpose: both pages live under /pro/, so it resolves whether this page
+  // was reached as /pro/estimate-view or /pro/estimate-view.html.
+  function portalHref() {
+    return 'portal.html?token=' + encodeURIComponent(token);
+  }
+  // The one case history.back() is still right: the portal opened this page
+  // in the same tab (a long-press "open here", or a future same-tab link).
+  // Going back restores the portal where the homeowner left it instead of
+  // stacking a second copy of it on top.
+  function cameFromPortalInThisTab() {
+    try {
+      if (history.length < 2 || !document.referrer) return false;
+      var ref = new URL(document.referrer);
+      return ref.origin === location.origin && /\/pro\/portal(\.html)?$/.test(ref.pathname);
+    } catch (e) { return false; }
+  }
+  function backLinkHtml() {
+    return '<a class="ghost" data-ev-action="back" href="' + escHtml(portalHref()) + '">Back to your project</a>';
   }
 
+  // ─── Error states (phone audit, 2026-09-25) ─────────────────────
+  // The .catch used to print err.message first, so a dropped connection —
+  // the everyday case on a phone — showed the browser's own TypeError text,
+  // "Failed to fetch", as one small red line on a blank page with nothing
+  // to tap. The server's own strings were not much better ("Invalid token").
+  // Copy is now keyed on WHAT failed, mirroring portal.js _errorStateFor so
+  // both homeowner pages say the same thing about the same link, and each
+  // state only offers the actions that can actually help:
+  //   retry — only where trying again can succeed (network, 5xx, the
+  //           per-IP rate limiter);
+  //   back  — only where the portal itself can still open, i.e. not for a
+  //           truncated (400) or expired (410) token, which the portal
+  //           would refuse with the same message.
+  // Deliberately no brand header here: company identity arrives with the
+  // estimate payload, and a tenant's homeowner must never see NBD's.
+  function errorStateFor(status) {
+    switch (status) {
+      case 400:
+        return { title: 'This link looks incomplete', retry: false, back: false,
+          body: 'Links sometimes get cut short in a text message. Ask your rep to send it again.' };
+      case 403:
+      case 404:
+        return { title: 'We can’t find this estimate', retry: false, back: true,
+          body: 'It may have been replaced by a newer one. Your project page always has the latest.' };
+      case 410:
+        return { title: 'This link has expired', retry: false, back: false,
+          body: 'Ask your rep for a new one — they can send a fresh link right away.' };
+      case 429:
+        return { title: 'Too many requests right now', retry: true, back: true,
+          body: 'Give it a minute and try again. If it keeps happening, ask your rep for a fresh link.' };
+      case 0:
+        return { title: 'Couldn’t load your estimate', retry: true, back: true,
+          body: 'Check your connection and try again. If it keeps happening, contact your rep.' };
+      default:
+        return { title: 'Couldn’t load your estimate', retry: true, back: true,
+          body: 'Something went wrong on our end. Try again in a moment — if it keeps happening, contact your rep.' };
+    }
+  }
+  function showError(state) {
+    var actions = '';
+    if (state.retry) actions += '<button type="button" data-ev-action="retry">Try again</button>';
+    if (state.back && token) actions += backLinkHtml();
+    root.innerHTML = '<div class="ev-error" role="alert">'
+      + '<h1 class="ev-error-title">' + escHtml(state.title) + '</h1>'
+      + '<p class="ev-error-body">' + escHtml(state.body) + '</p>'
+      + (actions ? '<div class="ev-cta-row">' + actions + '</div>' : '')
+      + '</div>';
+  }
+
+  // One delegate for every state this page renders (the estimate, and the
+  // error card's Try again / Back). Was bound inside renderEstimate, so the
+  // error state had no handler at all — and a retry that re-rendered would
+  // have bound a second one.
+  // Wave 28: button delegates (replaces inline onclick="window.print()" etc.)
+  root.addEventListener('click', function (ev) {
+    var t = ev.target && ev.target.closest && ev.target.closest('[data-ev-action]');
+    if (!t) return;
+    var act = t.getAttribute('data-ev-action');
+    if (act === 'print') { window.print(); }
+    else if (act === 'retry') { load(); }
+    else if (act === 'back' && cameFromPortalInThisTab()) {
+      // Otherwise the anchor's own href navigates to the portal.
+      ev.preventDefault();
+      history.back();
+    }
+  });
+
   if (!token || !estimateId) {
-    showError('This link is missing required information. Please ask your rep to resend.');
+    showError({ title: 'This link looks incomplete', retry: false, back: true,
+      body: 'It’s missing some information. Please ask your rep to send it again.' });
     return;
   }
 
-  fetch(FUNCTIONS_BASE + '/getEstimateForView', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: token, estimateId: estimateId }),
-  })
-    .then(function (res) {
-      if (!res.ok) {
-        return res.json().catch(function () { return {}; }).then(function (j) {
-          throw new Error(j.error || 'Could not load estimate.');
-        });
-      }
-      return res.json();
+  function load() {
+    root.innerHTML = '<div class="ev-loading">Loading your estimate…</div>';
+    fetch(FUNCTIONS_BASE + '/getEstimateForView', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, estimateId: estimateId }),
     })
-    .then(function (data) { renderEstimate(data.estimate || {}, data.company || null); })
-    .catch(function (err) { showError(err.message || 'Could not load estimate. The link may have expired.'); });
+      .then(function (res) {
+        if (!res.ok) { showError(errorStateFor(res.status)); return; }
+        return res.json().then(function (data) {
+          renderEstimate(data.estimate || {}, data.company || null);
+        });
+      })
+      // Only a request that never got a response lands here (offline, DNS,
+      // CORS, a body that is not JSON) — never a server-chosen message.
+      .catch(function () { showError(errorStateFor(0)); });
+  }
+  load();
 
   function renderEstimate(est, company) {
     // Full white-label (2026-07-19): tenant estimates rendered under NBD's
@@ -185,7 +287,7 @@
 
     html += '<div class="ev-cta-row">';
     html +=   '<button type="button" class="ghost" data-ev-action="print">Print / Save PDF</button>';
-    html +=   '<button type="button" class="ghost" data-ev-action="back">Back</button>';
+    html +=   backLinkHtml();
     html += '</div>';
 
     html += '<div class="ev-foot">';
@@ -199,14 +301,5 @@
     // paint the broken-image icon). Property listener, not inline attr (CSP).
     var _bl = root.querySelector('.ev-brand-logo');
     if (_bl) _bl.addEventListener('error', function () { _bl.style.display = 'none'; });
-
-    // Wave 28: button delegates (replaces inline onclick="window.print()" etc.)
-    root.addEventListener('click', function(ev){
-      var t = ev.target && ev.target.closest && ev.target.closest('[data-ev-action]');
-      if (!t) return;
-      var act = t.getAttribute('data-ev-action');
-      if (act === 'print') { window.print(); }
-      else if (act === 'back') { history.back(); }
-    });
   }
 })();

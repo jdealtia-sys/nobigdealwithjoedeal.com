@@ -185,6 +185,26 @@
     font-variant-numeric: tabular-nums;
     color: var(--nbd-ink);
   }
+  /* Phone audit (2026-09-25): the two 80px column floors above are sized
+     for a desktop table. At 360 they left the description 110px wide
+     ("GAF WeatherWatch ice & water shield — eaves, valleys, penetrations"
+     wrapped to four lines) while each floor held 21-41px of text. On a
+     phone the quantity moves under the description as its caption and the
+     amount keeps the right-hand column, sized to its own text — so the
+     description gets everything else (≈245px at 360, ≈300px at 412; at
+     most two lines for the same text) and the amounts still line up on the
+     right edge. Desktop keeps the table. */
+  @media (max-width: 480px) {
+    .ev-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      column-gap: var(--nbd-space-3);
+      row-gap: 2px;
+    }
+    .ev-line-name { grid-column: 1; grid-row: 1; }
+    .ev-line-amt  { grid-column: 2; grid-row: 1; min-width: 0; white-space: nowrap; }
+    .ev-line-qty  { grid-column: 1; grid-row: 2; min-width: 0; text-align: left; }
+  }
   .ev-grand {
     background: var(--nbd-orange-cta);
     color: var(--nbd-ink-on-orange);
@@ -237,6 +257,22 @@
     -webkit-tap-highlight-color: transparent;
     transition: background .15s ease, box-shadow .15s ease;
   }
+  /* "Back to your project" is a real link now (estimate-view.js, phone
+     audit 2026-09-25). A button centres its label and uses line-height
+     normal on its own; an anchor does neither, so say it explicitly and the
+     two stay the same height side by side. */
+  .ev-cta-row a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: normal;
+  }
+  /* On a phone the pair stacks: side by side, each got ~160px and both
+     labels broke onto two lines. */
+  @media (max-width: 480px) {
+    .ev-cta-row a,
+    .ev-cta-row button { flex-basis: 100%; }
+  }
   .ev-cta-row a:hover,
   .ev-cta-row button:hover { background: var(--nbd-orange-cta-deep); box-shadow: var(--nbd-shadow-md); }
   .ev-cta-row a.ghost,
@@ -253,7 +289,25 @@
     color: var(--nbd-ink-muted);
     font-size: var(--nbd-text-sm);
   }
-  .ev-error { color: var(--nbd-danger); }
+  /* Phone audit (2026-09-25): the error state was one 13px red line. It is
+     now a heading, a sentence and the actions that can help (see
+     estimate-view.js errorStateFor) — same shape as portal.html's
+     .error-state, so the two homeowner pages fail the same way. */
+  .ev-error { padding: 48px 4px; }
+  .ev-error-title {
+    font-family: var(--nbd-font-display);
+    font-size: var(--nbd-text-2xl);
+    font-weight: 800;
+    line-height: var(--nbd-leading-tight);
+    color: var(--nbd-danger);
+    margin: 0 0 var(--nbd-space-3);
+  }
+  .ev-error-body {
+    font-size: var(--nbd-text-md);
+    color: var(--nbd-ink-muted);
+    margin: 0 auto;
+    max-width: 34em;
+  }
   .ev-foot {
     margin-top: var(--nbd-space-8);
     padding-top: var(--nbd-space-5);
