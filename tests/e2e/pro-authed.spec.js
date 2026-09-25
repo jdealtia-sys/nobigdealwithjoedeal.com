@@ -1995,6 +1995,14 @@ test.describe(`CRM mobile layout geometry @${VW}px @shard1`, () => {
   test.beforeEach(async ({}, testInfo) => {
     if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
   });
+  // Phones default to List since 2026-09-24 (crm-list-view.js: no saved
+  // choice + <=768px → list). These assertions are about the BOARD's
+  // geometry, so pin Board explicitly; phone-fit.spec.js covers the default.
+  test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => {
+      try { localStorage.setItem('nbd-crm-view-mode', 'board'); } catch (_) {}
+    });
+  });
 
   // Small helper: two rects overlap iff they intersect on both axes.
   const overlaps = (a, b) =>

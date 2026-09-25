@@ -734,6 +734,10 @@ export const NBDAuth = {
         'nbd-onboarding-complete', 'nbd_maps_redirect_seen',
         'nbd_draw_hint_shown', 'nbd_notif_settings', 'cmd-recents',
         'nbd_last_uid',
+        // Layout preferences, not account data: Board/List, card density
+        // and UI size were wiped on every logout, so a rep re-picked them
+        // each sign-in (2026-09-24).
+        'nbd-crm-view-mode', 'nbd-kanban-density', 'nbd_ui_size',
       ]);
       const drop = [];
       for (let i = 0; i < localStorage.length; i++) {

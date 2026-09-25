@@ -878,7 +878,7 @@
 
     // .stab-btn = the design-system underline tab (settings/storm vocabulary).
     // flex:1 + 44px tap target kept inline (layout, not button chrome).
-    const tabBtn = (id, label, icon) => `<button class="stab-btn${currentTab === id ? ' stab-active' : ''}" data-d2d-action="setTab" data-d2d-id="${id}" style="flex:1;min-height:44px;-webkit-tap-highlight-color:transparent;">${icon} ${label}</button>`;
+    const tabBtn = (id, label, icon) => `<button class="stab-btn${currentTab === id ? ' stab-active' : ''}" data-d2d-action="setTab" data-d2d-id="${id}" style="flex:1;min-width:0;padding:10px 6px;min-height:44px;-webkit-tap-highlight-color:transparent;">${icon} ${label}</button>`;
 
     let html = `
       <div style="padding:12px 14px;">
