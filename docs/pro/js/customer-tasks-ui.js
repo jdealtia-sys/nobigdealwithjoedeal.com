@@ -375,7 +375,11 @@ window.showToast = function(message, type = 'info') {
     // "View details" button for up to 9s (and on desktop too, 16px vs 20px).
     // While the widget shows, customer-bootstrap.module.js publishes its
     // height + an 8px gap here and the stack rises above it; 0px otherwise.
-    container.style.cssText = 'position:fixed;bottom:calc(var(--nbd-toast-bottom, calc(20px + var(--nbd-bottom-chrome, 0px))) + var(--nbd-upload-lift, 0px));right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
+    // right reads --nbd-toast-right (2026-09-25): customer.html's toast
+    // lane, which on desktop starts beside the FAB column instead of inside
+    // it — lifted above the upload indicator, a toast at right:20px landed
+    // on the Quick Capture FAB. 20px on a phone, and wherever it's unset.
+    container.style.cssText = 'position:fixed;bottom:calc(var(--nbd-toast-bottom, calc(20px + var(--nbd-bottom-chrome, 0px))) + var(--nbd-upload-lift, 0px));right:var(--nbd-toast-right, 20px);z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
     document.body.appendChild(container);
   }
   while (container.children.length >= 5) container.firstChild.remove();
@@ -383,6 +387,11 @@ window.showToast = function(message, type = 'info') {
   const toast = document.createElement('div');
   toast.style.cssText = 'display:flex;align-items:center;gap:10px;background:var(--s,#1a1d23);color:var(--t,#e8eaf0);border:1px solid var(--br,rgba(255,255,255,.1));border-left:3px solid ' + (BORDER[type] || BORDER.info) + ';border-radius:8px;padding:10px 14px;font-size:13px;font-weight:500;box-shadow:0 6px 20px rgba(0,0,0,.25);max-width:min(340px, calc(100vw - 40px));pointer-events:auto;animation:ctToastIn .25s ease-out;';
   const msg = document.createElement('span');
+  // A long unbroken token (a URL, a storage path) set the flex item's
+  // min-content width and ran the text out past the toast's own edge, over
+  // the FAB column (2026-09-25). anywhere, not break-word: only anywhere
+  // lowers min-content, which is what lets the item shrink.
+  msg.style.cssText = 'min-width:0;overflow-wrap:anywhere;';
   msg.textContent = message;
   const close = document.createElement('button');
   close.type = 'button';
@@ -396,14 +405,18 @@ window.showToast = function(message, type = 'info') {
   setTimeout(() => {
     toast.style.transition = 'opacity .25s, transform .25s';
     toast.style.opacity = '0';
-    toast.style.transform = 'translateX(30px)';
+    toast.style.transform = 'translateX(16px)';
     setTimeout(() => { if (toast.parentNode) toast.remove(); }, 260);
   }, DURATIONS[type] || 5000);
 };
 
-// Entry animation keyframes
+// Entry animation keyframes. The slide is 16px, not 40px (and the exit
+// 16px, not 30px) since 2026-09-25: on desktop the toast lane now ends 20px
+// short of the FAB column (--nbd-toast-right), and a 40px slide carried
+// every new toast across that gap and onto the Quick Capture FAB for the
+// first quarter-second of its life.
 const style = document.createElement('style');
-style.textContent = '@keyframes ctToastIn{from{transform:translateX(40px);opacity:0}to{transform:none;opacity:1}}';
+style.textContent = '@keyframes ctToastIn{from{transform:translateX(16px);opacity:0}to{transform:none;opacity:1}}';
 document.head.appendChild(style);
 
 // ── Booking Link Copy ─────────────────────────────

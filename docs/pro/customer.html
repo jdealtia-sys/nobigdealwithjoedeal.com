@@ -593,18 +593,41 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
   pointer-events:none; min-width:34px; text-align:center;
   font-variant-numeric:tabular-nums;
 }
+/* A photo that did not save (2026-09-25, #1773 review): red edge and bar,
+   dimmed thumbnail, "Failed" on the usual dark label (white on --red fails
+   contrast in the lighter-red themes) — it used to keep its last % ("0%"
+   for a refused start), indistinguishable from one still waiting. */
+.preview-item.failed::after {
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  border:2px solid var(--red); pointer-events:none;
+}
+.preview-item.failed img { opacity:.45; }
+.preview-item.failed .preview-progress-bar { background:var(--red); }
 
 /* GLOBAL UPLOAD WIDGET
    Floating bottom-right indicator that surfaces in-flight uploads
    when the upload modal is closed (or covered by another modal).
-   Visible whenever window._uploadQueue has any item with a non-null
-   .uploading flag and progress < 100. Auto-hides when queue drains. */
+   Visible from an Upload tap until the batch's last photo settles
+   (customer-bootstrap.module.js _uploadInProgress). Auto-hides after. */
+/* The toast lane's right edge (2026-09-25). On desktop the upload indicator
+   (right:16px) and every toast (right:20px) sat IN the FAB column, which
+   owns the right 94px (--nbd-fab-rail, fab-stack-coordinator.js): the
+   dictation mic (right:20px, 54px wide) covered the right end of "View
+   details", and a toast lifted above the indicator by --nbd-upload-lift
+   landed on the Quick Capture FAB. Both now step SIDEWAYS out of the
+   column — the dashboard's call for its own toasts (dashboard-app.css
+   .toast-container), and the rail's contract for transient chrome, which
+   must never make the FABs move. Read by the indicator here, by
+   #toastContainer (customer-tasks-ui.js) and by the Voice Intel toast
+   (voice-intelligence.css). On a phone the column collapses behind the ⋯
+   launcher, so the <=768px block below puts the lane back at the edge. */
+:root { --nbd-toast-right: calc(var(--nbd-fab-rail, 94px) + env(safe-area-inset-right, 0px)); }
 .nbd-upload-widget {
   /* Rides above the bottom strips (2026-09-25, phone audit sibling sweep):
      at bottom:16px it sat under #nbd-quick-action-bar on a phone, so the
      in-flight upload indicator and its "View details" button were hidden
      behind CALL / TEXT / TASK. 0px on desktop, where no strip shows. */
-  position:fixed; right:16px; bottom:calc(16px + var(--nbd-bottom-chrome, 0px));
+  position:fixed; right:var(--nbd-toast-right, 16px); bottom:calc(16px + var(--nbd-bottom-chrome, 0px));
   min-width:240px; max-width:300px;
   background:var(--s2); border:1px solid var(--br);
   border-radius:10px; padding:12px 14px;
@@ -706,8 +729,12 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
      on it — same call the dashboard made when it lifted its toasts to clear
      #nbd-fab-dial. Launcher top = 16 + 48 = 64px, plus the corner lift, plus
      an 8px gap. The toast container reads this in customer-tasks-ui.js. */
-  :root { --nbd-toast-bottom: calc(72px + var(--nbd-corner-claimed, 0px)); }
-  .nbd-upload-widget { bottom:var(--nbd-toast-bottom); }
+  :root {
+    --nbd-toast-bottom: calc(72px + var(--nbd-corner-claimed, 0px));
+    /* No FAB column to step around here (see --nbd-toast-right above). */
+    --nbd-toast-right: 20px;
+  }
+  .nbd-upload-widget { bottom:var(--nbd-toast-bottom); right:16px; }
 }
 
 /* LIGHTBOX */
@@ -1429,7 +1456,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 </style>
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/customer">
 <link rel="stylesheet" href="css/photo-editor.css?v=4">
-<link rel="stylesheet" href="css/voice-intelligence.css?v=3">
+<link rel="stylesheet" href="css/voice-intelligence.css?v=4">
 <link rel="stylesheet" href="/assets/css/nbd-mobile.css">
 </head>
 <body>
@@ -2297,8 +2324,14 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
     <div class="upload-preview" id="uploadPreview"></div>
     
     <div class="upload-actions" style="display:flex; gap:8px;">
+      <!-- Two sibling labels toggled with [hidden], same as #uploadDocBtn
+           below (2026-09-25): uploadPhotos announced progress with
+           `uploadBtn.textContent = 'Uploading...'`, which deleted
+           #uploadCount on the first upload, and the preview never drew a
+           batch again until a reload. Do not put bare text in this button. -->
       <button class="btn btn-orange" id="uploadBtn" data-action="uploadPhotos" style="flex:1; display:none;">
-        📤 Upload <span id="uploadCount">0</span> Photos
+        <span id="uploadBtnIdle">📤 Upload <span id="uploadCount">0</span> Photos</span>
+        <span id="uploadBtnBusy" hidden>📤 Uploading…</span>
       </button>
       <button class="btn" data-action="closeUploadModal" style="flex:1;">
         Cancel
@@ -2518,10 +2551,10 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/deposit-rule.js?v=1"></script>
 <script defer src="js/booking-events.js?v=2"></script>
 <script defer src="js/customer-quick-actions.js?v=1"></script>
-<script type="module" src="js/customer-bootstrap.module.js?v=4"></script>
+<script type="module" src="js/customer-bootstrap.module.js?v=5"></script>
 
 
-<script defer src="js/customer-tasks-ui.js?v=5"></script>
+<script defer src="js/customer-tasks-ui.js?v=6"></script>
 <script defer src="js/nbd-comms.js?v=3"></script>
 <script defer src="js/sms-outbox.js?v=1"></script>
 <script defer src="js/stage-checklist.js?v=1"></script>
