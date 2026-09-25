@@ -132,6 +132,28 @@ async function loadStandardReroof(page, measured) {
 
 const scopeTotal = (page) => page.locator('#v2total').textContent();
 
+// estimate#12 only shows on a SHORT step: with its sections open a pane runs
+// past the step bar on its own, so the check would pass vacuously. Fold every
+// section with real header taps (what a rep does to get an overview), then
+// hit-test just above the step bar: it must be the pane, not the dashboard
+// seen through the modal's backdrop.
+async function foldedPaneFillsScreen(page, paneSel) {
+  const pane = page.locator('#estV2Modal ' + paneSel);
+  const open = pane.locator('.v2-section:not(.collapsed)');
+  for (let n = await open.count(); n > 0; n = await open.count()) {
+    await open.first().scrollIntoViewIfNeeded();
+    await open.first().tap();
+  }
+  await pane.evaluate((el) => { el.scrollTop = 0; });
+  return page.evaluate((sel) => {
+    const p = document.querySelector('#estV2Modal ' + sel);
+    const last = [...p.querySelectorAll('.v2-section')].pop().getBoundingClientRect().bottom;
+    const y = document.getElementById('v2mStepBar').getBoundingClientRect().top - 8;
+    const h = document.elementFromPoint(window.innerWidth / 2, y);
+    return { short: last < y - 40, inPane: !!h && p.contains(h), hit: h ? String(h.className) : null };
+  }, paneSel);
+}
+
 // ── 1. Layout of the three steps, at the small-Android width ───────────────
 
 test.describe('phone estbuilder: V2 steps open usable at 360px @shard2', () => {
@@ -154,17 +176,6 @@ test.describe('phone estbuilder: V2 steps open usable at 360px @shard2', () => {
       expect(await reachable(page.locator('#v2rawSqft')), 'roof-area input is tappable on open').toBe(true);
       await page.locator('#v2rawSqft').tap();
       await expect(page.locator('#v2rawSqft')).toBeFocused();
-    });
-
-    await test.step('estimate#12: the Setup step fills the screen down to the step bar', async () => {
-      const g = await page.evaluate(() => {
-        const pane = document.querySelector('#estV2Modal .pane-setup');
-        const bar = document.getElementById('v2mStepBar');
-        const y = bar.getBoundingClientRect().top - 8;
-        const h = document.elementFromPoint(window.innerWidth / 2, y);
-        return { inPane: !!h && pane.contains(h), hit: h ? h.className : null };
-      });
-      expect(g.inPane, `just above the step bar is builder content, not the dashboard behind it (hit ${g.hit})`).toBe(true);
     });
 
     await test.step('estimate#4: labels are readable; empty boxes show hints, not values', async () => {
@@ -206,6 +217,12 @@ test.describe('phone estbuilder: V2 steps open usable at 360px @shard2', () => {
       }
     });
 
+    await test.step('estimate#12: a folded-up Setup step still fills the screen', async () => {
+      const g = await foldedPaneFillsScreen(page, '.pane-setup');
+      expect(g.short, 'folded, the Setup content ends well above the step bar').toBe(true);
+      expect(g.inPane, `just above the step bar is the builder, not the dashboard behind it (hit ${g.hit})`).toBe(true);
+    });
+
     await test.step('estimate#5: Items category chips are thumb-sized, one row, and filter', async () => {
       await stepTo(page, 2);
       const g = await page.evaluate(() => {
@@ -236,14 +253,12 @@ test.describe('phone estbuilder: V2 steps open usable at 360px @shard2', () => {
         await el.scrollIntoViewIfNeeded();
         expect(await reachable(el), sel + ' is reachable by scrolling alone').toBe(true);
       }
-      // estimate#12 on this step too: a short Review still fills the screen.
-      const inPane = await page.evaluate(() => {
-        const pane = document.querySelector('#estV2Modal .pane-review');
-        const y = document.getElementById('v2mStepBar').getBoundingClientRect().top - 8;
-        const h = document.elementFromPoint(window.innerWidth / 2, y);
-        return !!h && pane.contains(h);
-      });
-      expect(inPane, 'Review fills down to the step bar').toBe(true);
+    });
+
+    await test.step('estimate#12: a folded-up Review step still fills the screen', async () => {
+      const g = await foldedPaneFillsScreen(page, '.pane-review');
+      expect(g.short, 'folded, the Review content ends well above the step bar').toBe(true);
+      expect(g.inPane, `just above the step bar is the builder, not the dashboard behind it (hit ${g.hit})`).toBe(true);
     });
   });
 });
