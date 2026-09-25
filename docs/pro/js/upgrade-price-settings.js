@@ -383,7 +383,18 @@
       // hydrated profile may hold typing; never repaint over it from here.
       if (host && host.getAttribute('data-state') === 'loading') render();
     }, 500);
-    setTimeout(function () { if (_poll) { clearInterval(_poll); _poll = null; } }, 30000);
+    setTimeout(function () {
+      if (!_poll) return;
+      clearInterval(_poll); _poll = null;
+      // The profile read failed or never came back (offline, a denied
+      // read). Say so rather than leave "Loading…" up forever; Save stays
+      // off, because an unhydrated form must never be published.
+      var host = document.getElementById(HOST_ID);
+      if (host && host.getAttribute('data-state') === 'loading') {
+        host.textContent = '';
+        host.appendChild(el('p', { className: 'upg-loading', text: 'Your saved upgrade prices did not load. Check your connection, then open this tab again.' }));
+      }
+    }, 30000);
   }
 
   function setSaveEnabled(on) {
