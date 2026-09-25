@@ -195,6 +195,29 @@
      Caught by tests/e2e/phone-fit.spec.js on its first run. */
   .joe-header { flex-wrap: wrap; padding: 12px 14px; }
 
+  /* Phone field cards (crm-list-view.js _renderFieldCards): the pipeline
+     list on a phone, one card per lead with thumb-size contact buttons. */
+  .cl-cards-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 2px 10px; font-size: 12px; color: var(--m); }
+  .cl-cards-bar select { min-height: 36px; margin-left: 6px; background: var(--s2); color: var(--t); border: 1px solid var(--br); border-radius: 6px; padding: 4px 8px; }
+  .cl-cards-hint { font-size: 11px; opacity: .8; text-align: right; }
+  .cl-cards { display: flex; flex-direction: column; gap: 10px; }
+  .cl-card { background: var(--s2); border: 1px solid var(--br); border-radius: 10px; padding: 12px; transition: transform .18s ease, border-color .15s; touch-action: pan-y; }
+  .cl-card-swipe-call { border-color: var(--green); }
+  .cl-card-swipe-next { border-color: var(--orange); }
+  .cl-card-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .cl-card-name { color: var(--t); font-weight: 700; font-size: 16px; text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
+  .cl-card-val { color: var(--orange); font-weight: 800; font-size: 15px; white-space: nowrap; }
+  .cl-card-addr { color: var(--m); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
+  .cl-card-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .cl-card-meta .cl-stage-select { flex: 1 1 160px; min-width: 0; min-height: 40px; background: var(--s); color: var(--t); border: 1px solid var(--br); border-radius: 8px; padding: 6px 10px; }
+  .cl-card-touch { font-size: 12px; color: var(--m); white-space: nowrap; }
+  .cl-card-stale { color: var(--red); font-weight: 700; }
+  .cl-card-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr)); gap: 8px; margin-top: 12px; }
+  .cl-card-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 48px; border-radius: 8px; background: var(--s); border: 1px solid var(--br); color: var(--t); text-decoration: none; font-size: 18px; }
+  .cl-card-btn span { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .cl-card-btn.cl-call { border-color: var(--green); }
+  .cl-card-btn.cl-open { background: var(--orange); border-color: var(--orange); color: var(--accent-fg); }
+
   /* 4c. Door-to-door: the Quick Knock FAB duplicated the Knock button
      and sat on top of the Knock/Heat/Hail row (same corner as the
      speed-dial). The Knock button stays. */
