@@ -297,6 +297,51 @@ ok('rehydrate(old doc): accessLevel defaults to standard', oldSt.measurements.ac
 ok('rehydrate(old doc): deckReplacePct defaults to 0.15', oldSt.measurements.deckReplacePct === 0.15);
 
 // ════════════════════════════════════════════════════════════════════
+// Phone audit 2026-09-25 (estimate#8) — the customer's phone + email must
+// survive save → reopen. The payload carried only owner/addr and rehydrate
+// hard-coded phone:'' / email:'', so a reopened estimate's Retail Quote
+// printed "—" for both and Send for Signature refused for want of an email.
+// ════════════════════════════════════════════════════════════════════
+console.log('\nV2 PAYLOAD — customer phone + email survive save → reopen (estimate#8)');
+{
+  const contactState = Object.assign(stateFixture(), {
+    customer: { address: '1 Main St', name: 'Jane Homeowner', email: ' jane@example.com ', phone: '(513) 555-0199', leadId: 'lead_c' },
+  });
+  const cSaved = T.buildSavePayload(estimateFixtureFixed(), contactState);
+  ok('save: customerEmail persisted (trimmed)', cSaved.customerEmail === 'jane@example.com');
+  ok('save: customerPhone persisted', cSaved.customerPhone === '(513) 555-0199');
+  const blankSaved = T.buildSavePayload(estimateFixtureFixed(), stateFixture());
+  ok('save: no contact on state → empty strings, never undefined (Firestore-safe)',
+    blankSaved.customerEmail === '' && blankSaved.customerPhone === '');
+
+  V2WIN._leads = [];
+  V2WIN._estimates = [Object.assign({}, cSaved, { id: 'est_contact', builder: 'v2' })];
+  ok('rehydrate(contact): returns true', T.rehydrateFromSaved('est_contact') === true);
+  const cSt = T.getState();
+  ok('rehydrate: email restored from the doc', cSt.customer.email === 'jane@example.com');
+  ok('rehydrate: phone restored from the doc', cSt.customer.phone === '(513) 555-0199');
+  // sendForSignature's lead-prefill fallback and the deal-room link both key
+  // on state.customer.leadId — rehydrate only ever set state.leadId.
+  ok('rehydrate: state.customer.leadId set from the doc', cSt.customer.leadId === 'lead_c');
+
+  // A doc saved BEFORE the contact was persisted falls back to its lead.
+  const legacy = Object.assign({}, cSaved, { id: 'est_contact_old', builder: 'v2', leadId: 'lead_old' });
+  delete legacy.customerEmail; delete legacy.customerPhone;
+  V2WIN._leads = [{ id: 'lead_old', email: 'old@example.com', phone: '513-555-0100' }];
+  V2WIN._estimates = [legacy];
+  T.rehydrateFromSaved('est_contact_old');
+  const lSt = T.getState();
+  ok('rehydrate(legacy doc): email falls back to the linked lead', lSt.customer.email === 'old@example.com');
+  ok('rehydrate(legacy doc): phone falls back to the linked lead', lSt.customer.phone === '513-555-0100');
+  // The doc's own value wins over the lead's (the estimate is the snapshot).
+  V2WIN._leads = [{ id: 'lead_c', email: 'changed@example.com', phone: '000' }];
+  V2WIN._estimates = [Object.assign({}, cSaved, { id: 'est_contact2', builder: 'v2' })];
+  T.rehydrateFromSaved('est_contact2');
+  ok('rehydrate: the saved contact wins over the lead\'s current one', T.getState().customer.email === 'jane@example.com');
+  V2WIN._leads = undefined;
+}
+
+// ════════════════════════════════════════════════════════════════════
 // Round-trip — production reconstruct → render → reconcile + markup honored.
 // ════════════════════════════════════════════════════════════════════
 console.log('\nV2 PAYLOAD — persistence round-trip reconciles formatInsuranceScope');

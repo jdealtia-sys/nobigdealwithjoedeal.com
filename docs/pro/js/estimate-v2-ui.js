@@ -159,6 +159,19 @@
     _reopenedClean: false
   };
 
+  // The per-estimate half of `state` as it stands at page load — what "a new
+  // estimate" means. Captured once so _resetEstimateState() can never drift
+  // from the literal above.
+  const _FRESH_ESTIMATE = JSON.stringify({
+    mode: state.mode, tier: state.tier, jobMode: state.jobMode, county: state.county,
+    measurements: state.measurements, scope: state.scope, photos: state.photos,
+    customer: state.customer, claim: state.claim, passThru: state.passThru,
+    minJobCharge: state.minJobCharge,
+  });
+  // The id of the SAVED estimate `state` holds (set by rehydrateFromSaved),
+  // or null while it holds a new, unsaved one.
+  let _stateFromSavedDoc = null;
+
   // ═════════════════════════════════════════════════════════
   // Modal HTML (created lazily on first open)
   // ═════════════════════════════════════════════════════════
@@ -344,6 +357,17 @@
         #estV2Modal[data-mstep="2"] .pane-review { display:none; }
         #estV2Modal[data-mstep="3"] .pane-setup,
         #estV2Modal[data-mstep="3"] .pane-items { display:none; }
+        /* Phone audit 2026-09-25 (estimate#12): with two of the three panes
+           hidden, the stacked-panes grid above (rows auto 1fr auto) put the
+           one visible pane in an AUTO row, so it only took its content height
+           and the rest of the screen was the 0.95 overlay — the dashboard
+           ("HOT LEADS", the win-rate ring) showed through under a short Setup
+           or Review step. One row that fills the body, and the pane scrolls
+           itself; the opaque body is belt-and-braces for any gap. */
+        #estV2Modal[data-mstep] .v2-body {
+          grid-template-rows: minmax(0, 1fr);
+          background: var(--bg,#0a0c0f);
+        }
       }
 
       /* ── Phase 3: homeowner presentation mode ──
@@ -441,6 +465,12 @@
         margin:0 !important;
         pointer-events:none;
       }
+      /* Phone audit 2026-09-25 (estimate#2): the headers that stay collapsed
+         on a phone are still the only way into their section — 32px was
+         under the 40px touch floor the scope-row buttons use (Wave 28). */
+      @media (pointer:coarse) {
+        .v2-section { min-height:40px; }
+      }
 
       /* On small screens: make the panes flex so collapsed sections let
          the open one breathe. Each pane scrolls independently, so the
@@ -476,6 +506,33 @@
       .v2-field.inline input[type=checkbox] {
         width:auto;
       }
+      /* Phone audit 2026-09-25 (estimate#3): the three price-adder checkboxes
+         (Cut-up Roof, Chimney +$425, Skylight +$350) were a bare <label>
+         beside a 13x13 box — no for=, not wrapping it — so tapping the text
+         did nothing and the only target was the box at the far right edge.
+         The whole row is the <label> now (.v2-check), so any tap on it
+         toggles; the text span keeps the field-label look. */
+      .v2-check { cursor:pointer; -webkit-tap-highlight-color:transparent; }
+      .v2-check > span {
+        flex:1; font-size:9px; text-transform:uppercase;
+        letter-spacing:.1em; color:var(--m,#888);
+      }
+      /* estimate#4: an empty measurement field showed a grey "3900" / "120"
+         that read like a value already entered. The hints now say "e.g.";
+         italic makes an unfilled field obviously unfilled at a glance. */
+      #estV2Modal .v2-field input::placeholder { font-style:italic; }
+      @media (max-width: 1000px) {
+        /* estimate#4: 9px uppercase labels are the only thing telling a rep
+           which box is Eave vs Rake vs Ridge on a phone. */
+        .v2-field label, .v2-check > span { font-size:12px; letter-spacing:.06em; }
+      }
+      @media (pointer:coarse) {
+        .v2-check { min-height:44px; margin-bottom:4px; }
+        .v2-field.inline.v2-check input[type=checkbox] {
+          width:22px; height:22px; flex:none; margin:0;
+          accent-color:var(--orange,#BD5728);
+        }
+      }
       .v2-tabs {
         display:flex; gap:0; margin-bottom:12px;
         border:1px solid var(--br,#2a2f35); border-radius:4px; overflow:hidden;
@@ -499,6 +556,24 @@
       }
       .v2-cat-tabs button.active {
         background:var(--orange,#BD5728); color:var(--accent-fg,#fff); border-color:var(--orange,#BD5728);
+      }
+      /* Phone audit 2026-09-25 (estimate#5): the category chips are the only
+         filter besides search on a 278-item catalog, and they were 22px tall
+         with 10px text, wrapping into 3-4 rows above the list. On touch they
+         get the 40px floor and ONE sideways-scrolling row, so a bigger target
+         doesn't cost the list four rows of height. */
+      @media (pointer:coarse) {
+        .v2-cat-tabs {
+          flex-wrap:nowrap; overflow-x:auto; gap:6px;
+          overscroll-behavior-x:contain; scrollbar-width:none;
+          -webkit-overflow-scrolling:touch;
+        }
+        .v2-cat-tabs::-webkit-scrollbar { display:none; }
+        .v2-cat-tabs button {
+          flex:none; min-height:40px; padding:6px 14px; font-size:13px;
+          border-radius:20px; white-space:nowrap;
+          -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+        }
       }
       .v2-search {
         width:100%; background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35);
@@ -564,8 +639,12 @@
       .v2-scope-item .actions {
         float:right; display:flex; gap:4px; margin-left:8px;
       }
+      /* .edit-note joined these rules 2026-09-25 (phone audit estimate#6): the
+         📝 button was added later with NO rule at all, so it rendered as a
+         bare browser-default grey chip, 22px wide on a phone. */
       .v2-scope-item .rm,
-      .v2-scope-item .edit-qty {
+      .v2-scope-item .edit-qty,
+      .v2-scope-item .edit-note {
         background:none; border:none; color:var(--m,#666); cursor:pointer;
         font-size:14px; padding:2px 6px; border-radius:3px;
         min-width:28px; min-height:28px;
@@ -577,7 +656,62 @@
          scope-item action. Hover/desktop keeps the compact 28px size. */
       @media (pointer:coarse) {
         .v2-scope-item .rm,
-        .v2-scope-item .edit-qty { min-width:40px; min-height:40px; }
+        .v2-scope-item .edit-qty,
+        .v2-scope-item .edit-note { min-width:40px; min-height:40px; }
+        /* The destructive × sat 4px from ✎; give it its own space. */
+        .v2-scope-item .rm { margin-left:10px; }
+      }
+      /* Inline per-row editor (estimate#6) — replaces window.prompt(), which
+         gave Android a full text keyboard for a quantity and is unreliable in
+         the installed PWA. Quantity uses inputmode=decimal (number pad). */
+      .v2-row-edit {
+        clear:both; margin-top:8px; padding-top:8px;
+        border-top:1px dashed var(--br,#2a2f35);
+      }
+      .v2-row-edit-lbl {
+        display:block; font-size:11px; color:var(--m,#888); margin-bottom:6px;
+      }
+      .v2-row-edit-ctl { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+      .v2-row-edit-ctl input {
+        flex:1 1 120px; min-width:0; min-height:40px; font-size:16px;
+        background:var(--s2,#181c22); color:var(--t,#e8eaf0);
+        border:1px solid var(--orange,#BD5728); border-radius:6px; padding:6px 10px;
+        font-family:inherit;
+      }
+      .v2-row-edit-ctl button {
+        min-height:40px; padding:0 12px; border-radius:6px; cursor:pointer;
+        background:var(--bg,#0a0c0f); border:1px solid var(--br,#2a2f35); color:var(--t,#e8eaf0);
+        font-family:'Barlow Condensed',sans-serif; font-size:13px; font-weight:700;
+        letter-spacing:.05em; text-transform:uppercase;
+        -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+      }
+      .v2-row-edit-ctl button.primary {
+        background:var(--orange,#BD5728); border-color:var(--orange,#BD5728); color:var(--accent-fg,#fff);
+      }
+      .v2-row-edit-err { color:var(--red,#c53030); font-size:11px; margin-top:6px; }
+      /* Undo bar for a removed scope line (estimate#6). Lives INSIDE the modal
+         (the delegated data-action handler covers it; the host page's toast
+         stack differs per page). Local z-index, above the step bar (6). */
+      .v2-undo {
+        position:absolute; z-index:7; left:10px; right:10px; margin:0 auto;
+        bottom:16px; max-width:440px;
+        display:none; align-items:center; gap:10px;
+        background:var(--s,#111418); border:1px solid var(--orange,#BD5728);
+        border-radius:10px; padding:6px 6px 6px 14px;
+        box-shadow:0 6px 20px rgba(0,0,0,.35);
+        color:var(--t,#e8eaf0); font-size:13px;
+      }
+      .v2-undo.show { display:flex; }
+      .v2-undo-msg { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .v2-undo button {
+        flex:none; min-height:40px; padding:0 16px; border-radius:8px; cursor:pointer;
+        background:var(--orange,#BD5728); border:none; color:var(--accent-fg,#fff);
+        font-family:'Barlow Condensed',sans-serif; font-size:14px; font-weight:800;
+        letter-spacing:.06em; text-transform:uppercase;
+        -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+      }
+      @media (max-width: 1000px) {
+        .v2-undo { bottom:calc(72px + env(safe-area-inset-bottom, 0)); }
       }
       .v2-scope-item .edit-qty { font-size:12px; }
       .v2-scope-item .edit-qty:hover { color:var(--blue,#22d3ee); background:color-mix(in srgb, var(--blue,#22d3ee) 8%, transparent); }
@@ -709,7 +843,7 @@
 
           <div class="v2-field">
             <label>Raw Roof Area (SF)</label>
-            <input type="number" id="v2rawSqft" placeholder="3900" data-field="rawSqft">
+            <input type="number" id="v2rawSqft" placeholder="e.g. 3900" data-field="rawSqft">
           </div>
           <div class="v2-field">
             <label>Pitch (rise/12)</label>
@@ -733,31 +867,31 @@
           </div>
           <div class="v2-field">
             <label>Eave LF</label>
-            <input type="number" id="v2eaveLf" placeholder="120" data-field="eaveLf">
+            <input type="number" id="v2eaveLf" placeholder="e.g. 120" data-field="eaveLf">
           </div>
           <div class="v2-field">
             <label>Rake LF</label>
-            <input type="number" id="v2rakeLf" placeholder="50" data-field="rakeLf">
+            <input type="number" id="v2rakeLf" placeholder="e.g. 50" data-field="rakeLf">
           </div>
           <div class="v2-field">
             <label>Ridge LF</label>
-            <input type="number" id="v2ridgeLf" placeholder="45" data-field="ridgeLf">
+            <input type="number" id="v2ridgeLf" placeholder="e.g. 45" data-field="ridgeLf">
           </div>
           <div class="v2-field">
             <label>Hip LF</label>
-            <input type="number" id="v2hipLf" placeholder="20" data-field="hipLf">
+            <input type="number" id="v2hipLf" placeholder="e.g. 20" data-field="hipLf">
           </div>
           <div class="v2-field">
             <label>Valley LF</label>
-            <input type="number" id="v2valleyLf" placeholder="32" data-field="valleyLf">
+            <input type="number" id="v2valleyLf" placeholder="e.g. 32" data-field="valleyLf">
           </div>
           <div class="v2-field">
             <label>Pipes (count)</label>
-            <input type="number" id="v2pipes" placeholder="4" data-field="pipes">
+            <input type="number" id="v2pipes" placeholder="e.g. 4" data-field="pipes">
           </div>
           <div class="v2-field">
             <label>Chimneys (count)</label>
-            <input type="number" id="v2chimneys" placeholder="1" data-field="chimneys">
+            <input type="number" id="v2chimneys" placeholder="e.g. 1" data-field="chimneys">
           </div>
           <div class="v2-field">
             <label>Skylights (count)</label>
@@ -787,10 +921,10 @@
               <option value="difficult">Difficult (+$35/SQ)</option>
             </select>
           </div>
-          <div class="v2-field inline">
-            <label>Cut-up Roof (+3% waste + $15/SQ)</label>
+          <label class="v2-field inline v2-check" for="v2cutup">
+            <span>Cut-up Roof (+3% waste + $15/SQ)</span>
             <input type="checkbox" id="v2cutup" data-field="cutUpRoof">
-          </div>
+          </label>
 
           <!-- Wave 143: per-SQ mode add-ons. Drive the
                estimate-builder-v2.js calculatePerSq() add-on prices
@@ -799,14 +933,14 @@
                these become catalog selections instead — the engine
                handles both paths from the same state shape. -->
           <div class="v2-section">Add-Ons</div>
-          <div class="v2-field inline">
-            <label>Chimney Flashing (+$425)</label>
+          <label class="v2-field inline v2-check" for="v2chimneyFlash">
+            <span>Chimney Flashing (+$425)</span>
             <input type="checkbox" id="v2chimneyFlash" data-field="hasChimneyFlash">
-          </div>
-          <div class="v2-field inline">
-            <label>Skylight Flashing (+$350)</label>
+          </label>
+          <label class="v2-field inline v2-check" for="v2skylightFlash">
+            <span>Skylight Flashing (+$350)</span>
             <input type="checkbox" id="v2skylightFlash" data-field="hasSkylightFlash">
-          </div>
+          </label>
           <div class="v2-field">
             <label>Valley Metal LF (@ $8.50)</label>
             <input type="number" id="v2valleyMetalLf" placeholder="0" min="0" data-field="valleyMetalLf">
@@ -854,19 +988,19 @@
           <div class="v2-section">Customer</div>
           <div class="v2-field">
             <label>Name</label>
-            <input type="text" id="v2custName" data-customer="name" placeholder="Sarah Smith" autocomplete="name">
+            <input type="text" id="v2custName" data-customer="name" placeholder="e.g. Sarah Smith" autocomplete="name">
           </div>
           <div class="v2-field">
             <label>Email</label>
-            <input type="email" id="v2custEmail" data-customer="email" placeholder="sarah@example.com" autocomplete="email">
+            <input type="email" id="v2custEmail" data-customer="email" placeholder="e.g. sarah@example.com" autocomplete="email">
           </div>
           <div class="v2-field">
             <label>Phone</label>
-            <input type="tel" id="v2custPhone" data-customer="phone" placeholder="(859) 555-0100" autocomplete="tel">
+            <input type="tel" id="v2custPhone" data-customer="phone" placeholder="e.g. (859) 555-0100" autocomplete="tel">
           </div>
           <div class="v2-field">
             <label>Property Address</label>
-            <input type="text" id="v2custAddress" data-customer="address" placeholder="123 Main St, Goshen, OH 45122" autocomplete="street-address">
+            <input type="text" id="v2custAddress" data-customer="address" placeholder="e.g. 123 Main St, Goshen, OH 45122" autocomplete="street-address">
           </div>
 
           <!-- Claim inputs only matter for insurance jobs but the
@@ -876,19 +1010,19 @@
           <div class="v2-section">Insurance Claim</div>
           <div class="v2-field">
             <label>Carrier</label>
-            <input type="text" id="v2claimCarrier" data-claim="carrier" placeholder="State Farm">
+            <input type="text" id="v2claimCarrier" data-claim="carrier" placeholder="e.g. State Farm">
           </div>
           <div class="v2-field">
             <label>Claim Number</label>
-            <input type="text" id="v2claimNumber" data-claim="number" placeholder="04-1234-A">
+            <input type="text" id="v2claimNumber" data-claim="number" placeholder="e.g. 04-1234-A">
           </div>
           <div class="v2-field">
             <label>Adjuster</label>
-            <input type="text" id="v2claimAdjuster" data-claim="adjuster" placeholder="Mike Johnson">
+            <input type="text" id="v2claimAdjuster" data-claim="adjuster" placeholder="e.g. Mike Johnson">
           </div>
           <div class="v2-field">
             <label>Deductible</label>
-            <input type="number" id="v2claimDeductible" data-claim="deductible" placeholder="2500" min="0" step="50">
+            <input type="number" id="v2claimDeductible" data-claim="deductible" placeholder="e.g. 2500" min="0" step="50">
           </div>
           <div class="v2-field">
             <label>Date of Loss</label>
@@ -896,7 +1030,7 @@
           </div>
           <div class="v2-field">
             <label>Policy Number</label>
-            <input type="text" id="v2claimPolicyNumber" data-claim="policyNumber" placeholder="POL-9988776">
+            <input type="text" id="v2claimPolicyNumber" data-claim="policyNumber" placeholder="e.g. POL-9988776">
           </div>
 
           <div class="v2-section">Selected Scope</div>
@@ -964,6 +1098,12 @@
         <button type="button" class="v2-mstep-btn" data-action="mstep" data-arg="3">③ Review</button>
         <button type="button" class="v2-mstep-total" id="v2mTotal" data-action="mstep" data-arg="3">$0</button>
       </div>
+
+      <!-- Undo for a removed scope line (2026-09-25, estimate#6). -->
+      <div class="v2-undo" id="v2Undo" role="status" aria-live="polite">
+        <span class="v2-undo-msg"></span>
+        <button type="button" data-action="undo-remove">Undo</button>
+      </div>
     `;
     document.body.appendChild(modal);
 
@@ -990,16 +1130,35 @@
         hdr.parentNode.insertBefore(wrapper, next);
       });
 
-      // On screens ≤1000px, start with everything EXCEPT the catalog
-      // section collapsed so the items list is front-and-center. The
-      // user can expand measurements/presets/scope on demand.
+      // On screens ≤1000px, start with only the BULKY, optional sections
+      // collapsed. Phone audit 2026-09-25 (estimate#2): this used to collapse
+      // EVERYTHING except the catalog "so the items list is front-and-center"
+      // — a rule from the one-long-stacked-scroll era (2026-04). The Phase 1b
+      // step bar (2026-07) already gives each pane its own screen, so the
+      // rule left Setup as five bare headers with no input visible, and put
+      // the scope list, the Grand Total card and Save behind taps on Review —
+      // including a reopened estimate, which open() lands on Review precisely
+      // so the rep can LOOK at it. Measurements, scope, total, save, present
+      // and sign stay open; claim fields, the photo grid and the deal-room
+      // button start folded (one tap away, and none is on the main path).
       if (window.innerWidth <= 1000) {
+        const FOLDED_ON_PHONE = ['insurance claim', 'photos', 'close board'];
         pane.querySelectorAll('.v2-section').forEach(hdr => {
           const txt = (hdr.textContent || '').trim().toLowerCase();
-          if (txt.startsWith('line item catalog')) return; // keep this expanded
-          hdr.classList.add('collapsed');
+          if (FOLDED_ON_PHONE.includes(txt)) hdr.classList.add('collapsed');
         });
       }
+    });
+
+    // Associate each field label with its control (2026-09-25, estimate#3/#4
+    // sibling): the markup's bare <label>s had no for=, so tapping a label
+    // never reached its input and screen readers announced unlabeled fields.
+    // One control per .v2-field; rows that are themselves a <label> (the
+    // .v2-check checkbox rows) already wrap theirs.
+    modal.querySelectorAll('.v2-field').forEach(field => {
+      const lbl = field.querySelector(':scope > label');
+      const ctl = field.querySelectorAll(':scope > input[id], :scope > select[id]');
+      if (lbl && ctl.length === 1 && !lbl.htmlFor) lbl.htmlFor = ctl[0].id;
     });
 
     // Click-to-toggle. Delegation keeps it robust against re-renders
@@ -1128,7 +1287,31 @@
           if (code) overrideNote(code);
           break;
         }
+        // Inline row editor (2026-09-25, estimate#6) + the undo bar.
+        case 'row-edit-apply':
+          commitRowEditor('apply');
+          break;
+        case 'row-edit-auto':
+          commitRowEditor('auto');
+          break;
+        case 'row-edit-clear':
+          commitRowEditor('clear');
+          break;
+        case 'row-edit-cancel':
+          _closeRowEditor();
+          break;
+        case 'undo-remove':
+          undoRemove();
+          break;
       }
+    });
+
+    // Enter applies / Escape cancels the inline row editor. Escape stops here
+    // so it cancels the edit rather than bubbling to a page-level handler.
+    modal.addEventListener('keydown', (ev) => {
+      if (!ev.target || ev.target.id !== 'v2RowEditInput') return;
+      if (ev.key === 'Enter') { ev.preventDefault(); commitRowEditor('apply'); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); _closeRowEditor(); }
     });
 
     // ─────────────────────────────────────────────────────
@@ -1279,57 +1462,163 @@
     render();
   }
 
+  // Undo for a removed line (phone audit 2026-09-25, estimate#6). × sat 4px
+  // from ✎ and deleted a priced line instantly — including its manual qty
+  // override and note, which the rep then had to rebuild from the 278-item
+  // catalog. Every removal path (Review ×, the Items step's ✓ Selected ×)
+  // goes through removeFromScope, so the undo lives here. One pending undo:
+  // a second removal commits the first.
+  let _pendingUndo = null;
+  let _undoTimer = null;
+  const UNDO_MS = 8000;
+  // Inline row editor state — see _openRowEditor below.
+  let _rowEdit = null;   // { code, kind: 'qty' | 'note', error }
+
+  // What "nothing else changed since the removal" means for undo's replay
+  // restore — every input getCurrentEstimate prices from except the one line.
+  function _undoFingerprint() {
+    try {
+      return JSON.stringify([state.mode, state.tier, state.jobMode, state.county,
+        state.measurements, state.minJobCharge, state.scope, state.passThru]);
+    } catch (e) { return null; }
+  }
+
+  function _dismissUndo() {
+    clearTimeout(_undoTimer);
+    _undoTimer = null;
+    _pendingUndo = null;
+    const bar = document.getElementById('v2Undo');
+    if (bar) bar.classList.remove('show');
+  }
+
+  function _offerUndo(entry) {
+    const bar = document.getElementById('v2Undo');
+    if (!bar) return;
+    clearTimeout(_undoTimer);
+    _pendingUndo = entry;
+    const msg = bar.querySelector('.v2-undo-msg');
+    if (msg) msg.textContent = 'Removed ' + (entry.label || entry.item.code);
+    bar.classList.add('show');
+    _undoTimer = setTimeout(_dismissUndo, UNDO_MS);
+  }
+
+  function undoRemove() {
+    const u = _pendingUndo;
+    _dismissUndo();
+    if (!u) return;
+    const list = u.list === 'passThru' ? 'passThru' : 'scope';
+    // The array the removal produced must still be the live one. A preset,
+    // Clear, a reopen or another removal replaces it — undoing into that
+    // would resurrect a line into a different estimate.
+    if (state[list] !== u.after) return;
+    // Re-added from the catalog meanwhile → nothing to restore.
+    if (state[list].some(x => x.code === u.item.code)) return;
+    const unchanged = u.fingerprint != null && _undoFingerprint() === u.fingerprint;
+    state[list].splice(Math.min(u.index, state[list].length), 0, u.item);
+    // Undo straight after the removal restores the exact prior state, so a
+    // reopened estimate goes back to replaying its SAVED numbers (3B) rather
+    // than re-resolving live — remove + undo must not move the total.
+    state._reopenedClean = unchanged ? u.wasClean : false;
+    render();
+  }
+
   function removeFromScope(code) {
     // Pass-through lines live in a separate array — check there
     // first so a removal on the "measurement report" chip works.
+    const wasClean = !!state._reopenedClean;
+    const ptBefore = state.passThru || [];
+    const ptIdx = ptBefore.findIndex(p => p.code === code);
+    const scIdx = ptIdx >= 0 ? -1 : (state.scope || []).findIndex(s => s.code === code);
+    const removed = ptIdx >= 0 ? ptBefore[ptIdx] : (scIdx >= 0 ? state.scope[scIdx] : null);
+    let label = code;
+    if (removed) {
+      try {
+        const est = getCurrentEstimate();
+        const line = est && est.lines.find(l => l.code === code);
+        if (line && line.name) label = line.name;
+        else if (removed.desc) label = removed.desc;
+      } catch (e) { /* label is cosmetic */ }
+    }
     const beforePT = (state.passThru || []).length;
     state.passThru = (state.passThru || []).filter(p => p.code !== code);
     if (state.passThru.length === beforePT) {
       state.scope = state.scope.filter(s => s.code !== code);
     }
+    if (_rowEdit && _rowEdit.code === code) _rowEdit = null;
     state._reopenedClean = false;   // 3B
     render();
+    if (removed) {
+      _offerUndo({
+        list: ptIdx >= 0 ? 'passThru' : 'scope',
+        index: ptIdx >= 0 ? ptIdx : scIdx,
+        item: removed,
+        label: label,
+        after: ptIdx >= 0 ? state.passThru : state.scope,
+        wasClean: wasClean,
+        fingerprint: _undoFingerprint(),
+      });
+    }
   }
 
-  // Manual quantity override. Opens a prompt seeded with the current
-  // computed quantity so the user can type the exact value they want
-  // (e.g. 2 squares for a tiny repair, 15 LF of drip edge instead of
-  // the auto-calculated full perimeter). Passing an empty string or
-  // "auto" clears the override and reverts to the formula.
-  function overrideQty(code) {
+  // Inline per-row editor (phone audit 2026-09-25, estimate#6). Quantity and
+  // note used window.prompt(): a free-text dialog, so Android put up the full
+  // keyboard for a number, and native dialogs are unreliable in the installed
+  // PWA (standalone-compat.js). Tapping ✎ / 📝 now opens an editor in the row
+  // itself — a number pad for quantity. One row at a time; module state
+  // (_rowEdit, declared above), not `state`, so it never rides a draft or a
+  // save.
+  function _openRowEditor(code, kind) {
     const scopeEntry = state.scope.find(s => s.code === code);
-    if (!scopeEntry) return;
-    const estimate = getCurrentEstimate();
-    const line = estimate && estimate.lines.find(l => l.code === code);
-    if (!line) return;
+    if (!scopeEntry) return;   // pass-through lines have no qty/note
+    _rowEdit = { code: code, kind: kind, error: '' };
+    renderScope();
+    const input = document.getElementById('v2RowEditInput');
+    if (input) {
+      // Same tick as the tap, so a phone raises its keyboard.
+      try { input.focus({ preventScroll: true }); } catch (e) { input.focus(); }
+      try { input.scrollIntoView({ block: 'nearest' }); } catch (e) {}
+    }
+  }
 
-    const unit = line.unit || '';
-    const qtyDecimals = (unit === 'SQ' || unit === 'LF') ? 1 : 0;
-    const current = (Number(line.quantity) || 0).toFixed(qtyDecimals);
-    const msg = 'Edit quantity for ' + (line.name || code) + ' (' + unit + ')\n\n'
-      + 'Current: ' + current + ' ' + unit + '\n'
-      + 'Enter a number to override, or leave blank to revert to auto-calculation.';
-    // eslint-disable-next-line no-alert
-    const input = window.prompt(msg, line.qtyOverridden ? current : '');
-    if (input === null) return;  // user hit Cancel
+  function _closeRowEditor() {
+    if (!_rowEdit) return;
+    _rowEdit = null;
+    renderScope();
+  }
 
+  // Manual quantity override. Opens the row editor seeded with the current
+  // override (blank when the line is on auto) so the user can type the exact
+  // value they want (e.g. 2 squares for a tiny repair, 15 LF of drip edge
+  // instead of the auto-calculated full perimeter). An empty value or "auto"
+  // clears the override and reverts to the formula.
+  function overrideQty(code) {
+    _openRowEditor(code, 'qty');
+  }
+
+  // Apply a typed quantity. Returns false (editor stays open with the reason)
+  // on an invalid entry.
+  function applyQtyOverride(code, input, badInput) {
+    const scopeEntry = state.scope.find(s => s.code === code);
+    if (!scopeEntry) return true;
+    const trimmed = String(input == null ? '' : input).trim();
+    if (badInput) {
+      if (_rowEdit) _rowEdit.error = 'Please enter a non-negative number (or blank to revert).';
+      return false;
+    }
     scopeEntry.overrides = scopeEntry.overrides || {};
-    const trimmed = String(input).trim();
     if (trimmed === '' || trimmed.toLowerCase() === 'auto') {
       // Revert to formula
       delete scopeEntry.overrides.qty;
     } else {
       const n = Number(trimmed);
       if (!Number.isFinite(n) || n < 0) {
-        // Batch 2 (iOS PWA): toast surface so the validation message is actually
-        // visible in standalone mode (native alert is non-blocking there).
-        (typeof showToast === 'function' ? showToast : window.alert)('Please enter a non-negative number (or blank to revert).', 'error');
-        return;
+        if (_rowEdit) _rowEdit.error = 'Please enter a non-negative number (or blank to revert).';
+        return false;
       }
       scopeEntry.overrides.qty = n;
     }
     state._reopenedClean = false;   // 3B
-    render();
+    return true;
   }
 
   // Per-line note (RoofLink-style "Note:" on estimate rows). Lives in
@@ -1337,22 +1626,31 @@
   // Rendered on the scope row, persisted on saved rows (rows[].note),
   // and printed on the finalized documents under the line description.
   function overrideNote(code) {
+    _openRowEditor(code, 'note');
+  }
+
+  function applyNote(code, input) {
     const scopeEntry = state.scope.find(s => s.code === code);
-    if (!scopeEntry) return;
-    const estimate = getCurrentEstimate();
-    const line = estimate && estimate.lines.find(l => l.code === code);
-    const current = (scopeEntry.overrides && scopeEntry.overrides.note) || '';
-    const msg = 'Note for ' + ((line && line.name) || code) + '\n\n'
-      + 'Shows under this line on the estimate documents.\n'
-      + 'Leave blank to remove the note.';
-    // eslint-disable-next-line no-alert
-    const input = window.prompt(msg, current);
-    if (input === null) return;  // user hit Cancel
+    if (!scopeEntry) return true;
     scopeEntry.overrides = scopeEntry.overrides || {};
-    const trimmed = String(input).trim();
+    const trimmed = String(input == null ? '' : input).trim();
     if (trimmed === '') delete scopeEntry.overrides.note;
     else scopeEntry.overrides.note = trimmed.slice(0, 500);
     state._reopenedClean = false;   // 3B
+    return true;
+  }
+
+  // Row-editor buttons + Enter/Escape. `mode` is 'apply' | 'auto' | 'clear'.
+  function commitRowEditor(mode) {
+    if (!_rowEdit) return;
+    const input = document.getElementById('v2RowEditInput');
+    const value = (mode === 'auto' || mode === 'clear') ? '' : (input ? input.value : '');
+    const bad = mode === 'apply' && !!(input && input.validity && input.validity.badInput);
+    const ok = _rowEdit.kind === 'qty'
+      ? applyQtyOverride(_rowEdit.code, value, bad)
+      : applyNote(_rowEdit.code, value);
+    if (!ok) { renderScope(); return; }
+    _rowEdit = null;
     render();
   }
 
@@ -1624,6 +1922,19 @@
     });
     const cutupEl = document.getElementById('v2cutup');
     if (cutupEl) cutupEl.checked = !!state.measurements.cutUpRoof;
+    // The Wave 143 add-ons were never synced here (2026-09-25, found beside
+    // estimate#3): a reopened estimate WITH chimney flashing showed the box
+    // unchecked, and the LF fields showed the previous session's numbers.
+    const chimEl = document.getElementById('v2chimneyFlash');
+    if (chimEl) chimEl.checked = !!state.measurements.hasChimneyFlash;
+    const skyEl = document.getElementById('v2skylightFlash');
+    if (skyEl) skyEl.checked = !!state.measurements.hasSkylightFlash;
+    [['valleyMetalLf', 'v2valleyMetalLf'], ['guttersLf', 'v2guttersLf']].forEach(([key, id]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const v = state.measurements[key];
+      el.value = (v == null ? '' : String(v));
+    });
   }
 
   // Presets are objects, not bare code lists. Each preset declares:
@@ -2542,6 +2853,43 @@
        </div>`;
   }
 
+  // Markup for the inline row editor (estimate#6). Every interpolated value
+  // goes through the caller's escaper — the note is rep-typed text.
+  function _rowEditorHtml(line, scopeEntry, esc) {
+    const kind = _rowEdit.kind;
+    const ov = (scopeEntry && scopeEntry.overrides) || {};
+    const err = _rowEdit.error ? `<div class="v2-row-edit-err" role="alert">${esc(_rowEdit.error)}</div>` : '';
+    const common = `id="v2RowEditInput" data-code="${esc(line.code)}" data-kind="${kind}" enterkeyhint="done"`;
+    if (kind === 'qty') {
+      const unit = line.unit || '';
+      const now = fmtQty(line.quantity, unit);
+      const manual = ov.qty != null;
+      return `
+          <div class="v2-row-edit">
+            <label class="v2-row-edit-lbl" for="v2RowEditInput">Quantity${unit ? ' (' + esc(unit) + ')' : ''} — now ${esc(now)}${manual ? ' manual' : ' auto'}. Leave blank for auto.</label>
+            <div class="v2-row-edit-ctl">
+              <input ${common} type="number" inputmode="decimal" min="0" step="any" value="${manual ? esc(String(ov.qty)) : ''}">
+              <button type="button" class="primary" data-action="row-edit-apply">Set</button>
+              ${manual ? '<button type="button" data-action="row-edit-auto">Auto</button>' : ''}
+              <button type="button" data-action="row-edit-cancel">Cancel</button>
+            </div>
+            ${err}
+          </div>`;
+    }
+    const note = ov.note || '';
+    return `
+          <div class="v2-row-edit">
+            <label class="v2-row-edit-lbl" for="v2RowEditInput">Note — prints under this line on the estimate documents.</label>
+            <div class="v2-row-edit-ctl">
+              <input ${common} type="text" maxlength="500" value="${esc(note)}">
+              <button type="button" class="primary" data-action="row-edit-apply">Save</button>
+              ${note ? '<button type="button" data-action="row-edit-clear">Remove</button>' : ''}
+              <button type="button" data-action="row-edit-cancel">Cancel</button>
+            </div>
+            ${err}
+          </div>`;
+  }
+
   function renderScope() {
     const listDiv = document.getElementById('v2scopeList');
     const totalEl = document.getElementById('v2total');
@@ -2592,6 +2940,15 @@
       return true;
     });
 
+    // An open row editor survives a re-render with what the rep has typed so
+    // far (and its focus), so a background render can't eat a half-typed
+    // quantity.
+    const prevEditEl = _rowEdit ? document.getElementById('v2RowEditInput') : null;
+    const prevEdit = (prevEditEl && prevEditEl.dataset.code === _rowEdit.code
+        && prevEditEl.dataset.kind === _rowEdit.kind)
+      ? { value: prevEditEl.value, focused: document.activeElement === prevEditEl }
+      : null;
+
     listDiv.innerHTML = visibleLines.map(line => {
       const safeQty = fmtQty(line.quantity, line.unit);
       const overridden = !!line.qtyOverridden;
@@ -2599,6 +2956,7 @@
       // and printed under the line on the finalized documents.
       const noteEntry = state.scope.find(s => s.code === line.code);
       const lineNote = (noteEntry && noteEntry.overrides && noteEntry.overrides.note) || '';
+      const editing = !!(_rowEdit && noteEntry && _rowEdit.code === line.code);
       // data-action + data-code get picked up by the delegated click
       // handler on #v2scopeList installed in ensureModal(). Clean under
       // Report-Only CSP (script-src-attr 'none') — zero inline onclicks.
@@ -2616,9 +2974,18 @@
           <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
           ${lineNote ? `<div class="line-note" style="font-size:11px;color:var(--m,#9ca3af);font-style:italic;margin-top:2px;">📝 ${escLocal(lineNote)}</div>` : ''}
           ${_v2TierMismatch(line.tier) ? `<div class="tier-warn">⚠ ${escLocal(line.tier)}-tier item on a ${escLocal(state.tier)}-tier job</div>` : ''}
+          ${editing ? _rowEditorHtml(line, noteEntry, escLocal) : ''}
         </div>
       `;
     }).join('');
+
+    if (prevEdit) {
+      const el = document.getElementById('v2RowEditInput');
+      if (el) {
+        el.value = prevEdit.value;
+        if (prevEdit.focused) { try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); } }
+      }
+    }
 
     totalEl.textContent = '$' + Math.round(estimate.total).toLocaleString();
     // Phase 1b: mirror into the mobile step bar's always-visible total.
@@ -2693,6 +3060,7 @@
     if (state._reopenedClean) return;
     clearTimeout(_draftLocalTimer);
     _draftLocalTimer = setTimeout(() => {
+      _draftLocalTimer = null;   // "pending" is observable (_flushDraftNow)
       try {
         const payload = collectDraft();
         localStorage.setItem(DRAFT_KEY_LOCAL, JSON.stringify(payload));
@@ -2714,6 +3082,18 @@
         });
       }
     }, 400);
+  }
+
+  // Write a still-pending debounced local draft NOW, from the state it was
+  // scheduled for. open() resets `state` on a context change; without this a
+  // timer queued in the last 400ms would fire afterwards and save the RESET
+  // state over the rep's real draft.
+  function _flushDraftNow() {
+    if (!_draftLocalTimer) return;
+    clearTimeout(_draftLocalTimer);
+    _draftLocalTimer = null;
+    if (state._reopenedClean) return;
+    try { localStorage.setItem(DRAFT_KEY_LOCAL, JSON.stringify(collectDraft())); } catch (e) { /* best effort */ }
   }
 
   async function pushDraftToFirestore() {
@@ -3095,6 +3475,15 @@
       leadId:           state.leadId || (state.customer && state.customer.leadId) || null,
       addr:             state.customer.address || '',
       owner:            state.customer.name || '',
+      // Contact the estimate was written for (phone audit 2026-09-25,
+      // estimate#8). Only name + address were persisted, so a reopen blanked
+      // email + phone: the regenerated Retail Quote printed "—" for both and
+      // Send for Signature refused ("Customer name + email required") on an
+      // estimate already linked to a lead with an email. Same key names
+      // invoice-pipeline.js already reads off an estimate (est.customerEmail /
+      // est.customerPhone, with the lead as fallback).
+      customerEmail:    String(state.customer.email || '').trim(),
+      customerPhone:    String(state.customer.phone || '').trim(),
       // Photo embeds: the selected photos ride the saved doc so every
       // downstream surface (preview sheet, homeowner share view, doc
       // regeneration on reopen) sees the same set.
@@ -3317,7 +3706,19 @@
       if (typeof window.showToast === 'function') window.showToast('Estimate not found', 'error');
       return false;
     }
-    state.customer = { name: doc.owner || '', address: doc.addr || '', phone: '', email: '' };
+    // Phone audit 2026-09-25 (estimate#8): phone + email were hard-coded ''
+    // here, so every reopen blanked them — the Retail Quote printed "—" and
+    // Send for Signature's lead-prefill fallback never ran (it keys on
+    // state.customer.leadId, which this never set). Restore what the estimate
+    // was saved with; a doc saved before customerEmail/customerPhone were
+    // persisted falls back to its linked lead's contact on file.
+    const lead = doc.leadId ? (window._leads || []).find(l => l && l.id === doc.leadId) : null;
+    state.customer = {
+      name: doc.owner || '', address: doc.addr || '',
+      phone: doc.customerPhone || (lead && lead.phone) || '',
+      email: doc.customerEmail || (lead && lead.email) || '',
+      leadId: doc.leadId || null,
+    };
     // FU-1: restore the persisted insurance claim (else the reopened scope's
     // claim header shows "—"). Fall back to the neutral default for old docs.
     state.claim = doc.claim
@@ -3410,6 +3811,7 @@
         amount: Number(r.total) || Number(r.unitPrice) || 0, source: r.source || 'passthru' }));
     state._reopenedDoc = doc;
     state._reopenedClean = true;
+    _stateFromSavedDoc = estimateId;           // next fresh open resets (see open())
     window._editingEstimateId = estimateId;   // _saveEstimate updates this doc
     window._v2SavedEstimateId = estimateId;    // sendForSignature scopes to it
     if (typeof syncCustomerInputs === 'function') syncCustomerInputs();
@@ -4009,6 +4411,49 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     syncMeasurementInputs();
   }
 
+  // Put the builder back to a NEW estimate (2026-09-25, estimate#8 sibling).
+  // `state` outlives close() by design — an accidental close + reopen for the
+  // same customer keeps the rep's work — but nothing ever cleared it when the
+  // context CHANGED. Reopening saved estimate A (Mark Deluca), closing, then
+  // starting a new estimate for customer B showed A's name, address and whole
+  // scope under B; prefillFromLead only fills EMPTY fields, and state.leadId
+  // (set only by a reopen) still pointed at A, so Save filed B's estimate
+  // under A and loadLeadPhotos pulled A's photos. With estimate#8 restoring
+  // a reopen's email/phone, the bleed would have reached the signature email
+  // too. window._v2SavedEstimateId is estimate-scoped as well: left set,
+  // Send for Signature skipped the save and scoped B's envelope to A's id.
+  function _resetEstimateState() {
+    // Same guard close() applies: a new estimate must never Save as an UPDATE
+    // of the saved one this state was loaded from.
+    if (_stateFromSavedDoc && window._editingEstimateId === _stateFromSavedDoc) window._editingEstimateId = null;
+    Object.assign(state, JSON.parse(_FRESH_ESTIMATE));
+    state.estimateName = '';
+    state.leadId = null;
+    state._leadPhotos = null;
+    state._reopenedDoc = null;
+    state._reopenedClean = false;
+    _stateFromSavedDoc = null;
+    _rowEdit = null;
+    _dismissUndo();
+    window._v2SavedEstimateId = null;
+    // Repaint the controls from the fresh state, the same way a reopen does.
+    const toggle = (id, on) => { const b = document.getElementById(id); if (b) b.classList.toggle('active', on); };
+    toggle('v2modePerSq', state.mode === 'per-sq');
+    toggle('v2modeLine', state.mode === 'line-item');
+    toggle('v2jobInsurance', state.jobMode === 'insurance');
+    toggle('v2jobCash', state.jobMode === 'cash');
+    syncMeasurementInputs();
+    // A fresh page shows empty measurement boxes (their "e.g." hints), not 0s.
+    document.querySelectorAll('#estV2Modal input[type=number][data-field]').forEach(el => {
+      if (el.value === '0') el.value = '';
+    });
+    syncCustomerInputs();
+    ['v2measureAddr'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    ['v2measureStatus', 'v2saveStatus', 'v2signStatus'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '';
+    });
+  }
+
   function open(opts) {
     opts = opts || {};
     ensureModal();
@@ -4018,6 +4463,9 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     // on Review (scope + total + save/export, the "look at it" step); a
     // fresh estimate starts at Setup. Desktop ignores the attribute.
     setMobileStep(opts.estimateId ? 3 : 1);
+    // A previous session's pending undo / open row editor belong to it.
+    _dismissUndo();
+    _rowEdit = null;
     const pendingImport = opts.importMeasurements || null;
     // 3B: reopen a saved V2 estimate (routed here from the estimates list).
     // Rehydrate its state and render — takes precedence over draft restore.
@@ -4039,6 +4487,14 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     // Prefilling from a lead overrides any stale draft since the
     // lead data is authoritative.
     const leadId = opts.leadId || window._cardDetailLeadId || null;
+    // New context → new estimate: after a reopened SAVED estimate (it lives in
+    // Firestore; an edited one is also in the autosave draft), or when the
+    // linked customer changes. Same customer keeps the in-memory work.
+    const prevLeadId = (state.customer && state.customer.leadId) || state.leadId || null;
+    if (_stateFromSavedDoc || (leadId && prevLeadId && prevLeadId !== leadId)) {
+      _flushDraftNow();
+      _resetEstimateState();
+    }
     if (leadId) {
       prefillFromLead(leadId);
       if (pendingImport) {
@@ -4076,6 +4532,8 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     const m = document.getElementById('estV2Modal');
     if (m) m.classList.remove('open');
     closePresentation(); // Phase 3: never leave the overlay armed for next open
+    _dismissUndo();      // a removal is committed once the builder closes
+    _rowEdit = null;
     // 3B: closing a reopened estimate clears the replay + editing state so a
     // stale window._editingEstimateId can't bleed into the Classic builder's
     // next save (the two builders share that global).
