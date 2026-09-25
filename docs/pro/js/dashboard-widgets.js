@@ -652,6 +652,9 @@ function viewEstimate(id) {
   });
 }
 window.viewEstimate = viewEstimate;
+// The embedded estimate hub (customer-estimate-hub.js) asks this before
+// deciding whether ✎ Edit has to leave the customer overlay.
+window._isLoggedEstimate = _isLoggedEstimate;
 
 // ══════════════════════════════════════════════
 // PHOTO LEADS LIST + PHOTO MODAL

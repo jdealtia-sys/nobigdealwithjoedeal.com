@@ -14,8 +14,10 @@
 //   estimate#11 a Log Estimate record (amount only) opened in the Classic
 //               builder, which recomputed $12,451 down to the $2,500 minimum
 //               and saved that over the logged price. It now opens an
-//               amount editor that keeps the price, in cents. The Classic
-//               review table's TOTAL column also has to fit a phone.
+//               amount editor that keeps the price, in cents, including
+//               from the job detail's Estimates tab without leaving the
+//               customer. The Classic review table's TOTAL column also has
+//               to fit a phone, without splitting a code or a quantity.
 //   estimate#9  an invoice made from a V2 estimate billed "Customer" — the
 //               name read two fields no writer sets. Plus the invoice detail's
 //               TOTAL column ran off a 360px screen.
@@ -23,10 +25,10 @@
 //               inside a 412px viewer, so LINE TOTAL sat off-screen.
 //
 // One login for the whole file (a serial describe sharing one page), and
-// every record it writes is its own, tagged e2eTestData. Cloud Functions are
-// answered by page.route, so the result never depends on the functions
-// emulator being up. Tagged @audit to ride the authed emulator job's audit
-// shard. Run locally against a server on :5117 (see the PR for the command).
+// every record it writes is its own, tagged e2eTestData, and deleted again in
+// afterAll. Cloud Functions are answered by page.route, so the result never
+// depends on the functions emulator being up. Tagged @audit to ride the
+// authed emulator job's audit shard. Run locally against a server on :5117 (see the PR for the command).
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
 
@@ -50,6 +52,33 @@ async function hitTest(target, selector) {
 async function expectTappable(target, selector, label) {
   const r = await hitTest(target, selector);
   expect(r.ok, `${label} is reachable by a tap (${r.why})`).toBe(true);
+}
+
+// Tokens rendered across more than one line inside the matched cells. A token
+// is a whitespace-separated run, cut after any hyphen, so "32.14 SQ" may wrap
+// to "32.14" / "SQ" and a code may wrap at its hyphen, but "32.1" / "4 SQ" or
+// "PER" / "MIT" is reported. Fitting a table by breaking a code or a quantity
+// mid-token reads as a different value (review of #1749).
+async function splitTokens(target, cellSelector) {
+  return target.evaluate((sel) => {
+    const bad = [];
+    document.querySelectorAll(sel).forEach((cell) => {
+      const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        const re = /[^\s-]+-?|-/g;
+        let m;
+        while ((m = re.exec(node.nodeValue))) {
+          const range = document.createRange();
+          range.setStart(node, m.index);
+          range.setEnd(node, m.index + m[0].length);
+          const lines = new Set([...range.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(q.top)));
+          if (lines.size > 1) bad.push(m[0]);
+        }
+      }
+    });
+    return bad;
+  }, cellSelector);
 }
 
 // Poll a page predicate that takes an argument (safeWaitForFunction takes
@@ -103,10 +132,16 @@ test.describe.serial('phone estimate data @audit', () => {
     // A fresh emulator user gets the onboarding tour overlay (and the push
     // opt-in card) over the whole screen; retire both the way
     // dashboard-actions-audit.spec.js does, before any page script runs.
+    // Ask Joe's once-a-day proactive scans too: on a rig whose leads are
+    // overdue, "8 overdue follow-ups" toasted over the lower screen and sat on
+    // the ✎ Edit this file hit-tests (ask-joe-proactive.js shouldFireOnceToday).
     await page.addInitScript(() => {
       try {
         localStorage.setItem('nbd-onboarding-complete', '1');
         localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+        const today = new Date().toISOString().split('T')[0];
+        localStorage.setItem('nbd_proactive_overdue_scan', today);
+        localStorage.setItem('nbd_proactive_pending_estimate_scan', today);
       } catch (e) { /* storage blocked: the Skip-tour tap below still covers it */ }
     });
     // Cloud Functions (payment link, server PDF render): answer "unavailable"
@@ -173,7 +208,34 @@ test.describe.serial('phone estimate data @audit', () => {
     { ids: [S.loggedId, S.v2Id, S.classicId], leadId: S.leadId }, 20_000, 'seeded estimates + lead in memory');
   });
 
-  test.afterAll(async () => { if (ctx) await ctx.close(); });
+  // Remove everything this file wrote, so later specs in the same @audit shard
+  // don't find it (estimates list newest-first, so a later
+  // `_estimates.find(e => e.builder === 'v2')` would get this file's minimal
+  // V2 doc). The cleanupE2ETestData callable is out: Cloud Functions are
+  // mocked here and the audit shard runs no functions emulator. The test
+  // user owns every doc, so the rules allow a direct client delete. Invoices
+  // are found by query, which also catches one a failed run never tagged.
+  test.afterAll(async () => {
+    if (page && S.leadId) {
+      const res = await safeEvaluate(page, async (s) => {
+        const out = [];
+        const del = async (col, id) => {
+          try { await window.deleteDoc(window.doc(window.db, col, id)); out.push(col + '/' + id); } catch (e) { out.push('FAILED ' + col + '/' + id + ': ' + (e && e.message)); }
+        };
+        try {
+          const snap = await window.getDocs(window.query(window.collection(window.db, 'invoices'),
+            window.where('createdBy', '==', window._user.uid), window.where('estimateId', '==', s.v2Id)));
+          for (const d of snap.docs) await del('invoices', d.id);
+        } catch (e) { out.push('FAILED invoice lookup: ' + (e && e.message)); }
+        for (const id of [s.loggedId, s.v2Id, s.classicId]) if (id) await del('estimates', id);
+        await del('leads', s.leadId);
+        return out;
+      }, S).catch((e) => ['FAILED cleanup: ' + (e && e.message)]);
+      // eslint-disable-next-line no-console
+      if (res.some((r) => /^FAILED/.test(r))) console.warn('[phone-estdata] cleanup: ' + res.join('; '));
+    }
+    if (ctx) await ctx.close();
+  });
 
   test.beforeEach(async ({}, testInfo) => {
     if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
@@ -213,7 +275,17 @@ test.describe.serial('phone estimate data @audit', () => {
   });
 
   test('estimate#0 sibling: a cold load straight to #/est resolves customer chips once leads arrive', async () => {
+    // A NEW document, not a hash hop. Hosting's cleanUrls 301s the login's
+    // /pro/dashboard.html to /pro/dashboard, so on CI the page already sits at
+    // /pro/dashboard and goto('/pro/dashboard#/est') alone is a same-document
+    // fragment change: no reload, leads already in memory, and this test
+    // passed with the repaint removed (review of #1749). about:blank first
+    // forces the real boot, and the marker proves the document was replaced.
+    await safeEvaluate(page, () => { window.__estdataWarmDoc = true; });
+    await page.goto('about:blank');
     await page.goto('/pro/dashboard#/est');
+    expect(await safeEvaluate(page, () => window.__estdataWarmDoc === true),
+      'precondition: #/est was a cold load (a new document), not a hash change').toBe(false);
     // Wait for THIS lead to be in memory (not just _leadsLoaded, which a
     // cached or partial load can satisfy early): from then on the repaint has
     // no excuse, so the 10s below measures the repaint, not a slow emulator.
@@ -271,6 +343,37 @@ test.describe.serial('phone estimate data @audit', () => {
     await page.setViewportSize({ width: 412, height: 860 });
   });
 
+  test('estimate#11 sibling: ✎ Edit on a logged record in the job detail\'s Estimates tab edits in place, customer still open', async () => {
+    // The embedded hub used to send every non-V2 record down the "leave for
+    // Classic" path: close the job detail, switch to Estimates, then open the
+    // editor there. A logged record's editor is a sheet over the page, so the
+    // rep now stays in the customer's context (review of #1749).
+    await safeEvaluate(page, (id) => window.openMobileJobDetail(id), S.leadId);
+    const jd = page.locator('#mJobDetail');
+    await expect(jd, 'the job detail opens').toBeVisible({ timeout: 5_000 });
+    await page.locator('#mJobDetail .m-jd-tab[data-tab="estimates"]').tap();
+    const head = page.locator(`#mJdTabEstimates [data-ceh-act="toggle"][data-ceh-id="${S.loggedId}"]`);
+    await expect(head, 'the logged record is listed in the hub').toBeVisible({ timeout: 5_000 });
+    await head.tap();
+    const editSel = `#mJdTabEstimates [data-ceh-act="edit"][data-ceh-id="${S.loggedId}"]`;
+    await page.locator(editSel).scrollIntoViewIfNeeded();
+    await expectTappable(page, editSel, '✎ Edit in the job-detail hub');
+    await page.locator(editSel).tap();
+    const editor = page.locator('#logged-est-editor');
+    await expect(editor, 'the logged-estimate editor opens').toBeVisible({ timeout: 5_000 });
+    await expect(jd, 'the job detail stays open under the editor').toBeVisible();
+    await expectTappable(page, '#logged-est-save', 'Save, above the job detail');
+    await page.locator('#logged-est-amount').tap();
+    await page.locator('#logged-est-amount').fill('14,250');
+    await page.locator('#logged-est-save').tap();
+    await expect(editor, 'Save closes the editor').toHaveCount(0, { timeout: 15_000 });
+    await expect(jd, 'still in the customer after Save').toBeVisible();
+    await expect(page.locator(`#mJdTabEstimates .ceh-card:has([data-ceh-id="${S.loggedId}"]) .ceh-tot-v`),
+      'the hub shows the new price').toHaveText('$14,250', { timeout: 10_000 });
+    await safeEvaluate(page, () => window.closeMobileJobDetail());
+    await expect(jd).toBeHidden();
+  });
+
   test('estimate#11 sibling: the Classic review table shows its TOTAL column on a phone', async () => {
     if (!(await page.locator('#view-est.active #estListWrap .nbd-est-card').count())) await moreNav(page, 'est');
     await safeEvaluate(page, () => window.ScriptLoader && window.ScriptLoader.loadBundle && window.ScriptLoader.loadBundle('estimates'));
@@ -279,6 +382,10 @@ test.describe.serial('phone estimate data @audit', () => {
     await card.locator('[data-act="open"]').tap();
     const table = page.locator('#estReviewBody .li-table');
     await expect(table, 'a real Classic doc still opens in Classic').toBeVisible({ timeout: 10_000 });
+    // "Estimate loaded" (and the previous test's "✓ Estimate updated") stack
+    // over the lower screen for a few seconds; at 360 they sat on the ESTIMATE
+    // TOTAL row. Let them time out before hit-testing.
+    await expect(page.locator('#toastContainer [id^="toast-"]')).toHaveCount(0, { timeout: 15_000 });
     for (const width of [412, 360]) {
       await page.setViewportSize({ width, height: 860 });
       await table.scrollIntoViewIfNeeded();
@@ -290,6 +397,9 @@ test.describe.serial('phone estimate data @audit', () => {
       });
       expect(m.overflow, `review table needs no sideways scroll at ${width}px`).toBeLessThanOrEqual(1);
       expect(m.clipped, `no TOTAL cell is cut off at ${width}px`).toBe(0);
+      // Only DESCRIPTION (column 2) may break anywhere to make room.
+      expect(await splitTokens(page, '#estReviewBody .li-table :is(th, td):not(:nth-child(2))'),
+        `no code, quantity, rate or total split mid-token at ${width}px`).toEqual([]);
       await expectTappable(page, '#estReviewBody .li-table .total-row.grand td:last-child', `ESTIMATE TOTAL cell @${width}`);
     }
     await page.setViewportSize({ width: 412, height: 860 });
@@ -344,6 +454,9 @@ test.describe.serial('phone estimate data @audit', () => {
       });
       expect(m.cells, 'line items rendered').toBeGreaterThan(1);
       expect(m.clipped, `no TOTAL cell past the card edge at ${width}px`).toBe(0);
+      // Only DESCRIPTION (column 1) may break anywhere; QUANTI/TY did.
+      expect(await splitTokens(page, '#nbd-invoice-detail-modal .invoice-detail .inv-lines :is(th, td):not(:first-child)'),
+        `no header, quantity or money split mid-token at ${width}px`).toEqual([]);
       await expectTappable(page, '#nbd-invoice-detail-modal .invoice-detail table thead th:last-child', `TOTAL header @${width}`);
     }
     await page.setViewportSize({ width: 412, height: 860 });

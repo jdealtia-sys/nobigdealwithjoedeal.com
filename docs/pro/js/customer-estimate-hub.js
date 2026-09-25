@@ -425,6 +425,16 @@
       withEstimates('openEstimateV2Builder', [{ estimateId: estId }]);
       return;
     }
+    // A Log Estimate record (amount only) never opens Classic: viewEstimate
+    // routes it to a small amount editor, a fixed sheet that sits above this
+    // overlay (phone audit 2026-09-25, estimate#11). So, like V2, it stays in
+    // the customer's context. The editor's save repaints the estimates list,
+    // which refreshes this hub.
+    if (typeof window._isLoggedEstimate === 'function' && window._isLoggedEstimate(est)
+        && typeof window.viewEstimate === 'function') {
+      window.viewEstimate(estId);
+      return;
+    }
     if (typeof _opts.onLeaveForClassic === 'function') _opts.onLeaveForClassic();
     if (typeof window.goTo === 'function') window.goTo('est');
     withEstimates('viewEstimate', [estId]);
