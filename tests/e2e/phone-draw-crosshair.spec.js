@@ -10,6 +10,10 @@
 // ring and same-spot guard, per-structure totals (decision 3), Undo/Redo,
 // Edit's Move/Drop/Flip/Type, and ☰ Tools as an overlay sheet that never
 // resizes the map and keeps #1757's installed-app guarantee.
+// Added after the L4 review (2026-09-25): toasts clear of the crosshair and
+// the pending point; a double tap on Add never commits; landscape (the bar
+// docks right); Shadow Pitch through Add; a no-move Drop; no tile-wiping
+// view reset on Confirm.
 //
 // How it measures:
 //   - The engine seam (drawMap.nbdDraw, draw lane L3) is a TEST-ONLY stub
@@ -120,13 +124,20 @@ async function expectTappable(page, selector, label) {
   await expect.poll(async () => (await hitTest(page, selector)).why, { message: `${label} (${selector}) is under a thumb`, timeout: 5_000 }).toBe('hit');
 }
 // Copy the @media(display-mode: standalone) rules to the top level: the
-// cascade the INSTALLED app gets (no browser can emulate display-mode).
+// cascade the INSTALLED app gets (no browser can emulate display-mode). A
+// block that is also (max-width:768px) is kept only at that width, so a
+// phone on its side (852px) gets what the installed app would.
 async function forceStandalone(page) {
   return page.evaluate(() => {
     let css = '';
     for (const sh of document.styleSheets) {
       let rules; try { rules = sh.cssRules; } catch (e) { continue; }
-      for (const r of rules) if (r.media && /display-mode:\s*standalone/.test(r.conditionText || r.media.mediaText)) for (const inner of r.cssRules) css += inner.cssText + '\n';
+      for (const r of rules) {
+        const mq = r.media ? (r.conditionText || r.media.mediaText) : '';
+        if (!/display-mode:\s*standalone/.test(mq)) continue;
+        if (/max-width:\s*768px/.test(mq) && innerWidth > 768) continue;
+        for (const inner of r.cssRules) css += inner.cssText + '\n';
+      }
     }
     const s = document.createElement('style');
     s.id = 'e2e-force-standalone';
@@ -164,6 +175,29 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       await T.setView(page, ll, WING.zoom);
       await tapSel('[data-dr-act="add"]');
       await tapSel('[data-dr-act="confirm"]');
+    }
+    // Every control on the bar and the side column is under a thumb and
+    // finger-sized: 44px chips, 56px action buttons, 44px round buttons.
+    async function checkControls(phase) {
+      const list = await page.evaluate(() => [...document.querySelectorAll('.dr-bar button, .dr-side button')]
+        .filter((e) => !e.hidden && e.offsetParent !== null)
+        .map((e) => ({ cls: e.className, label: e.getAttribute('aria-label') || e.textContent.trim(), h: Math.round(e.getBoundingClientRect().height), w: Math.round(e.getBoundingClientRect().width) })));
+      expect(list.length, `${phase}: controls found`).toBeGreaterThan(6);
+      for (const c of list) {
+        const min = /dr-act/.test(c.cls) ? 56 : 44;
+        expect(c.h, `${phase}: "${c.label}" height`).toBeGreaterThanOrEqual(min);
+        expect(c.w, `${phase}: "${c.label}" width`).toBeGreaterThanOrEqual(44);
+      }
+      const n = await page.evaluate(() => {
+        document.querySelectorAll('[data-e2e-hit]').forEach((e) => e.removeAttribute('data-e2e-hit'));
+        const vis = [...document.querySelectorAll('.dr-bar button, .dr-side button')].filter((e) => !e.hidden && e.offsetParent !== null);
+        vis.forEach((e, i) => e.setAttribute('data-e2e-hit', String(i)));
+        return vis.length;
+      });
+      for (let i = 0; i < n; i++) await expectTappable(page, `[data-e2e-hit="${i}"]`, `${phase}: control #${i}`);
+    }
+    async function confirmReady() {
+      await expect.poll(async () => (await ui(page)).confirm.disabled, { message: 'Confirm enabled once the double-tap guard runs out', timeout: 3_000 }).toBe(false);
     }
     async function reset() {
       await page.evaluate(() => drawMap.nbdDraw.__seed({}));
@@ -244,37 +278,67 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       });
       expect(chrome.attrib, 'Leaflet attribution is rendered').not.toBeNull();
       expect(u.bar.b, 'bar bottom vs the attribution strip').toBeLessThanOrEqual(chrome.attrib.t + 0.5);
+      // ...and right on it: a floor measured while the view was still
+      // sliding in left the bar up to 7px high (L4 fix, 2026-09-25).
+      expect(chrome.attrib.t - u.bar.b, 'bar sits just above the attribution strip').toBeLessThanOrEqual(4);
       if (chrome.nav) expect(u.bar.b, 'bar bottom vs the bottom nav').toBeLessThanOrEqual(chrome.nav.t + 0.5);
       expect(u.bar.x, 'bar inside the screen (left)').toBeGreaterThanOrEqual(0);
       expect(u.bar.r, 'bar inside the screen (right)').toBeLessThanOrEqual(chrome.vw);
       expect(u.bar.h, 'bar height cap').toBeLessThanOrEqual(190);
 
-      // Every control on the bar and the side column is under a thumb and
-      // finger-sized: 44px chips, 56px action buttons, 44px round buttons.
-      const sizes = async () => page.evaluate(() => [...document.querySelectorAll('.dr-bar button, .dr-side button')]
-        .filter((e) => !e.hidden && e.offsetParent !== null)
-        .map((e) => ({ cls: e.className, label: e.getAttribute('aria-label') || e.textContent.trim(), h: Math.round(e.getBoundingClientRect().height), w: Math.round(e.getBoundingClientRect().width) })));
-      const checkAll = async (phase) => {
-        const list = await sizes();
-        expect(list.length, `${phase}: controls found`).toBeGreaterThan(6);
-        for (const c of list) {
-          const min = /dr-act/.test(c.cls) ? 56 : 44;
-          expect(c.h, `${phase}: "${c.label}" height`).toBeGreaterThanOrEqual(min);
-          expect(c.w, `${phase}: "${c.label}" width`).toBeGreaterThanOrEqual(44);
-        }
-        const n = await page.evaluate(() => {
-          document.querySelectorAll('[data-e2e-hit]').forEach((e) => e.removeAttribute('data-e2e-hit'));
-          const vis = [...document.querySelectorAll('.dr-bar button, .dr-side button')].filter((e) => !e.hidden && e.offsetParent !== null);
-          vis.forEach((e, i) => e.setAttribute('data-e2e-hit', String(i)));
-          return vis.length;
-        });
-        for (let i = 0; i < n; i++) await expectTappable(page, `[data-e2e-hit="${i}"]`, `${phase}: control #${i}`);
-      };
       await T.quietToasts(page);
-      await checkAll('aiming');
+      await checkControls('aiming');
       await tapSel('[data-dr-act="add"]');
-      await checkAll('pending');
+      await checkControls('pending');
       await tapSel('[data-dr-act="cancel"]');
+    });
+
+    // 2026-09-25 (L4 review): lifted to just above the bar, a toast sat ON
+    // the crosshair at 360x640 and 393x660 — the engine toasts after every
+    // close, flip, finish run and empty undo — hiding it and taking the
+    // finger meant for the pending point for its 5 s life. On the Draw
+    // screen toasts now sit at the top of the map.
+    test('a toast clears the crosshair, the pending point and the magnifier, and lets a finger through', async () => {
+      await reset();
+      await mode('perim');
+      await T.quietToasts(page);
+      await page.evaluate(() => window.showToast('Facet 1 closed — 1075 sf', 'info'));
+      await expect(page.locator('#toastContainer .toast')).toHaveCount(1);
+      await page.waitForTimeout(300); // slide-in
+      const overlap = (a, b) => !!a && !!b && a.x < b.r && b.x < a.r && a.y < b.b && b.y < a.b;
+      const toastBox = () => page.evaluate(() => {
+        const r = document.querySelector('#toastContainer .toast').getBoundingClientRect();
+        return { x: r.left, y: r.top, r: r.right, b: r.bottom, h: r.height };
+      });
+      let u = await ui(page);
+      let t = await toastBox();
+      expect(overlap(t, u.cross), `toast ${JSON.stringify(t)} vs the crosshair ${JSON.stringify(u.cross)}`).toBe(false);
+      expect(overlap(t, u.bar), 'toast vs the bar').toBe(false);
+      const at = await T.hitAt(page, { x: u.map.cx, y: u.map.cy });
+      expect(at.ok, `a finger at the crosshair reaches the map (${at.what || ''})`).toBe(true);
+      await tapSel('[data-dr-act="add"]');
+      u = await ui(page);
+      t = await toastBox();
+      expect(overlap(t, u.handle), 'toast vs the pending point').toBe(false);
+      expect(overlap(t, u.loupe), `toast vs the magnifier ${JSON.stringify(u.loupe)}`).toBe(false);
+      // Hit-tested once, NOW, not polled: a poll outlasts the toast's 5 s
+      // life and passes on a toast that did swallow the tap (break-tested).
+      expect((await hitTest(page, '.dr-handle')).why, 'the pending point with a toast up').toBe('hit');
+      // The toast body lets taps through to the zoom button it floats over;
+      // its ✕ still closes it.
+      const under = await page.evaluate(() => {
+        const t = document.querySelector('#toastContainer .toast').getBoundingClientRect();
+        const z = document.querySelector('#drawMap .leaflet-control-zoom-in').getBoundingClientRect();
+        const x = z.left + z.width / 2, y = z.top + z.height / 2;
+        return { overlaps: x > t.left && x < t.right && y > t.top && y < t.bottom };
+      });
+      expect(under.overlaps, 'the toast floats over zoom-in (+) — the case this pins').toBe(true);
+      expect((await hitTest(page, '#drawMap .leaflet-control-zoom-in')).why, 'zoom-in (+) under the toast').toBe('hit');
+      expect((await hitTest(page, '#toastContainer .toast-close')).why, 'the toast ✕').toBe('hit');
+      await expect(page.locator('#toastContainer .toast'), 'the toast was up for all three').toHaveCount(1);
+      await tapSel('[data-dr-act="cancel"]');
+      await T.quietToasts(page);
+      await expect(page.locator('#toastContainer .toast')).toHaveCount(0);
     });
 
     test('Add drops a PENDING point at the crosshair — nothing is committed, the magnifier opens', async () => {
@@ -291,6 +355,7 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       expect(u.loupe, 'magnifier shows while placing').not.toBeNull();
       expect(u.confirm.hidden || u.cancel.hidden, 'Confirm and Cancel replace Add').toBe(false);
       expect(u.add.hidden, 'Add hides while a point is pending').toBe(true);
+      expect(u.confirm.disabled, 'Confirm (in Add\'s slot) waits out a double tap').toBe(true);
     });
 
     test('drag: the pending point follows the finger, and the magnifier sits above the finger, centred on it', async () => {
@@ -329,7 +394,12 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       const u0 = await ui(page);
       const want = u0.handleLL;
       expect(Math.hypot(u0.handle.cx - u0.map.cx, u0.handle.cy - u0.map.cy), 'the point was dragged off the crosshair').toBeGreaterThan(30);
+      // 2026-09-25 (L4 review): the recentre was setView({reset:true}), whose
+      // viewprereset throws every tile away — the imagery blanked for ~300ms
+      // on each adjusted Confirm. It must be a plain pan now.
+      await page.evaluate(() => { window.__e2eResets = 0; drawMap.on('viewprereset', () => { window.__e2eResets++; }); });
       await tapSel('[data-dr-act="confirm"]');
+      expect(await page.evaluate(() => window.__e2eResets), 'view resets (tile wipes) during Confirm').toBe(0);
       const u = await ui(page);
       const put = placements(u);
       expect(put.length, 'placeAtReticle calls').toBe(1);
@@ -381,11 +451,45 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       const from0 = { x: box.x + box.w * 0.3, y: box.y + box.h * 0.2 };
       await touch.pan(from0, { x: from0.x - 50, y: from0.y + 40 }, { steps: 16, settleMs: 450 }); // off the last corner
       await tapSel('[data-dr-act="add"]');
+      // Out of the double-tap guard BEFORE the drag, so the tap below still
+      // follows the lift at once (tap() would otherwise wait for Confirm).
+      await confirmReady();
       const h = (await ui(page)).handle;
       await finger.drag({ x: h.cx, y: h.cy }, { x: h.cx + 52, y: h.cy + 36 }, 16);
       await finger.up();
       await tapSel('[data-dr-act="confirm"]');
       expect(placements(await ui(page)).length, 'Confirm committed the dragged point').toBe(placements(u0).length + 1);
+    });
+
+    // 2026-09-25 (L4 review): Add turns into Cancel | Confirm in the same
+    // row, with Confirm in Add's slot, so a double tap on Add — or a second
+    // tap in glare when the first seemed not to take — committed the point
+    // and skipped Jo's adjust step (measured at 120-400 ms gaps). Raw CDP
+    // taps here: locator.tap() would wait for Confirm to be enabled.
+    test('a double tap on Add leaves the point pending — the second tap does not Confirm it', async () => {
+      await reset();
+      await mode('perim');
+      await T.quietToasts(page);
+      const box = await page.locator('[data-dr-act="add"]').boundingBox();
+      const p = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      for (const gap of [120, 250, 400]) {
+        const a = (await ui(page)).add;
+        expect(a.hidden || a.disabled, `Add ready (gap ${gap} ms)`).toBe(false);
+        await finger.down(p); await finger.up();
+        await page.waitForTimeout(gap);
+        await finger.down(p); await finger.up();
+        await page.waitForTimeout(200);
+        await nextFrames(page);
+        const u = await ui(page);
+        expect(u.handle, `second tap ${gap} ms after Add: the first tap made a pending point`).not.toBeNull();
+        expect(placements(u).length, `second tap ${gap} ms after Add: nothing committed`).toBe(0);
+        await tapSel('[data-dr-act="cancel"]');
+        await page.waitForTimeout(350); // not a double tap with the next Add
+      }
+      await tapSel('[data-dr-act="add"]');
+      await confirmReady();
+      await tapSel('[data-dr-act="confirm"]');
+      expect(placements(await ui(page)).length, 'a deliberate Confirm still commits').toBe(1);
     });
 
     test('outline: sticky Eave/Rake chips type every edge; same-spot guard; the snap ring closes the shape on corner A', async () => {
@@ -521,6 +625,172 @@ for (const [width, height] of [[412, 860], [360, 640]]) {
       expect(u.calls.filter((c) => c.fn === 'retype').map((c) => c.args), 'retype(id, Valley)').toEqual([[3, 3]]);
       expect(u.model.lines.find((l) => l.id === 3).name).toBe('Valley');
     });
+
+    // 2026-09-25 (L4 review): the real engine refuses a Drop where the corner
+    // already is ('no-move'); the screen only told the screen reader, and
+    // the rep was stranded on "Moving corner — drag it, then Drop" with a
+    // Drop that did nothing. (The stub accepted it then; it refuses now.)
+    test('edit: Drop without moving the corner puts it back and says so — the rep is never stranded on "Moving corner"', async () => {
+      const pts = [WING.A, WING.B, WING.C, WING.D];
+      const lines = pts.map((p, i) => ({ id: i + 1, type: 5, name: 'Eave', color: '#BE185D', p1: p, p2: pts[(i + 1) % 4], dist: G.hav(p, pts[(i + 1) % 4]), structureId: 1, facetId: 1 }));
+      await page.evaluate((m) => drawMap.nbdDraw.__seed(m), {
+        facets: [{ id: 1, points: pts, closed: true, baseArea: G.shoelace(pts), pitch: PITCH, structureId: 1 }], lines, nextId: 5,
+      });
+      await page.evaluate(() => { drawMap.nbdDraw.__calls.length = 0; });
+      await mode('edit');
+      await T.setView(page, WING.B, WING.zoom);
+      await tapSel('[data-dr-act="add"]');
+      let u = await ui(page);
+      expect(u.confirm.text, 'Move corner is pending').toMatch(/Drop/);
+      await tapSel('[data-dr-act="confirm"]');
+      u = await ui(page);
+      expect(u.handle, 'no pending corner after the Drop').toBeNull();
+      expect(u.add.hidden, 'Move corner is back on the bar').toBe(false);
+      expect(u.readMain, 'the readout says what happened').toBe('Corner left where it was');
+      expect(u.calls.filter((c) => c.fn === 'moveVertex' && c.result && c.result.ok).length, 'nothing moved').toBe(0);
+      expect(await pxApart(page, u.model.lines.find((l) => l.id === 1).p2, WING.B), 'corner B is where it was').toBeLessThanOrEqual(0.01);
+    });
+
+    // 2026-09-25 (L4 review): in crosshair mode a real tap only aims, so the
+    // drawer's Shadow Pitch (two points along a shadow, two along the roof
+    // edge) had no way to place a point on phones. Add now places them.
+    test('Shadow Pitch works through the crosshair: Add places each of its four points, unsnapped, with its own labels', async () => {
+      const btn = await page.evaluate(() => { const b = document.querySelector('#map-sidebar-draw [data-fn="startShadowPitch"]'); return b ? getComputedStyle(b).display : 'missing'; });
+      expect(['none', 'missing'], `Shadow Pitch stays in ☰ Tools on phones (display ${btn})`).not.toContain(btn);
+      await reset();
+      await mode('perim');
+      await placeAt(WING.A);
+      await placeAt(WING.B);
+      await page.evaluate(() => { const api = drawMap.nbdDraw; const m = api.__model(); m.shadow = 'shadow'; api.__seed(m); api.__calls.length = 0; });
+      // 8 px off corner B, the last corner: Outline would snap onto B and
+      // refuse the same spot. A shadow point does neither.
+      const b = await T.ll2client(page, WING.B);
+      await page.evaluate(([x, y]) => { const r = drawMap.getContainer().getBoundingClientRect(); drawMap.setView(drawMap.containerPointToLatLng([x - r.left, y - r.top]), drawMap.getZoom(), { animate: false }); }, [b.x + 6, b.y - 5]);
+      await page.waitForTimeout(250);
+      await nextFrames(page);
+      let u = await ui(page);
+      expect(u.add.text, 'Add names the step').toBe('Place shadow point');
+      expect(u.readMain, 'the readout names the step').toMatch(/^Shadow Pitch 1\/2/);
+      expect(u.add.disabled, 'Add is live beside the last corner').toBe(false);
+      expect(u.ring, 'no snap ring for a shadow point').toBeNull();
+      expect(await page.locator('.dr-edge[data-dr-edge="eave"]').isHidden(), 'no Eave / Rake chips').toBe(true);
+      const centre = await T.client2ll(page, { x: u.map.cx, y: u.map.cy });
+      await tapSel('[data-dr-act="add"]');
+      await confirmReady();
+      await tapSel('[data-dr-act="confirm"]');
+      u = await ui(page);
+      expect(placements(u).map((c) => c.args), 'placed unsnapped').toEqual([{ snap: false }]);
+      expect(await pxApart(page, u.model.shadowPts[0], centre), 'the point is where the crosshair was').toBeLessThanOrEqual(0.75);
+      expect(await pxApart(page, u.model.shadowPts[0], WING.B), '... not pulled onto corner B').toBeGreaterThan(5);
+      await placeAt(WING.C);
+      u = await ui(page);
+      expect(u.add.text, 'step 2').toBe('Place roof-edge point');
+      expect(u.readMain).toMatch(/^Shadow Pitch 2\/2/);
+      await placeAt(WING.D);
+      await placeAt({ lat: (WING.A.lat + WING.C.lat) / 2, lng: (WING.A.lng + WING.C.lng) / 2 });
+      u = await ui(page);
+      expect(u.calls.map((c) => c.fn), 'the engine estimated the pitch').toContain('shadow-estimated');
+      expect(placements(u).length, 'four Shadow Pitch placements').toBe(4);
+      expect(u.add.text, 'back to the outline').toBe('Add corner');
+      expect(u.model.open.length, 'the outline was not touched').toBe(2);
+    });
+
+    if (width === 412) {
+      // 2026-09-25 (L4 review): the installed app rotates (manifest
+      // orientation "any"), and on its side the 174px bar across the bottom
+      // covered the crosshair outright, while the desktop's 280px Tools
+      // column came back and shrank the map. The bar docks right instead.
+      test('landscape: the bar docks right, clear of the crosshair; Add / Confirm, ☰ Tools and toasts work on a phone on its side', async () => {
+        await reset();
+        await mode('perim');
+        await T.quietToasts(page);
+        const overlap = (a, b) => !!a && !!b && a.x < b.r && b.x < a.r && a.y < b.b && b.y < a.b;
+        const boxOf = (sel) => page.evaluate((s) => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return r.width ? { x: r.left, y: r.top, r: r.right, b: r.bottom } : null; }, sel);
+        let placed = 0;
+        try {
+          for (const [w, h] of [[852, 393], [740, 360]]) {
+            const tag = `${w}x${h}`;
+            await page.setViewportSize({ width: w, height: h });
+            await page.waitForTimeout(700);
+            await T.setView(page, WING.view, WING.zoom);
+            await nextFrames(page);
+            const u = await ui(page);
+            expect(Math.hypot(u.cross.cx - u.map.cx, u.cross.cy - u.map.cy), `${tag}: crosshair = map centre`).toBeLessThanOrEqual(1);
+            expect(overlap(u.bar, u.cross), `${tag}: bar ${JSON.stringify(u.bar)} vs crosshair ${JSON.stringify(u.cross)}`).toBe(false);
+            expect(overlap(await boxOf('.dr-side'), u.cross), `${tag}: side buttons vs crosshair`).toBe(false);
+            const hit = await T.hitAt(page, { x: u.map.cx, y: u.map.cy });
+            expect(hit.ok, `${tag}: a finger at the crosshair reaches the map (${hit.what})`).toBe(true);
+            expect(u.bar.r, `${tag}: bar inside the screen`).toBeLessThanOrEqual(w);
+            if (w === 852) await checkControls(`${tag} aiming`);
+            else for (const s of ['.dr-mode[data-dr-mode="line"]', '.dr-read', '[data-dr-act="add"]']) await expectTappable(page, s, `${tag}: ${s}`);
+            await tapSel('[data-dr-act="add"]');
+            const p = await ui(page);
+            expect(overlap(p.bar, p.handle), `${tag}: bar vs the pending point`).toBe(false);
+            expect(overlap(p.bar, p.loupe), `${tag}: bar vs the magnifier ${JSON.stringify(p.loupe)}`).toBe(false);
+            expect(p.loupe.y >= p.map.y - 0.5 && p.loupe.x >= -0.5 && p.loupe.b <= p.map.y + p.map.h + 0.5, `${tag}: magnifier on the map`).toBe(true);
+            await expectTappable(page, '.dr-handle', `${tag}: the pending point`);
+            await expectTappable(page, '[data-dr-act="confirm"]', `${tag}: Confirm`);
+            await tapSel('[data-dr-act="confirm"]');
+            placed += 1;
+            expect(placements(await ui(page)).length, `${tag}: Add, Confirm commits`).toBe(placed);
+            await tapSel('[data-dr-act="undo"]');
+          }
+          // 852x393: ☰ Tools overlays (the desktop column would shrink the map), with Lines / Gutters under a thumb; a toast clears the crosshair and the bar.
+          await page.setViewportSize({ width: 852, height: 393 });
+          await page.waitForTimeout(700);
+          // The installed app on its side gets the DESKTOP standalone rules
+          // (over 768px): the view pinned to 100dvh-60px, the map to
+          // 100dvh-120px, the body padded 80px. The map overran its clipped
+          // view and cut Cancel / Confirm in half (WebKit, L4 fix).
+          expect(await forceStandalone(page), '852x393: standalone rules found').toBeGreaterThan(200);
+          try {
+            await page.evaluate(() => window.dispatchEvent(new Event('resize')));
+            await page.waitForTimeout(700);
+            const fit = await page.evaluate(() => {
+              const v = document.getElementById('view-draw').getBoundingClientRect();
+              const m = drawMap.getContainer().getBoundingClientRect();
+              const b = document.querySelector('.dr-bar').getBoundingClientRect();
+              return { viewB: v.bottom, mapB: m.bottom, barB: b.bottom, vh: innerHeight };
+            });
+            expect(fit.mapB, `852x393 installed: the map ends inside its view ${JSON.stringify(fit)}`).toBeLessThanOrEqual(fit.viewB + 0.5);
+            expect(fit.barB, '852x393 installed: the bar ends inside the view').toBeLessThanOrEqual(fit.viewB + 0.5);
+            const cu = await ui(page);
+            expect(overlap(cu.bar, cu.cross), '852x393 installed: bar vs crosshair').toBe(false);
+            await expectTappable(page, '[data-dr-act="add"]', '852x393 installed: Add');
+            await expectTappable(page, '[data-dr-act="undo"]', '852x393 installed: Undo');
+          } finally {
+            await page.evaluate(() => { const st = document.getElementById('e2e-force-standalone'); if (st) st.remove(); window.dispatchEvent(new Event('resize')); });
+            await page.waitForTimeout(500);
+          }
+          const tools = '[data-action="mapSidebar"][data-target="map-sidebar-draw"]';
+          const before = await T.mapBox(page);
+          await expectTappable(page, tools, '852x393: ☰ Draw Tools');
+          await page.locator(tools).tap();
+          await expect(page.locator('#map-sidebar-draw')).toHaveClass(/\bopen\b/);
+          await page.waitForTimeout(400);
+          expect(await T.mapBox(page), '852x393: the map box with the sheet open').toEqual(before);
+          expect(await page.evaluate(() => getComputedStyle(document.getElementById('map-sidebar-draw')).position), '852x393: the sheet overlays').toBe('absolute');
+          // ~250px of sheet on its side: Draw Mode is a scroll down inside it.
+          await page.locator('#modeLineBtn').scrollIntoViewIfNeeded();
+          expect(await T.mapBox(page), '852x393: scrolling the sheet leaves the map alone').toEqual(before);
+          await expectTappable(page, '#modeLineBtn', '852x393: Lines in the sheet');
+          await expectTappable(page, '#modeGutterBtn', '852x393: Gutters in the sheet');
+          await page.locator(tools).tap();
+          await expect(page.locator('#map-sidebar-draw')).not.toHaveClass(/\bopen\b/);
+          await page.evaluate(() => window.showToast('Facet 1 closed — 1075 sf', 'info'));
+          await page.waitForTimeout(300);
+          const t = await boxOf('#toastContainer .toast');
+          const u2 = await ui(page);
+          expect(overlap(t, u2.cross), `852x393: toast ${JSON.stringify(t)} vs the crosshair`).toBe(false);
+          expect(overlap(t, u2.bar), '852x393: toast vs the bar').toBe(false);
+          await T.quietToasts(page);
+        } finally {
+          if (await page.locator('#map-sidebar-draw.open').count()) await page.locator('[data-action="mapSidebar"][data-target="map-sidebar-draw"]').tap().catch(() => {});
+          await page.setViewportSize({ width, height });
+          await page.waitForTimeout(700);
+        }
+      });
+    }
 
     for (const installed of [false, true]) {
       test(`Tools opens an overlay sheet${installed ? ' (installed app)' : ''}: the map keeps its size, Lines / Gutters stay under a thumb, Add waits`, async () => {

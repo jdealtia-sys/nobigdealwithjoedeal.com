@@ -15,6 +15,9 @@
 //   4. Confirm commits it (Cancel throws it away). If the point is no longer
 //      at the crosshair, Confirm first pans it there without animation, so
 //      the engine's one placement path (placeAtReticle) is the only writer.
+//      Confirm ignores taps for CONFIRM_GUARD_MS after Add: Confirm takes
+//      Add's place in the row, so a double tap on Add would otherwise commit
+//      the point and skip the adjust step (L4 review, 2026-09-25).
 // Desktop keeps click-to-place: this file returns before touching anything
 // unless (pointer: coarse) matches.
 //
@@ -25,14 +28,19 @@
 //              already present when this file runs (ScriptLoader may run
 //              initDrawMap before this bundle entry has executed)
 //   state()    {mode, armed, lineType, lineTypes[{name,color}], accessory,
-//               anchor, first, openCount, canClose, canFinishRun, canUndo,
-//               canRedo, structureId, structures[{id,name}]}
+//               shadow:'shadow'|'edge'|null, anchor, first, openCount,
+//               canClose, canFinishRun, canUndo, canRedo, structureId,
+//               structures[{id,name}]}
 //   totals()   NBDDrawGeom.structureTotals shape {per[], combined{..., text}}
 //   setMode(mode|null, {lineType})   arm Outline/Lines/Gutters, or disarm
 //   setCrosshair(true)  snap(ll, px)  preview(ll|null)
-//   placeAtReticle({edgeType})  closeShape({edgeType})  finishRun()
-//   undo()  redo()  pick(ll, px)  moveVertex(from, to)
+//   placeAtReticle({edgeType} | {snap:false})  closeShape({edgeType})
+//   finishRun()  undo()  redo()  pick(ll, px)
+//   moveVertex(from, to) -> {ok} | {ok:false, reason:'no-move'|'collapse'|...}
 //   retype(id, lt)  flip(id)  remove(id)  on('change', fn)
+// Shadow Pitch (2026-09-25, L4 review): a real tap only aims in crosshair
+// mode, so the drawer's Shadow Pitch clicks come through here too — Add
+// places each of its four points, unsnapped, while state().shadow is set.
 //
 // INVARIANTS: no new window globals; no inline handlers (addEventListener
 // only); the DOM is built here, inside #view-draw .map-area (no template
@@ -50,6 +58,13 @@
   var LOUPE_UP = 2;        // magnifier zoom = map zoom + 2 (4x; upscaling past native is fine)
   var LOUPE_MAX_Z = 24;
   var LOUPE_GAP = 44;      // px between the point and the magnifier's near edge (clears a fingertip)
+  // A double tap on Add — or a second tap in glare when the first seemed not
+  // to take — lands on Confirm, which fills Add's slot. Measured on the L4
+  // review (WebKit iPhone 14 Pro): second taps 150 / 250 / 400 ms after Add
+  // all committed. 500 ms outlasts them and is shorter than any deliberate
+  // look-at-the-magnifier-then-Confirm.
+  var CONFIRM_GUARD_MS = 500;
+  var NOTICE_MS = 2600;    // how long a refusal stays on the readout
   var COACH_KEY = 'nbd_draw_crosshair_coached';
   var DRAW_MODES = { perim: 1, line: 1, gutter: 1 };
   var MODE_CHIPS = [['perim', 'Outline'], ['line', 'Lines'], ['gutter', 'Gutters'], ['edit', 'Edit']];
@@ -99,6 +114,8 @@
     var picked = null;    // Edit mode: api.pick() at the crosshair
     var typesFor = null;  // the line-type picker is open for: 'line' | 'retype'
     var sheetOpen = false;
+    var notice = null;    // {text, until}: a refusal the readout shows for NOTICE_MS
+    var guardTimer = 0;   // re-renders Confirm when CONFIRM_GUARD_MS runs out
     var raf = 0;
     var loupe = null, loupeLayers = [], loupeBand = null, loupeDirty = true;
 
@@ -212,13 +229,32 @@
     // ── Helpers on the map ──
     function centrePt() { var s = map.getSize(); return L.point(s.x / 2, s.y / 2); }
     function centreLL() { return map.containerPointToLatLng(centrePt()); }
-    // Put `ll` under the crosshair at once. `reset` makes Leaflet re-origin
-    // the view (<=0.5px rounding per axis); a plain {animate:false} setView
-    // to a spot already on screen pans by a TRUNCATED offset — up to 1.4px
-    // off, measured 2026-09-25 (vendored Leaflet 1.9.4, _tryAnimatedPan).
-    function centreOn(ll) { map.setView(ll, map.getZoom(), { animate: false, reset: true }); }
+    // Put `ll` under the crosshair at once, to <=0.5px per axis: panBy with
+    // our own ROUNDED offset. Not setView: a plain {animate:false} setView to
+    // a spot on screen pans by a TRUNCATED offset (up to 1.4px off, measured
+    // 2026-09-25, Leaflet 1.9.4 _tryAnimatedPan), and {reset:true} — used
+    // until the L4 review — fires viewprereset, which throws every tile away:
+    // the imagery blanked for ~300ms on each adjusted Confirm (review,
+    // 2026-09-25). panBy with animate:false is a synchronous pane shift.
+    function centreOn(ll) {
+      var d = px(ll).subtract(centrePt());
+      var off = L.point(Math.round(d.x), Math.round(d.y));
+      if (off.x || off.y) map.panBy(off, { animate: false });
+    }
     function px(ll) { return map.latLngToContainerPoint(ll); }
-    function isDrawing() { return !!DRAW_MODES[uiMode] || !!(st && st.accessory); }
+    // Shadow Pitch and accessory placement are one-off clicks the drawer
+    // arms; while one is armed, Add places it (no snap, no edge chips, no
+    // same-spot rule) whatever mode chip is lit.
+    function special() { return st && st.shadow ? 'shadow' : (st && st.accessory ? 'accessory' : null); }
+    function isDrawing() { return !!DRAW_MODES[uiMode] || !!special(); }
+    function guarding() { return !!pending && pending.purpose === 'place' && now() - pending.at < CONFIRM_GUARD_MS; }
+    function now() { return (window.performance && performance.now) ? performance.now() : Date.now(); }
+    function note(text) {
+      notice = { text: text, until: now() + NOTICE_MS };
+      say(text);
+      window.setTimeout(schedule, NOTICE_MS + 20);
+      schedule();
+    }
     function sameLL(a, b) { return !!a && !!b && Math.abs(a.lat - b.lat) < 1e-10 && Math.abs(a.lng - b.lng) < 1e-10; }
     function ftPerPx() {
       var c = centrePt();
@@ -275,16 +311,21 @@
       var w = root.clientWidth, h = root.clientHeight;
       var d = loupeEl.offsetWidth || 128;
       var r = d / 2;
-      var barTop = bar.offsetTop || h;
+      // Room on screen. Portrait: everything above the bar. Landscape (the
+      // bar docked as a right-hand column, css): everything left of the side
+      // buttons, down to the bar's floor (2026-09-25, L4 review).
+      var docked = bar.offsetTop < h / 2;
+      var bottomY = docked ? bar.offsetTop + bar.offsetHeight : (bar.offsetTop || h);
+      var rightX = docked ? Math.min(side.offsetLeft || w, bar.offsetLeft || w) : w;
       // The finger sits at or just below the point; go above both.
       var topY = Math.min(p.y, finger ? finger.y : p.y);
       var cx = p.x, cy = topY - LOUPE_GAP - r;
       if (cy - r < 8) {
         // No room above: beside the point, on the roomier side.
-        cx = p.x > w / 2 ? p.x - LOUPE_GAP - r : p.x + LOUPE_GAP + r;
-        cy = Math.max(8 + r, Math.min(p.y, barTop - 8 - r));
+        cx = rightX - p.x < p.x ? p.x - LOUPE_GAP - r : p.x + LOUPE_GAP + r;
+        cy = Math.max(8 + r, Math.min(p.y, bottomY - 8 - r));
       }
-      cx = Math.max(8 + r, Math.min(w - 8 - r, cx));
+      cx = Math.max(8 + r, Math.min(rightX - 8 - r, cx));
       loupeEl.style.transform = 'translate3d(' + (cx - r) + 'px,' + (cy - r) + 'px,0)';
       var z = Math.min(LOUPE_MAX_Z, map.getZoom() + LOUPE_UP);
       lp.setView(pending.latlng, z, { animate: false });
@@ -323,7 +364,7 @@
       var target = pending ? pending.latlng : map.containerPointToLatLng(c);
       var drawing = isDrawing() && !(pending && pending.purpose === 'move');
       snapHit = null;
-      if (drawing && !(st && st.accessory)) {
+      if (drawing && !special()) {
         var s = safe(function () { return api.snap(target, SNAP_PX); }, null);
         if (s && s.snapped && s.latlng) snapHit = L.latLng(s.latlng.lat, s.latlng.lng);
       }
@@ -331,7 +372,7 @@
       wasSnapped = !!snapHit;
       if (drawing) { pv = safe(function () { return api.preview(snapHit || target); }, null); previewOn = true; }
       else { pv = null; if (previewOn) { safe(function () { api.preview(null); }); previewOn = false; } }
-      picked = (uiMode === 'edit' && !pending) ? safe(function () { return api.pick(target, PICK_PX); }, null) : null;
+      picked = (uiMode === 'edit' && !pending && !special()) ? safe(function () { return api.pick(target, PICK_PX); }, null) : null;
 
       // Paint the overlays.
       if (snapHit) { atPx(ring, px(snapHit), 17); ring.hidden = false; } else ring.hidden = true;
@@ -361,7 +402,7 @@
       return px(ll).distanceTo(px(L.latLng(st.anchor.lat, st.anchor.lng)));
     }
     function closesShape(ll) {
-      return uiMode === 'perim' && st && st.first && st.openCount >= 3 && !!ll && sameLL(ll, L.latLng(st.first.lat, st.first.lng));
+      return uiMode === 'perim' && !special() && st && st.first && st.openCount >= 3 && !!ll && sameLL(ll, L.latLng(st.first.lat, st.first.lng));
     }
     function structureName(id) {
       var s = (st.structures || []).filter(function (x) { return x.id === id; })[0];
@@ -396,11 +437,12 @@
     function render() {
       if (!st) readState();
       var drawing = isDrawing();
+      var sp = special();
       Object.keys(modeBtns).forEach(function (k) { modeBtns[k].setAttribute('aria-pressed', String(uiMode === k)); });
       eaveBtn.setAttribute('aria-pressed', String(edgeType === 'eave'));
       rakeBtn.setAttribute('aria-pressed', String(edgeType === 'rake'));
-      show(eaveBtn, uiMode === 'perim'); show(rakeBtn, uiMode === 'perim');
-      show(typeBtn, uiMode === 'line');
+      show(eaveBtn, uiMode === 'perim' && !sp); show(rakeBtn, uiMode === 'perim' && !sp);
+      show(typeBtn, uiMode === 'line' && !sp);
       typeName.textContent = ltName(st.lineType || 0);
       typeDot.style.background = ltColor(st.lineType || 0);
       var edge = picked && picked.kind === 'edge' ? picked : null;
@@ -412,15 +454,18 @@
       // structure's total; the second line is always the per-structure / job
       // totals.
       var aim = pending ? (snapHit || pending.latlng) : (snapHit || centreLL());
-      var gap = drawing ? anchorGap(aim) : Infinity;
+      var gap = drawing && !sp ? anchorGap(aim) : Infinity;
       var sameSpot = gap < SAME_SPOT_PX;
       var main;
+      if (notice && now() >= notice.until) notice = null;
       // Right after a Confirm the crosshair sits ON the new point, so the
       // idle case is guidance, not a warning.
-      if (sameSpot && pending) main = 'Same spot as the last point — drag it off, or Cancel';
+      if (notice) main = notice.text;
+      else if (sameSpot && pending) main = 'Same spot as the last point — drag it off, or Cancel';
       else if (sameSpot) main = 'On the last point — slide to the next one';
       else if (pending && pending.purpose === 'move') main = 'Moving corner — drag it, then Drop';
-      else if (st.accessory && drawing) main = 'Place ' + st.accessory + ' at the crosshair';
+      else if (sp === 'shadow') main = st.shadow === 'edge' ? 'Shadow Pitch 2/2 · the roof edge, eave to ridge' : 'Shadow Pitch 1/2 · two points along the shadow';
+      else if (sp === 'accessory') main = 'Place ' + st.accessory + ' at the crosshair';
       else if (drawing && pv && pv.anchor) {
         var seg = Number(pv.segmentFt) || 0, run = Number(pv.runFt) || 0;
         main = (closesShape(aim) ? 'Close · ' : '') + seg.toFixed(1) + ' ft' + (run > seg + 0.05 ? ' · run ' + run.toFixed(1) + ' ft' : '');
@@ -439,21 +484,24 @@
       undoBtn.disabled = !st.canUndo || sheetOpen;
       redoBtn.disabled = !st.canRedo || sheetOpen;
       var addLabel = 'Add';
-      if (uiMode === 'edit') addLabel = 'Move corner';
-      else if (st.accessory && drawing) addLabel = 'Place ' + st.accessory;
+      if (sp === 'shadow') addLabel = st.shadow === 'edge' ? 'Place roof-edge point' : 'Place shadow point';
+      else if (sp === 'accessory') addLabel = 'Place ' + st.accessory;
+      else if (uiMode === 'edit') addLabel = 'Move corner';
       else if (uiMode === 'perim') addLabel = closesShape(aim) ? 'Close' : 'Add corner';
       else if (uiMode === 'line') addLabel = st.anchor ? 'End line' : 'Start line';
       else if (uiMode === 'gutter') addLabel = st.anchor ? 'Add gutter point' : 'Start gutter run';
       addBtn.textContent = addLabel;
-      addBtn.disabled = blocked || (uiMode === 'edit' ? !(picked && picked.kind === 'vertex') : (!drawing || sameSpot));
+      addBtn.disabled = blocked || (uiMode === 'edit' && !sp ? !(picked && picked.kind === 'vertex') : (!drawing || sameSpot));
       var confirmLabel = 'Confirm';
       if (pending && pending.purpose === 'move') confirmLabel = 'Drop';
       else if (closesShape(aim)) confirmLabel = 'Confirm close';
       confirmBtn.textContent = '✓ ' + confirmLabel;
-      confirmBtn.disabled = !pending || blocked || (pending.purpose === 'place' && sameSpot);
+      var guard = guarding();
+      confirmBtn.disabled = !pending || blocked || guard || (pending.purpose === 'place' && sameSpot);
+      if (guard && !guardTimer) guardTimer = window.setTimeout(function () { guardTimer = 0; schedule(); }, Math.max(16, CONFIRM_GUARD_MS - (now() - pending.at)) + 16);
       var aux = '';
-      if (!pending && uiMode === 'perim' && st.canClose) aux = 'Close shape';
-      else if (!pending && uiMode === 'gutter' && st.canFinishRun) aux = 'Finish run';
+      if (!pending && !sp && uiMode === 'perim' && st.canClose) aux = 'Close shape';
+      else if (!pending && !sp && uiMode === 'gutter' && st.canFinishRun) aux = 'Finish run';
       auxBtn.textContent = aux;
       show(auxBtn, !!aux);
       auxBtn.disabled = blocked;
@@ -478,39 +526,52 @@
     function onAdd() {
       if (addBtn.disabled) return;
       closeTypes();
-      if (uiMode === 'edit') {
+      notice = null;
+      if (uiMode === 'edit' && !special()) {
         if (!picked || picked.kind !== 'vertex') return;
         var from = L.latLng(picked.latlng.lat, picked.latlng.lng);
         // Bring the corner to the crosshair, then it follows the crosshair
         // (nudge the map) until the rep drags it.
         centreOn(from);
-        pending = { latlng: from, origin: from, base: centreLL(), locked: true, purpose: 'move', from: from };
+        pending = { latlng: from, origin: from, base: centreLL(), locked: true, purpose: 'move', from: from, at: now() };
       } else {
         var here = centreLL();
-        pending = { latlng: here, origin: here, base: here, locked: true, purpose: 'place' };
+        pending = { latlng: here, origin: here, base: here, locked: true, purpose: 'place', at: now() };
       }
-      say(uiMode === 'edit' ? 'Moving corner' : 'Point pending — adjust it, then Confirm');
+      say(pending.purpose === 'move' ? 'Moving corner' : 'Point pending — adjust it, then Confirm');
       schedule();
     }
     function onConfirm() {
-      if (confirmBtn.disabled || !pending) return;
+      if (confirmBtn.disabled || !pending || guarding()) return;
       safe(function () { map.stop(); });
       if (pending.purpose === 'move') {
         var to = pending.latlng, from = pending.from;
+        // 2026-09-25 (L4 review): the engine refuses a Drop where the corner
+        // already is ('no-move'), and the rep was left on "Moving corner"
+        // with a Drop that did nothing. Not moved = nothing to do: Cancel.
+        if (sameLL(to, from)) { cancelPending(); note('Corner left where it was'); return; }
         var mv = safe(function () { return api.moveVertex(from, to); }, { ok: true });
-        if (mv && mv.ok === false) { say('Could not move that corner'); return; }
+        if (mv && mv.ok === false) {
+          if (mv.reason === 'no-move') { cancelPending(); note('Corner left where it was'); return; }
+          note(mv.reason === 'collapse' ? 'That folds an edge to nothing — drag it clear, or Cancel' : 'Could not move that corner');
+          return;
+        }
         pending = null; say('Corner moved'); readState(); schedule();
         return;
       }
+      var sp = special();
       var target = snapHit || pending.latlng;
       // Jo's flow: the engine places only at the crosshair. A point the rep
       // dragged is brought there first, without animation, so nothing is
       // gliding when it commits.
       if (px(target).distanceTo(centrePt()) > 0.5) centreOn(target);
-      var res = safe(function () { return api.placeAtReticle({ edgeType: edgeType }); }, { ok: true });
+      // A Shadow Pitch point marks a shadow on the ground: never pulled onto
+      // a roof corner.
+      var opts = sp === 'shadow' ? { snap: false } : { edgeType: edgeType };
+      var res = safe(function () { return api.placeAtReticle(opts); }, { ok: true });
       if (res && res.ok === false) {
-        readMain.textContent = res.reason === 'same-spot' ? 'Same spot as the last point — slide or zoom in'
-          : res.reason === 'moving' ? 'Wait for the map to stop' : 'Could not place the point';
+        note(res.reason === 'same-spot' ? 'Same spot as the last point — slide or zoom in'
+          : res.reason === 'moving' ? 'Wait for the map to stop' : 'Could not place the point');
         return;
       }
       pending = null;
@@ -647,6 +708,9 @@
       sheetOpen = open;
       if (open && pending) cancelPending();
       closeTypes();
+      // The drawer's Shadow Pitch / accessory buttons arm a one-off click
+      // without a 'change' from the engine: re-read as the sheet opens/closes.
+      readState();
       schedule();
     }
     if (sheet && window.MutationObserver) new MutationObserver(syncSheet).observe(sheet, { attributes: true, attributeFilter: ['class'] });
@@ -658,7 +722,12 @@
     }
 
     // ── Where the bar may sit: above the app's bottom nav and Leaflet's
-    // attribution strip; toasts lift above the bar while Draw is on screen ──
+    // attribution strip. Toasts move to the TOP of the map while Draw is on
+    // screen: lifted to just above the bar (the first cut), a toast sat ON
+    // the crosshair on every phone shorter than ~700px — at 360x640 and
+    // 393x660 it hid the crosshair and took the finger meant for the pending
+    // point for the toast's 5 s life (L4 review, 2026-09-25). At the top it
+    // clears the crosshair, the 56px handle and the magnifier above it. ──
     function measure() {
       var a = area.getBoundingClientRect();
       var floor = 0;
@@ -673,14 +742,26 @@
       if (!navOn) floor = safeAreaBottom();
       view.style.setProperty('--dr-floor', Math.round(floor) + 'px');
       var active = view.classList.contains('active') && a.height > 0;
+      // The view slides in (its box moves ~6px over ~200ms without resizing,
+      // so ResizeObserver stays quiet): measured once, the floor kept the
+      // mid-slide gap and the bar sat 2-7px high. Measure again once it has
+      // settled (L4 fix, 2026-09-25).
+      if (active && !wasActive) { window.setTimeout(measure, 400); window.setTimeout(measure, 1000); }
+      wasActive = active;
       document.body.classList.toggle('dr-bar-on', active);
       if (active) {
         var br = bar.getBoundingClientRect();
-        document.body.style.setProperty('--dr-toast-bottom', Math.round(window.innerHeight - br.top + 8) + 'px');
+        var bs = document.body.style;
+        // Landscape docks the bar in a right-hand column (css): stop short of it.
+        var right = br.top < a.top + a.height / 2 ? window.innerWidth - br.left + 8 : window.innerWidth - a.right + 12;
+        bs.setProperty('--dr-toast-top', Math.round(a.top + 8) + 'px');
+        bs.setProperty('--dr-toast-left', Math.round(a.left + 12) + 'px');
+        bs.setProperty('--dr-toast-right', Math.round(Math.max(12, right)) + 'px');
       }
       if (loupe && !loupeEl.hidden) loupe.invalidateSize({ pan: false });
       schedule();
     }
+    var wasActive = false;
     var probe = null;
     function safeAreaBottom() {
       if (!probe) { probe = el('div', 'dr-safe-probe'); root.appendChild(probe); }
@@ -690,6 +771,15 @@
     window.addEventListener('orientationchange', measure);
     if (window.ResizeObserver) new window.ResizeObserver(measure).observe(area);
     if (window.MutationObserver) new MutationObserver(measure).observe(view, { attributes: true, attributeFilter: ['class'] });
+    // A bottom strip (fab-stack-coordinator's --nbd-bottom-chrome) lifts the
+    // bottom nav by margin, which need not resize the map, so the observers
+    // above can miss it: a strip arriving after the last measure would slide
+    // the nav up under the bar (L4 fix, 2026-09-25).
+    var chrome = null;
+    if (window.MutationObserver) new MutationObserver(function () {
+      var v = document.documentElement.style.getPropertyValue('--nbd-bottom-chrome');
+      if (v !== chrome) { chrome = v; measure(); }
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['style'] });
 
     // ── First use: one line of help ──
     var coached = false;

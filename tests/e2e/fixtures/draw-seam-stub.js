@@ -14,6 +14,13 @@
 // L3 does at the end of initDrawMap. The engine underneath (today's main)
 // is never armed by it, so a real tap on the map places nothing.
 //
+// Matched to L3's real seam (#1768) after the L4 review, 2026-09-25: the
+// stub's moveVertex used to accept a Drop where the corner already was,
+// which L3 refuses ('no-move', and 'collapse' onto a neighbour) — so the
+// spec could not see the screen strand the rep on "Moving corner". It also
+// models Shadow Pitch (state().shadow, placeAtReticle({snap:false})); seed
+// it with __seed({shadow:'shadow'}).
+//
 // Test hooks (stub only, never part of the contract): api.__calls (every
 // seam call, with the map centre / zoom at the time for placements),
 // api.__model() (a JSON copy of the model), api.__seed(model) (replace the
@@ -52,7 +59,7 @@ function seamStubInit() {
 
   function fresh() {
     return {
-      mode: null, armed: false, lineType: 0, accessory: null, crosshair: false,
+      mode: null, armed: false, lineType: 0, accessory: null, shadow: null, shadowPts: [], crosshair: false,
       lines: [], facets: [], open: [], openSegIds: [], lineStart: null, run: null,
       structures: [{ id: 1, name: 'Structure 1' }], structureId: 1, nextId: 1, nextRun: 1, nextFacet: 1,
     };
@@ -78,6 +85,8 @@ function seamStubInit() {
     function snapshot() { undoStack.push(JSON.stringify(m)); if (undoStack.length > 80) undoStack.shift(); redoStack.length = 0; }
     function centre() { var s = map.getSize(); return map.containerPointToLatLng([s.x / 2, s.y / 2]); }
     function anchor() {
+      // Like L3: a one-off click (Shadow Pitch, an accessory) has no anchor.
+      if (m.shadow || m.accessory) return null;
       if (m.mode === 'perim') return m.open.length ? m.open[m.open.length - 1] : null;
       if (m.mode === 'line') return m.lineStart;
       if (m.mode === 'gutter') return m.run && m.run.pts.length ? m.run.pts[m.run.pts.length - 1] : null;
@@ -143,6 +152,14 @@ function seamStubInit() {
       };
     }
     function commit(p, edgeType) {
+      if (m.shadow) {
+        // L3 routes these to handleShadowClick: two points along the shadow,
+        // then two along the roof edge, then the pitch is estimated.
+        m.shadowPts.push(ll(p));
+        if (m.shadowPts.length === 2) m.shadow = 'edge';
+        else if (m.shadowPts.length >= 4) { m.shadow = null; m.shadowPts = []; rec('shadow-estimated'); }
+        return;
+      }
       if (m.accessory) { rec('accessory-placed', { type: m.accessory, at: p }); return; }
       if (m.mode === 'perim') {
         if (m.open.length >= 3 && same(p, m.open[0])) { close(edgeType); return; }
@@ -165,7 +182,7 @@ function seamStubInit() {
         var a = anchor();
         return {
           mode: m.armed ? m.mode : null, armed: m.armed, lineType: m.lineType, lineTypes: LT.map(function (t) { return { name: t.name, color: t.color }; }),
-          accessory: m.accessory, anchor: a ? ll(a) : null, first: m.mode === 'perim' && m.open.length ? ll(m.open[0]) : null,
+          accessory: m.accessory, shadow: m.shadow || null, anchor: a ? ll(a) : null, first: m.mode === 'perim' && m.open.length ? ll(m.open[0]) : null,
           openCount: m.mode === 'perim' ? m.open.length : m.mode === 'line' ? (m.lineStart ? 1 : 0) : (m.run ? m.run.pts.length : 0),
           canClose: m.mode === 'perim' && m.open.length >= 3, canFinishRun: m.mode === 'gutter' && !!m.run && m.run.pts.length >= 2,
           canUndo: undoStack.length > 0, canRedo: redoStack.length > 0,
@@ -201,9 +218,10 @@ function seamStubInit() {
         var s = map.getSize();
         var c = centre();
         var call = rec('placeAtReticle', opts || null, { centre: ll(c), zoom: map.getZoom(), size: { x: s.x, y: s.y } });
-        if (!m.armed && !m.accessory) return (call.result = { ok: false, reason: 'not-armed' });
+        if (!m.armed && !m.accessory && !m.shadow) return (call.result = { ok: false, reason: 'not-armed' });
         if (moving) return (call.result = { ok: false, reason: 'moving' });
-        var p = snapLL(c, SNAP_CAP_PX).latlng;
+        // {snap:false} (L3): place exactly at the crosshair — Shadow Pitch.
+        var p = opts && opts.snap === false ? ll(c) : snapLL(c, SNAP_CAP_PX).latlng;
         var a = anchor();
         if (a && map.latLngToContainerPoint(a).distanceTo(map.latLngToContainerPoint(p)) < SAME_SPOT_PX) return (call.result = { ok: false, reason: 'same-spot' });
         snapshot();
@@ -245,7 +263,12 @@ function seamStubInit() {
         return best ? { kind: 'edge', id: best.id, type: best.type, name: best.name, dist: best.dist, p1: ll(best.p1), p2: ll(best.p2) } : null;
       },
       moveVertex: function (from, to) {
-        rec('moveVertex', [ll(from), ll(to)]);
+        var call = rec('moveVertex', [ll(from), ll(to)]);
+        // L3 refuses a Drop where the corner already is, and one that folds
+        // an edge to nothing (onto a corner it shares a line with).
+        if (same(from, to)) return (call.result = { ok: false, reason: 'no-move' });
+        var folds = m.lines.some(function (l) { return (same(l.p1, from) && same(l.p2, to)) || (same(l.p2, from) && same(l.p1, to)); });
+        if (folds) return (call.result = { ok: false, reason: 'collapse' });
         snapshot();
         var moved = 0;
         var mv = function (p) { if (same(p, from)) { p.lat = Number(to.lat); p.lng = Number(to.lng); moved++; } };
@@ -256,7 +279,7 @@ function seamStubInit() {
         if (m.lineStart) mv(m.lineStart);
         if (!moved) undoStack.pop();
         changed();
-        return { ok: moved > 0, moved: moved };
+        return (call.result = moved > 0 ? { ok: true, moved: moved } : { ok: false, reason: 'no-vertex' });
       },
       retype: function (id, lt) {
         rec('retype', [id, lt]);
