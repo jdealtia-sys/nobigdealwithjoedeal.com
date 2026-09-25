@@ -14,7 +14,13 @@
       btn.setAttribute('aria-pressed', isOn() ? 'true' : 'false');
       btn.style.background = isOn() ? 'var(--orange)' : '';
       btn.style.color = isOn() ? 'var(--accent-fg)' : '';
-      btn.textContent = isOn() ? '✓ Presentation On' : '🎤 Presentation';
+      // Icon + label spans, not textContent (2026-09-25): customer.html hides
+      // .back-btn-label at ≤480px so the header fits a 360px phone; a flat
+      // textContent write here put the full label back on first sync. The
+      // accessible name is the static aria-label; aria-pressed carries state.
+      btn.innerHTML = isOn()
+        ? '<span aria-hidden="true">✓</span><span class="back-btn-label">Presentation On</span>'
+        : '<span aria-hidden="true">🎤</span><span class="back-btn-label">Presentation</span>';
     }
     window.togglePresentationMode = function () {
       var html = document.documentElement;

@@ -201,6 +201,13 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
       const status = getClaimStatus(lead);
       const currentIndex = CLAIM_STAGES.findIndex(s => s.id === status.currentStageId);
 
+      // .claim-stages is a read-only progress list, not buttons (2026-09-25
+      // phone audit). The 11 stages rendered as filled, rounded,
+      // cursor:pointer chips with no handler at all, so a rep tapping
+      // "Denied" or "Claim Filed" got nothing — only "Advance to…" below
+      // moves the stage. They now read as status, not controls: no pointer,
+      // no fill on pending steps, the current one carries aria-current.
+      // Denser too: at 360 the old grid was 11 full-width 40px tiles, 560px.
       const html = `
         <div class="claim-workflow" style="background: var(--s,#12223D); border: 1px solid var(--br,rgba(255,255,255,.08)); border-radius: 8px; padding: 20px;">
           <h3 style="color: var(--t); margin: 0 0 20px 0; font-size: 18px; font-weight: 600;">Insurance Claim Progress</h3>
@@ -209,35 +216,31 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
             <div style="background: var(--orange,#BD5728); height: 100%; width: ${status.progress}%; transition: width 0.3s ease;"></div>
           </div>
 
-          <div class="claim-stages" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px;">
+          <div class="claim-stages" role="list" aria-label="Claim stages" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; margin-bottom: 24px;">
             ${CLAIM_STAGES.map((stage, idx) => {
               const isCompleted = idx < currentIndex;
               const isCurrent = idx === currentIndex;
-              const statusBg = isCompleted
-                ? '#10b981'
+              const look = isCompleted
+                ? 'background: rgba(16,185,129,.12); color: #10b981; border: 1px solid transparent;'
                 : isCurrent
-                  ? '#BD5728'
-                  : 'rgba(255,255,255,.05)';
-              const statusText = isCompleted
-                ? '#fff'
-                : isCurrent
-                  ? '#fff'
-                  : 'var(--m,#9ca3af)';
+                  ? 'background: rgba(189,87,40,.16); color: var(--t); border: 1px solid #BD5728; font-weight: 700;'
+                  : 'background: transparent; color: var(--m,#9ca3af); border: 1px solid transparent;';
+              const mark = isCompleted ? '✓' : isCurrent ? '●' : '○';
 
               return `
-                <div style="
-                  background: ${statusBg};
+                <div role="listitem"${isCurrent ? ' aria-current="step"' : ''} style="
+                  ${look}
                   border-radius: 6px;
-                  padding: 12px;
-                  text-align: center;
-                  cursor: pointer;
-                  transition: all 0.2s ease;
-                  border: 1px solid ${isCurrent ? '#ff9c4d' : 'transparent'};
+                  padding: 6px 8px;
+                  display: flex;
+                  align-items: center;
+                  gap: 6px;
+                  cursor: default;
+                  font-size: 12px;
+                  line-height: 1.25;
                 ">
-                  <div style="color: ${statusText}; font-size: 12px; font-weight: 500; word-break: break-word;">
-                    ${stage.label}
-                  </div>
-                  ${isCompleted ? '<div style="color: #fff; font-size: 16px; margin-top: 4px;">✓</div>' : ''}
+                  <span aria-hidden="true" style="flex: 0 0 auto; font-size: 11px;">${mark}</span>
+                  <span style="word-break: break-word;">${stage.label}</span>
                 </div>
               `;
             }).join('')}
@@ -278,13 +281,13 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
               "
             ></textarea>
             <button
-              data-ic-action="advance" data-ic-id="${leadId}"
+              data-ic-action="advance" data-ic-id="${leadId}" data-ic-next="${status.nextStage}"
               style="
                 background: var(--orange,#BD5728);
                 color: white;
                 border: none;
                 border-radius: 6px;
-                padding: 10px 16px;
+                padding: 12px 16px;
                 font-size: 13px;
                 font-weight: 600;
                 cursor: pointer;
@@ -437,4 +440,8 @@ let _NBD_IC_DELEGATE; // module-local (globals Tranche 1 — was window.*)
 
 })();
 
-(function(){if(_NBD_IC_DELEGATE)return;_NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){var leadId=t.dataset.icId;var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes).then(function(ok){if(ok&&window.InsuranceClaim&&window.InsuranceClaim.renderClaimWorkflow)window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow',leadId);if(ok&&window.ClaimPanel&&window.ClaimPanel.refresh)window.ClaimPanel.refresh();});}});document.addEventListener('change',function(ev){var c=ev.target.closest&&ev.target.closest('[data-ic-check]');if(!c)return;if(window.InsuranceClaim&&window.InsuranceClaim.updateChecklistItem){window.InsuranceClaim.updateChecklistItem(c.dataset.icLead,c.dataset.icStage,c.dataset.icItem,c.checked);}});})();
+// Advance: disabled while the write is in flight (a double tap on a phone
+// advanced the claim TWICE — there is no way back), then a toast either
+// way (2026-09-25: it was silent, so the only feedback was the tiles
+// repainting somewhere above the button).
+(function(){if(_NBD_IC_DELEGATE)return;_NBD_IC_DELEGATE=true;document.addEventListener('click',function(ev){var t=ev.target.closest&&ev.target.closest('[data-ic-action]');if(!t)return;if(t.dataset.icAction==='advance'&&window.InsuranceClaim&&window.InsuranceClaim.advanceClaimStage){if(t.disabled)return;t.disabled=true;var leadId=t.dataset.icId;var next=t.dataset.icNext||'';var notesEl=document.getElementById('claim-notes-'+leadId);var notes=notesEl?notesEl.value.trim():'';window.InsuranceClaim.advanceClaimStage(leadId,notes).then(function(ok){t.disabled=false;if(ok&&window.InsuranceClaim&&window.InsuranceClaim.renderClaimWorkflow)window.InsuranceClaim.renderClaimWorkflow('insuranceClaimWorkflow',leadId);if(ok&&window.ClaimPanel&&window.ClaimPanel.refresh)window.ClaimPanel.refresh();if(typeof window.showToast==='function'){if(ok)window.showToast('Claim moved to '+(next||'the next stage'),'success');else window.showToast('Could not advance the claim','error');}});}});document.addEventListener('change',function(ev){var c=ev.target.closest&&ev.target.closest('[data-ic-check]');if(!c)return;if(window.InsuranceClaim&&window.InsuranceClaim.updateChecklistItem){window.InsuranceClaim.updateChecklistItem(c.dataset.icLead,c.dataset.icStage,c.dataset.icItem,c.checked);}});})();

@@ -150,8 +150,18 @@ header {
   color:var(--t); text-decoration:none; font-size:12px;
   font-family:'Barlow Condensed',sans-serif; letter-spacing:.06em;
   transition:background var(--t-mid),border-color var(--t-mid);
+  /* nowrap + no shrink (2026-09-25): the header is a fixed 52px flex row, so
+     a squeezed label wrapped to three lines and the vertically-centred link
+     then poked 7px above the top of a 360px screen. The labels shorten on
+     narrow screens instead (.back-btn-label, below). */
+  white-space:nowrap; flex-shrink:0;
 }
 .back-btn:hover { background:var(--s3); border-color:var(--orange); }
+/* The long half of each header label. ≤480px keeps "← Back" and the 🎤 /
+   ✓ icon: at 360 the logo (108px) + the ONLINE pill (63px) left 165px for
+   two buttons that need ~280px at full length. Both keep their full
+   accessible name via aria-label. */
+@media (max-width:480px) { .back-btn-label { display:none; } }
 
 /* MAIN LAYOUT */
 .container {
@@ -317,7 +327,9 @@ header {
     grid-template-columns:1fr 1fr;
     gap:6px;
   }
-  .quick-actions .btn { width:100%; justify-content:center; }
+  /* `>` (2026-09-25): as descendant rules these also hit the buttons
+     inside #gallerySharePanel — see the Share Portal note further down. */
+  .quick-actions > .btn { width:100%; justify-content:center; }
   /* Everything outside the primary set collapses behind #qaMoreBtn.
      At 390px the full bar measured 334px (388px once #stageProgressBtn
      unhides) — 6 rows of 48px buttons before the customer's own name had
@@ -330,7 +342,7 @@ header {
   /* Gallery share panel spans full width */
   .quick-actions #gallerySharePanel { grid-column: 1 / -1; }
   /* Stage progress button (orange, full-width) spans both columns */
-  .quick-actions .btn-orange { grid-column: 1 / -1; }
+  .quick-actions > .btn-orange { grid-column: 1 / -1; }
 }
 @media (min-width:901px) {
   /* Desktop has the room — the bar stays whole and the toggle never shows.
@@ -344,7 +356,7 @@ header {
   .container { padding:12px; }
   header { padding:8px 12px; }
   header .back-btn { font-size:13px; padding:8px 10px; }
-  .quick-actions .btn { min-height:48px; font-size:13px; padding:12px 16px; display:flex; align-items:center; gap:8px; }
+  .quick-actions > .btn { min-height:48px; font-size:13px; padding:12px 16px; display:flex; align-items:center; gap:8px; }
   .panel { padding:14px; margin-bottom:14px; border-radius:10px; }
   .panel-title { font-size:15px; }
   .meta-item { font-size:12px; }
@@ -357,7 +369,7 @@ header {
 @media (max-width:400px) {
   .container { padding:8px; }
   .quick-actions { gap:6px; }
-  .quick-actions .btn { font-size:12px; padding:10px 12px; }
+  .quick-actions > .btn { font-size:12px; padding:10px 12px; }
   .panel { padding:12px; }
   .photo-grid { grid-template-columns:repeat(auto-fill,minmax(70px,1fr)); }
 }
@@ -972,12 +984,18 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
 /* Sticky bulk action bar — appears at the top of the photo section
    when at least one photo is selected. Holds the count, the apply
-   dropdowns, and the cancel button. */
+   dropdowns, and the cancel button.
+   top: was 0 (2026-09-25). The .jump-nav is ALSO sticky at top:0 and sits
+   above this on z-index, so once both pinned, the "3 selected" count and
+   the "Set phase…" select were under the nav — and a thumb on Set phase
+   fired the nav chip underneath and yanked the page to another section.
+   --jump-nav-h is the nav's live height, published by the scroll-spy in
+   customer-tasks-ui.js; 48px is its one-row height at every width. */
 .nbd-photo-bulk-bar {
   display:none; align-items:center; gap:10px; flex-wrap:wrap;
   padding:10px 14px; margin-bottom:12px;
   background:var(--s2); border:1px solid var(--orange);
-  border-radius:8px; position:sticky; top:0; z-index:5;
+  border-radius:8px; position:sticky; top:calc(var(--jump-nav-h, 48px) + 6px); z-index:5;
 }
 .nbd-photo-bulk-bar.active { display:flex; }
 .nbd-photo-bulk-count {
@@ -1169,6 +1187,119 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   border-color: var(--orange);
 }
 
+/* ── Phone audit fixes (2026-09-25) ─────────────────────────────────
+   Found by driving this page with real taps at 412px (Jo's Android) and
+   360px; each rule names what it fixed. Layout rules are width-gated.
+   Tap-target floors are also (pointer:coarse)-gated, the same way
+   mobile-polish.css §1 is, so a narrow desktop window keeps its density.
+   tests/e2e/phone-customer.spec.js hit-tests every one of them. */
+
+/* Panel header rows (Timeline & Tasks, Photos, Estimates, Notes, Voice
+   Intelligence). They were non-wrapping space-between rows, so the title
+   got whatever the buttons left over: "ESTIMATES (3)" in a 62px column
+   beside a two-row button cluster, "VOICE INTELLIGENCE" broken over two
+   lines against a four-line description, "TIMELINE & TASKS" on two lines
+   at 360. The title never wraps now; the actions or the description drop
+   to their own line when they don't fit beside it. Wide rows are unchanged
+   because nothing needs to wrap there. */
+.panel-head { flex-wrap:wrap; gap:8px 10px; }
+.panel-head > .panel-title { white-space:nowrap; }
+.panel-head-actions .btn { white-space:nowrap; }
+
+/* Estimates header. Build Estimate is the primary action and it rendered
+   as the SMALLEST button in the group (11px, 28px tall at 360) because
+   /assets/css/nbd-mobile.css — a marketing sheet this page links — forces
+   .btn-ghost to 13.12px with 13px 20px padding, !important, at ≤480px,
+   and mobile-polish.css gives .btn-ghost alone a 40px floor; .btn-orange
+   gets neither. Wherever the panel is narrow (every phone, and the ~330px
+   right-hand column on desktop, where the same cluster squashed the
+   title) the actions get their own row: Build Estimate first and full
+   width, Log Estimate / Job Templates sharing the row below, one size for
+   all three. !important only because the markup carries inline sizes and
+   the leaking rule is itself !important. */
+@media (max-width:640px), (min-width:901px) {
+  .est-head-actions { display:grid !important; grid-template-columns:1fr 1fr; gap:8px; flex:1 1 100%; }
+  .est-head-actions > [data-action="_openInDashboardEstimate"] { grid-column:1 / -1; order:-1; }
+  .est-head-actions > .btn {
+    display:flex; align-items:center; justify-content:center; gap:6px; min-height:40px;
+    font-size:12px !important; padding:8px 10px !important; letter-spacing:.04em !important;
+  }
+}
+
+/* Share Portal panel (#gallerySharePanel). The link row overflowed its
+   338px panel and dragged the LAYOUT viewport to 455px (451 at 360): the
+   👁 preview sat at x=399-455, past the screen edge where no swipe could
+   reach it (body clips overflow-x), and the fixed bottom bar and FABs
+   were laid out against the wider viewport, i.e. partly off-screen.
+   Three causes: #fullPortalUrl was flex:1 with the default min-width:auto
+   while the phone font floor (16px: this page's ≤640 block and
+   mobile-polish.css §5) gave
+   it a ~197px intrinsic width; nbd-mobile.css's .btn-ghost !important
+   padding fattened 📋/👁 to ~60px; and the .quick-actions .btn rules
+   (now `>`) stretched Close to 226px. The input now shrinks (min-width:0
+   inline), and on a phone it takes its own line with the three buttons
+   sharing the line below at a real tap size. */
+@media (max-width:640px) {
+  .share-link-row { flex-wrap:wrap; }
+  .share-link-row > input { flex:1 1 100% !important; }
+  .share-link-row > .btn, .share-panel-head > .btn {
+    flex:1 1 0; display:flex; align-items:center; justify-content:center; min-height:40px;
+    font-size:13px !important; padding:6px 10px !important; letter-spacing:.04em !important;
+  }
+  .share-panel-head > .btn { flex:0 0 auto; }
+}
+
+/* Files rows (customer-documents.js rowHtml). An uploaded file's actions
+   (View, Share with homeowner, ✕) are flex-shrink:0, so on a phone they
+   took the whole row: the name column collapsed to 0px, the meta line
+   broke one word per line, and at 360 the ✕ ended at x=374 and widened
+   the page. The actions now wrap under the name when they don't fit
+   beside it (the 120px basis keeps short action sets on one line). */
+@media (max-width:640px) {
+  .doc-item { flex-wrap:wrap; row-gap:6px; }
+  .doc-item .doc-content { flex:1 1 120px; }
+  .doc-item .doc-actions { margin-left:auto; flex-wrap:wrap; justify-content:flex-end; max-width:100%; }
+  /* Estimate rows had the same shape of problem: the title div gets what
+     .nbd-est-actions leaves, which squeezed an address title to 101px and
+     six lines. Actions go under the title on a phone. */
+  .nbd-est-row { flex-wrap:wrap; gap:8px; }
+  .nbd-est-row > .nbd-est-actions { flex:1 1 100%; }
+}
+
+/* Photo bulk-action bar on a phone: a 2-column grid instead of four
+   ragged wrapped rows (179px tall — a fifth of the screen while pinned):
+   count + phase, damage + severity, Delete + Cancel. */
+@media (max-width:640px) {
+  .nbd-photo-bulk-bar.active { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:8px 10px; }
+  .nbd-photo-bulk-bar select { min-width:0; width:100%; }
+  .nbd-photo-bulk-bar .nbd-bulk-cancel { margin-left:0; }
+}
+
+/* Tap targets for the controls a rep hits over and over. They measured
+   20-28px tall (timeline pills 25, photo filters 25, Select 22, Send 27,
+   jump-nav chips 28, Add Event/Add Task 29). The jump-nav trades its own
+   padding for taller chips, so the pinned bar stays 48px — the height
+   scroll-padding-top and the bulk bar's offset are built around. */
+@media (max-width:768px) and (pointer:coarse) {
+  .jump-nav { padding-top:5px; padding-bottom:5px; }
+  .jump-nav a { padding-top:11px; padding-bottom:11px; }
+  .tl-pill { display:inline-flex; align-items:center; min-height:36px; padding:0 14px; }
+  .photo-filter-btn, #nbdPhotoSelectToggle { min-height:36px; }
+  .panel-head-actions .btn, .panel-head > .btn, #quickNoteSend { min-height:40px; }
+  [data-action="openNotesModal"] { min-height:36px; }
+  .nbd-photo-bulk-bar select, .nbd-photo-bulk-bar button { min-height:36px; }
+  .doc-actions .doc-btn, .doc-actions .btn { min-height:36px; }
+  .nbd-est-primary { min-height:36px; }
+  #emailUnsubMarkBtn { min-height:32px; }
+  .modal-header > button[data-action^="close"] { min-width:40px; min-height:40px; }
+}
+/* A tapped jump-nav chip keeps :hover on a touch screen until the next tap
+   elsewhere, so after tapping Contact and scrolling back to Overview the
+   only emphasised chip on screen was CONTACT — the wrong one. */
+@media (hover:none) {
+  .jump-nav a:hover:not(.active) { color:var(--m); border-color:var(--br); }
+}
+
 </style>
   <meta property="og:url" content="https://nobigdealwithjoedeal.com/pro/customer">
 <link rel="stylesheet" href="css/photo-editor.css?v=4">
@@ -1186,14 +1317,14 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
        doesn't want their personal theme (synthwave / vaporwave / etc.)
        leaking through. Toggle persists per-session so a rep who flips
        it on for a walkthrough stays in light mode through tab switches. -->
-  <button id="presentationModeBtn" class="back-btn" data-action="togglePresentationMode" title="Switch to light brand view for in-person walkthroughs" aria-pressed="false" style="margin-right:8px;">
-    🎤 Presentation
+  <button id="presentationModeBtn" class="back-btn" data-action="togglePresentationMode" title="Switch to light brand view for in-person walkthroughs" aria-label="Presentation mode" aria-pressed="false" style="margin-right:8px;">
+    <span aria-hidden="true">🎤</span><span class="back-btn-label">Presentation</span>
   </button>
-  <a href="/pro/dashboard" class="back-btn">
-    ← Back to Dashboard
+  <a href="/pro/dashboard" class="back-btn" aria-label="Back to Dashboard">
+    <span>← Back<span class="back-btn-label"> to Dashboard</span></span>
   </a>
 </header>
-<script defer src="js/customer-presentation-theme.js?v=2"></script>
+<script defer src="js/customer-presentation-theme.js?v=3"></script>
 
 <div class="container" role="main">
   <!-- Cover photo hero (RoofLink "Set Cover"). Rendered by
@@ -1324,7 +1455,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
            states what the link actually contains; a real photos-only
            portal needs a backend view-type and is out of scope. -->
       <div id="gallerySharePanel" style="display:none;background:var(--s2);border:1px solid var(--br);border-radius:8px;padding:14px;margin-top:10px;width:100%;">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+        <div class="share-panel-head" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
           <span style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);">Customer Sharing</span>
           <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px;margin-left:auto;" data-action="_closeGallerySharePanel">Close</button>
         </div>
@@ -1335,8 +1466,8 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
         <div style="background:var(--s);border:1px solid var(--br);border-radius:6px;padding:12px;">
           <div style="font-size:11px;font-weight:700;color:var(--t);margin-bottom:6px;">📋 Project Portal</div>
           <div style="font-size:10px;color:var(--m);margin-bottom:8px;">One link the homeowner can open: photos, project status, timeline, next steps — and your estimate pricing. Expires in 30 days and can be revoked.</div>
-          <div style="display:flex;gap:6px;align-items:center;">
-            <input type="text" id="fullPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Project portal share link" style="flex:1;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
+          <div class="share-link-row" style="display:flex;gap:6px;align-items:center;">
+            <input type="text" id="fullPortalUrl" readonly placeholder="Click Generate to create link" aria-label="Project portal share link" style="flex:1;min-width:0;background:var(--s2);border:1px solid var(--br);border-radius:4px;padding:6px 8px;font-size:11px;color:var(--t);font-family:inherit;">
             <button class="btn btn-orange" style="font-size:10px;padding:6px 10px;white-space:nowrap;" data-action="generateFullPortalLink">Generate</button>
             <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="copyPortalUrl" data-arg="fullPortalUrl">📋</button>
             <button class="btn btn-ghost" style="font-size:10px;padding:6px 8px;" data-action="CustomerPortal.preview" data-pass-customer-id="true" title="Preview the portal exactly as the homeowner sees it">👁</button>
@@ -1395,9 +1526,9 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
       <!-- TIMELINE -->
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+        <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
           <div class="panel-title" style="margin:0;">Timeline & Tasks</div>
-          <div style="display:flex;gap:8px;">
+          <div class="panel-head-actions" style="display:flex;gap:8px;">
             <button class="btn" data-action="openEventModal" style="font-size:11px;padding:6px 12px;">
               📅 Add Event
             </button>
@@ -1435,7 +1566,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
       <!-- PHOTOS -->
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;" id="photosPanelTitle">Photos</div>
           <button class="btn btn-orange" data-action="openUploadModal" style="font-size:11px;padding:6px 12px;">Upload</button>
         </div>
@@ -1555,9 +1686,9 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
       <!-- ESTIMATES -->
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;" id="estimatesPanelTitle">Estimates</div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="panel-head-actions est-head-actions" style="display:flex;gap:8px;flex-wrap:wrap;">
             <button class="btn btn-ghost" data-action="openEstimateModal" style="font-size:11px;padding:6px 12px;"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:13px;height:13px;vertical-align:middle;"><path d="M3 5h5l2 2h7a1 1 0 011 1v8a1 1 0 01-1 1H3a1 1 0 01-1-1V6a1 1 0 011-1z"/></svg> Log Estimate</button>
             <!-- 2026-09-17, Jo: job templates are way faster than a full
                  estimate build for jobs that fit one — a rep on this page
@@ -1581,7 +1712,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 
       <!-- NOTES -->
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+        <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
           <div class="panel-title" style="margin:0;" id="notesPanelTitle">Notes</div>
           <button data-action="openNotesModal" title="Open larger editor"
             style="background:transparent;border:none;color:var(--m);font-size:11px;cursor:pointer;padding:4px 6px;text-decoration:underline;">
@@ -1959,9 +2090,9 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
   <div class="tab-content" id="voiceTab" data-label="Voice Intel">
     <div style="max-width:1200px;margin:0 auto;padding:20px;">
       <div class="panel">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+        <div class="panel-head" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
           <div class="panel-title" style="margin:0;">Voice Intelligence</div>
-          <div style="font-size:11px;color:var(--m);">
+          <div class="panel-head-desc" style="font-size:11px;color:var(--m);">
             Record or upload call audio → AI extracts damage notes, objections, commitments, insurance details, red flags.
           </div>
         </div>
@@ -2259,7 +2390,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script type="module" src="js/customer-bootstrap.module.js?v=3"></script>
 
 
-<script defer src="js/customer-tasks-ui.js?v=3"></script>
+<script defer src="js/customer-tasks-ui.js?v=4"></script>
 <script defer src="js/nbd-comms.js?v=3"></script>
 <script defer src="js/sms-outbox.js?v=1"></script>
 <script defer src="js/stage-checklist.js?v=1"></script>
@@ -2273,7 +2404,7 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      Reads leads/{leadId}/documents and publishes window.loadDocuments, which
      the bootstrap calls from loadCustomerData once the lead resolves. Must
      load before the upload modules that call NBDCustomerDocs.refresh(). -->
-<script defer src="js/customer-documents.js?v=2"></script>
+<script defer src="js/customer-documents.js?v=3"></script>
 <script defer src="js/customer-signed-doc-upload.js?v=2"></script>
 <script defer src="js/customer-portal.js?v=4"></script>
 <script defer src="js/clipboard-fix.js?v=2"></script>
@@ -2303,12 +2434,12 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
 <script defer src="js/profit-tracker.js?v=3"></script>
 <script defer src="js/lead-scoring.js?v=3"></script>
 <!-- Persisted per-job workflow checklist (RoofLink "View Checklist"). -->
-<script defer src="js/customer-checklist.js?v=2"></script>
+<script defer src="js/customer-checklist.js?v=3"></script>
 <!-- Claim unification: canonical claim view + Claim Details panel/editor.
      MUST load before insurance-claim.js — advanceClaimStage syncs the
      coarse claimStatus via window.ClaimCore.claimStatusFromStage. -->
-<script defer src="js/claim-core.js?v=2"></script>
-<script defer src="js/insurance-claim.js?v=4"></script>
+<script defer src="js/claim-core.js?v=3"></script>
+<script defer src="js/insurance-claim.js?v=5"></script>
 <script defer src="js/offline-manager.js?v=6"></script>
 <script defer src="js/customer-dnd-upload.js?v=2"></script>
 <script defer src="js/customer-quick-action-bar.js?v=3"></script>
