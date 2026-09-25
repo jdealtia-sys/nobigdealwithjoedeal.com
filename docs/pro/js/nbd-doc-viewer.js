@@ -76,8 +76,9 @@
 
   // ─── Phone reading layout (2026-09-25, phone audit homeowner#2) ──
   // A generated contract showed here at print size on a phone — 9px clause
-  // text in a column a third of the screen — and this is where it is signed
-  // IN PERSON, the homeowner reading it on the rep's phone. doc-phone-
+  // text in a 277px column on a 412px screen (225px at 360) — and this is
+  // where it is signed IN PERSON, the homeowner reading it on the rep's
+  // phone. doc-phone-
   // layout.js (shared with sign.html and the portal) adds a screen-only
   // sheet to the copy the iframe SHOWS. The signature widget hands the live
   // document back with that sheet inside it, so it is stripped in

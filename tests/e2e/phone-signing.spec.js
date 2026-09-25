@@ -115,6 +115,21 @@ async function pdfOf(browser, html) {
   } finally { await ctx.close(); }
 }
 
+// First-run UI (the onboarding tour's full-screen overlay, the push opt-in
+// card) lands a moment AFTER dashboard boot on a fresh tenant — over the
+// open doc viewer, which a break-test run of the viewer case caught
+// ("viewer frame is the element under its own centre": the tour's Welcome
+// card). Arrive as a returning user, as phone-dashnav.spec.js does; the
+// tour has its own spec in dashboard-actions-audit.spec.js.
+async function returningUser(context) {
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem('nbd-onboarding-complete', '1');
+      localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+    } catch (e) { /* storage blocked: the tour just shows */ }
+  });
+}
+
 // The installed iPhone app's @media(display-mode: standalone) cascade,
 // copied to the top level: a browser tab never matches that query, and Jo
 // signs in person from the home-screen app (same technique as
@@ -281,6 +296,7 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
         const phone = width < 1000;
         const ctx = await browser.newContext(ctxOpts(width));
         try {
+          await returningUser(ctx);
           const p = await ctx.newPage();
           await loginAs(p, creds);
           if (!contract) {
