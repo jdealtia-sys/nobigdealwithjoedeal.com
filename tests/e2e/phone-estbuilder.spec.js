@@ -168,13 +168,20 @@ async function foldedPaneFillsScreen(page, paneSel) {
     await open.first().tap();
   }
   await pane.evaluate((el) => { el.scrollTop = 0; });
-  return page.evaluate((sel) => {
+  // Sections fold with a max-height transition: measure only once the pane's
+  // content has actually finished shrinking. Hit-testing mid-transition lands
+  // on a still-collapsing section and passes even with the fix removed (a
+  // break-test caught exactly that — the settle-time-skips-the-transient
+  // lesson, inverted).
+  const measure = () => page.evaluate((sel) => {
     const p = document.querySelector('#estV2Modal ' + sel);
-    const last = [...p.querySelectorAll('.v2-section')].pop().getBoundingClientRect().bottom;
+    const bottom = Math.max(...[...p.children].map((c) => c.getBoundingClientRect().bottom));
     const y = document.getElementById('v2mStepBar').getBoundingClientRect().top - 8;
     const h = document.elementFromPoint(window.innerWidth / 2, y);
-    return { short: last < y - 40, inPane: !!h && p.contains(h), hit: h ? String(h.className) : null };
+    return { short: bottom < y - 40, inPane: !!h && p.contains(h), hit: h ? String(h.className) : null };
   }, paneSel);
+  await expect.poll(async () => (await measure()).short, { timeout: 5_000 }).toBe(true);
+  return measure();
 }
 
 // ── 1. Layout of the three steps, at the small-Android width ───────────────
