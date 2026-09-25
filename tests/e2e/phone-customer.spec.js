@@ -384,6 +384,16 @@ test.describe.serial('customer page at 412px, Jo\'s Android @shard2', () => {
     expect(chip && chip.text, 'back in Overview').toMatch(/Overview/);
     expect(chip.inBar, 'the Overview chip came back into view (was x=-299)').toBe(true);
     expect(chip.hits).toBe(true);
+    // A tapped chip kept :hover on a touch screen, so CONTACT still wore the
+    // accent border — the one emphasised chip in view was the wrong one.
+    const lookalikes = await page.evaluate(() => {
+      const nav = document.getElementById('tabBar');
+      const active = nav.querySelector('a.active');
+      const accent = getComputedStyle(active).borderTopColor;
+      return [...nav.querySelectorAll('a')].filter((a) => a !== active
+        && getComputedStyle(a).borderTopColor === accent).map((a) => a.textContent.trim());
+    });
+    expect(lookalikes, 'no other chip wears the current-section accent').toEqual([]);
   });
 
   test('Claim: "+ Add" beside Claim Handler opens the editor AT that section, focused', async () => {
@@ -439,18 +449,23 @@ test.describe.serial('customer page at 412px, Jo\'s Android @shard2', () => {
   });
 
   test('Panel headers: titles stay on one line, Build Estimate is a full-size primary button', async () => {
+    // Selectors from the pre-fix markup, so a revert fails on layout, not
+    // on a missing hook.
+    const B = '#estimatesPanelTitle ~ div > [data-action="_openInDashboardEstimate"]';
+    const L = '#estimatesPanelTitle ~ div > [data-action="openEstimateModal"]';
+    const T = '#estimatesPanelTitle ~ div > [data-action="_openInDashboardJobTemplates"]';
     const est = await probe(page, '#estimatesPanelTitle', W);
-    expect(est.height, 'ESTIMATES title on one line (was a 62px two-line column)').toBeLessThanOrEqual(24);
-    const build = await probe(page, '.est-head-actions > [data-action="_openInDashboardEstimate"]', W);
-    const log = await probe(page, '.est-head-actions > [data-action="openEstimateModal"]', W);
-    const tpl = await probe(page, '.est-head-actions > [data-action="_openInDashboardJobTemplates"]', W);
+    expect(est.lines, 'ESTIMATES title on one line (was a 62px two-line column)').toBe(1);
+    const build = await probe(page, B, W);
+    const log = await probe(page, L, W);
+    const tpl = await probe(page, T, W);
+    expect(build.found && log.found && tpl.found, 'the three header actions exist').toBe(true);
+    expect(build.top, 'the actions sit below the title, not squeezing it into a column').toBeGreaterThanOrEqual(est.bottom);
     expect(build.height, 'Build Estimate is at least as tall as its siblings').toBeGreaterThanOrEqual(Math.max(log.height, tpl.height));
     expect(build.height).toBeGreaterThanOrEqual(40);
     expect(build.width, 'and at least as wide').toBeGreaterThanOrEqual(Math.max(log.width, tpl.width));
     expect(build.top, 'and first').toBeLessThan(log.top);
-    expect(build.top, 'below the title, not squeezing it').toBeGreaterThanOrEqual(est.bottom);
-    await toMid(page, '.est-head-actions > [data-action="_openInDashboardEstimate"]');
-    for (const sel of ['.est-head-actions > [data-action="_openInDashboardEstimate"]', '.est-head-actions > [data-action="openEstimateModal"]', '.est-head-actions > [data-action="_openInDashboardJobTemplates"]']) {
+    for (const sel of [B, L, T]) {
       await expectHit(page, sel, W, sel, { center: true });
       expect((await probe(page, sel, W)).lines, sel + ' label on one line (Build Estimate wrapped to two)').toBe(1);
     }
