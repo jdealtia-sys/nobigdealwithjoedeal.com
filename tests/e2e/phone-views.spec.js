@@ -403,157 +403,162 @@ test.describe('phone views: Settings panels @audit', () => {
         const digestLabelH = await page.evaluate(() => document.getElementById('settingsWeeklyDigest').closest('label').getBoundingClientRect().height);
         expect(digestLabelH, '"Send me the weekly digest" should read in a few lines, not a 9px column').toBeLessThanOrEqual(64);
       });
-    }
 
-    await page.setViewportSize({ width: 412, height: 860 });
-    await test.step('views#7 Team: the invite address is full width and its text visible', async () => {
-      await openSettingsTab(page, 'team');
-      const email = page.locator('#inviteRepEmail');
-      await email.scrollIntoViewIfNeeded();
-      await email.tap();
-      await page.keyboard.type('alice.estimator@example.test');
-      const m = await page.evaluate(() => {
-        const el = document.getElementById('inviteRepEmail');
-        const send = document.querySelector('[data-fn="inviteTeamMember"]');
-        return { w: el.clientWidth, sw: el.scrollWidth, contrast: window.__pvContrast(el), owner: window.__pvContrast(document.getElementById('teamOwnerName')), sendHit: window.__pvHit(send) };
-      });
-      expect(m.w, 'invite email box width').toBeGreaterThanOrEqual(200);
-      expect(m.sw, 'the whole typed address fits the box').toBeLessThanOrEqual(m.w + 2);
-      expect(m.contrast, 'typed address contrast').toBeGreaterThanOrEqual(4.5);
-      expect(m.owner, 'owner name contrast').toBeGreaterThanOrEqual(4.5);
-      expect(m.sendHit, 'Send Invite reachable').toBe('');
-      await email.fill('');
-    });
-
-    await test.step('views#13 brand colour pickers show the saved colour', async () => {
-      await openSettingsTab(page, 'company-profile');
-      const picker = page.locator('#cp_brand_colorAccent');
-      await picker.scrollIntoViewIfNeeded();
-      await animationsDone(page);
-      // Nothing may sit on top of it when it is sampled (a toast would make
-      // the pixel read meaningless) — and it must be reachable anyway.
-      await expect.poll(() => page.evaluate(() => window.__pvHit(document.getElementById('cp_brand_colorAccent'))), { timeout: 12_000 }).toBe('');
-      const hex = await picker.inputValue();
-      const box = await picker.boundingBox();
-      expect(box.height, 'colour picker height').toBeGreaterThanOrEqual(36);
-      const shot = decodePng(await picker.screenshot());
-      const got = shot.at(Math.floor(shot.w / 2), Math.floor(shot.h / 2));
-      const want = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-      const off = Math.max(...got.map((v, i) => Math.abs(v - want[i])));
-      expect(off, `swatch centre should paint ${hex}, painted rgb(${got.join(',')})`).toBeLessThanOrEqual(16);
-    });
-
-    await test.step('views#9 Pipelines: thumb-sized reorder controls and a Save that follows you', async () => {
-      await openSettingsTab(page, 'pipelines');
-      const rows = page.locator('#pipelineBuilderRoot .pb-stage-row');
-      await expect(rows.first()).toBeVisible({ timeout: 15_000 });
-      // Save must never write the shared tenant config from a test: stub the
-      // profile writer and record what Save hands it.
-      await page.evaluate(() => {
-        window.__pvSaves = [];
-        window._saveCompanyProfile = async (patch) => { window.__pvSaves.push(patch); };
-      });
-
-      // Edit the LAST stage of the LAST pipeline — the far end of a ~6,600px
-      // panel, where the header's Save is screens away.
-      const rename = page.locator('#pipelineBuilderRoot input[data-pb-action="rename"]').last();
-      await rename.scrollIntoViewIfNeeded();
-      await rename.tap();
-      await page.keyboard.type('X');
-      const bar = await page.evaluate(() => {
-        const vh = window.innerHeight;
-        const inView = [...document.querySelectorAll('#pipelineBuilderRoot [data-pb-action="save"]')].filter((b) => {
-          const r = b.getBoundingClientRect();
-          return r.height > 0 && r.top >= 0 && r.bottom <= vh && !window.__pvHit(b);
+      // 2026-09-25 follow-up: Team, the brand colour pickers and Pipelines
+      // ran at 412 only; they walk 360 too now, in the same pass as Profile.
+      await test.step(`views#7 Team: the invite address is full width and its text visible @${width}`, async () => {
+        await openSettingsTab(page, 'team');
+        const email = page.locator('#inviteRepEmail');
+        await email.scrollIntoViewIfNeeded();
+        await email.tap();
+        await page.keyboard.type('alice.estimator@example.test');
+        const m = await page.evaluate(() => {
+          const el = document.getElementById('inviteRepEmail');
+          const send = document.querySelector('[data-fn="inviteTeamMember"]');
+          return { w: el.clientWidth, sw: el.scrollWidth, contrast: window.__pvContrast(el), owner: window.__pvContrast(document.getElementById('teamOwnerName')), sendHit: window.__pvHit(send) };
         });
-        return { n: inView.length, h: inView[0] ? inView[0].getBoundingClientRect().height : 0 };
+        expect(m.w, 'invite email box width').toBeGreaterThanOrEqual(200);
+        expect(m.sw, 'the whole typed address fits the box').toBeLessThanOrEqual(m.w + 2);
+        expect(m.contrast, 'typed address contrast').toBeGreaterThanOrEqual(4.5);
+        expect(m.owner, 'owner name contrast').toBeGreaterThanOrEqual(4.5);
+        expect(m.sendHit, 'Send Invite reachable').toBe('');
+        await email.fill('');
       });
-      expect(bar.n, 'a tappable Save is on screen right after editing the last stage').toBe(1);
-      expect(bar.h).toBeGreaterThanOrEqual(36);
-      const visibleSave = page.locator('#pipelineBuilderRoot .pb-savebar [data-pb-action="save"]');
-      await visibleSave.tap();
-      await expect.poll(() => page.evaluate(() => window.__pvSaves.length)).toBe(1);
-      expect(await page.evaluate(() => !!(window.__pvSaves[0] && window.__pvSaves[0].pipelines))).toBe(true);
-      await expect(visibleSave).toBeHidden();
 
-      // Touch-sized ▲ / ▼ / 👁 / ✕, and ▼ really reorders.
-      const first = rows.first();
-      await first.scrollIntoViewIfNeeded();
-      const sizes = await first.evaluate((row) => [...row.querySelectorAll('button.pb-mini')].map((b) => {
-        const r = b.getBoundingClientRect();
-        return { a: b.dataset.pbAction, w: r.width, h: r.height, hit: window.__pvHit(b) };
-      }));
-      for (const s of sizes) {
-        expect(s.w, `${s.a} width`).toBeGreaterThanOrEqual(36);
-        expect(s.h, `${s.a} height`).toBeGreaterThanOrEqual(36);
-        expect(s.hit, `${s.a} reachable`).toBe('');
-      }
-      const view = await first.getAttribute('data-view');
-      const order = () => page.evaluate((v) => [...document.querySelectorAll(`#pipelineBuilderRoot .pb-stage-row[data-view="${v}"]`)].map((r) => r.dataset.stage), view);
-      const before = await order();
-      await first.locator('button.pb-mini[data-pb-action="down"]').tap();
-      const after = await order();
-      expect(after.slice(0, 2), '▼ on the first stage swaps it with the second').toEqual([before[1], before[0]]);
-    });
+      await test.step(`views#13 brand colour pickers show the saved colour @${width}`, async () => {
+        await openSettingsTab(page, 'company-profile');
+        const picker = page.locator('#cp_brand_colorAccent');
+        await picker.scrollIntoViewIfNeeded();
+        await animationsDone(page);
+        // Nothing may sit on top of it when it is sampled (a toast would make
+        // the pixel read meaningless) — and it must be reachable anyway.
+        await expect.poll(() => page.evaluate(() => window.__pvHit(document.getElementById('cp_brand_colorAccent'))), { timeout: 12_000 }).toBe('');
+        const hex = await picker.inputValue();
+        const box = await picker.boundingBox();
+        expect(box.height, 'colour picker height').toBeGreaterThanOrEqual(36);
+        const shot = decodePng(await picker.screenshot());
+        const got = shot.at(Math.floor(shot.w / 2), Math.floor(shot.h / 2));
+        const want = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+        const off = Math.max(...got.map((v, i) => Math.abs(v - want[i])));
+        expect(off, `swatch centre should paint ${hex}, painted rgb(${got.join(',')})`).toBeLessThanOrEqual(16);
+      });
 
-    // Follow-up (views#9 review): the bar said "Unsaved changes", but leaving
-    // the tab or the view threw the edit away without a word — openBuilder()
-    // re-clones the saved config on every open. The ▼ above left an unsaved
-    // reorder; leaving must ask, Cancel must keep it, OK must discard it.
-    await test.step('views#9 leaving Pipelines with unsaved edits asks first', async () => {
-      const view = await page.locator('#pipelineBuilderRoot .pb-stage-row').first().getAttribute('data-view');
-      const order = () => page.evaluate((v) => [...document.querySelectorAll(`#pipelineBuilderRoot .pb-stage-row[data-view="${v}"]`)].map((r) => r.dataset.stage), view);
-      const saveBar = page.locator('#pipelineBuilderRoot .pb-savebar [data-pb-action="save"]');
-      const edited = await order();
-      await expect(saveBar, 'the ▼ left unsaved edits').toBeVisible();
-      const asked = [];
-      let accept = false;
-      const onDialog = (d) => { asked.push(d.message()); (accept ? d.accept() : d.dismiss()).catch(() => {}); };
-      page.on('dialog', onDialog);
-      const tapTab = async (tab) => {
-        const b = page.locator(`#stab-${tab}`);
-        await b.scrollIntoViewIfNeeded();
-        await b.tap();
-      };
-      try {
-        // Another Settings tab → Cancel: still on Pipelines, edit intact.
-        await tapTab('profile');
-        await expect.poll(() => asked.length, { message: 'switching tabs asks' }).toBe(1);
-        expect(asked[0]).toMatch(/unsaved pipeline changes/i);
-        await expect(page.locator('#stab-panel-pipelines')).toBeVisible();
-        await expect(page.locator('#stab-panel-profile')).toBeHidden();
-        expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
-
-        // The bottom nav → Cancel: still in Settings, edit intact.
-        await page.locator('#mni-dash').tap();
-        await expect.poll(() => asked.length, { message: 'leaving the view asks' }).toBe(2);
-        expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id)).toBe('view-settings');
-        expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
-        await expect(saveBar).toBeVisible();
-
-        // Tapping Pipelines again while it is open keeps the working copy.
-        await tapTab('pipelines');
-        await page.waitForTimeout(400);
-        expect(asked.length, 're-selecting Pipelines does not ask').toBe(2);
-        expect(await order(), 're-selecting Pipelines keeps the reorder').toEqual(edited);
-
-        // OK discards: Profile opens, and Pipelines comes back as saved.
-        accept = true;
-        await tapTab('profile');
-        await expect.poll(() => asked.length).toBe(3);
-        await expect(page.locator('#stab-panel-profile')).toBeVisible();
+      await test.step(`views#9 Pipelines: thumb-sized reorder controls and a Save that follows you @${width}`, async () => {
         await openSettingsTab(page, 'pipelines');
-        await expect.poll(async () => (await order()).slice(0, 2), { message: 'the discarded ▼ is undone' }).toEqual([edited[1], edited[0]]);
-        await expect(saveBar).toBeHidden();
+        const rows = page.locator('#pipelineBuilderRoot .pb-stage-row');
+        await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+        // Save must never write the shared tenant config from a test: stub the
+        // profile writer and record what Save hands it.
+        await page.evaluate(() => {
+          window.__pvSaves = [];
+          window._saveCompanyProfile = async (patch) => { window.__pvSaves.push(patch); };
+        });
 
-        // Nothing unsaved: leaving asks nothing.
-        await tapTab('profile');
-        await expect(page.locator('#stab-panel-profile')).toBeVisible();
-        expect(asked.length, 'a clean editor never asks').toBe(3);
-      } finally {
-        page.off('dialog', onDialog);
-      }
-    });
+        // Edit the LAST stage of the LAST pipeline — the far end of a ~6,600px
+        // panel, where the header's Save is screens away.
+        const rename = page.locator('#pipelineBuilderRoot input[data-pb-action="rename"]').last();
+        await rename.scrollIntoViewIfNeeded();
+        await rename.tap();
+        await page.keyboard.type('X');
+        const bar = await page.evaluate(() => {
+          const vh = window.innerHeight;
+          const inView = [...document.querySelectorAll('#pipelineBuilderRoot [data-pb-action="save"]')].filter((b) => {
+            const r = b.getBoundingClientRect();
+            return r.height > 0 && r.top >= 0 && r.bottom <= vh && !window.__pvHit(b);
+          });
+          return { n: inView.length, h: inView[0] ? inView[0].getBoundingClientRect().height : 0 };
+        });
+        expect(bar.n, `a tappable Save is on screen right after editing the last stage @${width}`).toBe(1);
+        expect(bar.h).toBeGreaterThanOrEqual(36);
+        const visibleSave = page.locator('#pipelineBuilderRoot .pb-savebar [data-pb-action="save"]');
+        await visibleSave.tap();
+        await expect.poll(() => page.evaluate(() => window.__pvSaves.length)).toBe(1);
+        expect(await page.evaluate(() => !!(window.__pvSaves[0] && window.__pvSaves[0].pipelines))).toBe(true);
+        await expect(visibleSave).toBeHidden();
+
+        // Touch-sized ▲ / ▼ / 👁 / ✕, and ▼ really reorders.
+        const first = rows.first();
+        await first.scrollIntoViewIfNeeded();
+        const sizes = await first.evaluate((row) => [...row.querySelectorAll('button.pb-mini')].map((b) => {
+          const r = b.getBoundingClientRect();
+          return { a: b.dataset.pbAction, w: r.width, h: r.height, hit: window.__pvHit(b) };
+        }));
+        for (const s of sizes) {
+          expect(s.w, `${s.a} width`).toBeGreaterThanOrEqual(36);
+          expect(s.h, `${s.a} height`).toBeGreaterThanOrEqual(36);
+          expect(s.hit, `${s.a} reachable`).toBe('');
+        }
+        const view = await first.getAttribute('data-view');
+        const order = () => page.evaluate((v) => [...document.querySelectorAll(`#pipelineBuilderRoot .pb-stage-row[data-view="${v}"]`)].map((r) => r.dataset.stage), view);
+        const before = await order();
+        await first.locator('button.pb-mini[data-pb-action="down"]').tap();
+        const after = await order();
+        expect(after.slice(0, 2), '▼ on the first stage swaps it with the second').toEqual([before[1], before[0]]);
+      });
+
+      // Follow-up (views#9 review): the bar said "Unsaved changes", but leaving
+      // the tab or the view threw the edit away without a word — openBuilder()
+      // re-clones the saved config on every open. The ▼ above left an unsaved
+      // reorder; leaving must ask, Cancel must keep it, OK must discard it.
+      // It walks every width and ends on a clean editor (OK discarded the ▼,
+      // then a tab switch asks nothing), so the next width starts from
+      // Profile with nothing pending — left out of the loop, the 360 pass's
+      // first tab tap would raise this prompt and stay on Pipelines.
+      await test.step(`views#9 leaving Pipelines with unsaved edits asks first @${width}`, async () => {
+        const view = await page.locator('#pipelineBuilderRoot .pb-stage-row').first().getAttribute('data-view');
+        const order = () => page.evaluate((v) => [...document.querySelectorAll(`#pipelineBuilderRoot .pb-stage-row[data-view="${v}"]`)].map((r) => r.dataset.stage), view);
+        const saveBar = page.locator('#pipelineBuilderRoot .pb-savebar [data-pb-action="save"]');
+        const edited = await order();
+        await expect(saveBar, 'the ▼ left unsaved edits').toBeVisible();
+        const asked = [];
+        let accept = false;
+        const onDialog = (d) => { asked.push(d.message()); (accept ? d.accept() : d.dismiss()).catch(() => {}); };
+        page.on('dialog', onDialog);
+        const tapTab = async (tab) => {
+          const b = page.locator(`#stab-${tab}`);
+          await b.scrollIntoViewIfNeeded();
+          await b.tap();
+        };
+        try {
+          // Another Settings tab → Cancel: still on Pipelines, edit intact.
+          await tapTab('profile');
+          await expect.poll(() => asked.length, { message: 'switching tabs asks' }).toBe(1);
+          expect(asked[0]).toMatch(/unsaved pipeline changes/i);
+          await expect(page.locator('#stab-panel-pipelines')).toBeVisible();
+          await expect(page.locator('#stab-panel-profile')).toBeHidden();
+          expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
+
+          // The bottom nav → Cancel: still in Settings, edit intact.
+          await page.locator('#mni-dash').tap();
+          await expect.poll(() => asked.length, { message: 'leaving the view asks' }).toBe(2);
+          expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id)).toBe('view-settings');
+          expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
+          await expect(saveBar).toBeVisible();
+
+          // Tapping Pipelines again while it is open keeps the working copy.
+          await tapTab('pipelines');
+          await page.waitForTimeout(400);
+          expect(asked.length, 're-selecting Pipelines does not ask').toBe(2);
+          expect(await order(), 're-selecting Pipelines keeps the reorder').toEqual(edited);
+
+          // OK discards: Profile opens, and Pipelines comes back as saved.
+          accept = true;
+          await tapTab('profile');
+          await expect.poll(() => asked.length).toBe(3);
+          await expect(page.locator('#stab-panel-profile')).toBeVisible();
+          await openSettingsTab(page, 'pipelines');
+          await expect.poll(async () => (await order()).slice(0, 2), { message: 'the discarded ▼ is undone' }).toEqual([edited[1], edited[0]]);
+          await expect(saveBar).toBeHidden();
+
+          // Nothing unsaved: leaving asks nothing.
+          await tapTab('profile');
+          await expect(page.locator('#stab-panel-profile')).toBeVisible();
+          expect(asked.length, 'a clean editor never asks').toBe(3);
+        } finally {
+          page.off('dialog', onDialog);
+        }
+      });
+    }
   });
 });
 
@@ -910,7 +915,12 @@ test.describe('phone views: Settings upgrade prices @audit', () => {
 
 // ── Products + Sales Training ──────────────────────────────────────────────
 
-test.describe('phone views: Products and Sales Training @audit', () => {
+// 2026-09-25 follow-up: this ran at 412 only. One describe per phone width
+// now (called below the describe), each a fresh login: "starts collapsed"
+// needs a Products view nobody has opened yet.
+const productsSuite = (width) => test.describe(`phone views: Products and Sales Training at ${width}px @audit`, () => {
+  test.use({ viewport: { width, height: 860 } });
+
   test('Products opens collapsed with thumb-sized card buttons; the drill opens', async ({ page }) => {
     test.setTimeout(90_000);
     await boot(page);
@@ -971,11 +981,14 @@ test.describe('phone views: Products and Sales Training @audit', () => {
     });
   });
 });
+for (const width of [412, 360]) productsSuite(width);
 
 // ── light mode ─────────────────────────────────────────────────────────────
 
-test.describe('phone views: light mode stays readable @audit', () => {
-  test.use({ colorScheme: 'light' });
+// Per phone width, like Products above (412 only until the 2026-09-25
+// follow-up).
+const lightSuite = (width) => test.describe(`phone views: light mode stays readable at ${width}px @audit`, () => {
+  test.use({ colorScheme: 'light', viewport: { width, height: 860 } });
 
   test('chrome, dashboard labels, Talk Tank, the drill and Settings clear contrast', async ({ page }) => {
     test.setTimeout(120_000);
@@ -1076,3 +1089,4 @@ test.describe('phone views: light mode stays readable @audit', () => {
     });
   });
 });
+for (const width of [412, 360]) lightSuite(width);
