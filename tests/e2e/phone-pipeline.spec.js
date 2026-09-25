@@ -386,10 +386,11 @@ test.describe('phone pipeline @audit', () => {
   test('header menus: a second tap or a touch beside closes them; they follow a rotate and paint over the FABs (pipeline#0 follow-ups)', async () => {
     test.setTimeout(120_000);
     const closeAll = () => safeEvaluate(page, () => { window.closeCrmToolsMenu(); window.closeCrmFiltersMenu(); });
-    // The previous test ends on a CDP finger drag, and Chromium swallows the
-    // first tap after a synthetic drag as a fling-stop (seen on main's ⋮
-    // menu too). Stop any fling with a touch that fires no click, so the
-    // first real tap below counts.
+    // The previous test ends on a CDP finger drag, and the first tap after a
+    // synthetic drag is sometimes swallowed as a fling-stop (the pipeline
+    // review saw it on main's ⋮ menu; it cost this test its first tap once).
+    // Stop any fling with a touch that fires no click, so the first real tap
+    // below counts.
     await toTop(page);
     const title0 = await centre(page, '#view-crm .crm-hdr-title');
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: title0.x, y: title0.y }] });
@@ -431,6 +432,18 @@ test.describe('phone pipeline @audit', () => {
       await closeAll();
     }
 
+    // Landscape phone: the FAB column overlaps the Tools menu's right edge,
+    // and the menu must be what paints there. Opened fresh in landscape, so
+    // this checks the stacking alone. (Before the rotate block, whose
+    // landscape hit-tests would otherwise catch a z regression first.)
+    await page.setViewportSize({ width: 860, height: 412 });
+    await toTop(page);
+    await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', true);
+    const z = await menuReport(page, 'crmToolsMenu');
+    expect(z.fabs, 'precondition: on a landscape phone the FAB stack overlaps the open Tools menu').not.toEqual([]);
+    expect(z.covered, 'Tools items painted over by the FAB stack').toEqual([]);
+    await closeAll();
+
     // Turn the phone with a menu open, and back: it is re-placed each time.
     for (const [btn, menu] of MENUS) {
       await page.setViewportSize({ width: 412, height: 860 });
@@ -450,16 +463,6 @@ test.describe('phone pipeline @audit', () => {
       }
       await closeAll();
     }
-
-    // Landscape phone: the FAB column overlaps the Tools menu's right edge,
-    // and the menu must be what paints there.
-    await page.setViewportSize({ width: 860, height: 412 });
-    await toTop(page);
-    await openMenuAndHitTest(page, '#crmToolsBtn', 'crmToolsMenu', true);
-    const z = await menuReport(page, 'crmToolsMenu');
-    expect(z.fabs, 'precondition: on a landscape phone the FAB stack overlaps the open Tools menu').not.toEqual([]);
-    expect(z.covered, 'Tools items painted over by the FAB stack').toEqual([]);
-    await closeAll();
     await page.setViewportSize({ width: 412, height: 860 });
     // The list and the follow-up block choose their phone or desktop layout
     // when they render, not on resize. A live refresh that lands while the

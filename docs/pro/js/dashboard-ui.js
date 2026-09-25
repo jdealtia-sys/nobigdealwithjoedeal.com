@@ -2074,7 +2074,7 @@ function _placeCrmMenu(menu) {
 // leads drawer (z 1500) would paint over the drawer. Filter toggles keep
 // the delegate's own 220ms preview-then-close.
 const _CRM_MENU_BTN = { crmToolsMenu: 'crmToolsBtn', crmFiltersMenu: 'crmFiltersBtn' };
-let _crmMenuArmed = null; // { menu, onAway, onResize, raf } while a menu is open
+let _crmMenuArmed = null; // { menu, onAway, onActed, onResize, raf } while a menu is open
 
 function _crmMenuDisarm() {
   const a = _crmMenuArmed;
@@ -2082,6 +2082,7 @@ function _crmMenuDisarm() {
   _crmMenuArmed = null;
   document.removeEventListener('pointerdown', a.onAway, true);
   document.removeEventListener('click', a.onAway, true);
+  document.removeEventListener('click', a.onActed);
   window.removeEventListener('resize', a.onResize);
   window.removeEventListener('orientationchange', a.onResize);
   if (window.visualViewport) window.visualViewport.removeEventListener('resize', a.onResize);
@@ -2100,13 +2101,19 @@ function _crmMenuArm(menu) {
     // closest(), never t.id: the tap lands on the button's <svg>/<span>.
     // The button's own click toggles the menu shut.
     if (t && t.closest && t.closest(btnSel)) return;
-    if (menu.contains(t)) {
-      const item = e.type === 'click' && t.closest && t.closest('[data-action]');
-      // Deferred so the action delegate runs first, with the menu still open.
-      if (item && item.dataset.action !== 'toggle') setTimeout(_closeCrmMenus, 0);
-      return;
-    }
+    if (menu.contains(t)) return;
     _closeCrmMenus();
+  };
+  // An item that acts closes its menu. This is a bubble listener on document
+  // added after load, so it runs after the action delegate (registered at
+  // load), and the action still sees its menu open. The close stays in the
+  // tap's own task. A setTimeout(0) was tried first, and in Chromium it had
+  // sometimes not run by the time the Deleted leads drawer finished sliding
+  // in (about 1 run in 3).
+  a.onActed = (e) => {
+    const t = e.target;
+    const item = t && t.closest && t.closest('[data-action]');
+    if (item && menu.contains(item) && item.dataset.action !== 'toggle') _closeCrmMenus();
   };
   a.onResize = () => {
     if (a.raf) return;
@@ -2123,6 +2130,7 @@ function _crmMenuArm(menu) {
   _crmMenuArmed = a;
   document.addEventListener('pointerdown', a.onAway, true);
   document.addEventListener('click', a.onAway, true);
+  document.addEventListener('click', a.onActed);
   window.addEventListener('resize', a.onResize);
   window.addEventListener('orientationchange', a.onResize);
   if (window.visualViewport) window.visualViewport.addEventListener('resize', a.onResize);
