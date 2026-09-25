@@ -33,6 +33,9 @@
 //     npx playwright test --config=playwright.config.js phone-views.spec.js --workers=1
 const { test, expect } = require('@playwright/test');
 const zlib = require('zlib');
+const fs = require('fs');
+const path = require('path');
+const { devices } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
 
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36';
@@ -519,6 +522,10 @@ test.describe('phone views: Settings panels @audit', () => {
           await b.scrollIntoViewIfNeeded();
           await b.tap();
         };
+        const litTabs = () => page.evaluate(() => [...document.querySelectorAll('#mobile-nav .mn-item.active')].map((e) => e.id).sort());
+        // All that may be lit while the rep is in Settings: a Settings tab, if
+        // the rep has put one in the bar.
+        const settingsTabs = () => page.evaluate(() => (document.getElementById('mni-settings') ? ['mni-settings'] : []));
         try {
           // Another Settings tab → Cancel: still on Pipelines, edit intact.
           await tapTab('profile');
@@ -534,6 +541,56 @@ test.describe('phone views: Settings panels @audit', () => {
           expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id)).toBe('view-settings');
           expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
           await expect(saveBar).toBeVisible();
+          // ...and the bar does not claim the rep went Home (2026-09-25 phone
+          // nav polish: mobileNav lit the tapped tab whether or not goTo
+          // left). Settings has no tab in the default bar, so nothing is lit.
+          await page.waitForTimeout(300);
+          expect(await litTabs(), `after Cancel, the bottom nav lights no tab the rep did not go to @${width}`).toEqual(await settingsTabs());
+
+          // The installed app. There the leave prompt is nbdConfirm, a DOM
+          // modal that answers later (standalone-compat.js), not the blocking
+          // confirm() above; it is stood in for here by a promise the test
+          // settles, so the bar can be read while the prompt is still up.
+          await page.evaluate(() => {
+            window.__pvNbdConfirm = Object.getOwnPropertyDescriptor(window, 'nbdConfirm') || null;
+            window.__pvLeave = [];
+            window.nbdConfirm = (msg) => new Promise((resolve) => { window.__pvLeave.push({ msg, resolve }); });
+          });
+          try {
+            // A bottom-nav tap: Home is not lit while the rep is still in
+            // Settings being asked, nor after Cancel.
+            await page.locator('#mni-dash').tap();
+            await expect.poll(() => page.evaluate(() => window.__pvLeave.length), { message: 'the tap asks through nbdConfirm' }).toBe(1);
+            expect(await litTabs(), `while the leave prompt is up, the bottom nav does not light Home @${width}`).toEqual(await settingsTabs());
+            await page.evaluate(() => window.__pvLeave[0].resolve(false));
+            await page.waitForTimeout(300);
+            expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id), 'Cancel stays in Settings').toBe('view-settings');
+            expect(await litTabs(), `after Cancel in the installed app, the bottom nav does not light Home @${width}`).toEqual(await settingsTabs());
+
+            // A cancelled Back. Back moves the hash first, so the bar lights
+            // the Back target while the modal is up; Cancel puts the hash back
+            // without a hashchange, and the bar must follow it back.
+            await page.evaluate(() => {
+              // The rep came to Settings from the pipeline: that is where Back goes.
+              history.pushState(null, '', '#/crm');
+              history.pushState(null, '', '#/settings');
+            });
+            await page.evaluate(() => history.back());
+            await expect.poll(() => page.evaluate(() => window.__pvLeave.length), { message: 'Back asks through nbdConfirm' }).toBe(2);
+            expect(await page.evaluate(() => window.__pvLeave[1].msg)).toMatch(/unsaved pipeline changes/i);
+            await page.evaluate(() => window.__pvLeave[1].resolve(false));
+            await expect.poll(() => page.evaluate(() => location.hash), { message: 'Cancel puts the Settings hash back' }).toBe('#/settings');
+            expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id), 'Cancel stays in Settings').toBe('view-settings');
+            await page.waitForTimeout(300);
+            expect(await litTabs(), `after a cancelled Back, the bottom nav does not light the Back target (CRM) @${width}`).toEqual(await settingsTabs());
+            expect(await order(), 'a cancelled Back keeps the reorder').toEqual(edited);
+          } finally {
+            await page.evaluate(() => {
+              if (window.__pvNbdConfirm) Object.defineProperty(window, 'nbdConfirm', window.__pvNbdConfirm);
+              else delete window.nbdConfirm;
+            });
+          }
+          expect(asked.length, 'the installed-app prompt stood in for confirm()').toBe(2);
 
           // Tapping Pipelines again while it is open keeps the working copy.
           await tapTab('pipelines');
@@ -561,6 +618,133 @@ test.describe('phone views: Settings panels @audit', () => {
     }
   });
 });
+
+// ── Lazy view templates run each of their scripts once ─────────────────────
+//
+// 2026-09-25 phone nav polish. _hydrateViewTemplate (dashboard-ui.js) appended
+// a view's cloned <template>, then swapped every cloned <script> for a fresh
+// one on the premise that a clone is inert. It is not, so every template
+// script ran TWICE: each Settings shard wrapped switchSettingsTab twice,
+// opening Billing fired loadSubscription twice, opening Team loaded the plan
+// and roster twice, and pipeline-builder.js needed a guard of its own (#1767).
+// Each script's response gets a one-line run counter prepended (the file is
+// otherwise served as is), so a run is counted however the page inserts it.
+// Checked at phone width and at 1280 (the desktop header's Settings button).
+
+// The template scripts, read from the page source so the list can't drift.
+function templateScripts() {
+  const html = fs.readFileSync(path.join(__dirname, '..', '..', 'docs', 'pro', 'dashboard.html'), 'utf8');
+  const out = {};
+  for (const m of html.matchAll(/<template id="(tpl-view-[\w-]+)">([\s\S]*?)<\/template>/g)) {
+    const names = [...m[2].matchAll(/<script\b[^>]*\bsrc="js\/([\w.-]+)\.js/g)].map((s) => s[1]);
+    if (names.length) out[m[1]] = names;
+  }
+  return out;
+}
+
+// holdBack delays one script's response by that many ms. 2026-09-25 review
+// fixup: served locally the template scripts tend to finish loading in page
+// order anyway, so "in page order" passed by luck with the ordering fix
+// removed (red at 412, green at 1280 in the same run). Holding the FIRST
+// Settings script back makes every later one land before it, so only a page
+// that really runs them in document order (async = false) can pass.
+async function countScriptRuns(page, names, holdBack) {
+  const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  await page.route(new RegExp('/pro/js/(' + names.map(esc).join('|') + ')\\.js(\\?|$)'), async (route) => {
+    const name = route.request().url().match(/\/pro\/js\/([\w.-]+)\.js/)[1];
+    const resp = await route.fetch();
+    const body = await resp.text();
+    if (holdBack && holdBack[name]) await new Promise((r) => setTimeout(r, holdBack[name]));
+    await route.fulfill({ response: resp, body: '(window.__pvRuns = window.__pvRuns || []).push(' + JSON.stringify(name) + ');\n' + body });
+  });
+}
+
+// What each Settings tab renders once its script has run. A tab missing here
+// is only checked for opening.
+const SETTINGS_RENDERS = {
+  pipelines: '#pipelineBuilderRoot .pb-stage-row',
+  'ai-texting': '#aiPersonaMount > *',
+  appearance: '#sidebarCustomizerGrid > *',
+  help: '#hotkeyTogglesGrid > *',
+  billing: '#billingPlanCards > *',
+};
+
+const templateSuite = (label, use, touch) => test.describe(`phone views: lazy view templates run each script once (${label}) @audit`, () => {
+  test.use(use);
+
+  test('every template script runs once, in page order, and every Settings tab still works', async ({ page }) => {
+    test.setTimeout(180_000);
+    const TPL = templateScripts();
+    const settingsNames = TPL['tpl-view-settings'] || [];
+    expect(settingsNames.length, 'the Settings template carries its scripts').toBeGreaterThanOrEqual(5);
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(String((e && e.message) || e).slice(0, 200)));
+    await countScriptRuns(page, [].concat(...Object.values(TPL)), { [settingsNames[0]]: 1500 });
+    await boot(page);
+    await installProbes(page);
+    const runs = (names) => page.evaluate((n) => (window.__pvRuns || []).filter((x) => n.includes(x)), names);
+    const press = (loc) => (touch ? loc.tap() : loc.click());
+
+    // Settings, opened the way a rep opens it.
+    if (touch) await openMore(page, 'settings');
+    else await press(page.locator('.hdr-tool[data-target="settings"]'));
+    await expect(page.locator('#stab-panel-profile')).toBeVisible({ timeout: 15_000 });
+    await expect.poll(async () => { const r = await runs(settingsNames); return settingsNames.every((n) => r.includes(n)); },
+      { message: 'every Settings template script ran', timeout: 20_000 }).toBe(true);
+    await page.waitForTimeout(1500); // room for a second run to land
+    expect(await runs(settingsNames), `each Settings template script ran exactly once, in page order (${label})`).toEqual(settingsNames);
+
+    // Count plan loads per tab open. Billing's and Team's hooks both load
+    // the plan, and each hook ran once per copy of its script.
+    await page.evaluate(() => {
+      const B = window.NBDBilling;
+      window.__pvSubs = 0;
+      if (B && typeof B.loadSubscription === 'function' && !B.__pvWrapped) {
+        const orig = B.loadSubscription;
+        B.loadSubscription = function () { window.__pvSubs++; return orig.apply(this, arguments); };
+        B.__pvWrapped = true;
+      }
+    });
+    expect(await page.evaluate(() => !!(window.NBDBilling && window.NBDBilling.__pvWrapped)), 'precondition: the plan loader is counted').toBe(true);
+    const tabs = await page.evaluate(() => [...document.querySelectorAll('#stab-bar .stab-btn')]
+      .filter((b) => b.getClientRects().length && getComputedStyle(b).display !== 'none').map((b) => b.dataset.target));
+    expect(tabs.length, 'Settings tabs to walk').toBeGreaterThanOrEqual(10);
+    for (const tab of tabs) {
+      await page.evaluate(() => { window.__pvSubs = 0; });
+      const btn = page.locator(`#stab-${tab}`);
+      await btn.scrollIntoViewIfNeeded();
+      await press(btn);
+      await expect(page.locator(`#stab-panel-${tab}`), `Settings → ${tab} opens (${label})`).toBeVisible();
+      if (SETTINGS_RENDERS[tab]) {
+        await expect.poll(() => page.evaluate((s) => document.querySelectorAll(s).length, SETTINGS_RENDERS[tab]),
+          { message: `Settings → ${tab} renders ${SETTINGS_RENDERS[tab]} (${label})`, timeout: 15_000 }).toBeGreaterThan(0);
+      }
+      if (tab === 'billing' || tab === 'team') {
+        await expect.poll(() => page.evaluate(() => window.__pvSubs), { message: `Settings → ${tab} loads the plan` }).toBeGreaterThanOrEqual(1);
+        await page.waitForTimeout(800);
+        expect(await page.evaluate(() => window.__pvSubs), `opening Settings → ${tab} loads the plan once (${label})`).toBe(1);
+      }
+      if (tab === 'team') {
+        await expect.poll(() => page.evaluate(() => (document.getElementById('teamOwnerName') || {}).textContent || ''),
+          { message: 'Team renders its owner card', timeout: 15_000 }).not.toMatch(/^\s*(Loading|\.\.\.)/i);
+      }
+    }
+
+    // The other templated views that carry scripts.
+    for (const [tpl, names] of Object.entries(TPL)) {
+      if (tpl === 'tpl-view-settings') continue;
+      const view = tpl.replace(/^tpl-view-/, '');
+      await page.evaluate((v) => window.goTo(v), view);
+      await expect.poll(async () => { const r = await runs(names); return names.every((n) => r.includes(n)); },
+        { message: `${view}: its template scripts ran`, timeout: 20_000 }).toBe(true);
+      await page.waitForTimeout(1000);
+      expect(await runs(names), `${view}: each template script ran exactly once (${label})`).toEqual(names);
+    }
+    expect(errors, `page errors (${label})`).toEqual([]);
+  });
+});
+templateSuite('phone 412', {}, true);
+templateSuite('desktop 1280', { viewport: { width: 1280, height: 860 }, isMobile: false, hasTouch: false, userAgent: devices['Desktop Chrome'].userAgent }, false);
 
 // ── Settings → Estimates → Upgrade prices ──────────────────────────────────
 //

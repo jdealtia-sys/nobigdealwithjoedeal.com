@@ -75,7 +75,19 @@ function renderColumnCards(body, cards, stageKey) {
 // a 20px-tall "View / →" button across lines. Expanded stays expanded for
 // the session: renderLeads re-runs on every data refresh.
 let _fuShowAll = false;
+// The phone-or-wider choice above is made at render time, so a rotate kept
+// the other width's row count (and a phone kept five rows) until the next
+// refresh. The last render is kept, and a flip of the phone query re-renders
+// it while its box is still on the page (2026-09-25 phone nav polish).
+let _fuLast = null; // { box, overdue } from the latest render
+try {
+  const mq = window.matchMedia && window.matchMedia('(max-width: 768px)');
+  const refit = () => { if (_fuLast && _fuLast.box.isConnected) _renderFollowUpRows(_fuLast.box, _fuLast.overdue); };
+  if (mq && mq.addEventListener) mq.addEventListener('change', refit);
+  else if (mq && mq.addListener) mq.addListener(refit);
+} catch (_) {}
 function _renderFollowUpRows(box, overdue) {
+  _fuLast = { box, overdue };
   const phone = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
   const cap = _fuShowAll ? overdue.length : (phone ? 3 : 5);
   box.innerHTML = overdue.slice(0, cap).map(l => `

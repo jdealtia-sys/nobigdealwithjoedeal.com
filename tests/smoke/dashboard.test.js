@@ -2218,10 +2218,23 @@ section('Phase C.3 wave 2 — draw + dash + reports + settings');
       'expected tpl-view-' + v + ' template element');
   }
 
-  // _hydrateViewTemplate now re-executes inline <script> blocks.
-  assert('_hydrateViewTemplate re-executes inline scripts after cloning',
-    /view\.querySelectorAll\('script'\)\.forEach[\s\S]{0,500}createElement\('script'\)[\s\S]{0,300}replaceChild/.test(mainJs),
-    'expected the helper to swap each cloned <script> for a fresh executable one');
+  // _hydrateViewTemplate runs each template <script> once. Until 2026-09-25
+  // it appended the clone and THEN swapped each cloned script in the live
+  // view for a fresh one — but the clone is not inert (a <template> script
+  // never started), so every template script ran twice. The swap now happens
+  // in the detached fragment before it is inserted. The behavioural proof is
+  // phone-views.spec.js "lazy view templates run each script once"; this
+  // only pins the shape.
+  const hydrate = (mainJs.match(/function _hydrateViewTemplate\(name\) \{[\s\S]*?\n\}/) || [''])[0];
+  assert('_hydrateViewTemplate swaps each template <script> for a fresh one BEFORE inserting the fragment',
+    /const frag = document\.importNode\(tpl\.content, true\);[\s\S]{0,200}frag\.querySelectorAll\('script'\)\.forEach[\s\S]{0,300}createElement\('script'\)[\s\S]{0,600}replaceWith\(newScript\)[\s\S]{0,100}view\.appendChild\(frag\)/.test(hydrate),
+    'expected importNode → swap scripts in the fragment → view.appendChild(frag)');
+  assert('_hydrateViewTemplate never swaps scripts that are already in the page (they have run once already)',
+    hydrate && !/view\.querySelectorAll\('script'\)/.test(hydrate) && !/replaceChild/.test(hydrate),
+    'a swap after insertion runs every template script twice');
+  assert('_hydrateViewTemplate keeps external template scripts in page order (async = false)',
+    /newScript\.async = false/.test(hydrate),
+    'a script inserted by script runs async (load order) unless async is set false');
 
   // CSP hotfix (2026-05-16): the inline scripts inside tpl-view-draw
   // and tpl-view-settings were extracted to external files

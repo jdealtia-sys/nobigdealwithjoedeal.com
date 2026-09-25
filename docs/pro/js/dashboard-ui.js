@@ -138,26 +138,48 @@ function _hydrateViewTemplate(name) {
   if (!tplId) return false;
   const tpl = document.getElementById(tplId);
   if (!tpl || !('content' in tpl)) return false;
-  view.appendChild(tpl.content.cloneNode(true));
 
-  // Phase C.3+ — re-execute inline <script> elements after cloning.
-  // cloneNode() copies script tags as inert nodes; the browser only
-  // executes a script element when one is freshly inserted via
-  // createElement. We swap each cloned-but-inert script for a brand-
-  // new element carrying the same content + attributes, which the
-  // browser will execute on insertion. This unblocks extraction of
-  // views whose markup historically depended on inline scripts
-  // (view-draw, view-settings, view-dash, view-reports). Scripts that
-  // expect DOMContentLoaded need a `document.readyState` check (see
-  // pattern used in tpl-view-draw's accessory-panel bootstrap).
-  view.querySelectorAll('script').forEach(oldScript => {
+  // Phase C.3+ — template <script>s run when the view hydrates. Each one
+  // must run EXACTLY ONCE, in document order (2026-09-25 phone nav polish).
+  //
+  // This used to append the clone first and then swap every cloned
+  // <script> in the live view for a fresh createElement copy, on the
+  // premise that a cloned script is inert. It is not: a script parsed into
+  // a <template> was never connected, so it never "started", and its clone
+  // runs the moment it is inserted. So every template script ran TWICE —
+  // once from the clone, once from the swap (measured on the Settings
+  // template: two runs of all seven, in Chromium and WebKit). Every
+  // switchSettingsTab wrapper went on twice, so opening Billing fired
+  // loadSubscription twice and opening Team loaded the roster twice, and
+  // pipeline-builder.js needed a guard of its own (#1767).
+  //
+  // Now the swap happens in the detached fragment, BEFORE anything is
+  // inserted. The only script elements that ever reach the page are the
+  // fresh copies, and each runs once, on insertion. importNode (not
+  // content.cloneNode) makes the fragment this document's own, so the fresh
+  // copies never move between documents. A script inserted by
+  // script is async by default, which ran these in whatever order they
+  // finished loading. async = false (unless the markup asked for async)
+  // runs them in document order, the nearest thing to the `defer`
+  // ordering they would have had in the page. The views that use this are
+  // external files only; the page CSP refuses inline scripts, so an inline
+  // copy keeps its text but would not run. Scripts that expect
+  // DOMContentLoaded need a `document.readyState` check (see
+  // dashboard-accessory-panel-init.js).
+  const frag = document.importNode(tpl.content, true);
+  frag.querySelectorAll('script').forEach(oldScript => {
     const newScript = document.createElement('script');
     for (const attr of Array.from(oldScript.attributes)) {
       newScript.setAttribute(attr.name, attr.value);
     }
-    newScript.text = oldScript.textContent;
-    oldScript.parentNode.replaceChild(newScript, oldScript);
+    if (oldScript.hasAttribute('src')) {
+      if (!oldScript.hasAttribute('async')) newScript.async = false;
+    } else {
+      newScript.text = oldScript.textContent;
+    }
+    oldScript.replaceWith(newScript);
   });
+  view.appendChild(frag);
   _paintUserGreetings(view);
   _wireViewAddressSearch(name, view);
   return true;
@@ -1693,13 +1715,35 @@ function setKanbanDensity(d) {
     b.style.color = active ? 'var(--accent-fg,#fff)' : 'var(--m)';
     b.style.borderColor = active ? 'var(--orange)' : 'var(--br)';
   });
+  _syncDensityToggleLabel(d);
+}
+
+// The Tools menu's Card density item names the current size in its own
+// label and tooltip. It used to announce each step in a toast. Since Tools
+// stays open while a rep steps through the sizes (2026-09-25 phone nav
+// polish), that toast landed on the button itself at 412x860 (toast y
+// 670-720, button 651-700), so the next tap hit the toast, which counts as
+// a tap outside the menu, and closed Tools instead of stepping. The label is
+// where the rep is already looking.
+const _DENSITY_NAMES = { compact: 'Compact', comfortable: 'Comfortable', spacious: 'Spacious' };
+function _syncDensityToggleLabel(d) {
+  const btn = document.getElementById('kanbanDensityToggleBtn');
+  if (!btn) return;
+  if (!_DENSITY_NAMES[d]) {
+    try { d = localStorage.getItem(KANBAN_DENSITY_KEY) || 'comfortable'; } catch (_) { d = 'comfortable'; }
+    if (!_DENSITY_NAMES[d]) d = 'comfortable';
+  }
+  const next = { compact: 'comfortable', comfortable: 'spacious', spacious: 'compact' }[d];
+  btn.title = 'Card density: ' + _DENSITY_NAMES[d] + ' — tap for ' + _DENSITY_NAMES[next];
+  const lbl = btn.querySelector('.crm-hdr-btn-label');
+  if (lbl) lbl.textContent = 'Card density: ' + _DENSITY_NAMES[d];
 }
 
 // Sweep R3 (C): one-tap cycle invoked by the kanban-header
 // density toggle. Reads the current value from localStorage so the
 // cycle starts from wherever the user left off, even if the
 // data-density attribute got cleared (Comfortable = no attribute).
-// Updates the button tooltip + label so the rep sees current state.
+// setKanbanDensity updates the button's label + tooltip to the new size.
 const cycleKanbanDensity = function() {
   const order = ['compact', 'comfortable', 'spacious'];
   let cur = 'comfortable';
@@ -1707,21 +1751,6 @@ const cycleKanbanDensity = function() {
   if (!order.includes(cur)) cur = 'comfortable';
   const next = order[(order.indexOf(cur) + 1) % order.length];
   setKanbanDensity(next);
-  // Toast so the rep gets feedback without staring at the button.
-  if (typeof showToast === 'function') {
-    const labelMap = { compact: '📏 Compact', comfortable: '📐 Comfortable', spacious: '📊 Spacious' };
-    showToast(labelMap[next] + ' card density', 'info');
-  }
-  // Update the toolbar button's title attr so hover hint stays current.
-  const btn = document.getElementById('kanbanDensityToggleBtn');
-  if (btn) {
-    const titleMap = {
-      compact: 'Card density: Compact — click for Comfortable',
-      comfortable: 'Card density: Comfortable — click for Spacious',
-      spacious: 'Card density: Spacious — click for Compact'
-    };
-    btn.title = titleMap[next];
-  }
 }
 
 function setKanbanBoldHierarchy(on) {
@@ -2079,7 +2108,11 @@ function _placeCrmMenu(menu) {
 // closes its menu too. The menu now paints above the FAB stack
 // (kanban-force.css, --z-overlay), so a menu left open behind the Deleted
 // leads drawer (z 1500) would paint over the drawer. Filter toggles keep
-// the delegate's own 220ms preview-then-close.
+// the delegate's own 220ms preview-then-close. An item marked
+// data-menu-stay opens nothing and is meant to be tapped again in place,
+// so it leaves the menu open: Card density cycles Compact → Comfortable →
+// Spacious, and closing after every step made a rep reopen Tools to reach
+// the next one (2026-09-25 phone nav polish).
 const _CRM_MENU_BTN = { crmToolsMenu: 'crmToolsBtn', crmFiltersMenu: 'crmFiltersBtn' };
 let _crmMenuArmed = null; // { menu, onAway, onActed, onResize, raf } while a menu is open
 
@@ -2120,7 +2153,8 @@ function _crmMenuArm(menu) {
   a.onActed = (e) => {
     const t = e.target;
     const item = t && t.closest && t.closest('[data-action]');
-    if (item && menu.contains(item) && item.dataset.action !== 'toggle') _closeCrmMenus();
+    if (item && menu.contains(item) && item.dataset.action !== 'toggle'
+        && !item.hasAttribute('data-menu-stay')) _closeCrmMenus();
   };
   a.onResize = () => {
     if (a.raf) return;
@@ -2159,6 +2193,9 @@ function _toggleCrmMenu(id, ev) {
     if (typeof window.syncMobileToolsMenuActive === 'function') {
       window.syncMobileToolsMenuActive();
     }
+    // The CRM template hydrates after the boot-time density sync, so name
+    // the current size here, before the rep sees the item.
+    if (id === 'crmToolsMenu') _syncDensityToggleLabel();
     _crmMenuArm(menu);
   }
   if (ev) ev.stopPropagation();
@@ -2183,31 +2220,77 @@ window.toggleCrmFiltersMenu = toggleCrmFiltersMenu;
 window.closeCrmFiltersMenu = closeCrmFiltersMenu;
 
 // Global header mobile kebab — collapses theme/settings/guide buttons
-// into a single dropdown on ≤768px. Same shape as toggleCrmToolsMenu
-// (click-outside-to-close, aria-expanded sync), kept separate so the
-// two menus can be open independently if a user ever resizes mid-session.
+// into a single dropdown on ≤768px. Kept separate from the pipeline menus
+// above so the two can be open independently if a user resizes mid-session.
+//
+// Same lifecycle as the pipeline menus (2026-09-25 phone nav polish). The
+// kebab still had the old shape those menus were fixed away from:
+//   - Its outside-tap closer listened for `click` only. WebKit (Jo's iPhone
+//     app) sends no click for a tap on plain page such as the pipeline
+//     title, so on the iPhone a tap beside the open kebab left it open.
+//     pointerdown fires on every engine; click stays for keyboard use.
+//   - Each open added a document capture listener that only an OUTSIDE tap
+//     removed, so every close from the button, and every close by an item,
+//     leaked one. Now one set is armed while the kebab is open and every
+//     close path removes it.
+//   - Tapping an item (Theme & Font, Settings, Theme Guide) left the kebab
+//     open over the screen it had just opened. An item that acts closes it,
+//     as in the pipeline menus.
+let _hdrMenuArmed = null; // { onAway, onActed } while the kebab is open
+
+function _hdrMenuDisarm() {
+  const a = _hdrMenuArmed;
+  if (!a) return;
+  _hdrMenuArmed = null;
+  document.removeEventListener('pointerdown', a.onAway, true);
+  document.removeEventListener('click', a.onAway, true);
+  document.removeEventListener('click', a.onActed);
+}
+
+// Armed from inside the opening click's own dispatch (the action delegate is
+// a bubble listener on document), so neither listener sees that click: the
+// document's capture phase has already passed, and a listener added to the
+// target being dispatched is not called for the current event.
+function _hdrMenuArm(menu) {
+  _hdrMenuDisarm();
+  const a = {};
+  a.onAway = (e) => {
+    const t = e.target;
+    // Closed by a path outside this lifecycle: just stop listening.
+    if (!menu.classList.contains('open')) { _hdrMenuDisarm(); return; }
+    // closest(), never t.id: a finger lands on the button's <svg>. The
+    // button's own click toggles the kebab shut.
+    if (t && t.closest && t.closest('#hdrMobileBtn')) return;
+    if (menu.contains(t)) return;
+    closeHdrMobileMenu();
+  };
+  // Bubble listener added after load, so it runs after the action delegate
+  // and the item's action still sees the kebab open.
+  a.onActed = (e) => {
+    const t = e.target;
+    const item = t && t.closest && t.closest('[data-action]');
+    if (item && menu.contains(item)) closeHdrMobileMenu();
+  };
+  _hdrMenuArmed = a;
+  document.addEventListener('pointerdown', a.onAway, true);
+  document.addEventListener('click', a.onAway, true);
+  document.addEventListener('click', a.onActed);
+}
+
 const toggleHdrMobileMenu = function (ev) {
   const menu = document.getElementById('hdrMobileMenu');
   const btn  = document.getElementById('hdrMobileBtn');
   if (!menu) return;
   const isOpen = menu.classList.toggle('open');
   if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-  if (isOpen) {
-    setTimeout(() => {
-      const onAway = (e) => {
-        if (!menu.contains(e.target) && e.target.id !== 'hdrMobileBtn' && !e.target.closest('#hdrMobileBtn')) {
-          closeHdrMobileMenu();
-          document.removeEventListener('click', onAway, true);
-        }
-      };
-      document.addEventListener('click', onAway, true);
-    }, 0);
-  }
+  if (isOpen) _hdrMenuArm(menu);
+  else _hdrMenuDisarm();
   if (ev && ev.stopPropagation) ev.stopPropagation();
 };
 function closeHdrMobileMenu() {
   document.getElementById('hdrMobileMenu')?.classList.remove('open');
   document.getElementById('hdrMobileBtn')?.setAttribute('aria-expanded', 'false');
+  _hdrMenuDisarm();
 }
 
 // Mobile Tools menu — mirror filter active-state from the (hidden-on-mobile)

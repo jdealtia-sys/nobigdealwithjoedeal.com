@@ -45,7 +45,7 @@
 <link rel="apple-touch-icon" href="/pro/img/nbd-icon-192.png">
 <title>NBD Pro — Dashboard</title>
 <link rel="preload" href="js/crm-leads.js?v=2" as="script">
-<link rel="preload" href="js/crm-pipeline.js?v=4" as="script">
+<link rel="preload" href="js/crm-pipeline.js?v=5" as="script">
 <link rel="modulepreload" href="js/stage-write.js">
 <link rel="preload" href="js/crm-snooze.js?v=2" as="script">
 <link rel="preload" href="js/crm-portal-bridge.js?v=4" as="script">
@@ -1907,8 +1907,9 @@
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V3h4M13 3h4v4M17 13v4h-4M7 17H3v-4"/></svg>
               <span class="crm-hdr-btn-label">Fullscreen board</span>
             </button>
-            <!-- Sweep R3 (C): card-density quick toggle. -->
-            <button class="crm-icon-btn" id="kanbanDensityToggleBtn" data-action="call" data-fn="cycleKanbanDensity" title="Card density (cycles Compact → Comfortable → Spacious)">
+            <!-- Sweep R3 (C): card-density quick toggle. data-menu-stay
+                 (2026-09-25): it cycles in place, so Tools stays open. -->
+            <button class="crm-icon-btn" id="kanbanDensityToggleBtn" data-action="call" data-fn="cycleKanbanDensity" data-menu-stay title="Card density (cycles Compact → Comfortable → Spacious)">
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg>
               <span class="crm-hdr-btn-label">Card density</span>
             </button>
@@ -3642,7 +3643,7 @@
         <div style="font-size:12px;color:var(--m);margin-bottom:14px;">Customize the kanban stages for each job type. Changes apply to your whole team.</div>
         <div id="pipelineBuilderRoot"></div>
       </div><!-- /stab-panel-pipelines -->
-      <script src="js/pipeline-builder.js?v=6"></script>
+      <script src="js/pipeline-builder.js?v=7"></script>
 
       <!-- ══ TAB: DAILY OS ══ -->
       <div class="stab-panel dn" id="stab-panel-daily">
@@ -5712,7 +5713,7 @@
 <script type="module" src="js/voice-intel-dashboard-bridge.module.js?v=1"></script>
 <script defer src="js/estimate-preview.js?v=2"></script>
 <script defer src="js/dashboard-widgets.js?v=6"></script>
-<script defer src="js/dashboard-ui.js?v=8"></script>
+<script defer src="js/dashboard-ui.js?v=9"></script>
 <script defer src="js/dashboard-actions.js?v=12"></script>
 <script defer src="js/dashboard-main.js?v=6"></script>
 
@@ -6574,7 +6575,7 @@
      of window.* exports in the shim can reach functions defined
      in the split files via classic-script sibling-scope globals. -->
 <script defer src="js/crm-leads.js?v=2"></script>
-<script defer src="js/crm-pipeline.js?v=4"></script>
+<script defer src="js/crm-pipeline.js?v=5"></script>
 <script defer src="js/crm-snooze.js?v=2"></script>
 <!-- FCM Web Push token registration — registers the messaging SW, mints a
      push token via getToken({vapidKey}), and persists it to
@@ -6584,7 +6585,7 @@
 <script defer src="js/push-actions.js?v=1"></script>
 <script defer src="js/crm-portal-bridge.js?v=4"></script>
 <script defer src="js/crm.js?v=34"></script>
-<script defer src="js/crm-list-view.js?v=6"></script>
+<script defer src="js/crm-list-view.js?v=7"></script>
 <script defer src="js/tasks.js?v=5"></script>
 <script defer src="js/notif-bell.js?v=3"></script>
 <script defer src="js/buying-intent-strike.js?v=2"></script>
@@ -6740,7 +6741,7 @@
 <!-- (theme-overlays/sounds/achievements/gx ride the lazy `theme` bundle — see
      the note at the theme-engine slot above.) -->
 <script src="js/dashboard-sw-bootstrap.js?v=2"></script>
-<script defer src="js/mobile-nav-customizer.js?v=3"></script>
+<script defer src="js/mobile-nav-customizer.js?v=4"></script>
 <script defer src="js/connection-status-btn.js?v=3"></script>
 <!-- admin-manager must load eagerly — it gates the #nav-admin visibility
      based on the user's claims. Lazy-loading would hide the nav entry
