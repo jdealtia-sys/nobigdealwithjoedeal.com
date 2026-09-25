@@ -51,16 +51,16 @@ Jo asked for a thorough run through the CRM at phone scale. His standing rule, f
 1. **Data repair (money):** audit production logged estimates that Classic already overwrote. The signature is `builder:'classic'` with amount ≠ grandTotal; the original price survives in `amount`. Read-only first; a task chip was raised by the estdata lane.
 2. **The signing contract is still print-size in its two sibling views:** the rep doc viewer's in-person signing, and the portal's Your Documents → View modal.
 3. **Invoices show the raw doc id,** not an invoice number (needs per-tenant numbering).
-4. **Pipeline:**
+4. **Pipeline:** *Update 2026-09-25: all three fixed in #1769.*
    - A second tap on ⋯ doesn't close the Tools menu (the handler compares `e.target.id` but the tap lands on the `<svg>`).
    - The menu doesn't re-place on rotate.
    - The Tools menu z 200 sits under the FAB stack.
-5. **Toasts still over chrome:** `.nbd-voice-toast` over the quick-action bar, and toasts vs the upload widget sharing an offset.
-6. **Tap targets under 44px:** the phone Settings pill (38×36 after the bell moved out) and the task picker's "Change customer" (32px).
+5. **Toasts still over chrome:** `.nbd-voice-toast` over the quick-action bar, and toasts vs the upload widget sharing an offset. *Update 2026-09-25: both fixed in #1767; phone-chrome pins them at 412 and 360 (and the upload widget at 1280).*
+6. **Tap targets under 44px:** the phone Settings pill (38×36 after the bell moved out) and the task picker's "Change customer" (32px). *Update 2026-09-25: both fixed in #1767; phone-dashnav pins them at 412 and 360.*
 7. **Specs:**
-   - Several specs run phone checks at 412 only; add 360.
-   - Some leave seeded leads/estimates in the shard (chrome, estdata before its fix-up, dashnav on a beforeAll timeout).
-   - The dashnav create-sheet test is flaky about 1 in 6 (the sheet's overshoot animation); wait for animations to finish before tapping.
+   - Several specs run phone checks at 412 only; add 360. *Update 2026-09-25 (branch `fix/phone-followups-tests`): done for phone-chrome, phone-dashnav and phone-views, including the tests #1767 added (toasts stacking over the upload indicator, the Settings pill and "Change customer", the Pipelines leave guard).*
+   - Some leave seeded leads/estimates in the shard (chrome, estdata before its fix-up, dashnav on a beforeAll timeout). *Update 2026-09-25: chrome and dashnav tag their seeds and delete them by tag in afterAll (`tests/e2e/fixtures/seeded-run.js`), which also covers a hook that died mid-seed. Rows the doc viewer files under `leads/{id}/documents` stay behind: `documentStatusWriteOk()` in firestore.rules reads `request.resource`, which is null on a delete, so no client can delete those rows (403 for the owner on the emulator).*
+   - The dashnav create-sheet test is flaky about 1 in 6 (the sheet's overshoot animation); wait for animations to finish before tapping. *Update 2026-09-25: fixed. `openCreateSheet` waits until the sheet is at rest; 20 of 20 runs passed.*
 8. **Smaller items:**
    - The estbuilder Undo bar survives a scope replace.
    - The claim "Advance" double-tap guard works only while the write is in flight.
@@ -69,8 +69,8 @@ Jo asked for a thorough run through the CRM at phone scale. His standing rule, f
    - Tablet (641–768px) share row.
    - Light-theme chip contrast is still under 4.5:1 on 2 themes.
    - Cal.com settings never reach the lazily-hydrated Schedule view (pre-existing).
-   - A cold double-tap can open two knock overlays.
-   - The Pipelines editor has no leave-with-unsaved-changes guard.
+   - A cold double-tap can open two knock overlays. *Fixed in #1767.*
+   - The Pipelines editor has no leave-with-unsaved-changes guard. *Fixed in #1767; phone-views pins it at 412 and 360.*
 
 ## Rig lessons (read before the next big parallel run)
 

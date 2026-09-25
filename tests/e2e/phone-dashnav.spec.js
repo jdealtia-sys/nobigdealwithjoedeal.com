@@ -28,8 +28,11 @@
 //   report      views#2 — Photo Library "New Report" rendered the builder
 //               into a hidden overlay.
 //
-// One login per describe (a shared page, serial), so the file stays well
-// under two minutes at --workers=1. Tagged @shard2 for its CI shard.
+// One login per describe (a shared page, serial): the phone describe runs at
+// 412 and 360 (PHONE_WIDTHS), then desktop 1280, and the file stays well
+// under two minutes at --workers=1. Tagged @shard2 for its CI shard. Each
+// phone describe seeds one lead and removes it (and its tasks) by tag in
+// afterAll (fixtures/seeded-run.js).
 // Run locally against a served worktree:
 //   cd tests && PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 \
 //     PLAYWRIGHT_TEST_USER_EMAIL=playwright-e2e@nbd.test \
@@ -37,14 +40,20 @@
 //     npx playwright test --config=playwright.config.js phone-dashnav.spec.js --workers=1
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
+const { deleteSeededRun } = require('./fixtures/seeded-run');
 
-const PHONE = {
-  viewport: { width: 412, height: 860 },
+// 412 is Jo's Android; 360 is the small-Android floor of the standing phone
+// rule (phone-fit.spec.js). Until 2026-09-25 this file ran 412 only; the
+// phone describe below now runs once per width, each with its own login,
+// lead and page.
+const PHONE_WIDTHS = [412, 360];
+const phoneContext = (width) => ({
+  viewport: { width, height: 860 },
   isMobile: true,
   hasTouch: true,
   serviceWorkers: 'block',
   userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36',
-};
+});
 
 let creds = null;
 try { creds = requireTestUser(); } catch (_) { /* every test skips below */ }
@@ -85,11 +94,41 @@ async function dismissToasts(page) {
   }
 }
 
+// 2026-09-25 follow-up: the "+" sheet slides up on an OVERSHOOT curve
+// (m-create-slide-up, .22s cubic-bezier(.18,.89,.32,1.28) in
+// dashboard-app.css). It rises past its resting place, then drops back, and
+// Playwright's actionability checks (visible, "stable" = the same box on two
+// frames in a row, hit target) can all pass mid-bounce. A tap aimed at Task
+// then landed a row UP, on Photo: the toast read "Pick a customer first —
+// then the camera…" and the task picker never opened. The create tests
+// flaked about 1 run in 6 (1 in 20 on the local rig, 1 in 6 with the CPU
+// throttled 4x). So wait for the sheet to be at rest before any hit-test or
+// tap: no finite animation running on it or inside it, and the same box for
+// 150ms, sampled every frame.
+async function sheetAtRest(page) {
+  await safeEvaluate(page, () => { window.__dnSheetRest = null; });
+  await safeWaitForFunction(page, () => {
+    const pop = document.getElementById('mCreatePopover');
+    if (!pop || pop.hidden) return false;
+    const moving = pop.getAnimations({ subtree: true }).some((a) => {
+      const t = a.effect && a.effect.getTiming ? a.effect.getTiming() : {};
+      return (a.pending || a.playState === 'running') && t.iterations !== Infinity;
+    });
+    const r = pop.getBoundingClientRect();
+    const box = [r.left, r.top, r.width, r.height].join(',');
+    const now = performance.now();
+    const s = window.__dnSheetRest;
+    if (moving || !s || s.box !== box) { window.__dnSheetRest = { box, since: now }; return false; }
+    return now - s.since >= 150;
+  }, { polling: 'raf', timeout: 5_000 });
+}
+
 async function openCreateSheet(page) {
   await dismissToasts(page);
   await expectTappable(page, '#mni-create', 'the "+" FAB');
   await page.locator('#mni-create').tap();
   await expect(page.locator('#mCreatePopover')).toBeVisible();
+  await sheetAtRest(page);
 }
 
 // Stub the network the flows below would otherwise reach: OSM geocoding
@@ -104,18 +143,25 @@ async function stubNetwork(page) {
 // card) is legitimate but lands over the bottom nav a moment AFTER boot on a
 // fresh CI tenant — CI's first run failed "#mni-dash covered by
 // #nbd-onb-overlay". Arrive as a returning user, as dashboard-actions-audit
-// does; the tour has its own spec there.
+// does; the tour has its own spec there. A returning user has also had
+// today's Ask Joe nudges: the once-a-day overdue scan raises a 7s warning
+// toast ("40 overdue follow-ups — …") 2s after load, and when the tests
+// before it run fast it lands on the "+" sheet after openCreateSheet has
+// swept the toasts — "Task row … covered by DIV#toast-1.toast". Same guard
+// as phone-views, phone-pipeline and phone-estdata.
 async function returningUser(context) {
   await context.addInitScript(() => {
     try {
       localStorage.setItem('nbd-onboarding-complete', '1');
       localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+      const today = new Date().toISOString().split('T')[0];
+      ['overdue_scan', 'pending_estimate_scan', 'morning_briefing'].forEach((k) => localStorage.setItem('nbd_proactive_' + k, today));
     } catch (e) { /* storage blocked: the tour just shows */ }
   });
 }
 
-async function bootPhone(browser) {
-  const context = await browser.newContext(PHONE);
+async function bootPhone(browser, width) {
+  const context = await browser.newContext(phoneContext(width));
   await returningUser(context);
   const page = await context.newPage();
   await stubNetwork(page);
@@ -124,50 +170,58 @@ async function bootPhone(browser) {
   return { context, page };
 }
 
-test.describe.serial('phone dashboard nav + quick create @shard2', () => {
+// One serial describe per phone width (see PHONE_WIDTHS), called at the end
+// of the describe. A function rather than a loop body, so each width closes
+// over its own context, page and lead.
+const phoneSuite = (width) => test.describe.serial(`phone dashboard nav + quick create at ${width}px @shard2`, () => {
   /** @type {import('@playwright/test').BrowserContext} */ let context;
   /** @type {import('@playwright/test').Page} */ let page;
-  let lead = null; // { id, name } — this file's own customer, deleted at the end
-  const stamp = Date.now();
+  let lead = null; // { id, name } — this describe's own customer, deleted at the end
+  let stamp = 0;
+  let run = ''; // e2eRun tag on everything this describe seeds (fixtures/seeded-run.js)
 
   test.beforeAll(async ({ browser }, testInfo) => {
     if (!creds) return;
     // Login + a lead save + waiting for it to reach _leads: 30s is too tight
     // when the emulator is busy (CI shards, a shared local rig).
     testInfo.setTimeout(90_000);
-    ({ context, page } = await bootPhone(browser));
+    // Set before the first write, so afterAll can find the lead by tag even
+    // if this hook times out before `lead` is assigned (2026-09-25 follow-up:
+    // that path used to leak the lead into the rest of the shard).
+    stamp = Date.now();
+    run = `phone-dashnav@${width}:${stamp}`;
+    ({ context, page } = await bootPhone(browser, width));
     // Our own lead, so the task picker and New Report never touch shared data
     // (a fresh CI emulator has no leads at all).
-    lead = await safeEvaluate(page, async (s) => {
-      const firstName = '[E2E] Dashnav';
-      let id = null;
-      try {
-        id = await window._saveLead({
-          firstName, lastName: String(s), address: `${String(s).slice(-4)} Dashnav Way, Cincinnati, OH`,
-          phone: '513' + String(s).slice(-7), email: `e2e-dashnav-${s}@nbd.test`, stage: 'new', e2eTestData: true,
-        });
-      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
-      for (let i = 0; i < 60 && !(window._leads || []).some((l) => l.lastName === String(s)); i++) {
-        if (i % 10 === 0 && typeof window._loadLeads === 'function') await window._loadLeads().catch(() => {});
-        await new Promise((r) => setTimeout(r, 250));
-      }
-      const l = (window._leads || []).find((x) => x.lastName === String(s));
-      return l ? { id: l.id, name: `${firstName} ${s}` } : (id ? { id, name: `${firstName} ${s}` } : null);
-    }, stamp);
+    lead = await safeEvaluate(page, ({ s, tag }) => {
+      window.__e2eSeeding = (async () => {
+        const firstName = '[E2E] Dashnav';
+        let id = null;
+        try {
+          id = await window._saveLead({
+            firstName, lastName: String(s), address: `${String(s).slice(-4)} Dashnav Way, Cincinnati, OH`,
+            phone: '513' + String(s).slice(-7), email: `e2e-dashnav-${s}@nbd.test`, stage: 'new', e2eTestData: true, e2eRun: tag,
+          });
+        } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+        for (let i = 0; i < 60 && !(window._leads || []).some((l) => l.lastName === String(s)); i++) {
+          if (i % 10 === 0 && typeof window._loadLeads === 'function') await window._loadLeads().catch(() => {});
+          await new Promise((r) => setTimeout(r, 250));
+        }
+        const l = (window._leads || []).find((x) => x.lastName === String(s));
+        return l ? { id: l.id, name: `${firstName} ${s}` } : (id ? { id, name: `${firstName} ${s}` } : null);
+      })();
+      return window.__e2eSeeding;
+    }, { s: stamp, tag: run });
   });
 
-  test.afterAll(async () => {
-    if (!page) return;
-    if (lead) {
-      await safeEvaluate(page, async (id) => {
-        try {
-          for (const t of (await window._loadTasks(id)) || []) await window._deleteTask(id, t.id);
-          const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-          await fs.deleteDoc(fs.doc(window.db || window._db, 'leads', id));
-        } catch (_) { /* best effort — e2eTestData:true also marks it for the sweep */ }
-      }, lead.id).catch(() => {});
-    }
-    await context.close();
+  // By tag, not by `lead.id`: the lead (and the task the task test adds under
+  // it) goes even when beforeAll died before returning the id.
+  test.afterAll(async ({}, testInfo) => {
+    testInfo.setTimeout(120_000); // a stalled rig: seed + pending writes + retried lookups (fixtures/seeded-run.js)
+    const res = await deleteSeededRun({ page, context, creds, run });
+    // eslint-disable-next-line no-console
+    if (res.failed.length) console.warn(`[phone-dashnav@${width}] cleanup: ${res.failed.join('; ')}`);
+    if (context) await context.close();
   });
 
   test.beforeEach(async ({}, testInfo) => {
@@ -198,52 +252,49 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
   test('pill: the Settings avatar pill is a 44px target, and the header does not move', async () => {
     await safeEvaluate(page, () => window.goTo('dash'));
     await expect.poll(() => activeView(page)).toBe('view-dash');
-    for (const width of [412, 360]) {
-      await page.setViewportSize({ width, height: 860 });
-      await page.waitForTimeout(250);
-      const r = await safeEvaluate(page, () => {
-        const who = (h) => (h ? h.tagName + '#' + h.id + '.' + String(h.className).split(' ')[0] : 'nothing');
-        const pill = document.querySelector('header .upill');
-        const b = pill.getBoundingClientRect();
-        const cx = b.left + b.width / 2;
-        const cy = b.top + b.height / 2;
-        // The rim of a 44×44 box centred on the pill, 1px inside it.
-        const miss = [];
-        for (const [dx, dy] of [[-21, -21], [0, -21], [21, -21], [-21, 0], [21, 0], [-21, 21], [0, 21], [21, 21]]) {
-          const h = document.elementFromPoint(cx + dx, cy + dy);
-          if (!h || !h.closest('.upill')) miss.push(`(${dx},${dy}) → ${who(h)}`);
-        }
-        // Its neighbours keep their own taps, and the bar keeps its height.
-        const own = (el) => {
-          const r2 = el.getBoundingClientRect();
-          const h = document.elementFromPoint(r2.left + r2.width / 2, r2.top + r2.height / 2);
-          return !!h && (h === el || el.contains(h)) ? 'hit' : who(h);
-        };
-        return {
-          miss, cx, cy,
-          bell: own(document.getElementById('nbd-whats-new-bell')),
-          kebab: own(document.getElementById('hdrMobileBtn')),
-          headerH: Math.round(document.querySelector('header').getBoundingClientRect().height),
-          pillBox: [Math.round(b.width), Math.round(b.height)],
-        };
-      });
-      expect(r.miss, `the pill's 44px target at ${width}px`).toEqual([]);
-      expect(r.bell, `What's New bell keeps its own tap at ${width}px`).toBe('hit');
-      expect(r.kebab, `⋮ menu keeps its own tap at ${width}px`).toBe('hit');
-      expect(r.headerH, `header height at ${width}px`).toBe(48);
-      // The pill paints no bigger than before (38×36): the target grows, the
-      // header layout (and the 360px logo clip) does not.
-      expect(r.pillBox[0], `painted pill width at ${width}px`).toBeLessThanOrEqual(38);
-      expect(r.pillBox[1], `painted pill height at ${width}px`).toBeLessThanOrEqual(36);
-      if (width === 412) {
-        // A thumb landing on the target's corner, off the painted pill, opens Settings.
-        await page.touchscreen.tap(r.cx + 20, r.cy + 20);
-        await expect.poll(() => activeView(page)).toBe('view-settings');
-        await safeEvaluate(page, () => window.goTo('dash'));
-        await expect.poll(() => activeView(page)).toBe('view-dash');
+    // This describe runs once per phone width (PHONE_WIDTHS) on a page booted
+    // at that width, so the pill is measured — and tapped — at `width` here
+    // rather than by resizing one 412 page to 360 and back.
+    await page.waitForTimeout(250);
+    const r = await safeEvaluate(page, () => {
+      const who = (h) => (h ? h.tagName + '#' + h.id + '.' + String(h.className).split(' ')[0] : 'nothing');
+      const pill = document.querySelector('header .upill');
+      const b = pill.getBoundingClientRect();
+      const cx = b.left + b.width / 2;
+      const cy = b.top + b.height / 2;
+      // The rim of a 44×44 box centred on the pill, 1px inside it.
+      const miss = [];
+      for (const [dx, dy] of [[-21, -21], [0, -21], [21, -21], [-21, 0], [21, 0], [-21, 21], [0, 21], [21, 21]]) {
+        const h = document.elementFromPoint(cx + dx, cy + dy);
+        if (!h || !h.closest('.upill')) miss.push(`(${dx},${dy}) → ${who(h)}`);
       }
-    }
-    await page.setViewportSize(PHONE.viewport);
+      // Its neighbours keep their own taps, and the bar keeps its height.
+      const own = (el) => {
+        const r2 = el.getBoundingClientRect();
+        const h = document.elementFromPoint(r2.left + r2.width / 2, r2.top + r2.height / 2);
+        return !!h && (h === el || el.contains(h)) ? 'hit' : who(h);
+      };
+      return {
+        miss, cx, cy,
+        bell: own(document.getElementById('nbd-whats-new-bell')),
+        kebab: own(document.getElementById('hdrMobileBtn')),
+        headerH: Math.round(document.querySelector('header').getBoundingClientRect().height),
+        pillBox: [Math.round(b.width), Math.round(b.height)],
+      };
+    });
+    expect(r.miss, `the pill's 44px target at ${width}px`).toEqual([]);
+    expect(r.bell, `What's New bell keeps its own tap at ${width}px`).toBe('hit');
+    expect(r.kebab, `⋮ menu keeps its own tap at ${width}px`).toBe('hit');
+    expect(r.headerH, `header height at ${width}px`).toBe(48);
+    // The pill paints no bigger than before (38×36): the target grows, the
+    // header layout (and the 360px logo clip) does not.
+    expect(r.pillBox[0], `painted pill width at ${width}px`).toBeLessThanOrEqual(38);
+    expect(r.pillBox[1], `painted pill height at ${width}px`).toBeLessThanOrEqual(36);
+    // A thumb landing on the target's corner, off the painted pill, opens Settings.
+    await page.touchscreen.tap(r.cx + 20, r.cy + 20);
+    await expect.poll(() => activeView(page), { message: `a corner tap opens Settings at ${width}px` }).toBe('view-settings');
+    await safeEvaluate(page, () => window.goTo('dash'));
+    await expect.poll(() => activeView(page)).toBe('view-dash');
   });
 
   test('task: "+" > Task asks for the customer, then the task saves to them', async () => {
@@ -594,6 +645,7 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     await expect(page.locator('#inspectionBuilderOverlay')).toBeHidden();
   });
 });
+for (const width of PHONE_WIDTHS) phoneSuite(width);
 
 // The greeting, the bell and the Schedule order were desktop bugs too.
 test.describe.serial('desktop dashboard nav @shard2', () => {

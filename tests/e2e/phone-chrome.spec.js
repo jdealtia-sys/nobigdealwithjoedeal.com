@@ -21,14 +21,24 @@
 // A class check ('.open') is what kept the pipeline menus "green" for
 // months while nothing could be tapped.
 //
-// One login per describe (serial, shared page). Tagged @audit so the audit
-// shard of the authed emulator job runs it. Local run:
+// One login per describe (serial, shared page); the phone tests walk 412
+// and 360 (PHONE_WIDTHS). Each describe seeds one lead + estimate + two
+// photos and deletes them by tag in afterAll (fixtures/seeded-run.js).
+// Tagged @audit so the audit shard of the authed emulator job runs it.
+// Local run:
 //   cd tests && PLAYWRIGHT_BASE_URL=http://127.0.0.1:5000 \
 //     PLAYWRIGHT_TEST_USER_EMAIL=playwright-e2e@nbd.test \
 //     PLAYWRIGHT_TEST_USER_PASSWORD=nbd-e2e-password-1 \
 //     npx playwright test --config=playwright.config.js phone-chrome.spec.js --workers=1
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
+const { deleteSeededRun } = require('./fixtures/seeded-run');
+
+// Jo's Android, then the small-Android floor of the standing phone rule.
+// 2026-09-25 follow-up: the toast, upload, warranty, launcher, dictation,
+// Edit Photo, editor and upload-modal tests ran at 412 only while the
+// findings they pin were measured at 412 AND 360; each now walks both.
+const PHONE_WIDTHS = [412, 360];
 
 const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0 Mobile Safari/537.36';
 // 1x1 PNG — enough for the upload modal to queue and preview a file.
@@ -70,47 +80,55 @@ async function prepare(page) {
 
 // Seed a lead with a phone + email (so the bar shows all four buttons), an
 // estimate (for the preview sheet) and two photos (strip + Photos grid).
-async function seedLead(page) {
+// Every doc carries e2eTestData:true and the describe's `run` tag, so its
+// afterAll can delete them by tag (fixtures/seeded-run.js) — until the
+// 2026-09-25 follow-up they stayed in the emulator for every later spec in
+// the shard, two leads per run and more with CI retries.
+async function seedLead(page, stamp, run) {
   await safeWaitForFunction(page, () => !!(window._user && window._user.uid && typeof window._saveLead === 'function'), { timeout: 20_000 });
-  const stamp = Date.now();
-  return safeEvaluate(page, async (s) => {
-    try {
-      await window._saveLead({
-        firstName: '[E2E] Chrome',
-        lastName: String(s),
-        address: `${String(s).slice(-3)} Chrome Layer Ct, Cincinnati, OH`,
-        phone: '513' + String(s).slice(-7),
-        email: `e2e-chrome-${s}@nbd.test`,
-        stage: 'new',
-        e2eTestData: true,
+  return safeEvaluate(page, ({ s, tag }) => {
+    window.__e2eSeeding = (async () => {
+      try {
+        await window._saveLead({
+          firstName: '[E2E] Chrome',
+          lastName: String(s),
+          address: `${String(s).slice(-3)} Chrome Layer Ct, Cincinnati, OH`,
+          phone: '513' + String(s).slice(-7),
+          email: `e2e-chrome-${s}@nbd.test`,
+          stage: 'new',
+          e2eTestData: true,
+          e2eRun: tag,
+        });
+      } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      const db = window.db || window._db;
+      const uid = (window._auth || window.auth).currentUser.uid;
+      const snap = await fs.getDocs(fs.query(fs.collection(db, 'leads'),
+        fs.where('userId', '==', uid), fs.where('lastName', '==', String(s)), fs.where('e2eTestData', '==', true)));
+      if (snap.empty) return null;
+      const leadId = snap.docs[0].id;
+      const add = async (coll, data) => {
+        try { await fs.addDoc(fs.collection(db, coll), data); }
+        catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
+      };
+      await add('estimates', {
+        leadId, userId: uid, type: 'Good', title: 'Good Estimate', status: 'Draft',
+        amount: 12450.75, grandTotal: 12450.75, notes: '', createdBy: 'phone-chrome.spec',
+        createdAt: fs.serverTimestamp(), e2eTestData: true, e2eRun: tag,
       });
-    } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
-    const fs = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-    const db = window.db || window._db;
-    const uid = (window._auth || window.auth).currentUser.uid;
-    const snap = await fs.getDocs(fs.query(fs.collection(db, 'leads'),
-      fs.where('userId', '==', uid), fs.where('lastName', '==', String(s)), fs.where('e2eTestData', '==', true)));
-    if (snap.empty) return null;
-    const leadId = snap.docs[0].id;
-    const add = async (coll, data) => {
-      try { await fs.addDoc(fs.collection(db, coll), data); }
-      catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
-    };
-    await add('estimates', {
-      leadId, userId: uid, type: 'Good', title: 'Good Estimate', status: 'Draft',
-      amount: 12450.75, grandTotal: 12450.75, notes: '', createdBy: 'phone-chrome.spec',
-      createdAt: fs.serverTimestamp(),
-    });
-    for (let i = 0; i < 2; i++) {
-      await add('photos', {
-        // Absolute: the strip only opens the editor for an http(s) URL.
-        leadId, userId: uid, url: location.origin + '/pro/img/nbd-icon-512.png', filename: `chrome-${i}.png`,
-        type: 'image/png', size: 1, phase: null, category: 'Property', damageType: '', severity: '', location: '',
-        createdAt: fs.serverTimestamp(), date: fs.serverTimestamp(), uploadedAt: fs.serverTimestamp(),
-      });
-    }
-    return leadId;
-  }, stamp);
+      for (let i = 0; i < 2; i++) {
+        await add('photos', {
+          // Absolute: the strip only opens the editor for an http(s) URL.
+          leadId, userId: uid, url: location.origin + '/pro/img/nbd-icon-512.png', filename: `chrome-${i}.png`,
+          type: 'image/png', size: 1, phase: null, category: 'Property', damageType: '', severity: '', location: '',
+          createdAt: fs.serverTimestamp(), date: fs.serverTimestamp(), uploadedAt: fs.serverTimestamp(),
+          e2eTestData: true, e2eRun: tag,
+        });
+      }
+      return leadId;
+    })();
+    return window.__e2eSeeding;
+  }, { s: stamp, tag: run });
 }
 
 async function openCustomer(page, leadId) {
@@ -179,6 +197,11 @@ async function raiseUploadIndicator(page, { touch }) {
   await press(open);
   await page.waitForSelector('#uploadModal.open #uploadZone');
   await page.locator('#fileInput').setInputFiles({ name: 'roof.png', mimeType: 'image/png', buffer: PNG_1PX });
+  // The tile, not just the count: an emptied queue hides the Upload button but
+  // leaves #uploadCount as it was, so on a second raise (the next width) the
+  // count reads 1 before the FileReader has queued anything and
+  // _uploadQueue[0] below is undefined. openUploadModal clears the tiles.
+  await expect(page.locator('#uploadPreview .preview-item')).toHaveCount(1, { timeout: 15_000 });
   await expect(page.locator('#uploadCount')).toHaveText('1', { timeout: 15_000 });
   await safeEvaluate(page, () => { const it = window._uploadQueue[0]; it.uploading = true; it.progress = 40; });
   await press(page.locator('#uploadModal button.btn[data-action="closeUploadModal"]'));
@@ -256,10 +279,15 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
   let ctx;
   let page;
   let leadId;
+  let run = ''; // e2eRun tag on everything this describe seeds
 
   test.beforeAll(async ({ browser }, testInfo) => {
     try { creds = requireTestUser(); } catch (e) { console.warn('[phone-chrome] ' + e.message); return; }
     testInfo.setTimeout(120_000);
+    // Tagged before the first write, so afterAll finds the seeds even if
+    // this hook dies before leadId is assigned.
+    const stamp = Date.now();
+    run = `phone-chrome@phone:${stamp}`;
     ctx = await browser.newContext(contextOptions(testInfo, {
       viewport: { width: 412, height: 860 }, isMobile: true, hasTouch: true, userAgent: ANDROID_UA,
       permissions: ['microphone'],
@@ -267,13 +295,18 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
     page = await ctx.newPage();
     await prepare(page);
     await loginAs(page, creds);
-    leadId = await seedLead(page);
+    leadId = await seedLead(page, stamp, run);
     expect(leadId, 'seeded [E2E] Chrome lead has an id').toBeTruthy();
     await openCustomer(page, leadId);
     await page.waitForSelector('#nbd-quick-action-bar .qab-call', { timeout: 15_000 });
   });
 
-  test.afterAll(async () => { if (ctx) await ctx.close(); });
+  test.afterAll(async ({}, testInfo) => {
+    testInfo.setTimeout(120_000); // a stalled rig: seed + pending writes + retried lookups (fixtures/seeded-run.js)
+    const res = await deleteSeededRun({ page, context: ctx, creds, run });
+    if (res.failed.length) console.warn('[phone-chrome] cleanup: ' + res.failed.join('; '));
+    if (ctx) await ctx.close();
+  });
 
   test.beforeEach(async ({}, testInfo) => {
     if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
@@ -333,35 +366,39 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
   });
 
   test('a save toast shows above the bar and leaves CALL / TASK tappable', async () => {
-    await settleBar(page);
-    const save = page.locator('[data-pt-action="save"]').first();
-    await save.scrollIntoViewIfNeeded();
-    await save.tap();
-    const toast = page.locator('#toastContainer > div', { hasText: /costs saved/i }).last();
-    await expect(toast).toBeVisible({ timeout: 10_000 });
-    const r = await safeEvaluate(page, () => {
-      const t = [...document.querySelectorAll('#toastContainer > div')].filter((d) => /costs saved/i.test(d.textContent)).pop();
-      const tr = t.getBoundingClientRect();
-      const hit = document.elementFromPoint(tr.left + tr.width / 2, tr.top + tr.height / 2);
-      const bar = document.getElementById('nbd-quick-action-bar').getBoundingClientRect();
-      const barBtns = [...document.querySelectorAll('#nbd-quick-action-bar .qab-btn')].map((b) => {
-        const br = b.getBoundingClientRect();
-        const h = document.elementFromPoint(br.left + br.width / 2, br.top + br.height / 2);
-        return { label: b.textContent.trim(), ok: !!h && (h === b || b.contains(h)), who: h ? h.tagName + '.' + String(h.className).slice(0, 30) : 'null' };
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page); // one toast per width: the last width's must not stack under this one
+      const save = page.locator('[data-pt-action="save"]').first();
+      await save.scrollIntoViewIfNeeded();
+      await save.tap();
+      const toast = page.locator('#toastContainer > div', { hasText: /costs saved/i }).last();
+      await expect(toast).toBeVisible({ timeout: 10_000 });
+      const r = await safeEvaluate(page, () => {
+        const t = [...document.querySelectorAll('#toastContainer > div')].filter((d) => /costs saved/i.test(d.textContent)).pop();
+        const tr = t.getBoundingClientRect();
+        const hit = document.elementFromPoint(tr.left + tr.width / 2, tr.top + tr.height / 2);
+        const bar = document.getElementById('nbd-quick-action-bar').getBoundingClientRect();
+        const barBtns = [...document.querySelectorAll('#nbd-quick-action-bar .qab-btn')].map((b) => {
+          const br = b.getBoundingClientRect();
+          const h = document.elementFromPoint(br.left + br.width / 2, br.top + br.height / 2);
+          return { label: b.textContent.trim(), ok: !!h && (h === b || b.contains(h)), who: h ? h.tagName + '.' + String(h.className).slice(0, 30) : 'null' };
+        });
+        const dial = document.getElementById('nbd-fab-dial');
+        const dr = dial && dial.getClientRects().length ? dial.getBoundingClientRect() : null;
+        return {
+          toastOnTop: !!hit && t.contains(hit),
+          toastBottom: tr.bottom, barTop: bar.top,
+          barBtns,
+          overlapsLauncher: !!dr && !(tr.bottom <= dr.top || tr.top >= dr.bottom || tr.right <= dr.left || tr.left >= dr.right),
+        };
       });
-      const dial = document.getElementById('nbd-fab-dial');
-      const dr = dial && dial.getClientRects().length ? dial.getBoundingClientRect() : null;
-      return {
-        toastOnTop: !!hit && t.contains(hit),
-        toastBottom: tr.bottom, barTop: bar.top,
-        barBtns,
-        overlapsLauncher: !!dr && !(tr.bottom <= dr.top || tr.top >= dr.bottom || tr.right <= dr.left || tr.left >= dr.right),
-      };
-    });
-    expect(r.toastOnTop, 'the toast is the topmost thing where it sits').toBe(true);
-    expect(r.toastBottom, 'the toast sits above the quick-action bar').toBeLessThanOrEqual(r.barTop);
-    expect(r.barBtns.filter((b) => !b.ok), 'bar buttons stay tappable while a toast shows').toEqual([]);
-    expect(r.overlapsLauncher, 'the toast clears the field-tools launcher').toBe(false);
+      expect(r.toastOnTop, `the toast is the topmost thing where it sits at ${width}px`).toBe(true);
+      expect(r.toastBottom, `the toast sits above the quick-action bar at ${width}px`).toBeLessThanOrEqual(r.barTop);
+      expect(r.barBtns.filter((b) => !b.ok), `bar buttons stay tappable while a toast shows at ${width}px`).toEqual([]);
+      expect(r.overlapsLauncher, `the toast clears the field-tools launcher at ${width}px`).toBe(false);
+    }
+    await page.setViewportSize({ width: 412, height: 860 });
   });
 
   test('a Voice Intel error toast sits above the bar, not on CALL / TEXT / EMAIL / TASK', async () => {
@@ -409,91 +446,106 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
   });
 
   test('in-flight upload indicator rides above the bar, and toasts stack above it', async () => {
-    await clearToasts(page);
     // A batch left uploading behind a closed modal — the real show path, not
-    // a hand-added .active (see raiseUploadIndicator).
-    try {
-      const up = await raiseUploadIndicator(page, { touch: true });
-      expect(up.lift, 'the indicator publishes its lift as it shows').toBe(`${up.height + 8}px`);
-      expect(covered(await hitReport(page, '#nbdUploadWidgetReopen')), '"View details" on the upload indicator').toEqual([]);
-      // Follow-up (review:chrome): the widget and #toastContainer shared one
-      // bottom offset in one corner, so a toast raised mid-upload sat on
-      // "View details" for its whole life. A real toast now stacks above.
-      await safeEvaluate(page, () => window.showToast('Customer info updated', 'success'));
-      const toast = page.locator('#toastContainer > div', { hasText: 'Customer info updated' }).last();
-      await expect(toast).toBeVisible();
-      const s = await safeEvaluate(page, () => {
-        const w = document.getElementById('nbdUploadWidget').getBoundingClientRect();
-        const t = [...document.querySelectorAll('#toastContainer > div')].filter((d) => /Customer info updated/.test(d.textContent)).pop();
-        const tr = t.getBoundingClientRect();
-        const hit = document.elementFromPoint(tr.left + tr.width / 2, tr.top + tr.height / 2);
-        return { overlap: !(tr.bottom <= w.top || tr.top >= w.bottom || tr.right <= w.left || tr.left >= w.right), toastOnTop: !!hit && t.contains(hit) };
-      });
-      expect(s.overlap, 'the toast and the upload indicator overlap').toBe(false);
-      expect(s.toastOnTop, 'the toast is the topmost thing where it sits').toBe(true);
-      expect(covered(await hitReport(page, '#nbdUploadWidgetReopen')), '"View details" while a toast shows').toEqual([]);
-      // ...and so does the Voice Intel toast.
-      const v = await safeEvaluate(page, () => {
-        document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove());
-        const t = document.createElement('div');
-        t.className = 'nbd-voice-toast nbd-voice-toast-err';
-        t.textContent = 'Recording failed';
-        (document.getElementById('voiceIntelRoot') || document.body).appendChild(t);
-        try {
+    // a hand-added .active (see raiseUploadIndicator). Raised and finished
+    // once per width: each pass measures the lift its own show published, and
+    // the indicator is down again before the next width re-renders the bar.
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page);
+      try {
+        const up = await raiseUploadIndicator(page, { touch: true });
+        expect(up.lift, `the indicator publishes its lift as it shows at ${width}px`).toBe(`${up.height + 8}px`);
+        expect(covered(await hitReport(page, '#nbdUploadWidgetReopen')), `"View details" on the upload indicator at ${width}px`).toEqual([]);
+        // Follow-up (review:chrome): the widget and #toastContainer shared one
+        // bottom offset in one corner, so a toast raised mid-upload sat on
+        // "View details" for its whole life. A real toast now stacks above.
+        await safeEvaluate(page, () => window.showToast('Customer info updated', 'success'));
+        const toast = page.locator('#toastContainer > div', { hasText: 'Customer info updated' }).last();
+        await expect(toast).toBeVisible();
+        const s = await safeEvaluate(page, () => {
           const w = document.getElementById('nbdUploadWidget').getBoundingClientRect();
+          const t = [...document.querySelectorAll('#toastContainer > div')].filter((d) => /Customer info updated/.test(d.textContent)).pop();
           const tr = t.getBoundingClientRect();
-          return !(tr.bottom <= w.top || tr.top >= w.bottom || tr.right <= w.left || tr.left >= w.right);
-        } finally { t.remove(); }
-      });
-      expect(v, 'the voice toast and the upload indicator overlap').toBe(false);
-    } finally {
-      await finishUpload(page);
+          const hit = document.elementFromPoint(tr.left + tr.width / 2, tr.top + tr.height / 2);
+          return { overlap: !(tr.bottom <= w.top || tr.top >= w.bottom || tr.right <= w.left || tr.left >= w.right), toastOnTop: !!hit && t.contains(hit) };
+        });
+        expect(s.overlap, `the toast and the upload indicator overlap at ${width}px`).toBe(false);
+        expect(s.toastOnTop, `the toast is the topmost thing where it sits at ${width}px`).toBe(true);
+        expect(covered(await hitReport(page, '#nbdUploadWidgetReopen')), `"View details" while a toast shows at ${width}px`).toEqual([]);
+        // ...and so does the Voice Intel toast.
+        const v = await safeEvaluate(page, () => {
+          document.querySelectorAll('#toastContainer > div').forEach((d) => d.remove());
+          const t = document.createElement('div');
+          t.className = 'nbd-voice-toast nbd-voice-toast-err';
+          t.textContent = 'Recording failed';
+          (document.getElementById('voiceIntelRoot') || document.body).appendChild(t);
+          try {
+            const w = document.getElementById('nbdUploadWidget').getBoundingClientRect();
+            const tr = t.getBoundingClientRect();
+            return !(tr.bottom <= w.top || tr.top >= w.bottom || tr.right <= w.left || tr.left >= w.right);
+          } finally { t.remove(); }
+        });
+        expect(v, `the voice toast and the upload indicator overlap at ${width}px`).toBe(false);
+      } finally {
+        await finishUpload(page);
+      }
+      await expect(page.locator('#nbdUploadWidget.active'), `the indicator is down again after ${width}px`).toHaveCount(0);
     }
+    await page.setViewportSize({ width: 412, height: 860 });
   });
 
   test('warranty claim modal covers the page chrome', async () => {
-    await clearToasts(page);
-    // The same call a stage move into Warranty Claim makes
-    // (customer-bootstrap.module.js progressStage → promptIntake).
-    await safeEvaluate(page, () => { window.__wcDone = window.WarrantyClaim.promptIntake(window._currentLead || {}).then(() => true); });
-    await page.waitForSelector('#nbd-warranty-claim-modal button', { timeout: 5_000 });
-    expect(covered(await hitReport(page, '#nbd-warranty-claim-modal button, #nbd-warranty-claim-modal textarea, #nbd-warranty-claim-modal select')), 'warranty modal controls').toEqual([]);
-    expect(await chromeTopmostWhileOpen(page), 'bar / launcher above the warranty backdrop').toEqual([]);
-    await page.locator('#nbd-warranty-claim-modal button', { hasText: /^cancel$/i }).tap();
-    await expect(page.locator('#nbd-warranty-claim-modal')).toHaveCount(0);
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page);
+      // The same call a stage move into Warranty Claim makes
+      // (customer-bootstrap.module.js progressStage → promptIntake).
+      await safeEvaluate(page, () => { window.__wcDone = window.WarrantyClaim.promptIntake(window._currentLead || {}).then(() => true); });
+      await page.waitForSelector('#nbd-warranty-claim-modal button', { timeout: 5_000 });
+      expect(covered(await hitReport(page, '#nbd-warranty-claim-modal button, #nbd-warranty-claim-modal textarea, #nbd-warranty-claim-modal select')), `warranty modal controls at ${width}px`).toEqual([]);
+      expect(await chromeTopmostWhileOpen(page), `bar / launcher above the warranty backdrop at ${width}px`).toEqual([]);
+      await page.locator('#nbd-warranty-claim-modal button', { hasText: /^cancel$/i }).tap();
+      await expect(page.locator('#nbd-warranty-claim-modal')).toHaveCount(0);
+    }
+    await page.setViewportSize({ width: 412, height: 860 });
   });
 
   test('field tools collapse behind one launcher and fan out on tap', async () => {
-    await clearToasts(page);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    const parked = await safeEvaluate(page, () => ['nbd-whisper-fab', 'nbd-qc-fab', 'nbd-qci-fab']
-      .filter((id) => document.getElementById(id))
-      .map((id) => {
-        const el = document.getElementById(id);
-        const r = el.getBoundingClientRect();
-        const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-        return { id, tappable: !!hit && (hit === el || el.contains(hit)), opacity: getComputedStyle(el).opacity };
-      }));
-    expect(parked.length, 'the three field tools exist').toBe(3);
-    expect(parked.filter((t) => t.tappable || t.opacity !== '0'), 'closed dial: tools parked, faded and untappable').toEqual([]);
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const parked = await safeEvaluate(page, () => ['nbd-whisper-fab', 'nbd-qc-fab', 'nbd-qci-fab']
+        .filter((id) => document.getElementById(id))
+        .map((id) => {
+          const el = document.getElementById(id);
+          const r = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return { id, tappable: !!hit && (hit === el || el.contains(hit)), opacity: getComputedStyle(el).opacity };
+        }));
+      expect(parked.length, `the three field tools exist at ${width}px`).toBe(3);
+      expect(parked.filter((t) => t.tappable || t.opacity !== '0'), `closed dial: tools parked, faded and untappable at ${width}px`).toEqual([]);
 
-    const dial = page.locator('#nbd-fab-dial');
-    await expect(dial).toBeVisible();
-    expect(covered(await hitReport(page, '#nbd-fab-dial')), 'launcher is tappable').toEqual([]);
-    await dial.tap();
-    await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '1', { timeout: 5_000 });
-    const fanned = await hitReport(page, '#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab');
-    expect(covered(fanned), 'fanned-out tools are tappable').toEqual([]);
-    const clear = await safeEvaluate(page, () => {
-      const bar = document.getElementById('nbd-quick-action-bar').getBoundingClientRect();
-      return ['nbd-whisper-fab', 'nbd-qc-fab', 'nbd-qci-fab', 'nbd-fab-dial'].filter((id) => {
-        const r = document.getElementById(id).getBoundingClientRect();
-        return r.bottom > bar.top || r.left < 0 || r.right > innerWidth;
+      const dial = page.locator('#nbd-fab-dial');
+      await expect(dial).toBeVisible();
+      expect(covered(await hitReport(page, '#nbd-fab-dial')), `launcher is tappable at ${width}px`).toEqual([]);
+      await dial.tap();
+      await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '1', { timeout: 5_000 });
+      const fanned = await hitReport(page, '#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab');
+      expect(covered(fanned), `fanned-out tools are tappable at ${width}px`).toEqual([]);
+      const clear = await safeEvaluate(page, () => {
+        const bar = document.getElementById('nbd-quick-action-bar').getBoundingClientRect();
+        return ['nbd-whisper-fab', 'nbd-qc-fab', 'nbd-qci-fab', 'nbd-fab-dial'].filter((id) => {
+          const r = document.getElementById(id).getBoundingClientRect();
+          return r.bottom > bar.top || r.left < 0 || r.right > innerWidth;
+        });
       });
-    });
-    expect(clear, 'fan row sits above the bar and inside the screen').toEqual([]);
-    await page.touchscreen.tap(40, 300);
-    await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '0', { timeout: 5_000 });
+      expect(clear, `fan row sits above the bar and inside the screen at ${width}px`).toEqual([]);
+      await page.touchscreen.tap(40, 300);
+      await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '0', { timeout: 5_000 });
+    }
+    await page.setViewportSize({ width: 412, height: 860 });
 
     // The bar re-renders and slides in again on every resize and data
     // refresh. fab-stack-coordinator.js used to measure it mid-slide (still
@@ -531,103 +583,157 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
       : route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ result: { transcript: 'check the ridge vent', cleaned: 'Check the ridge vent.' } }) }));
     await page.route('**/dictate', answer);
     await page.route('**/transcribeVoiceMemo', answer);
-    await page.evaluate(() => { window.scrollTo(0, 0); if (document.activeElement) document.activeElement.blur(); });
     try {
-      await page.locator('#nbd-fab-dial').tap();
-      const mic = page.locator('#nbd-whisper-fab');
-      await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '1', { timeout: 5_000 });
-      await mic.tap();
-      await safeWaitForFunction(page, () => {
-        const v = document.getElementById('nbd-whisper-viz');
-        return /⏹/.test(document.getElementById('nbd-whisper-fab').textContent) && !!v && v.style.display !== 'none';
-      }, { timeout: 10_000 });
-      await page.waitForTimeout(1_200); // a clip long enough to be sent
-      // Before the fix the pill sat on the mic, so ⏹ — the only way to stop
-      // a dictation short of the 60s ceiling — hit-tested as the pill.
-      expect(covered(await hitReport(page, '#nbd-whisper-fab')), 'the ⏹ stop control while recording').toEqual([]);
-      await mic.tap();
-      await safeWaitForFunction(page, () => !/⏹/.test(document.getElementById('nbd-whisper-fab').textContent), { timeout: 5_000 });
-      await page.waitForSelector('#nbd-whisper-tip', { timeout: 10_000 });
-      expect(covered(await hitReport(page, '#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab, #nbd-fab-dial')), 'field tools with the dictation result showing').toEqual([]);
-      await page.locator('#nbd-whisper-tip .nbd-whisper-tip-close').tap();
-      await expect(page.locator('#nbd-whisper-tip')).toHaveCount(0);
+      for (const width of PHONE_WIDTHS) {
+        await page.setViewportSize({ width, height: 860 });
+        await clearToasts(page);
+        await page.evaluate(() => { window.scrollTo(0, 0); if (document.activeElement) document.activeElement.blur(); });
+        await page.locator('#nbd-fab-dial').tap();
+        const mic = page.locator('#nbd-whisper-fab');
+        await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '1', { timeout: 5_000 });
+        await mic.tap();
+        await safeWaitForFunction(page, () => {
+          const v = document.getElementById('nbd-whisper-viz');
+          return /⏹/.test(document.getElementById('nbd-whisper-fab').textContent) && !!v && v.style.display !== 'none';
+        }, { timeout: 10_000 });
+        await page.waitForTimeout(1_200); // a clip long enough to be sent
+        // Before the fix the pill sat on the mic, so ⏹ — the only way to stop
+        // a dictation short of the 60s ceiling — hit-tested as the pill.
+        expect(covered(await hitReport(page, '#nbd-whisper-fab')), `the ⏹ stop control while recording at ${width}px`).toEqual([]);
+        await mic.tap();
+        await safeWaitForFunction(page, () => !/⏹/.test(document.getElementById('nbd-whisper-fab').textContent), { timeout: 5_000 });
+        await page.waitForSelector('#nbd-whisper-tip', { timeout: 10_000 });
+        expect(covered(await hitReport(page, '#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab, #nbd-fab-dial')), `field tools with the dictation result showing at ${width}px`).toEqual([]);
+        await page.locator('#nbd-whisper-tip .nbd-whisper-tip-close').tap();
+        await expect(page.locator('#nbd-whisper-tip')).toHaveCount(0);
+        await page.touchscreen.tap(40, 300); // fold the dial for the next width
+        await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '0', { timeout: 5_000 });
+      }
     } finally {
       await page.unroute('**/dictate');
       await page.unroute('**/transcribeVoiceMemo');
-      await page.touchscreen.tap(40, 300);
+      // A failure mid-loop leaves the dial open; a tap on a closed dial's
+      // page would land on whatever sits at (40, 300).
+      if (await safeEvaluate(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity !== '0').catch(() => false)) {
+        await page.touchscreen.tap(40, 300);
+      }
+      await page.setViewportSize({ width: 412, height: 860 });
     }
   });
 
   test('Edit Photo sheet covers the page chrome; Delete is the sheet', async () => {
-    await clearToasts(page);
-    const tile = page.locator('.nbd-phase-photo').first();
-    await tile.scrollIntoViewIfNeeded();
-    await tile.tap();
-    await page.waitForSelector('#photoActionPopup [data-action="deletePhoto"]', { timeout: 10_000 });
-    const btns = await hitReport(page, '#photoActionPopup button');
-    expect(covered(btns), 'every Edit Photo control').toEqual([]);
-    expect(await chromeTopmostWhileOpen(page), 'bar / launcher above the Edit Photo backdrop').toEqual([]);
-    const close = await safeEvaluate(page, () => {
-      const r = document.querySelector('#photoActionPopup [data-action="_closePhotoActionPopup"]').getBoundingClientRect();
-      return { w: r.width, h: r.height };
-    });
-    expect(Math.min(close.w, close.h), 'close × is thumb-sized').toBeGreaterThanOrEqual(40);
-    await page.locator('#photoActionPopup [data-action="_closePhotoActionPopup"]').tap();
-    await expect(page.locator('#photoActionPopup')).toHaveCount(0);
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page);
+      const tile = page.locator('.nbd-phase-photo').first();
+      await tile.scrollIntoViewIfNeeded();
+      await tile.tap();
+      await page.waitForSelector('#photoActionPopup [data-action="deletePhoto"]', { timeout: 10_000 });
+      const btns = await hitReport(page, '#photoActionPopup button');
+      expect(covered(btns), `every Edit Photo control at ${width}px`).toEqual([]);
+      expect(await chromeTopmostWhileOpen(page), `bar / launcher above the Edit Photo backdrop at ${width}px`).toEqual([]);
+      const close = await safeEvaluate(page, () => {
+        const r = document.querySelector('#photoActionPopup [data-action="_closePhotoActionPopup"]').getBoundingClientRect();
+        return { w: r.width, h: r.height };
+      });
+      expect(Math.min(close.w, close.h), `close × is thumb-sized at ${width}px`).toBeGreaterThanOrEqual(40);
+      await page.locator('#photoActionPopup [data-action="_closePhotoActionPopup"]').tap();
+      await expect(page.locator('#photoActionPopup')).toHaveCount(0);
+    }
+    await page.setViewportSize({ width: 412, height: 860 });
   });
 
   test('photo editor: tools, Save and Toggle Panel are reachable by a finger', async () => {
-    await clearToasts(page);
-    const item = page.locator('#photoList .nbd-photo-item').first();
-    await item.scrollIntoViewIfNeeded();
-    await item.tap();
-    await page.waitForSelector('.nbd-editor-overlay #nbd-toolbar .nbd-tool-btn', { timeout: 15_000 });
-    await page.waitForTimeout(600);
-    // First eight tools fit on screen at 412; the rest scroll (overflow-x).
-    const tools = (await hitReport(page, '.nbd-editor-overlay #nbd-toolbar .nbd-tool-btn')).slice(0, 8);
-    expect(covered(tools), 'on-screen editor tools').toEqual([]);
-    expect(covered(await hitReport(page, '.nbd-editor-overlay [data-act="save-over"]')), 'Save is on screen and tappable').toEqual([]);
-    expect(await chromeTopmostWhileOpen(page), 'page chrome above the editor').toEqual([]);
-    // Toggle Panel (the only way into the damage-tag drawer) sits at the end
-    // of the top bar's swipe strip: drag it into view with a real touch.
-    const y = await safeEvaluate(page, () => {
-      const r = document.querySelector('.nbd-editor-overlay [data-act="save-over"]').getBoundingClientRect();
-      return Math.round(r.top + r.height / 2);
-    });
-    const cdp = await page.context().newCDPSession(page);
-    const pt = (x) => [{ x: Math.round(x), y, id: 1 }];
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(380) });
-    for (let i = 1; i <= 12; i++) {
-      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(380 - 25 * i) });
-      await page.waitForTimeout(16);
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page);
+      const item = page.locator('#photoList .nbd-photo-item').first();
+      await item.scrollIntoViewIfNeeded();
+      await item.tap();
+      await page.waitForSelector('.nbd-editor-overlay #nbd-toolbar .nbd-tool-btn', { timeout: 15_000 });
+      await page.waitForTimeout(600);
+      // The tool strip scrolls sideways (overflow-x), so the tools a finger
+      // can reach without a swipe are the ones whose centre is on screen:
+      // eight at 412; at 360 the eighth (Text) sits past the edge (2026-09-25
+      // review of the chrome lane). Every one of those must take the tap, and
+      // at least that many must fit, so a collapsed strip can't pass empty.
+      const tools = await safeEvaluate(page, () => [...document.querySelectorAll('.nbd-editor-overlay #nbd-toolbar .nbd-tool-btn')]
+        .map((el) => {
+          const r = el.getBoundingClientRect();
+          const x = r.left + r.width / 2;
+          const y = r.top + r.height / 2;
+          const onScreen = r.width > 0 && x >= 0 && x <= innerWidth && y >= 0 && y <= innerHeight;
+          const hit = onScreen ? document.elementFromPoint(x, y) : null;
+          return { label: (el.title || el.getAttribute('aria-label') || el.textContent).trim().slice(0, 20), onScreen, ok: !!hit && (hit === el || el.contains(hit)), who: hit ? (hit.id ? '#' + hit.id + ' ' : '') + hit.tagName.toLowerCase() : 'off-screen' };
+        }).filter((t) => t.onScreen));
+      expect(tools.length, `editor tools reachable without a swipe at ${width}px`).toBeGreaterThanOrEqual(width >= 412 ? 8 : 7);
+      expect(covered(tools), `on-screen editor tools at ${width}px`).toEqual([]);
+      expect(covered(await hitReport(page, '.nbd-editor-overlay [data-act="save-over"]')), `Save is on screen and tappable at ${width}px`).toEqual([]);
+      expect(await chromeTopmostWhileOpen(page), `page chrome above the editor at ${width}px`).toEqual([]);
+      // Toggle Panel (the only way into the damage-tag drawer) sits at the end
+      // of the top bar's swipe strip: drag it into view with a real touch,
+      // starting 32px in from this width's right edge. One 300px swipe
+      // reaches it at 412; the strip is 52px narrower at 360 and takes a
+      // second, as it would for a thumb. Three that never get there fail.
+      const toggle = '.nbd-editor-overlay [data-act="toggle-panel"]';
+      const y = await safeEvaluate(page, () => {
+        const r = document.querySelector('.nbd-editor-overlay [data-act="save-over"]').getBoundingClientRect();
+        return Math.round(r.top + r.height / 2);
+      });
+      const cdp = await page.context().newCDPSession(page);
+      const pt = (x) => [{ x: Math.round(x), y, id: 1 }];
+      const x0 = width - 32;
+      for (let swipes = 0; swipes < 3; swipes++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt(x0) });
+        for (let i = 1; i <= 12; i++) {
+          await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: pt(x0 - 25 * i) });
+          await page.waitForTimeout(16);
+        }
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(500);
+        const r = await hitReport(page, toggle);
+        if (r.length && !covered(r).length) break;
+      }
+      await cdp.detach().catch(() => {});
+      const tp = await hitReport(page, toggle);
+      expect(tp.length, `Toggle Panel is rendered at ${width}px`).toBe(1);
+      expect(covered(tp), `Toggle Panel after swiping the top bar at ${width}px`).toEqual([]);
+      await page.locator('.nbd-editor-overlay [data-act="toggle-panel"]').tap();
+      await expect(page.locator('#nbd-panel.open')).toHaveCount(1);
+      await page.locator('.nbd-editor-overlay [data-act="back"]').tap();
+      await expect(page.locator('.nbd-editor-overlay')).toHaveCount(0, { timeout: 5_000 });
     }
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await page.waitForTimeout(500);
-    expect(covered(await hitReport(page, '.nbd-editor-overlay [data-act="toggle-panel"]')), 'Toggle Panel after a swipe').toEqual([]);
-    await page.locator('.nbd-editor-overlay [data-act="toggle-panel"]').tap();
-    await expect(page.locator('#nbd-panel.open')).toHaveCount(1);
-    await page.locator('.nbd-editor-overlay [data-act="back"]').tap();
-    await expect(page.locator('.nbd-editor-overlay')).toHaveCount(0, { timeout: 5_000 });
+    await page.setViewportSize({ width: 412, height: 860 });
   });
 
   test('upload modal keeps Upload on screen with a batch queued', async () => {
-    await clearToasts(page);
-    const open = page.locator('[data-action="openUploadModal"]').first();
-    await open.scrollIntoViewIfNeeded();
-    await open.tap();
-    await page.waitForSelector('#uploadModal.open #uploadZone');
-    const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#uploadZone').tap()]);
-    await chooser.setFiles(Array.from({ length: 15 }, (_, i) => ({ name: `batch-${i}.png`, mimeType: 'image/png', buffer: PNG_1PX })));
-    await expect(page.locator('#uploadCount')).toHaveText('15', { timeout: 15_000 });
-    // No scrolling: the rep must see the primary action as soon as the batch lands.
-    // Selected by role, not by the footer's class, so a break-test against
-    // the old markup fails on reachability rather than on a missing class.
-    const btns = await hitReport(page, '#uploadModal #uploadBtn, #uploadModal button.btn[data-action="closeUploadModal"]');
-    expect(btns.length, 'Upload + Cancel rendered').toBe(2);
-    expect(covered(btns), 'Upload / Cancel with 15 queued').toEqual([]);
-    expect(await chromeTopmostWhileOpen(page), 'page chrome above the upload modal').toEqual([]);
-    await page.locator('#uploadModal button.btn[data-action="closeUploadModal"]').tap();
-    await expect(page.locator('#uploadModal.open')).toHaveCount(0);
+    for (const width of PHONE_WIDTHS) {
+      await page.setViewportSize({ width, height: 860 });
+      await clearToasts(page);
+      const open = page.locator('[data-action="openUploadModal"]').first();
+      await open.scrollIntoViewIfNeeded();
+      await open.tap();
+      await page.waitForSelector('#uploadModal.open #uploadZone');
+      // openUploadModal empties the queue, so each width starts from 0.
+      const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#uploadZone').tap()]);
+      await chooser.setFiles(Array.from({ length: 15 }, (_, i) => ({ name: `batch-${i}.png`, mimeType: 'image/png', buffer: PNG_1PX })));
+      // Wait on the tiles: #uploadCount keeps the last batch's 15 after Cancel
+      // (an emptied queue only hides the button), so at the second width it
+      // read 15 before any file had loaded and the Upload button was still
+      // display:none (2 of 40 back-to-back rounds on the local rig).
+      await expect(page.locator('#uploadPreview .preview-item')).toHaveCount(15, { timeout: 15_000 });
+      await expect(page.locator('#uploadCount')).toHaveText('15', { timeout: 15_000 });
+      // No scrolling: the rep must see the primary action as soon as the batch lands.
+      // Selected by role, not by the footer's class, so a break-test against
+      // the old markup fails on reachability rather than on a missing class.
+      const btns = await hitReport(page, '#uploadModal #uploadBtn, #uploadModal button.btn[data-action="closeUploadModal"]');
+      expect(btns.length, `Upload + Cancel rendered at ${width}px`).toBe(2);
+      expect(covered(btns), `Upload / Cancel with 15 queued at ${width}px`).toEqual([]);
+      expect(await chromeTopmostWhileOpen(page), `page chrome above the upload modal at ${width}px`).toEqual([]);
+      await page.locator('#uploadModal button.btn[data-action="closeUploadModal"]').tap();
+      await expect(page.locator('#uploadModal.open')).toHaveCount(0);
+    }
+    await page.setViewportSize({ width: 412, height: 860 });
   });
 
   test('pinned jump-nav spans the width and a jump lands just under it', async () => {
@@ -688,21 +794,29 @@ test.describe.serial('customer page chrome on desktop @audit', () => {
   let ctx;
   let page;
   let leadId;
+  let run = '';
 
   test.beforeAll(async ({ browser }, testInfo) => {
     try { creds = requireTestUser(); } catch (e) { return; }
     testInfo.setTimeout(120_000);
+    const stamp = Date.now();
+    run = `phone-chrome@desktop:${stamp}`;
     ctx = await browser.newContext(contextOptions(testInfo, { viewport: { width: 1280, height: 860 } }));
     page = await ctx.newPage();
     await prepare(page);
     await loginAs(page, creds);
-    leadId = await seedLead(page);
+    leadId = await seedLead(page, stamp, run);
     expect(leadId, 'seeded lead').toBeTruthy();
     await openCustomer(page, leadId);
     await page.waitForTimeout(2_000); // past the bar's 1.5s deferred render
   });
 
-  test.afterAll(async () => { if (ctx) await ctx.close(); });
+  test.afterAll(async ({}, testInfo) => {
+    testInfo.setTimeout(120_000);
+    const res = await deleteSeededRun({ page, context: ctx, creds, run });
+    if (res.failed.length) console.warn('[phone-chrome desktop] cleanup: ' + res.failed.join('; '));
+    if (ctx) await ctx.close();
+  });
 
   test.beforeEach(async ({}, testInfo) => {
     if (!creds) testInfo.skip(true, 'PLAYWRIGHT_TEST_USER_EMAIL not set');
