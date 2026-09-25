@@ -94,14 +94,27 @@ async function stubNetwork(page) {
   await page.route(/127\.0\.0\.1:5001\/|cloudfunctions\.net\//, (r) => r.fulfill({ contentType: 'application/json', body: '{"result":null}' }));
 }
 
+// First-run UI (the onboarding tour's full-screen overlay, the push opt-in
+// card) is legitimate but lands over the bottom nav a moment AFTER boot on a
+// fresh CI tenant — CI's first run failed "#mni-dash covered by
+// #nbd-onb-overlay". Arrive as a returning user, as dashboard-actions-audit
+// does; the tour has its own spec there.
+async function returningUser(context) {
+  await context.addInitScript(() => {
+    try {
+      localStorage.setItem('nbd-onboarding-complete', '1');
+      localStorage.setItem('nbd_push_optin_snoozed_until', String(Date.now() + 3600_000));
+    } catch (e) { /* storage blocked: the tour just shows */ }
+  });
+}
+
 async function bootPhone(browser) {
   const context = await browser.newContext(PHONE);
+  await returningUser(context);
   const page = await context.newPage();
   await stubNetwork(page);
   await loginAs(page, creds);
   await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user && Array.isArray(window._leads), { timeout: 30_000 });
-  const skip = page.getByText('Skip tour', { exact: true });
-  if (await skip.isVisible().catch(() => false)) await skip.tap().catch(() => {});
   return { context, page };
 }
 
@@ -383,12 +396,11 @@ test.describe.serial('desktop dashboard nav @shard2', () => {
     if (!creds) return;
     testInfo.setTimeout(60_000);
     context = await browser.newContext({ viewport: { width: 1280, height: 860 }, serviceWorkers: 'block' });
+    await returningUser(context);
     page = await context.newPage();
     await stubNetwork(page);
     await loginAs(page, creds);
     await safeWaitForFunction(page, () => typeof window.goTo === 'function' && !!window._user, { timeout: 30_000 });
-    const skip = page.getByText('Skip tour', { exact: true });
-    if (await skip.isVisible().catch(() => false)) await skip.click().catch(() => {});
   });
 
   test.afterAll(async () => { if (context) await context.close(); });
