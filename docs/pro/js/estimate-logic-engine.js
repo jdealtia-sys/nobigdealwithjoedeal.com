@@ -56,6 +56,7 @@
     'hipLf',
     'valleyLf',
     'wallLf',           // Roof-to-wall LF (headwall + sidewall combined)
+    'guttersLf',        // Drawn / measured gutter-run LF; 0 = not measured (see GUTTER_LF)
     // Counts
     'pipes',
     'chimneys',
@@ -92,6 +93,10 @@
       hipLf:           Number(input.hipLf) || 0,
       valleyLf:        Number(input.valleyLf) || 0,
       wallLf:          Number(input.wallLf) || 0,
+      // Finite and > 0, else 0 (not measured): the same test as
+      // estimate-builder-v2.js _gutterLf, so every engine agrees on whether a
+      // gutter footage is present.
+      guttersLf:       (Number.isFinite(Number(input.guttersLf)) && Number(input.guttersLf) > 0) ? Number(input.guttersLf) : 0,
       pipes:           Number(input.pipes) || 0,
       chimneys:        Number(input.chimneys) || 0,
       skylights:       Number(input.skylights) || 0,
@@ -580,6 +585,29 @@
   // and subcategory. Explicit qtyFormula on the item always wins.
   // ═════════════════════════════════════════════════════════
 
+  // Gutter footage: ONE number per job (Jo, 2026-09-25, Draw-tool decision 2).
+  // When gutter runs were drawn or measured (guttersLf > 0), those feet size
+  // every gutter-footage line. When they were not, eave length stands in, as
+  // it always has. Guards follow the same number.
+  //
+  // This used to be plain 'eaveLf' for 'gutters' and 'guards', while the per-SQ
+  // engine (estimate-builder-v2.js calculatePerSq) and its generated line-item
+  // scope price gutters from guttersLf. So one job with 81.8 LF of gutter and
+  // 120 LF of eave had two gutter footages: 120 LF on its catalog scope lines
+  // and 81.8 LF on its per-SQ quote. The measured feet were silently ignored
+  // on the catalog side.
+  //
+  // QTY_BY_SUB.gutters is also the CATEGORY fallback for gutter lines with no
+  // table entry of their own (hangers, end caps, miters, splash blocks, the
+  // underground drain). Those have always been sized off eaveLf as a stand-in
+  // for gutter footage, so they now read the real footage too. An explicit
+  // quantity still wins everywhere: a rep's edit, or a template's stated
+  // scope such as a 20 LF section repair, is never replaced by house footage.
+  // With guttersLf absent, blank, non-numeric or <= 0 (buildContext stores 0
+  // for all of them), this evaluates to exactly eaveLf, so estimates without
+  // a gutter measurement are unchanged.
+  const GUTTER_LF = 'guttersLf > 0 ? guttersLf : eaveLf';
+
   const QTY_BY_SUB = {
     'shingles-3tab':     'sq',
     'shingles-arch':     'sq',
@@ -603,9 +631,9 @@
     'ventilation':       'max(1, Math.ceil(adjustedSqft / 300))',
     'decking':           'adjustedSqft * deckReplacePct',
     'fasteners':         'sq',
-    'gutters':           'eaveLf',
+    'gutters':           GUTTER_LF,
     'downspout':         'stories * 10',      // ~10 LF per story
-    'guards':            'eaveLf',
+    'guards':            GUTTER_LF,
     'fascia':            'eaveLf + rakeLf',
     'soffit':            'eaveLf',
     'labor-teardown':    'sq',

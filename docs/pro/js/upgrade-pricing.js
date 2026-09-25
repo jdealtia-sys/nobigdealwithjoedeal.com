@@ -47,8 +47,10 @@
  *   templateIds       price() only: the selected Job Template ids
  *   lines             the estimate's lines: resolved engine lines
  *                     ({code, name, quantity}) or template items ({code, qty})
- *   measurements      {eaveLf, ...} from resolveSelection(); eaveLf is only
- *                     ever a suggestedQty, never billed
+ *   measurements      {eaveLf, guttersLf, ...} from resolveSelection(); eaveLf
+ *                     is only ever a suggestedQty, never billed. guttersLf (a
+ *                     drawn or measured gutter footage) prices a guard when no
+ *                     whole-house run line does
  *   gutterLf          rep-measured whole-house gutter footage (wins over lines)
  *   downspoutLf, downspoutCount
  *   quantities        {upgradeId: qty} rep-typed quantities
@@ -280,6 +282,16 @@
         var g = num(ctx.gutterLf);
         if (g != null && g > 0) return { qty: g, source: 'gutterLf', suggested: null };
         if (footage.runOk && scan.runLf > 0) return { qty: scan.runLf, source: 'gutter_lines', suggested: null };
+        // The job's drawn or measured gutter footage (Jo, 2026-09-25: guards
+        // follow the drawn gutter feet). It comes after the run lines on
+        // purpose: when the scope already bills a whole-house gutter run, the
+        // guard follows that billed figure, and EstimateLogic sizes a
+        // formula-driven run from this same guttersLf (GUTTER_LF), so the two
+        // agree. It is a measurement of this house, not a template default:
+        // no Job Template ships a guttersLf. So it prices, where eaveLf only
+        // suggests.
+        var drawn = ctx.measurements ? num(ctx.measurements.guttersLf) : null;
+        if (drawn != null && drawn > 0) return { qty: drawn, source: 'guttersLf', suggested: null };
         var eave = ctx.measurements ? num(ctx.measurements.eaveLf) : null;
         var hint = (footage.eaveSuggest && eave != null && eave > 0) ? eave : null;
         return { qty: null, source: 'rep_entered', suggested: hint };

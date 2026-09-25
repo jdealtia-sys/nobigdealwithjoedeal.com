@@ -369,7 +369,10 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-25  183/68/272 -> 184/68/273, tests/job-template-honest-paperwork.test.js
 //               (Upgrades slice 0), the sibling that merged second.
 //               RE-MEASURED via --check after rebasing onto #1756.
-const FLOORS = { node: 184, smoke: 68, disk: 273 };
+//   2026-09-25  184/68/273 -> 185/68/274, tests/estimate-gutter-source.test.js
+//               (one gutter footage per job, Draw-tool decision 2), merged
+//               third. RE-MEASURED via --check after rebasing onto #1758.
+const FLOORS = { node: 185, smoke: 68, disk: 274 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
