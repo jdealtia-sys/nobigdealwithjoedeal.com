@@ -4626,6 +4626,50 @@
     // engine settings; companyProfile is the single store for custom rows).
     _renderJurisdictionRows();
 
+    // Upgrade prices (Upgrades & Add-ons stage 2, 2026-09-25) repaint from
+    // companyProfile.pricing.upgradePrices on every paint, like every other
+    // input here. The module rides the same lazy estimates bundle as
+    // EstimateBuilderV2, and carries its own hydration guard.
+    //
+    // The module can be MISSING when this runs (2026-09-25 review of PR
+    // #1762): ui.js paints this tab as soon as EstimateBuilderV2 exists, but
+    // the upgrade files sit at the END of that bundle, so a tab opened while
+    // the bundle is still arriving — or after an upgrade file failed to
+    // load — left an empty box, a dead Save and nothing to repaint it. Wait
+    // for the bundle (loadBundle is deduped, and retries a file that failed)
+    // and paint then; if the module still isn't there, say so.
+    const _upgPaint = () => {
+      const m = window.NBDUpgradePriceSettings;
+      if (!m || typeof m.render !== 'function') return false;
+      m.render();
+      return true;
+    };
+    if (!_upgPaint()) {
+      const _upgUnavailable = () => {
+        const h = byId('upgPriceRows');
+        if (!h || h.getAttribute('data-state') !== 'loading') return;
+        h.setAttribute('data-state', 'unavailable');
+        h.textContent = '';
+        const p = document.createElement('p');
+        p.className = 'upg-loading';
+        p.textContent = 'Upgrade prices could not load. Reload the page to try again.';
+        h.appendChild(p);
+        const b = byId('upgPriceSave');
+        if (b) b.disabled = true;
+      };
+      if (window.ScriptLoader && typeof window.ScriptLoader.loadBundle === 'function') {
+        window.ScriptLoader.loadBundle('estimates').then(() => {
+          // Only ever replaces the loading line — never rows someone may
+          // already be typing in from a later paint.
+          const h = byId('upgPriceRows');
+          if (!h || h.getAttribute('data-state') !== 'loading') return;
+          if (!_upgPaint()) _upgUnavailable();
+        }, _upgUnavailable);
+      } else {
+        _upgUnavailable();
+      }
+    }
+
     // Catalog summary
     if (byId('v2matCount'))  byId('v2matCount').textContent  = (window.NBD_PRODUCTS || []).length;
     if (byId('v2labCount'))  byId('v2labCount').textContent  = (window.NBD_LABOR?.count) || 0;
@@ -4795,6 +4839,7 @@
     let pricingSaveFailed = false;
     let pricingSaveDenied = false;
     let countySaveSkipped = false;
+    let upgradeSaveSkipped = false;
     const byId = (id) => document.getElementById(id);
     const num = (id, fallback) => {
       const v = parseFloat(byId(id)?.value);
@@ -4914,6 +4959,20 @@
           && window._companyProfile.pricing.customJurisdictions) || {});
         const pricing = { addonPrices };
         if (customJurisdictions) pricing.customJurisdictions = customJurisdictions;
+        // Upgrade prices ride the same company write (2026-09-25), so Save
+        // All never silently discards an edit made in that panel — the
+        // NEW-D43a class. collect() is null unless the panel was painted
+        // from the hydrated profile by someone who may write it; a bad
+        // price leaves them all out and the message below says so.
+        // ONLY the entries edited on this device since the paint
+        // (upg.changes) are written: the full map from a device painted
+        // hours ago put back prices another device had saved since
+        // (2026-09-25 review of PR #1762), and an untouched panel now adds
+        // nothing to this write at all.
+        const upg = (window.NBDUpgradePriceSettings && typeof window.NBDUpgradePriceSettings.collect === 'function')
+          ? window.NBDUpgradePriceSettings.collect() : null;
+        if (upg && upg.errors && upg.errors.length) upgradeSaveSkipped = true;
+        else if (upg && upg.changes && Object.keys(upg.changes).length) pricing.upgradePrices = upg.changes;
         // County policy is per-TENANT (migrated off per-device localStorage
         // 2026-07-29). patch.permits / patch.countyTax were just built from the
         // 14 inputs above; the same values go to companyProfile so every rep and
@@ -4925,6 +4984,11 @@
           pricing.fallbackTaxRate = patch.fallbackTaxRate;
         }
         await window._saveCompanyProfile({ pricing });
+        // Those upgrade entries are saved: a second press must not resend
+        // them over a newer save from another device.
+        if (pricing.upgradePrices && typeof window.NBDUpgradePriceSettings?.markSaved === 'function') {
+          window.NBDUpgradePriceSettings.markSaved(pricing.upgradePrices);
+        }
         // FULL-REPLACE the customJurisdictions field. _saveCompanyProfile
         // deep-merges (cache) and setDoc({merge:true}) merges nested map keys
         // on the server — either would silently RESURRECT deleted rows. An
@@ -4977,14 +5041,18 @@
         ? (pricingSaveDenied
             ? '⚠ Saved on this device only. County rates and add-on pricing are company-wide — ask an owner or company admin to change them.'
             : '⚠ Rates saved on this device, but the company pricing sync failed — check your connection and press Save again.')
-        : (jurSaveSkipped || countySaveSkipped)
-          ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
-          : '✓ Estimate settings saved. Every linked estimate will use these rates.';
+        : upgradeSaveSkipped
+          ? '⚠ Estimate settings saved, but NOT the upgrade prices — fix the highlighted upgrade price and save again.'
+          : (jurSaveSkipped || countySaveSkipped)
+            ? '✓ Estimate settings saved on this device. Company county rates were still loading, so they were left untouched — reopen this tab to change them.'
+            : '✓ Estimate settings saved. Every linked estimate will use these rates.';
       setTimeout(() => msg.style.display = 'none', 5000);
     }
     if (typeof showToast === 'function') {
-      showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again' : '✓ Estimate settings saved',
-        pricingSaveFailed ? 'info' : 'success');
+      showToast(pricingSaveFailed ? '⚠ Company pricing sync failed — Save again'
+        : upgradeSaveSkipped ? '⚠ Upgrade prices not saved — fix the highlighted price'
+          : '✓ Estimate settings saved',
+        (pricingSaveFailed || upgradeSaveSkipped) ? 'info' : 'success');
     }
   };
 
