@@ -187,7 +187,7 @@ const _NBD_CALL_ALLOWLIST = new Set([
   //  (dashboard-ui.js Slice H1) — off window. Do NOT re-add.)
   'setKanbanDensity',
   // Board/List layout toggle (2026-07-06 lean triage list — crm-list-view.js)
-  'crmViewBoard', 'crmViewList', 'crmViewAuto',
+  'crmViewBoard', 'crmViewList', 'crmViewAuto', 'openDupReview',
   // Referral Rewards view — mark a $200 code-referral bonus paid / reverse it
   // (referral-rewards-ui.js)
   'markReferralPaid', 'markReferralUnpaid',

@@ -1877,6 +1877,7 @@
               🗑 <span class="crm-hdr-btn-label">Deleted leads</span>
               <span class="trash-count-badge" id="trashCountBadge"></span>
             </button>
+            <button class="btn btn-ghost crm-hdr-btn" data-action="call" data-fn="openDupReview" title="Find likely duplicate leads">🧬 <span class="crm-hdr-btn-label">Find duplicates</span></button>
             <button class="btn btn-ghost crm-hdr-btn" id="loadSampleDataBtn" data-action="call" data-fn="loadSampleData" style="display:none;" title="Add 5 sample leads">
               🎲 <span class="crm-hdr-btn-label">Sample data</span>
             </button>
@@ -5605,7 +5606,7 @@
 <!-- Canonical customer URL builder (window.NBDUrl). Loaded BEFORE
      dashboard-actions.js because that file calls NBDUrl.customer(). -->
 <script defer src="js/nbd-url.js?v=1"></script>
-<script defer src="js/dashboard-state.js?v=5"></script>
+<script defer src="js/dashboard-state.js?v=6"></script>
 <script defer src="js/dashboard-api.js?v=4"></script>
 <!-- Durable offline photo queue. Loaded EAGERLY and ahead of the lazy
      `photos` bundle on purpose: photo-engine.js only arrives when the rep
@@ -6495,6 +6496,7 @@
 <script defer src="js/notif-bell.js?v=3"></script>
 <script defer src="js/buying-intent-strike.js?v=2"></script>
 <script defer src="js/lead-dedup.js?v=2"></script>
+<script defer src="js/dup-review.js?v=1"></script>
 <script defer src="js/global-search.js?v=2"></script>
 <script defer src="js/bottleneck-widget.js?v=2"></script>
 <script defer src="js/pwa-install-nudge.js?v=5"></script>
