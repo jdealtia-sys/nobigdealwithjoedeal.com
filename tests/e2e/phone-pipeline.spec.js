@@ -49,6 +49,9 @@ function installHelpers() {
   try {
     const today = new Date().toISOString().split('T')[0];
     ['overdue_scan', 'pending_estimate_scan', 'morning_briefing'].forEach((k) => localStorage.setItem('nbd_proactive_' + k, today));
+    // The first-run tour (onboarding-tour.js) can open after skipTour() has
+    // looked for it and cover the whole page; mark it done up front.
+    localStorage.setItem('nbd-onboarding-complete', '1');
   } catch (_) { /* storage blocked: quietToasts below still covers it */ }
   window.__ppHit = (el) => {
     if (!el) return false;
@@ -75,9 +78,9 @@ async function setupContext(context) {
 
 // safeWaitForFunction takes no page argument; this is the same
 // navigation-race tolerance with one.
-async function waitWith(page, fn, arg, timeout) {
+async function waitWith(page, fn, arg, timeout, polling) {
   for (let attempt = 0; ; attempt++) {
-    try { return await page.waitForFunction(fn, arg, { timeout }); } catch (e) {
+    try { return await page.waitForFunction(fn, arg, polling ? { timeout, polling } : { timeout }); } catch (e) {
       if (attempt < 4 && /Execution context was destroyed|interrupted by another navigation|navigating and changing/i.test(String(e && e.message))) {
         await page.waitForLoadState('domcontentloaded').catch(() => {});
         continue;
@@ -207,10 +210,44 @@ function contrast(a, b) {
   const l1 = lum(a), l2 = lum(b);
   return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
 }
+// The theme is account state: it hydrates from the (shared) test user's
+// userSettings a few seconds after load, so a contrast check measured
+// whatever theme another run left behind — and on a light theme the old raw
+// #374151 reads fine, so the desktop check passed with the bug present (a
+// 2026-09-25 break-test caught that). Pin it for the measurement without
+// saving: ThemeEngine.apply(key, false) never writes localStorage/Firestore.
+// Transitions are switched off first: the desktop .cd-stage-chip has
+// `transition: all .15s`, and a theme switch with the modal already open left
+// its var(--t)-based colour at the pre-switch value in headless Chromium. A
+// rep picks a theme and then opens a card, so the end state is what counts.
+async function useTheme(page, key) {
+  await safeEvaluate(page, (k) => {
+    if (!document.getElementById('pp-no-transitions')) {
+      const st = document.createElement('style');
+      st.id = 'pp-no-transitions';
+      st.textContent = '*, *::before, *::after { transition: none !important; }';
+      document.head.appendChild(st);
+    }
+    if (window.ThemeEngine && typeof window.ThemeEngine.apply === 'function') window.ThemeEngine.apply(k, false);
+    else document.documentElement.setAttribute('data-theme', k);
+  }, key);
+  await page.waitForTimeout(150);
+}
+const CHIP_THEMES = ['nbd-original', 'paper']; // the default navy, and a light theme
+
 async function chipContrast(page, chipSel, bgVar) {
+  // The desktop .cd-stage-chip transitions its colours, so right after a
+  // theme switch getComputedStyle returns mid-animation values. Wait until
+  // two reads 120ms apart agree.
+  await waitWith(page, (sel) => {
+    const el = document.querySelector(sel); const cs = getComputedStyle(el);
+    const now = cs.color + '|' + cs.backgroundColor;
+    const same = window.__ppChipLast === now; window.__ppChipLast = now; return same;
+  }, chipSel, 3_000, 120).catch(() => {});
   const r = await safeEvaluate(page, ([sel, v]) => {
     const el = document.querySelector(sel);
-    const bg = getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    // Resolved where the chip is, not on :root — a container may scope it.
+    const bg = getComputedStyle(el).getPropertyValue(v).trim();
     return { text: el.textContent.trim(), fg: window.__ppRgb(getComputedStyle(el).color), bg: window.__ppRgb(bg),
       diag: `inline=${el.style.color} computed=${getComputedStyle(el).color} ${v}=${bg} theme=${document.documentElement.getAttribute('data-theme')}` };
   }, [chipSel, bgVar]);
@@ -488,10 +525,14 @@ test.describe('phone pipeline @audit', () => {
       await waitWith(page, () => { const e = document.getElementById('mJobDetail'); return e && !e.hidden && e.classList.contains('open'); }, null, 4_000).catch(() => {});
     }
     expect(await jdOpen(), 'a tap on a board card opens the job detail').toBe(true);
-    for (const sel of ['#mJdStatus', '#mJdJobType']) {
-      const c = await chipContrast(page, sel, '--bg');
-      expect(c.ratio, `${sel} "${c.text}" contrast on the top bar (${c.diag})`).toBeGreaterThanOrEqual(4.5);
+    for (const theme of CHIP_THEMES) {
+      await useTheme(page, theme);
+      for (const sel of ['#mJdStatus', '#mJdJobType']) {
+        const c = await chipContrast(page, sel, '--bg');
+        expect(c.ratio, `${sel} "${c.text}" contrast on the top bar (${c.diag})`).toBeGreaterThanOrEqual(4.5);
+      }
     }
+    await useTheme(page, 'nbd-original');
     const chip = await centre(page, '#mJdStatus');
     await page.touchscreen.tap(chip.x, chip.y);
     await safeWaitForFunction(page, () => !!document.getElementById('nbd-kanban-ctx-menu'), { timeout: 5_000 });
@@ -576,9 +617,13 @@ test.describe('pipeline on desktop @audit', () => {
     await safeEvaluate(page, (id) => document.querySelector(`#kanbanBoard .k-card[data-id="${id}"]`).scrollIntoView({ block: 'center' }), ids.fu1);
     await page.locator(`#kanbanBoard .k-card[data-id="${ids.fu1}"] .kc-name`).click();
     await safeWaitForFunction(page, () => document.getElementById('cardDetailModal').classList.contains('open'), { timeout: 10_000 });
-    for (const sel of ['#cardDetailStage', '#cardDetailJobType']) {
-      const c = await chipContrast(page, sel, '--s2');
-      expect(c.ratio, `${sel} "${c.text}" contrast (${c.diag})`).toBeGreaterThanOrEqual(4.5);
+    for (const theme of CHIP_THEMES) {
+      await useTheme(page, theme);
+      for (const sel of ['#cardDetailStage', '#cardDetailJobType']) {
+        const c = await chipContrast(page, sel, '--s2');
+        expect(c.ratio, `${sel} "${c.text}" contrast (${c.diag})`).toBeGreaterThanOrEqual(4.5);
+      }
     }
+    await useTheme(page, 'nbd-original');
   });
 });
