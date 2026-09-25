@@ -642,12 +642,19 @@ function templateScripts() {
   return out;
 }
 
-async function countScriptRuns(page, names) {
+// holdBack delays one script's response by that many ms. 2026-09-25 review
+// fixup: served locally the template scripts tend to finish loading in page
+// order anyway, so "in page order" passed by luck with the ordering fix
+// removed (red at 412, green at 1280 in the same run). Holding the FIRST
+// Settings script back makes every later one land before it, so only a page
+// that really runs them in document order (async = false) can pass.
+async function countScriptRuns(page, names, holdBack) {
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   await page.route(new RegExp('/pro/js/(' + names.map(esc).join('|') + ')\\.js(\\?|$)'), async (route) => {
     const name = route.request().url().match(/\/pro\/js\/([\w.-]+)\.js/)[1];
     const resp = await route.fetch();
     const body = await resp.text();
+    if (holdBack && holdBack[name]) await new Promise((r) => setTimeout(r, holdBack[name]));
     await route.fulfill({ response: resp, body: '(window.__pvRuns = window.__pvRuns || []).push(' + JSON.stringify(name) + ');\n' + body });
   });
 }
@@ -672,7 +679,7 @@ const templateSuite = (label, use, touch) => test.describe(`phone views: lazy vi
     expect(settingsNames.length, 'the Settings template carries its scripts').toBeGreaterThanOrEqual(5);
     const errors = [];
     page.on('pageerror', (e) => errors.push(String((e && e.message) || e).slice(0, 200)));
-    await countScriptRuns(page, [].concat(...Object.values(TPL)));
+    await countScriptRuns(page, [].concat(...Object.values(TPL)), { [settingsNames[0]]: 1500 });
     await boot(page);
     await installProbes(page);
     const runs = (names) => page.evaluate((n) => (window.__pvRuns || []).filter((x) => n.includes(x)), names);
