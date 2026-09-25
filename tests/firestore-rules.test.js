@@ -1120,11 +1120,8 @@ async function run() {
     // (onLeadDeleted) sweeps these rows with the admin SDK instead.
     await assertFails(deleteDoc(doc(alice, 'leads/leadGone/' + sub + '/orphan')));
   }
-  // The split did not loosen the shape gate on create/update.
-  await assertFails(setDoc(doc(alice, 'leads/leadA2/documents/post-split-bogus'),
-    { name: 'x.html', status: 'made_up_status' }));
-  await assertFails(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/post-split-bogus'),
-    { status: 'open', reason: 'made_up_reason' }));
+  // (The create/update shape gate the split kept is pinned by 28a2/28b above:
+  // status-bogus, bad-status and bad-reason still have to be denied.)
 
   // 29. USER TEMPLATE-SYNC SUBCOLLECTIONS (feat/template-sync).
   //     job-templates.js mirrors + hydrates custom job templates at
