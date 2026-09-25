@@ -487,32 +487,41 @@
   const MIN_JOB_CHARGE_CENTS_DEFAULT = (_NBD_CFG && _NBD_CFG.JOB_MINIMUM_CENTS) || _toCents(MIN_JOB_CHARGE);
   const ROUND_TO_CENTS_DEFAULT       = (_NBD_CFG && _NBD_CFG.ROUND_TO_CENTS)    || _toCents(ROUND_TO);
 
-  // Deposit math per spec (Rock 2 PR 4 — ported from classic estimates.js):
-  //   • Cash mode default = 50% deposit at signing, 50% at completion
-  //   • Insurance mode default = $0 down (ACV check covers the first half)
-  //   • User can override the percent per-estimate (0–100 inclusive)
-  //   • Amount is rounded to the nearest roundTo step ($25 by default) so
-  //     it matches the rounding the customer sees on the grand total
-  //   • Remainder = total − amount (so amount + remainder === total)
-  // Returns the same shape as classic's calcDeposit so callers can swap.
+  // Deposit (2026-09-25): the ONE rule lives in deposit-rule.js
+  // (window.NBDDepositRule) — cash under $2,000 no deposit, cash $2,000+ 50%
+  // at signing ($25-rounded), insurance = the deductible + the ACV payment.
+  // This used to be its own copy ("cash 50%, insurance $0 down") and was one
+  // of five deposit answers live at once. Kept as a thin adapter because the
+  // classic builder and the engine results below still read the legacy
+  // {pct, amount, remainder} shape; `plan` carries the rule's full answer.
+  //   opts.overridePct  — an existing rep override (classic "Override %")
+  //   opts.deductible / opts.acv — insurance claim figures, when known
+  //   opts.roundTo      — the tenant's rounding step, dollars
+  // No rule loaded (a vm sandbox that loads only this file) → zeros and a
+  // null plan: the engine still prices, and no deposit is invented here.
+  function _depositRule() {
+    if (typeof window !== 'undefined' && window.NBDDepositRule) return window.NBDDepositRule;
+    if (typeof require === 'function') {
+      try { return require('./deposit-rule.js'); } catch (_) { /* browser / sandbox */ }
+    }
+    return null;
+  }
   function calcDeposit(total, mode, opts) {
     const o = opts || {};
-    const roundTo = Number(o.roundTo) || ROUND_TO;
-    if (!total || total <= 0) return { pct: 0, amount: 0, remainder: 0 };
-    const defaultPct = mode === 'insurance' ? 0 : 50;
-    const overrideOk = (o.overridePct != null
-                       && Number.isFinite(Number(o.overridePct))
-                       && Number(o.overridePct) >= 0
-                       && Number(o.overridePct) <= 100);
-    const pct = overrideOk ? Number(o.overridePct) : defaultPct;
-    // Cents math (2026-08-07): the old float path needed a *100/100 repair
-    // on the remainder; in integer cents amount + remainder === total holds
-    // exactly by construction.
-    const totalCents = _toCents(total);
-    const amountCents = _roundToNearestCents(
-      Math.round(totalCents * pct / 100), _toCents(roundTo));
-    const remainderCents = totalCents - amountCents;
-    return { pct, amount: _fromCents(amountCents), remainder: _fromCents(remainderCents) };
+    const rule = _depositRule();
+    const totalCents = (Number(total) > 0) ? _toCents(total) : 0;
+    if (!rule || !(totalCents > 0)) {
+      return { pct: 0, amount: 0, remainder: _fromCents(totalCents), plan: null };
+    }
+    const plan = rule.compute({
+      totalCents,
+      mode,
+      deductible: o.deductible,
+      acv: o.acv,
+      overridePct: o.overridePct,
+      roundToCents: (Number(o.roundTo) > 0) ? _toCents(o.roundTo) : undefined
+    });
+    return { pct: plan.pct, amount: _fromCents(plan.depositCents), remainder: _fromCents(plan.balanceCents), plan };
   }
 
   // ═════════════════════════════════════════════════════════
@@ -994,9 +1003,11 @@
     const marginCents = costConfigured ? totalCents - totalCostCents : null;
     const marginPct = costConfigured && totalCents > 0 ? ((totalCents - totalCostCents) / totalCents) * 100 : (costConfigured ? 0 : null);
 
-    // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
+    // Deposit — deposit-rule.js via calcDeposit (2026-09-25).
     const depositInfo = calcDeposit(_fromCents(totalCents), mode, {
       overridePct: input.depositOverridePct,
+      deductible: input.deductible,
+      acv: input.acv,
       roundTo: s.roundTo
     });
     const deposit = depositInfo.amount;
@@ -1260,9 +1271,11 @@
     const marginCents = totalCents - hardCostCents;
     const marginPct = totalCents > 0 ? (marginCents / totalCents) * 100 : 0;
 
-    // Deposit (Rock 2 PR 4 — shared calcDeposit replaces inline math)
+    // Deposit — deposit-rule.js via calcDeposit (2026-09-25).
     const depositInfo = calcDeposit(_fromCents(totalCents), mode, {
       overridePct: input.depositOverridePct,
+      deductible: input.deductible,
+      acv: input.acv,
       roundTo: s.roundTo
     });
     const deposit = depositInfo.amount;

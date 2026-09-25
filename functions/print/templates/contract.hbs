@@ -8,7 +8,10 @@
     contract { number, date, startDate, completionDate }
     scope (string or array)
     contractPrice (number)
-    paymentSchedule[] { stage, amount, dueDescription }
+    paymentSchedule[] { stage, amount, dueDescription, amountText? }
+      (from deposit-rule.js via doc pre-flight, 2026-09-25; amountText
+      prints when a stage has no fixed amount yet — "Per your policy" for a
+      deductible nobody has entered, "Set by your carrier" for the ACV check)
     paymentTerms (string)
     materials (string)
     warranty (string)
@@ -53,7 +56,7 @@
       <tr class="avoid-break">
         <td><strong>{{this.stage}}</strong></td>
         <td>{{this.dueDescription}}</td>
-        <td class="num money"><strong>{{money this.amount}}</strong></td>
+        <td class="num money"><strong>{{#if this.amountText}}{{this.amountText}}{{else}}{{money this.amount}}{{/if}}</strong></td>
       </tr>
       {{/each}}
     </tbody>

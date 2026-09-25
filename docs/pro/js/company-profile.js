@@ -20,6 +20,17 @@
 (function () {
   'use strict';
 
+  // The deposit rule's generic statement (see paymentTermsContract below).
+  function _depositPolicyText() {
+    const R = (typeof window !== 'undefined') && window.NBDDepositRule;
+    if (R && typeof R.policyText === 'function') return R.policyText();
+    return 'Cash jobs under $2,000: no deposit — payment in full on completion. ' +
+      'Cash jobs of $2,000 or more: 50% deposit at contract signing, balance on completion. ' +
+      'Insurance claims: the homeowner’s deductible is due at signing and the insurance ACV payment (the carrier’s first check) ' +
+      'is due as soon as the carrier releases it; the balance is due on completion. ' +
+      'The deductible is the homeowner’s responsibility and is never waived or reduced.';
+  }
+
   const NBD_COMPANY_PROFILE_DEFAULTS = {
     /* ── LETTERHEAD ────────────────────────────────────────────
        Identity fields that appear on every generated document.
@@ -84,10 +95,17 @@
     entireAgreementClause:
       'This contract constitutes the entire agreement between parties and supersedes all prior negotiations, representations, or agreements. Any modifications must be made in writing and signed by both parties.',
 
-    paymentTermsContract:
-      'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
-    paymentTermsProposal:
-      '50% deposit due upon contract execution; balance due upon project completion. Insurance assignments accepted.',
+    // Deposit terms (2026-09-25): the deposit rule's own statement
+    // (deposit-rule.js policyText — cash under $2,000 none, cash $2,000+ 50%
+    // at signing, insurance the deductible + the ACV payment, the deductible
+    // never waived). These defaulted to a flat "Fifty percent (50%)" that
+    // contradicted every insurance job and every small cash job. A job with a
+    // price prints its own computed terms instead; this is the boilerplate
+    // for documents that know no job. deposit-rule.js loads before this file
+    // on both pages; the literal is the same sentence for the (unexpected)
+    // case it did not, pinned by tests/deposit-rule.test.js.
+    paymentTermsContract: _depositPolicyText(),
+    paymentTermsProposal: _depositPolicyText() + ' Insurance assignments accepted.',
     paymentMethodsNoCash:
       'All payments must be made by check, ACH transfer, or credit card. No cash payments accepted. Insurance assignment accepted. Material delays may extend timeline.',
 

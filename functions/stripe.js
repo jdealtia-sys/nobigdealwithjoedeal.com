@@ -1271,8 +1271,10 @@ exports.createStripePaymentLink = onRequest(
 
       // ── Charge only the OUTSTANDING BALANCE, not the face value ──────────
       // A rep can record a cash/check deposit (invoice.amountPaid) BEFORE
-      // sending the online link — the documented flow is "50% deposit due upon
-      // scheduling". Charging invoice.total again would OVERCHARGE the
+      // sending the online link — the documented flow is a deposit at signing
+      // (docs/pro/js/deposit-rule.js since 2026-09-25: 50% on cash jobs of
+      // $2,000+, the deductible + ACV payment on insurance claims; it was
+      // "50% deposit due upon scheduling"). Charging invoice.total again would OVERCHARGE the
       // homeowner by the deposit, and invoiceWebhook would then erase the
       // deposit from the ledger. The itemized lines above are validated to sum
       // to invoice.total (an integrity check); when a deposit exists they

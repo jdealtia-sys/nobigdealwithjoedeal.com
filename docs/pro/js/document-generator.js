@@ -952,6 +952,26 @@ window.NBDDocGen = {
       const scheduleIsArray = Array.isArray(data.paymentSchedule);
       const scheduleText = (!scheduleIsArray && typeof data.paymentSchedule === 'string')
         ? data.paymentSchedule.trim() : '';
+      // Deposit rule (2026-09-25): doc pre-flight attaches the job's plan from
+      // deposit-rule.js (its rows honor a rep-edited Deposit Amount), so the
+      // Payment Schedule table carries real stages and amounts, and the
+      // paragraph falls back to the rule — never the "Fifty percent (50%)"
+      // literal that used to sit here regardless of job size or insurance.
+      const plan = (data.depositPlan && Array.isArray(data.depositPlan.rows)) ? data.depositPlan : null;
+      const planRows = plan ? plan.rows.map(r => ({
+        stage: r.label,
+        dueDescription: r.due || '',
+        amount: r.amountCents != null ? r.amountCents / 100 : null,
+        amountText: r.amountCents != null ? '' : (r.amountText || ''),
+      })) : [];
+      const _cpTerms = (() => {
+        try {
+          const cp = window._legal ? window._legal() : (window.NBD_COMPANY_PROFILE_DEFAULTS || {});
+          return (cp && cp.paymentTermsContract) || '';
+        } catch (_) { return ''; }
+      })();
+      const _rulePolicy = (window.NBDDepositRule && typeof window.NBDDepositRule.policyText === 'function')
+        ? window.NBDDepositRule.policyText() : '';
       return {
         coverTagline: 'The work,<br>committed in writing.',
         coverSub:     'A complete agreement covering scope, price, schedule, payment terms, and warranty. Both parties sign at the foot.',
@@ -968,8 +988,8 @@ window.NBDDocGen = {
           stage: p.stage || p.label,
           dueDescription: p.due || p.dueDescription || '',
           amount: Number(p.amount || 0),
-        })) : [],
-        paymentTerms: data.paymentTerms || scheduleText || 'Fifty percent (50%) due upon contract execution; remaining balance due upon substantial completion of work.',
+        })) : planRows,
+        paymentTerms: data.paymentTerms || scheduleText || (plan && plan.summary) || _cpTerms || _rulePolicy,
         materials: data.materials || null,
         warranty: data.warranty || null,
         rightToCancel: data.rightToCancel || 'You, the buyer, may cancel this transaction at any time prior to midnight of the third business day after the date of this transaction. See the attached Notice of Cancellation form for an explanation of this right.',
@@ -2188,7 +2208,7 @@ window.NBDDocGen = {
     const termsHTML = `
       ${repNoteHTML}
       <div style="font-size: 10px; line-height: 1.4; color: #555;">
-        <strong>Payment Terms:</strong> ${this._escClause(cp.paymentTermsProposal)}
+        <strong>Payment Terms:</strong> ${(merged.depositPlan && merged.depositPlan.summary) ? this._escHtml(merged.depositPlan.summary) : this._escClause(cp.paymentTermsProposal)}
         <br/><br/>
         <strong>Change Orders:</strong> ${this._escClause(cp.changeOrderClauseShort)}
         <br/><br/>

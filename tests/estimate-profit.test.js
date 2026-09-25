@@ -19,7 +19,9 @@ let passed = 0, failed = 0; const fails = [];
 function ok(name, cond) { if (cond) { passed++; console.log('  ✓ ' + name); } else { failed++; fails.push(name); console.log('  ✗ ' + name); } }
 const near = (a, b) => Math.abs(a - b) < 0.005;
 
-function loadIIFE(file) {
+// `pre` files load into the same window first — invoice-pipeline.js reads
+// deposit-rule.js, which dashboard.html loads eagerly (2026-09-25).
+function loadIIFE(file, pre) {
   const src = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js', file), 'utf8');
   const noop = () => ({ style: {}, appendChild() {}, addEventListener() {}, remove() {}, classList: { add() {}, remove() {} }, dataset: {} });
   const win = { addEventListener() {}, removeEventListener() {}, location: { pathname: '/pro/dashboard' } };
@@ -30,7 +32,9 @@ function loadIIFE(file) {
     console: { log() {}, warn() {}, error() {} },
     setTimeout, clearTimeout, Date, Math, JSON,
   };
-  vm.runInNewContext(src, sandbox, { filename: file });
+  vm.createContext(sandbox);
+  (pre || []).forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js', f), 'utf8'), sandbox, { filename: f }));
+  vm.runInContext(src, sandbox, { filename: file });
   return win;
 }
 
@@ -140,7 +144,7 @@ function loadIIFE(file) {
 // ── InvoicePipeline.createInvoiceFromEstimate ────────────────
 (async () => {
   console.log('\nINVOICE PIPELINE — createInvoiceFromEstimate (totals + deposit)');
-  const win = loadIIFE('invoice-pipeline.js');
+  const win = loadIIFE('invoice-pipeline.js', ['deposit-rule.js']);
   const IP = win.InvoicePipeline;
   ok('exposes InvoicePipeline.createInvoiceFromEstimate', IP && typeof IP.createInvoiceFromEstimate === 'function');
 
@@ -162,7 +166,11 @@ function loadIIFE(file) {
   ok('subtotal = sum of row totals (500)', near(captured.subtotal, 500));
   ok('tax = 7.5% of subtotal (37.5) — fallback when estimate has no rate', near(captured.tax, 37.5));
   ok('total = subtotal + tax (537.5)', near(captured.total, 537.5));
-  ok('deposit = 50% of total (268.75)', near(captured.depositAmount, 268.75));
+  // Deposit rule (2026-09-25): a $537.50 cash job is under $2,000 → no
+  // deposit. This used to assert the 50% fallback ($268.75) the rule retired.
+  ok('deposit follows the rule: $537.50 cash is under $2,000 → no deposit (0)', captured.depositAmount === 0);
+  ok('invoice terms carry the rule\'s sentence, not "50% deposit due upon scheduling"',
+    /^Net 14\. No deposit\. The full \$537\.50 is due on completion\.$/.test(captured.terms) && !/50%/.test(captured.terms));
   // balanceDue = FULL total at create time — deliberately not total-deposit.
   // invoice-pipeline.js:225 books nothing as collected until a real payment
   // lands (recordPayment maintains balanceDue = total - amountPaid).
@@ -186,8 +194,18 @@ function loadIIFE(file) {
   delete EST.taxRate; delete EST.priceMode; delete EST.prices; delete EST.grandTotal;
   EST.deposit = { pct: 50, amount: 250, remainder: 287.5 };
   await IP.createInvoiceFromEstimate('est1');
-  ok('classic deposit OBJECT → numeric depositAmount (250, not NaN)', Number.isFinite(captured.depositAmount) && near(captured.depositAmount, 250));
+  // A saved deposit object is a pre-rule figure, not a rep choice: the rule
+  // recomputes (still finite — the NaN guard this case was written for).
+  ok('classic deposit OBJECT → numeric depositAmount from the rule (0 under $2,000, not NaN, not the stale 250)',
+    Number.isFinite(captured.depositAmount) && captured.depositAmount === 0);
   ok('classic deposit OBJECT → balanceDue finite (= full total 537.5, deposit unpaid)', Number.isFinite(captured.balanceDue) && near(captured.balanceDue, 537.5));
+  // The classic builder's Override % IS a rep choice — honored and labelled:
+  // 40% of $537.50 = $215, on the rule's $25 step → $225.
+  EST.depositPctOverride = 40;
+  await IP.createInvoiceFromEstimate('est1');
+  ok('classic rep override (40%) is honored on the invoice ($225)', near(captured.depositAmount, 225)
+    && /^Net 14\. 40% deposit of \$225 due at signing; balance of \$312\.50 due on completion\.$/.test(captured.terms));
+  delete EST.depositPctOverride;
   delete EST.deposit;
 
   // V2-pkb: PER-SQ estimates invoice the LOCKED selected-tier grandTotal as a
@@ -199,7 +217,7 @@ function loadIIFE(file) {
   ok('per-SQ invoice total = locked grandTotal (21500, not the $500 rows sum)', near(captured.total, 21500));
   ok('per-SQ invoice is a single summary line naming the tier', captured.items.length === 1 && /Better tier/.test(captured.items[0].description));
   ok('per-SQ invoice subtotal+tax foots to grandTotal (21500)', near(captured.subtotal + captured.tax, 21500));
-  ok('per-SQ invoice honors saved numeric deposit (10750)', near(captured.depositAmount, 10750));
+  ok('per-SQ invoice: the rule\'s 50% of the locked $21,500 (10750)', near(captured.depositAmount, 10750));
 
   // 2026-07-18 post-sprint certification: V2 (estimate-v2-ui.js) persists the
   // estimate's tax under the key `tax`, never `taxAmount` — only the CLASSIC

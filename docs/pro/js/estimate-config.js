@@ -258,6 +258,21 @@
       roof:            Object.freeze({ tierWording: true })
     }),
 
+    // Deposit rule thresholds (Jo, 2026-09-25). Read by deposit-rule.js — the
+    // ONE function every quote, contract, invoice, portal and deal-room
+    // deposit comes from (the app had a 50/50, a 25%, a $0 and a "Fifty
+    // percent" deposit live at once). Cash under $2,000: no deposit; cash
+    // $2,000+: 50% at signing, rounded to the nearest $25; insurance: the
+    // deductible + the ACV payment (not a threshold, so not configured here).
+    // Defaults only — tenant-overridable later. deposit-rule.js carries a copy
+    // for pages that don't load this file (customer.html);
+    // tests/deposit-rule.test.js pins the two together.
+    DEPOSIT_RULE: Object.freeze({
+      CASH_NO_DEPOSIT_UNDER_CENTS: 200000,
+      CASH_DEPOSIT_PCT: 50,
+      CASH_DEPOSIT_ROUND_TO_CENTS: 2500
+    }),
+
     // Source-of-truth marker — engines log this to Sentry on
     // load so we can correlate "classic engine ran but V2 config
     // didn't load" cases if they ever happen.

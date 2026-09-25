@@ -57,6 +57,8 @@ const { applyRepReplyEffects } = require('./portal-reply-effects');
 // stay identical). NEVER emit est.rows raw — pre-sweep V2 rows carry the
 // contractor's COST basis.
 const { buildDisplayRows, buildDocLineItems, tierApplies } = require('./customer-estimate-rows');
+// The estimate's deposit-rule stamp, validated + whitelisted (2026-09-25).
+const { safeDepositPlan } = require('./deposit-plan-view');
 // Single authority check for portal-link mint/revoke: platform admin, owning
 // rep, or a company_admin of the lead's tenant. Pure module — decision is
 // unit-tested there, not here.
@@ -1009,6 +1011,10 @@ exports.getHomeownerPortalView = onRequest(
         signedDocumentUrl: latest.signedDocumentUrl || null,
         signEmbedUrl:    signEmbedUrl,
         lineCount: Array.isArray(latest.lines) ? latest.lines.length : null,
+        // What is due at signing, in the rule's own words (deposit-rule.js via
+        // the saved stamp, 2026-09-25) — the same sentence the homeowner's
+        // quote, contract and invoice print. null when absent or stale.
+        depositPlan: safeDepositPlan(latest),
         createdAt: latest.createdAt?.toDate?.()?.toISOString() || null
       } : null,
       bookingUrl: rep.calcomUsername
@@ -2535,6 +2541,10 @@ exports.getEstimateForView = onRequest(
       number:      est.number || null,
       meas:        est.meas || est.measurements || null,
       tiers:       safeTiers,
+      // Payment terms (2026-09-25): the deposit-rule stamp, validated — see
+      // functions/deposit-plan-view.js. Per-SQ docs stamp the selected tier's
+      // total, so this is that tier's deposit.
+      depositPlan: safeDepositPlan(est),
       // Photo embeds (2026-07): the rep-selected photos ride the shared
       // view. URL-only pass-through — {url} per entry, ids and any other
       // photo-doc fields stay server-side.

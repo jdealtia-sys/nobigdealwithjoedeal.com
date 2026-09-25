@@ -384,7 +384,12 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-25  187/68/276 -> 188/68/277, tests/upgrades-builder-card.test.js
 //               (Upgrades stage 2, lane "card"). RE-MEASURED via --check after
 //               rebasing onto 7933ce35 (#1762, lane "prices", merged first).
-const FLOORS = { node: 188, smoke: 68, disk: 277 };
+//   2026-09-25  188/68/277 -> 189/68/278, tests/deposit-rule.test.js (the one
+//               deposit rule, every surface). MEASURED via --check on a branch
+//               cut from origin/main at 918af3d8 (#1763); RE-MEASURED on
+//               9d4c82bc (#1764) with the review fixes — unchanged; whoever
+//               merges last re-measures.
+const FLOORS = { node: 189, smoke: 68, disk: 278 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

@@ -108,6 +108,9 @@ function load(env, rel) {
 
 const STACK = [
   'docs/pro/js/estimate-config.js',
+  // Eager on dashboard.html after estimate-config (2026-09-25): every quote,
+  // contract and invoice deposit comes from it.
+  'docs/pro/js/deposit-rule.js',
   'docs/pro/js/product-data.js',
   'docs/pro/js/roofivent-catalog.js',
   'docs/pro/js/estimate-labor-catalog.js',
@@ -507,6 +510,12 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('GRAND TOTAL moves by exactly the quote + its tax', cents(sv.grandTotal) - cents(baseP.grandTotal) === cardLine + aluTax,
     (cents(sv.grandTotal) - cents(baseP.grandTotal)) + ' vs ' + (cardLine + aluTax));
   ok('O&P untouched (upgrades sit outside markup and O&P)', sv.overhead === baseP.overhead && sv.profit === baseP.profit && sv.retailBeforeOHP === baseP.retailBeforeOHP);
+  // The deposit follows the moved total (deposit-rule review fix, 2026-09-25):
+  // the base payload's plan was stamped BEFORE the upgrade was added.
+  const depWant = W.NBDDepositRule.compute({ total: sv.grandTotal, mode: sv.mode || 'cash' });
+  ok('DEPOSIT is re-stamped on the upgraded total (plan total = grandTotal, deposit = the rule)', !!sv.depositPlan
+    && sv.depositPlan.totalCents === cents(sv.grandTotal) && cents(sv.deposit) === depWant.depositCents && sv.depositPlan.summary === depWant.summary,
+    sv.depositPlan && (sv.depositPlan.totalCents + ' vs ' + cents(sv.grandTotal)));
   ok('upgradeCents / upgradeTaxCents / upgrades[] on the estimate', sv.upgradeCents === cardLine && sv.upgradeTaxCents === aluTax
     && sv.upgrades.length === 1 && sv.upgrades[0].id === 'alurex' && sv.upgrades[0].unitCents === 1800);
   const log = sv.upgradeLog;
@@ -563,7 +572,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
 
     // The real proposal + contract HTML (DocPreflight → NBDDocGen).
     const d = makeSandbox({ _brand: () => ({ legalName: 'No Big Deal Home Solutions', colors: {}, contact: {} }) });
-    ['docs/pro/js/estimate-config.js', 'docs/pro/js/customer-estimate-rows.js', 'docs/pro/js/document-generator.js',
+    ['docs/pro/js/estimate-config.js', 'docs/pro/js/deposit-rule.js', 'docs/pro/js/customer-estimate-rows.js', 'docs/pro/js/document-generator.js',
       'docs/pro/js/document-generator-templates.js', 'docs/pro/js/doc-preflight.js'].forEach((f) => load(d, f));
     d.win.showToast = () => {};
     const paper = async (type) => {
@@ -696,8 +705,10 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     const money2 = (c) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const ptH = /PROJECT TOTAL<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
     ok('Retail Quote PROJECT TOTAL prints the cents: ' + money2(cents(eh.total)), !!ptH && ptH[1] === money2(cents(eh.total)), ptH && ptH[1]);
-    const depH = /Deposit \([^)]*\)<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
-    const balH = /Balance Due \([^)]*\)<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
+    // Stage labels come from deposit-rule.js (2026-09-25): a cash job over
+    // $2,000 is "50% deposit — At signing" + "Balance — On completion".
+    const depH = /50% deposit — At signing<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
+    const balH = /Balance — On completion<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
     ok('…and deposit + balance foot to it exactly', !!depH && !!balH
       && cents(depH[1].replace(/[$,]/g, '')) + cents(balH[1].replace(/[$,]/g, '')) === cents(eh.total), [depH && depH[1], balH && balH[1]].join(' + '));
     const reH = V2.buildSavePayload(eh, st);

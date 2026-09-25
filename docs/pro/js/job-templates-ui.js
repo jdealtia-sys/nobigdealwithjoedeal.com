@@ -2818,6 +2818,11 @@
         if (ownerName) opts.owner = ownerName;
         var leadAddr = lead.address || lead.addr || '';
         if (leadAddr) opts.addr = leadAddr;
+        // The lead's recorded deductible (2026-09-25): an insurance template
+        // estimate's saved deposit plan names it, as the invoice does.
+        var leadDed = (lead.deductibleOrOwedByHO != null && lead.deductibleOrOwedByHO !== '')
+          ? lead.deductibleOrOwedByHO : lead.deductible;
+        if (leadDed != null && leadDed !== '' && Number(leadDed) > 0) opts.deductible = Number(leadDed);
       }
     }
 

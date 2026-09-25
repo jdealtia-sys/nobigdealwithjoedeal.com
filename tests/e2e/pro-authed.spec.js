@@ -541,7 +541,10 @@ test.describe.serial('Authenticated destructive flows @shard1', () => {
     expect(inv.taxRate, 'estimate taxRate 0 honored (not defaulted to 7.5%)').toBe(0);
     expect(inv.tax, 'tax is 0 at a 0% rate').toBe(0);
     expect(inv.total, 'total = subtotal at 0% tax').toBe(expectedSubtotal);
-    expect(inv.depositAmount, 'deposit coerced from the classic {amount} object').toBe(EST.deposit.amount);
+    // Deposit rule (2026-09-25): the invoice asks deposit-rule.js — a $3,500
+    // cash job is 50% = $1,750, which is also this fixture's saved classic
+    // {amount}; the object is never Number()'d into NaN either way.
+    expect(inv.depositAmount, 'deposit follows the rule (cash $3,500 → 50% = $1,750)').toBe(EST.deposit.amount);
     // The locked AR contract: balanceDue tracks genuinely-owed money — the
     // FULL total at create time. It was `total - depositAmount`, which booked
     // the deposit as collected before any payment arrived, under-reporting AR.

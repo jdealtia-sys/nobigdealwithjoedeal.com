@@ -6670,6 +6670,11 @@
 <!-- estimate-config.js MUST load before estimates.js + estimate-builder-v2.js;
      it exposes window.NBD_ESTIMATE_CONFIG which both engines read. -->
 <script defer src="js/estimate-config.js?v=4"></script>
+<!-- deposit-rule.js (2026-09-25): the ONE deposit rule every quote, contract,
+     invoice, Job Template and Close Board deal reads. Eager and small; after
+     estimate-config (its thresholds) and before company-profile.js (whose
+     payment-terms defaults are the rule's own sentence). -->
+<script defer src="js/deposit-rule.js?v=1"></script>
 <!-- LAZY: estimates.js + the rest of the estimate engine load via ScriptLoader's
      `estimates` bundle (PR 2c). estimate-config stays eager (prerequisite read
      at load by the builder). -->

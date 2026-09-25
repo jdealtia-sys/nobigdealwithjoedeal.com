@@ -205,6 +205,17 @@
     .ev-line-amt  { grid-column: 2; grid-row: 1; min-width: 0; white-space: nowrap; }
     .ev-line-qty  { grid-column: 1; grid-row: 2; min-width: 0; text-align: left; }
   }
+  /* Payment terms (2026-09-25, deposit rule): a stage's "due" caption can be
+     a sentence ("…when your carrier releases it; the rest on completion"),
+     so on desktop it wraps in its own column instead of holding the qty
+     column's numeric floor. Phones already stack it under the stage name. */
+  .ev-pay-list .ev-line-qty { min-width: 0; flex: 1; text-align: left; }
+  .ev-pay-terms {
+    font-size: var(--nbd-text-sm);
+    color: var(--nbd-ink-muted);
+    line-height: 1.6;
+    margin: 0 0 var(--nbd-space-6);
+  }
   .ev-grand {
     background: var(--nbd-orange-cta);
     color: var(--nbd-ink-on-orange);
