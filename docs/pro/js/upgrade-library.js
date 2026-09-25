@@ -62,7 +62,9 @@
     // Bump on ANY change a saved quote could depend on (a price, a name, a
     // warranty sentence). Rows stamp it as upgradeVersion, so a signed paper
     // can always be traced to the wording it was quoted under.
-    version: '2026-09-25.1',
+    // .2 (review of #1756): Gutter Clean Pro's notCovered line removed — it
+    // claimed a pine-needle exclusion that Jo never stated.
+    version: '2026-09-25.2',
     trade: 'gutters',
     currency: 'USD',
 
@@ -142,12 +144,19 @@
         // picks the variant from the template family (or ctx.newGutters).
         name: 'Alu-Rex gutter guard',
         benefit: 'An aluminum gutter guard system from Alu-Rex.',
+        // Pine wording (2026-09-25): Jo's decision names pine-area coverage
+        // for DoublePro/HoverPro and says NOTHING about Gutter Clean Pro, so
+        // the existing-gutter variant makes no pine claim either way. An
+        // earlier draft inferred "not Gutter Clean Pro" and printed it as a
+        // coverage gap; the #1756 review found Alu-Rex's own Gutter Clean Pro
+        // warranty sheet says the opposite. Add coniferous wording here only
+        // once Jo approves the manufacturer's own sentence.
         variants: {
           existing: {
             name: 'Alu-Rex Gutter Clean Pro gutter guard',
             benefit: 'An aluminum guard made to fit your existing gutters and keep leaves out.',
             warrantyLine: 'Alu-Rex lifetime clog-free limited warranty, transferable once.',
-            notCovered: 'Pine-needle coverage comes with the new-gutter models (DoublePro, HoverPro), not Gutter Clean Pro.'
+            notCovered: null
           },
           'new': {
             name: 'Alu-Rex DoublePro gutter guard',
@@ -295,23 +304,43 @@
 
     // ── Template families ────────────────────────────────────────────────
     // `offers` lists group or item ids, at most 5 per family (a pick-one
-    // group counts once). `hide` names what a family must NOT offer, with
-    // the rep-facing reason. `newGutters` picks the Alu-Rex variant.
-    // `eaveLfIsWholeHouse` says the template's measurements.eaveLf is the
-    // whole house's gutter footage; only then may a guard quantity fall back
-    // to it (a hanger re-secure's 40 LF is the repaired run, not the house).
+    // group counts once). `newGutters` picks the Alu-Rex variant.
+    //
+    // `hide` is ONLY for a conflict that must block the offer even when
+    // another selected template offers it: a guard already in the base
+    // scope, or copper / half-round gutters. A hide beats every offer, so
+    // "this template has nothing to guard" is NOT a hide — a family with no
+    // gutter run simply leaves the group out of `offers`. (Review of #1756:
+    // the downspout families hid leaf protection for that reason, which
+    // stripped every guard off a cleaning visit the moment the rep added
+    // the downspout-extension template — the extension's own scope notes
+    // pitch it as an add-on to a cleaning.)
+    //
+    // Guard footage — never a guess (the offer's qty is what price() bills
+    // when the rep types nothing):
+    //  - `runLinesAreWholeHouse`: the template's gutter-run lines are the
+    //    gutter the guard would sit on. False for repairs, whose run line is
+    //    the repaired SECTION (a 20 LF section replace is not a 20 LF guard).
+    //  - `suggestEaveLf`: the template's measurements.eaveLf describes the
+    //    whole house, so the offer may SHOW it as suggestedQty — but it is
+    //    never priced. On the cleaning templates it is the coverage cap
+    //    ("covers up to ~160 LF"), the measurements panel starts collapsed
+    //    and no cleaning line reads it, so nobody ever checks it; quoting it
+    //    silently would under-bill a real 220 LF house by $1,080 of Alu-Rex.
     families: {
       new_gutters: {
         label: 'New K-style gutter system',
         newGutters: true,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: false,
         offers: ['leaf_protection', 'gutter_apron', 'downspout_3x4_step_up', 'underground_drain', 'popup_emitter'],
         hide: {}
       },
       guards_package: {
         label: 'Gutters + guards package',
         newGutters: true,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: false,
         offers: ['gutter_apron', 'downspout_3x4_step_up', 'underground_drain', 'popup_emitter', 'fascia_wrap'],
         hide: {
           leaf_protection: 'The guard is already this package\'s base scope. Change it on the template\'s guard line.'
@@ -320,7 +349,8 @@
       premium_metal: {
         label: 'Half-round and copper gutters',
         newGutters: true,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: false,
         offers: ['underground_drain', 'popup_emitter'],
         hide: {
           leaf_protection: 'No guard on half-round or copper gutters: the guards are listed for 5" or 6" aluminum K-style, and an aluminum guard must not touch copper (LeafBlaster voids its warranty on copper contact).'
@@ -329,39 +359,43 @@
       downspout_only: {
         label: 'Downspouts only',
         newGutters: false,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: false,
+        // No leaf protection: no gutter run here. Left out of offers, not
+        // hidden, so a gutter template selected alongside keeps its guards.
         offers: ['downspout_3x4_step_up', 'underground_drain', 'popup_emitter', 'flip_up_extension'],
-        hide: {
-          leaf_protection: 'Downspout-only job: there is no gutter run in this scope to guard.'
-        }
+        hide: {}
       },
       existing_service: {
         label: 'Cleaning and tune-up (existing gutters)',
         newGutters: false,
-        eaveLfIsWholeHouse: true,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: true,
         offers: ['leaf_protection', 'flip_up_extension', 'underground_drain', 'popup_emitter'],
         hide: {}
       },
       existing_repair: {
         label: 'Gutter repair (existing gutters)',
         newGutters: false,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: false,
+        suggestEaveLf: false,
         offers: ['leaf_protection', 'fascia_wrap', 'flip_up_extension'],
         hide: {}
       },
       downspout_repair: {
         label: 'Downspout repair',
         newGutters: false,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: false,
+        // Same as downspout_only: leaf protection is left out, not hidden.
         offers: ['underground_drain', 'popup_emitter', 'flip_up_extension'],
-        hide: {
-          leaf_protection: 'Downspout job: there is no gutter run in this scope to guard.'
-        }
+        hide: {}
       },
       guard_install: {
         label: 'Gutter guard install',
         newGutters: false,
-        eaveLfIsWholeHouse: false,
+        runLinesAreWholeHouse: true,
+        suggestEaveLf: false,
         offers: [],
         hide: {
           leaf_protection: 'The guard is this job\'s base scope. Choose the product on the template\'s guard line.'

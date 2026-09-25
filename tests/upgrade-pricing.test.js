@@ -212,7 +212,21 @@ test('every family offers at most 5 (a pick-one group counts once) and names onl
     truthy(fam.offers.length <= 5, f + ' offers ' + fam.offers.length);
     fam.offers.concat(Object.keys(fam.hide)).forEach((k) =>
       truthy(LIB.groups[k] || byId[k], f + ' names unknown id ' + k));
-    truthy(typeof fam.newGutters === 'boolean' && typeof fam.eaveLfIsWholeHouse === 'boolean', f + ' flags');
+    truthy(typeof fam.newGutters === 'boolean' && typeof fam.runLinesAreWholeHouse === 'boolean' &&
+      typeof fam.suggestEaveLf === 'boolean', f + ' flags');
+  });
+});
+
+test('a family hides leaf protection only for a real conflict (guard in base, copper / half-round)', () => {
+  // A hide beats every other selected family's offer, so "nothing to guard
+  // on this template" must be an omission from `offers`, never a hide
+  // (review of #1756: the downspout families' hide stripped the guards off
+  // a cleaning visit). This pins the only families allowed to hide it.
+  const hiders = Object.keys(LIB.families).filter((f) => LIB.families[f].hide.leaf_protection).sort();
+  eq(hiders.join(','), 'guard_install,guards_package,premium_metal', 'families hiding leaf_protection');
+  ['downspout_only', 'downspout_repair'].forEach((f) => {
+    truthy(!LIB.families[f].offers.includes('leaf_protection'), f + ' must not offer leaf protection');
+    eq(Object.keys(LIB.families[f].hide).length, 0, f + ' hides');
   });
 });
 
@@ -266,16 +280,41 @@ test('Amerimax Lock-In states its own 10-year limited manufacturer warranty and 
   eq(byId.amerimax_lockin_mesh.warrantyLine, 'Amerimax 10-year limited manufacturer warranty.', 'warrantyLine');
 });
 
-test('Alu-Rex: lifetime clog-free LIMITED, transferable once; pine areas only on the new-gutter model', () => {
+test('Alu-Rex: lifetime clog-free LIMITED, transferable once; DoublePro states pine areas, Gutter Clean Pro makes no pine claim either way', () => {
   const v = byId.alurex.variants;
   [v.existing.warrantyLine, v['new'].warrantyLine].forEach((w) => {
     truthy(/lifetime clog-free limited warranty/.test(w), 'limited wording: ' + w);
     truthy(/transferable once/.test(w), 'transfer wording: ' + w);
   });
-  truthy(/pine/.test(v['new'].warrantyLine), 'DoublePro covers pine areas');
-  truthy(!/pine/.test(v.existing.warrantyLine), 'Gutter Clean Pro must not claim pine coverage');
+  truthy(/pine/.test(v['new'].warrantyLine), 'DoublePro covers pine areas (Jo, 2026-09-25)');
+  // Jo's decision says nothing about Gutter Clean Pro and pine; an earlier
+  // draft printed an inferred exclusion that Alu-Rex's own sheet contradicts
+  // (review of #1756). No claim, in either direction, until Jo approves one.
+  const PINE = /pine|conifer/i;
+  ['name', 'benefit', 'warrantyLine', 'notCovered'].forEach((k) =>
+    truthy(!PINE.test(v.existing[k] || ''), 'Gutter Clean Pro ' + k + ' makes a pine claim: "' + v.existing[k] + '"'));
+  eq(v.existing.notCovered, null, 'Gutter Clean Pro notCovered');
+  truthy(!/HoverPro/.test(JSON.stringify(v.existing)), 'Gutter Clean Pro copy names a product that is not on the menu');
   eq(v.existing.name, 'Alu-Rex Gutter Clean Pro gutter guard', 'existing-gutter product');
   eq(v['new'].name, 'Alu-Rex DoublePro gutter guard', 'new-gutter product');
+  eq(LIB.version, '2026-09-25.2', 'library version bumped with the wording change');
+});
+
+test('every Gutter Clean Pro offer and priced row, on every existing-gutter template, makes no pine claim', () => {
+  const existing = Object.keys(LIB.templates).filter((id) => !LIB.families[LIB.templates[id]].newGutters);
+  let seen = 0;
+  existing.forEach((id) => {
+    const r = resolve(id);
+    const ctx = ctxFor(id, r, { gutterLf: 150 });
+    const o = U.offeredFor(id, ctx).find((x) => x.id === 'alurex');
+    if (!o) return;
+    const p = U.price(['alurex'], ctx);
+    const strings = [o.name, o.benefit, o.warrantyLine, o.notCovered].concat(
+      p.rows.map((row) => [row.desc, row.upgradeWarranty, row.upgradeNotCovered].join(' | ')));
+    if (o.state === 'available') { seen++; eq(p.rows.length, 1, id + ' priced row'); }
+    strings.forEach((s) => truthy(!/pine|conifer/i.test(s || ''), id + ' Gutter Clean Pro copy: "' + s + '"'));
+  });
+  truthy(seen >= 7, 'only ' + seen + ' existing-gutter templates offered Gutter Clean Pro — vacuous?');
 });
 
 test('no dealer-locked or dropped guard brand anywhere in either file (comments included)', () => {
@@ -428,21 +467,81 @@ test('half-round and copper-accent templates: leaf group hidden (no aluminum gua
   });
 });
 
-test('downspout-only: no leaf group; step-up quantity is the 2x3 footage', () => {
+test('downspout-only: no leaf group offered (left out, not hidden); step-up quantity is the 2x3 footage', () => {
   const id = 'jt_gi_downspout_only';
   const m = offerMap(U.offeredFor(id, ctxFor(id, resolve(id))));
-  LEAF.forEach((l) => eq(m[l].state, 'hidden', l));
+  LEAF.forEach((l) => eq(m[l], undefined, l + ' offered on a downspout-only job'));
+  eq(codes(U.price([{ id: 'alurex', qty: 100 }], ctxFor(id, resolve(id))).errors).join(), 'not_offered', 'guard alone on downspouts');
   eq(m.downspout_3x4_step_up.qty, 120, 'step-up qty');
   eq(m.flip_up_extension.state, 'needs_price', 'flip-up offered');
   eq(m.flip_up_extension.needsQuantity, true, 'downspout count is never guessed');
 });
 
-test('cleaning (existing gutters): guard quantity = the whole-house eaveLf, with a confirm prompt', () => {
+// Review of #1756: a downspout template's "nothing to guard here" hide beat
+// the offer from every other selected template, so a cleaning visit lost
+// every guard the moment the rep added the extension template — whose own
+// scope notes pitch it as an add-on to a cleaning.
+function comboOffers(ids, extra) {
+  const r = JT.resolveSelection(ids.map((templateId) => ({ templateId })), { tier: 'better', jobMode: 'cash', county: '' });
+  if (!r || !r.totals) throw new Error('resolveSelection failed for ' + ids.join('+'));
+  const ctx = ctxFor(ids, r, extra);
+  return { r, ctx, m: offerMap(U.offeredFor(ids, ctx)) };
+}
+
+test('a downspout template alongside a gutter template never strips the guard offer', () => {
+  const ext = 'jt_gr_downspout_ext_4ea';
+  [
+    ['jt_gr_clean_1story', ext],
+    [K5, ext],
+    ['jt_gr_tuneup_package', 'jt_gr_downspout_replace_2ea'],
+    [K5, 'jt_gi_downspout_only'],
+  ].forEach((ids) => {
+    const { ctx, m } = comboOffers(ids, { gutterLf: 150 });
+    LEAF.forEach((l) => eq(m[l] && m[l].state, 'available', ids.join('+') + ' ' + l));
+    const p = U.price([{ id: 'alurex', qty: 150 }], ctx);
+    eq(p.errors.length, 0, ids.join('+') + ' price errors: ' + JSON.stringify(p.errors));
+    eq(p.upgradeCents, 150 * 1800, ids.join('+') + ' cents');
+  });
+  // K5 + extension, no typed footage: the K5 run line is still the gutter.
+  eq(comboOffers([K5, ext]).m.alurex.qty, 150, 'K5 run footage survives the extension template');
+});
+
+test('a real conflict still hides the guard in a combination (guard in base, copper accent)', () => {
+  [[K5, 'jt_gr_guard_install_50lf'], [K5, 'jt_gi_copper_accent'], [K5, 'jt_gi_gutters_guards_package']].forEach((ids) => {
+    const { ctx, m } = comboOffers(ids, { gutterLf: 150 });
+    LEAF.forEach((l) => eq(m[l] && m[l].state, 'hidden', ids.join('+') + ' ' + l));
+    eq(codes(U.price([{ id: 'alurex', qty: 150 }], ctx).errors).join(), 'hidden', ids.join('+') + ' price');
+  });
+});
+
+test('cleaning (existing gutters): template eaveLf is only a SUGGESTION — never billed unseen', () => {
+  // Review of #1756: clean_1story's eaveLf 160 is its coverage cap ("Covers
+  // up to ~160 LF"), the measurements panel starts collapsed and no cleaning
+  // line reads it, so it was quoted as the guard footage with no one ever
+  // checking it — a real 220 LF house under-billed by $1,080 of Alu-Rex.
   const id = 'jt_gr_clean_1story';
   const r = resolve(id);
+  eq(r.measurements.eaveLf, 160, 'fixture: template eaveLf');
   const m = offerMap(U.offeredFor(id, ctxFor(id, r)));
-  eq(m.alurex.qty, 160, 'eaveLf 160');
-  eq(m.alurex.qtySource, 'eaveLf', 'qtySource');
+  eq(m.alurex.qty, null, 'eaveLf is not a billable qty');
+  eq(m.alurex.suggestedQty, 160, 'eaveLf comes back as a suggestion');
+  eq(m.alurex.needsQuantity, true, 'needsQuantity');
+  eq(m.alurex.qtySource, 'rep_entered', 'qtySource');
+  const refused = U.price(['alurex'], ctxFor(id, r));
+  eq(refused.rows.length, 0, 'no row priced off the template default');
+  eq(codes(refused.errors).join(), 'quantity', 'refused');
+  truthy(/160 LF is not a measurement/.test(refused.errors[0].message), 'message names the default: ' + refused.errors[0].message);
+  const measured = U.price(['alurex'], ctxFor(id, r, { gutterLf: 220 }));
+  eq(measured.errors.length, 0, 'gutterLf errors'); eq(measured.upgradeCents, 220 * 1800, '220 LF measured');
+  eq(measured.rows[0].qty, '220.00LF', 'row qty');
+  eq(U.price([{ id: 'alurex', qty: 175 }], ctxFor(id, r)).upgradeCents, 175 * 1800, 'typed qty prices');
+  eq(U.price(['alurex'], ctxFor(id, r, { quantities: { alurex: 180 } })).upgradeCents, 180 * 1800, 'ctx.quantities prices');
+  ['jt_gr_clean_2story', 'jt_gr_tuneup_package'].forEach((t) => {
+    const rt = resolve(t);
+    const o = offerMap(U.offeredFor(t, ctxFor(t, rt))).alurex;
+    eq(o.qty, null, t + ' qty'); eq(o.suggestedQty, rt.measurements.eaveLf, t + ' suggestion');
+    eq(codes(U.price(['alurex'], ctxFor(t, rt)).errors).join(), 'quantity', t + ' refused');
+  });
   truthy(/Confirm the gutters are 5" or 6" aluminum K-style/.test(m.alurex.check), 'check prompt');
   const steel = offerMap(U.offeredFor(id, ctxFor(id, r, { gutter: { profile: 'k5', material: 'steel' } })));
   eq(steel.alurex.state, 'ineligible', 'rep says steel');
@@ -451,15 +550,58 @@ test('cleaning (existing gutters): guard quantity = the whole-house eaveLf, with
   eq(al.alurex.check, null, 'no prompt once confirmed');
 });
 
+test('a half-known existing gutter is unconfirmed, not ineligible (and case does not matter)', () => {
+  // Judging a MISSING material told the rep "this job has non-aluminum
+  // gutters" when he had only picked 5" K-style.
+  const id = 'jt_gr_clean_1story';
+  const r = resolve(id);
+  const o = (gutter) => offerMap(U.offeredFor(id, ctxFor(id, r, { gutter }))).alurex;
+  [{ profile: 'k5' }, { material: 'aluminum' }, { profile: 'k6', material: '' }].forEach((g) => {
+    eq(o(g).state, 'available', JSON.stringify(g) + ' state');
+    truthy(/Confirm the gutters/.test(o(g).check), JSON.stringify(g) + ' keeps the confirm prompt');
+  });
+  eq(o({ profile: 'K5', material: 'Aluminum' }).state, 'available', 'capitalized values');
+  eq(o({ profile: ' K5 ', material: 'ALUMINUM' }).check, null, 'confirmed once both are known');
+  truthy(/copper/i.test(o({ material: 'Copper' }).reason), 'copper alone is enough to refuse');
+  eq(o({ profile: 'half_round' }).state, 'ineligible', 'half-round alone is enough to refuse');
+  eq(o({ profile: 'k5', material: 'steel' }).state, 'ineligible', 'steel');
+});
+
 test('partial-run repair: eaveLf is the repaired run, so the guard needs a typed footage', () => {
   const id = 'jt_gr_hanger_resecure';
   const r = resolve(id);
   const m = offerMap(U.offeredFor(id, ctxFor(id, r)));
   eq(m.alurex.qty, null, 'no guessed qty (eaveLf 40 is not the house)');
+  eq(m.alurex.suggestedQty, null, 'not even suggested');
   eq(m.alurex.needsQuantity, true, 'needsQuantity');
   eq(offerMap(U.offeredFor(id, ctxFor(id, r, { gutterLf: 137 }))).alurex.qty, 137, 'ctx.gutterLf wins');
   const mixed = offerMap(U.offeredFor(['jt_gr_clean_1story', id], ctxFor(['jt_gr_clean_1story', id], resolve('jt_gr_clean_1story'))));
-  eq(mixed.alurex.qty, null, 'one partial-run template in the mix disables the eaveLf fallback');
+  eq(mixed.alurex.qty, null, 'one partial-run template in the mix: no qty');
+  eq(mixed.alurex.suggestedQty, null, 'one partial-run template in the mix disables the eaveLf suggestion');
+});
+
+test('section replace: the run line is the repaired SECTION, never the guard footage', () => {
+  // Review of #1756: jt_gr_section_replace_20lf's 20 LF GTR 5K-AL line was
+  // pre-filled as the guard (and fascia wrap) quantity for the whole house.
+  const id = 'jt_gr_section_replace_20lf';
+  const r = resolve(id);
+  truthy(r.lines.some((l) => l.code === 'GTR 5K-AL' && l.quantity === 20), 'fixture: 20 LF run line');
+  const m = offerMap(U.offeredFor(id, ctxFor(id, r)));
+  LEAF.forEach((l) => { eq(m[l].qty, null, l + ' qty'); eq(m[l].needsQuantity, true, l + ' needsQuantity'); });
+  eq(m.fascia_wrap.qty, null, 'fascia wrap qty');
+  eq(codes(U.price(['alurex'], ctxFor(id, r)).errors).join(), 'quantity', 'refused without a footage');
+  const withLf = U.price(['alurex'], ctxFor(id, r, { gutterLf: 140 }));
+  eq(withLf.upgradeCents, 140 * 1800, 'ctx.gutterLf prices it');
+  // K5 + a section replace: run lines now sum two different things.
+  const both = comboOffers([K5, id]).m;
+  eq(both.alurex.qty, null, 'K5 + section replace: no summed-run guess');
+});
+
+test('ctx.gutterLf wins over the template\'s run lines (the rep measured the house)', () => {
+  const m = offerMap(U.offeredFor(K5, ctxFor(K5, k5, { gutterLf: 200 })));
+  eq(m.alurex.qty, 200, 'qty'); eq(m.alurex.qtySource, 'gutterLf', 'qtySource');
+  eq(U.price(['alurex'], ctxFor(K5, k5, { gutterLf: 200 })).upgradeCents, 200 * 1800, 'priced at the measured footage');
+  eq(offerMap(U.offeredFor(K5, ctxFor(K5, k5, { gutterLf: 200, quantities: { alurex: 90 } }))).alurex.qty, 90, 'a typed qty wins over gutterLf');
 });
 
 test('downspout-extension template already ships a flip-up kit → flip-up upgrade hidden', () => {
@@ -573,6 +715,17 @@ test('a duplicate pick refuses every copy (never bills one guard twice)', () => 
   eq(p.rows.length, 0, 'rows'); eq(codes(p.errors).join(), 'duplicate', 'errors');
 });
 
+test('a duplicated leaf pick still counts toward the pick-one group (no silent winner)', () => {
+  // Review of #1756: the group count skipped ids picked more than once, so
+  // Alu-Rex twice + Amerimax refused Alu-Rex and quietly sold Amerimax.
+  [['alurex', 'alurex', 'amerimax_lockin_mesh'], ['amerimax_lockin_mesh', 'alurex', 'alurex']].forEach((picks) => {
+    const p = U.price(picks, ctxFor(K5, k5));
+    eq(p.rows.length, 0, picks.join(',') + ' rows'); eq(p.upgradeCents, 0, picks.join(',') + ' cents');
+    const got = p.errors.map((e) => e.code + ':' + e.id).sort().join(',');
+    eq(got, 'duplicate:alurex,group:amerimax_lockin_mesh', picks.join(',') + ' errors');
+  });
+});
+
 test('needs_price items are refused — the helper never prices them for a homeowner', () => {
   // Three families together offer all six, with nothing in the base that
   // would hide one — so each refusal below is the price rule and nothing else.
@@ -653,6 +806,33 @@ test('tenant overrides sanitized like applyCompanyPricing (and $0 dropped, never
   eq(U.price(['alurex'], ctxFor(K5, k5), { alurex: 'abc' }).upgradeCents, 137 * 1800, 'garbage → library price stands');
 });
 
+test('an override past $1,000 per unit is a typo and is dropped; the library price stands', () => {
+  // Review of #1756: 180000000 was accepted and quoted a 137 LF guard at
+  // $246,600,000, which then wrapped a 32-bit total into a negative subtotal.
+  eq(JSON.stringify(U.sanitizeOverrides({ alurex: 100000 }).prices), '{"alurex":100000}', '$1,000.00 accepted');
+  ['100001', 180000000, 1e20].forEach((v) => {
+    const s = U.sanitizeOverrides({ alurex: v });
+    eq(JSON.stringify(s.prices), '{}', v + ' prices'); truthy(s.ignored.includes('alurex'), v + ' ignored');
+  });
+  eq(U.price(['alurex'], ctxFor(K5, k5), { alurex: 180000000 }).upgradeCents, 137 * 1800, 'typo override → library price');
+  eq(codes(U.price([{ id: 'underground_drain', qty: 10 }], ctxFor(K5, k5), { underground_drain: 180000000 }).errors).join(),
+    'needs_price', 'typo override on an unpriced item → still needs_price');
+});
+
+test('a quote too large for exact integer cents is refused, never wrapped', () => {
+  const p = U.price([{ id: 'alurex', qty: 1e13 }], ctxFor(K5, k5));
+  eq(p.rows.length, 0, 'rows'); eq(codes(p.errors).join(), 'quantity', 'errors');
+  let threw = false;
+  try { U.totalsWithUpgrades({ subtotal: 1, tax: 0, grandTotal: 1 }, { upgradeCents: 2 ** 53, taxCents: 0, errors: [] }); } catch (e) { threw = /safe integers/.test(e.message); }
+  truthy(threw, 'unsafe upgradeCents must throw');
+  threw = false;
+  try { U.totalsWithUpgrades({ subtotal: 1, tax: 0, grandTotal: 1 }, { upgradeCents: 100, taxCents: -1, errors: [] }); } catch (e) { threw = /safe integers/.test(e.message); }
+  truthy(threw, 'negative taxCents must throw');
+  // 2^31 cents ($21.4M) is where the old `| 0` wrapped; exact now.
+  const t = U.totalsWithUpgrades({ subtotal: 0, tax: 0, grandTotal: 0 }, { upgradeCents: 2 ** 31, taxCents: 0, errors: [] });
+  eq(t.grandTotalCents, 2 ** 31, 'no 32-bit wrap');
+});
+
 test('tax: one half-up rounding on the upgrade subtotal, integer cents; 0% allowed; missing rate is an error', () => {
   eq(U.price(['alurex'], ctxFor(K5, k5, { taxRate: 0.07 })).taxCents, 17262, '7% of 246600');
   eq(U.price(['alurex'], ctxFor(K5, k5, { taxRate: 0.0725 })).taxCents, 17879, '7.25% of 246600 = 17878.5 → 17879');
@@ -662,6 +842,7 @@ test('tax: one half-up rounding on the upgrade subtotal, integer cents; 0% allow
   eq(codes(U.price(['alurex'], ctxFor(K5, k5, { taxRate: 7 })).errors).join(), 'tax_rate', '7 (not 0.07) refused');
   const p = U.price(['alurex'], ctxFor(K5, k5, { taxRate: 0.07 }));
   eq(p.totalCents, 246600 + 17262, 'totalCents');
+  eq(p.taxRate, 0.07, 'the rate the quote was taxed at is recorded');
 });
 
 // ═════════════════════════════════════════════════════════════════════════
@@ -724,6 +905,11 @@ test('every leaf item × a quantity sweep: printed == quoted to the cent in ever
 
 test('a tenant-priced odd unit ($12.34 × 33 LF drain) prints $407.22 in every reader', () => {
   const priced = U.price([{ id: 'underground_drain', qty: 33 }], ctxFor(K5, k5, { taxRate: basePayload.taxRate }), { underground_drain: 1234 });
+  // The saved row itself, exactly: estimate-preview.js and
+  // customer-estimate-hub.js print r.total FIRST, so a rounded total here
+  // would print $407.00 even though every reader above prefers retailTotal.
+  eq(priced.rows[0].total, 407.22, 'row.total'); eq(priced.rows[0].retailTotal, 407.22, 'row.retailTotal');
+  eq(priced.rows[0].unitPrice, 12.34, 'row.unitPrice');
   const p = printedUpgrade(U.applyToEstimate(basePayload, priced), 'UPG UND-DR');
   eq(cents(p.display.total), 40722, 'display'); eq(p.display.rate, '$12.34', 'display rate');
   eq(cents(p.doc.total), 40722, 'doc'); eq(cents(p.invoice.total), 40722, 'invoice'); eq(p.invoice.unitPrice, 12.34, 'invoice unit');
@@ -738,6 +924,10 @@ test('the printed lines, the subtotal and the grand total each move by EXACTLY t
   eq(sum(IP.buildRowItems(est)) - sum(IP.buildRowItems(basePayload)), 246600, 'invoice lines delta');
   eq(cents(est.subtotal) - cents(basePayload.subtotal), 246600, 'subtotal delta');
   eq(cents(est.tax) - cents(basePayload.tax), priced.taxCents, 'tax delta');
+  // invoice-pipeline.js reads taxAmount before tax: a stale taxAmount would
+  // put the BASE tax under the upgraded total on the invoice.
+  eq(cents(est.taxAmount) - cents(basePayload.taxAmount), priced.taxCents, 'taxAmount delta');
+  eq(est.taxAmount, est.tax, 'taxAmount === tax');
   eq(cents(est.grandTotal) - cents(basePayload.grandTotal), 246600 + priced.taxCents, 'grandTotal delta');
   eq(CR.estimateValue(est), est.grandTotal, 'estimateValue reads the new grand total');
   eq(est.upgradeCents, 246600, 'payload.upgradeCents');
@@ -789,6 +979,55 @@ test('a $720 guard on a floored job: the floor gap is NOT billed on top — the 
   eq(cents(est.grandTotal), cents(unfloored) + 72000 + priced.taxCents, 'grand total = engine total + quote');
   truthy(cents(est.grandTotal) < 40000 + 72000 + priced.taxCents, 'the floor gap was billed on top');
   eq(est.minJobApplied, false, 'minJobApplied cleared');
+});
+
+test('the floor unwind rounds exactly as the engine does (a total that rounds DOWN to the $25)', () => {
+  // Mobilization + the template's own two end caps: $333.36 before rounding.
+  // The engine (estimate-logic-engine.js) rounds that to $325 and floors it
+  // to $400; a Math.ceil unwind would say $350 and bill $25 that the engine
+  // never charged. The fixture above ($321 → $325) cannot tell the two apart.
+  const r = resolve(RESEAL, { 1: { include: false }, 3: { include: false } });
+  const pay = JT.buildEstimatePayload(r, { name: 'floored, rounds down' });
+  eq(pay.minJobApplied, true, 'fixture floored');
+  const raw = pay.subtotal + pay.tax;
+  eq(Math.round(raw / 25) * 25, 325, 'fixture: engine rounds down to 325');
+  truthy(Math.ceil(raw / 25) * 25 !== 325, 'fixture: ceil would disagree');
+  const priced = U.price([{ id: 'amerimax_lockin_mesh', qty: 120 }], ctxFor(RESEAL, r, { taxRate: pay.taxRate }));
+  const est = U.applyToEstimate(pay, priced, { minJobCharge: r.minJobCharge });
+  eq(cents(est.grandTotal), 32500 + 72000 + priced.taxCents, 'grand total = the engine\'s own $325 + quote');
+});
+
+test('applyToEstimate refuses a payload that does not match the quote', () => {
+  const priced = U.price(['alurex'], ctxFor(K5, k5, { taxRate: basePayload.taxRate }));
+  const refuses = (label, payload, re, q) => {
+    let msg = null;
+    try { U.applyToEstimate(payload, q || priced); } catch (e) { msg = e.message; }
+    truthy(msg && re.test(msg), label + ' was not refused (' + msg + ')');
+  };
+  refuses('per-SQ priceMode', Object.assign({}, basePayload, { priceMode: 'per-sq' }), /per-SQ/);
+  refuses('per-SQ prices{}', Object.assign({}, basePayload, { prices: { good: 1, better: 2, best: 3 } }), /per-SQ/);
+  refuses('insurance mode', Object.assign({}, basePayload, { mode: 'insurance' }), /insurance/);
+  refuses('insurance flag', Object.assign({}, basePayload, { insurance: true }), /insurance/);
+  refuses('tax rate mismatch', basePayload, /taxed at 0\.0725/, U.price(['alurex'], ctxFor(K5, k5, { taxRate: 0.0725 })));
+  refuses('payload without a tax rate', Object.assign({}, basePayload, { taxRate: undefined }), /taxRate is undefined|taxRate is null/);
+  // A V2-shaped floored payload: the $75 measurement report V2 adds AFTER
+  // the floor. Unwinding it would pull the fee under the floor (review of
+  // #1756: a $10 upgrade took a $475 total DOWN to $410.70).
+  const v2 = Object.assign({}, smallPayload, {
+    rows: smallPayload.rows.concat([{ code: 'SVC MEASURE-RPT', desc: 'Aerial measurement report', qty: '1.00ea', rate: '$75.00', total: 75, retailTotal: 75, quantity: 1, unit: 'ea', category: 'Services', materialTotal: null, laborTotal: null, materialCostPerUnit: null, laborCostPerUnit: null, unitPrice: 75, qtyOverride: null }]),
+    subtotal: smallPayload.subtotal + 75, grandTotal: smallPayload.grandTotal + 75,
+  });
+  const tiny = U.price([{ id: 'flip_up_extension', qty: 1 }], ctxFor(RESEAL, small, { taxRate: smallPayload.taxRate }), { flip_up_extension: 1000 });
+  eq(tiny.errors.length, 0, 'fixture errors');
+  let msg = null;
+  try { U.applyToEstimate(v2, tiny, { minJobCharge: small.minJobCharge }); } catch (e) { msg = e.message; }
+  truthy(msg && /pass-through/.test(msg), 'floored payload with a pass-through row was not refused (' + msg + ')');
+  // The same Services row on an UNFLOORED payload is fine: nothing unwinds.
+  const unfloored = Object.assign({}, basePayload, { rows: basePayload.rows.concat([v2.rows[v2.rows.length - 1]]),
+    subtotal: basePayload.subtotal + 75, grandTotal: basePayload.grandTotal + 75 });
+  eq(cents(U.applyToEstimate(unfloored, priced).grandTotal), cents(unfloored.grandTotal) + priced.totalCents, 'unfloored + Services row adds at face');
+  // The matching payload is still accepted.
+  eq(cents(U.applyToEstimate(basePayload, priced).grandTotal), cents(basePayload.grandTotal) + priced.totalCents, 'matching payload');
 });
 
 test('a tiny upgrade that leaves the job under the minimum keeps the floor', () => {

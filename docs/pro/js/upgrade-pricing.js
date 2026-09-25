@@ -32,17 +32,23 @@
  *   offeredFor(templateIds, ctx, tenantOverrides) → offer[]
  *   price(picks, ctx, tenantOverrides)            → { rows, upgradeCents,
  *                                                     taxCents, totalCents,
- *                                                     priced, errors }
+ *                                                     taxRate, priced, errors }
  *   totalsWithUpgrades(base, priced)              → new estimate totals, cents
  *   applyToEstimate(payload, priced, opts)        → NEW payload, rows appended
  *   sanitizeOverrides(raw)                        → { prices, disabled, ignored }
  *   installerLine(offerOrItem, tenant)            → homeowner installer sentence
  *
+ * An offer's `qty` is what price() bills when the rep types nothing, so it
+ * is only ever a figure the scope itself is priced on. `suggestedQty` is a
+ * starting figure to SHOW (a cleaning template's default eaveLf); an offer
+ * carrying only a suggestion has needsQuantity:true and price() refuses it.
+ *
  * ctx (all optional except where noted):
  *   templateIds       price() only: the selected Job Template ids
  *   lines             the estimate's lines: resolved engine lines
  *                     ({code, name, quantity}) or template items ({code, qty})
- *   measurements      {eaveLf, ...} from resolveSelection()
+ *   measurements      {eaveLf, ...} from resolveSelection(); eaveLf is only
+ *                     ever a suggestedQty, never billed
  *   gutterLf          rep-measured whole-house gutter footage (wins over lines)
  *   downspoutLf, downspoutCount
  *   quantities        {upgradeId: qty} rep-typed quantities
@@ -107,9 +113,21 @@
   // deliberate difference: applyCompanyPricing honors a literal 0 (a shop
   // making an add-on free); an upgrade at $0 would print as a free item on a
   // homeowner's paper, which the design forbids, so 0 is dropped too. Hide an
-  // upgrade with { enabled: false } instead. Values are CENTS and must be
-  // whole: a fractional value is almost certainly dollars typed into a cents
-  // field, and guessing which was meant is how a $18.00 guard becomes $0.18.
+  // upgrade with { enabled: false } instead.
+  //
+  // Values are CENTS and must be whole; a fractional value is dropped, not
+  // rounded. This CANNOT tell 18 cents from $18 — both are whole numbers —
+  // so the stage-2 Settings screen must take dollars from the rep and
+  // convert them to cents itself; never pass a typed field straight in.
+  //
+  // MAX_UNIT_CENTS (review of #1756): there was no ceiling, so a key-stuck
+  // 180000000 was accepted and quoted a 137 LF guard at $246,600,000. No
+  // gutter upgrade is near $1,000 per foot or per piece; a figure past that
+  // is a typo and is dropped like any other garbage (the library price, or
+  // needs_price, stands). Raise it deliberately when a trade with bigger
+  // per-piece items joins the library.
+  var MAX_UNIT_CENTS = 100000;
+
   function sanitizeOverrides(raw) {
     var L = lib();
     var out = { prices: {}, disabled: {}, ignored: [] };
@@ -123,7 +141,7 @@
         return;
       }
       var n = num(v);
-      if (n == null || !Number.isInteger(n) || n <= 0) { out.ignored.push(k); return; }
+      if (n == null || !Number.isInteger(n) || n <= 0 || n > MAX_UNIT_CENTS) { out.ignored.push(k); return; }
       out.prices[k] = n;
     });
     return out;
@@ -188,23 +206,34 @@
 
   // ── Eligibility ───────────────────────────────────────────────────────
   // Returns { ok, reason, check }. `check` is a rep prompt when the scope
-  // cannot prove eligibility (existing gutters with no run line and no
-  // ctx.gutter): the offer stays available, and the rep is told what to
-  // confirm on the house before quoting.
+  // cannot prove eligibility (existing gutters with no run line, and a
+  // ctx.gutter missing its profile or material): the offer stays available,
+  // and the rep is told what to confirm on the house before quoting.
+  //
+  // A null profile or material is UNKNOWN, not wrong, so it is never judged
+  // (2026-09-25: judging it printed "this job has non-aluminum gutters" for
+  // a rep who had only picked 5" K-style). Values are case-insensitive.
   function gutterFailure(profile, material) {
     if (material === 'copper') {
       return 'Copper gutters: an aluminum guard must not touch copper (LeafBlaster voids its warranty on copper contact).';
     }
-    if (profile !== 'k5' && profile !== 'k6') {
+    if (profile != null && profile !== 'k5' && profile !== 'k6') {
       return 'The guards are listed for 5" or 6" K-style gutters; this job has ' +
         (profile === 'half_round' ? 'half-round' : profile === 'box' ? 'box' : 'other') + ' gutters.';
     }
-    if (material !== 'aluminum') {
+    if (material != null && material !== 'aluminum') {
       return 'The guards are listed for aluminum gutters; this job has ' +
         (material === 'steel' ? 'galvanized steel' : 'non-aluminum') + ' gutters.';
     }
     return null;
   }
+
+  function gutterField(v) {
+    var s = (v == null) ? '' : String(v).trim().toLowerCase();
+    return s || null;
+  }
+
+  var CONFIRM_GUTTER = 'Confirm the gutters are 5" or 6" aluminum K-style before quoting a guard.';
 
   function eligibility(item, ctx, scan) {
     if (item.eligibility === 'kstyle_aluminum') {
@@ -215,12 +244,14 @@
         var bad = copper || scan.runs.filter(function (r) { return gutterFailure(r.profile, r.material); })[0];
         return bad ? { ok: false, reason: gutterFailure(bad.profile, bad.material) } : { ok: true };
       }
-      var g = ctx.gutter;
-      if (g && (g.profile || g.material)) {
-        var why = gutterFailure(g.profile, g.material);
-        return why ? { ok: false, reason: why } : { ok: true };
-      }
-      return { ok: true, check: 'Confirm the gutters are 5" or 6" aluminum K-style before quoting a guard.' };
+      var g = ctx.gutter || {};
+      var prof = gutterField(g.profile);
+      var mat = gutterField(g.material);
+      var why = gutterFailure(prof, mat);
+      if (why) return { ok: false, reason: why };
+      // Both known and fine: confirmed. Either one missing: still offered,
+      // with the prompt to check the house.
+      return (prof && mat) ? { ok: true } : { ok: true, check: CONFIRM_GUTTER };
     }
     if (item.eligibility === 'has_2x3_downspouts') {
       if (scan.dsp23Lf > 0) return { ok: true };
@@ -231,20 +262,27 @@
   }
 
   // ── Quantity ──────────────────────────────────────────────────────────
-  // Returns { qty, source } with qty null when nothing trustworthy exists.
-  // Never a guess: an unknown quantity is `needsQuantity`, and price()
-  // refuses it until the rep types one.
-  function derivedQuantity(item, ctx, scan, eaveOk) {
+  // Returns { qty, source, suggested } with qty null when nothing
+  // trustworthy exists. Never a guess: an unknown quantity is
+  // `needsQuantity`, and price() refuses it until the rep types one.
+  //
+  // footage.runOk: every selected family vouches that its gutter-run lines
+  // are the gutter the guard sits on (a repair's run line is the repaired
+  // section, not the house). footage.eaveSuggest: every selected family
+  // says its template eaveLf describes the whole house — it then comes back
+  // as `suggested`, never as qty (review of #1756: a cleaning template's
+  // 160 LF is its coverage cap, and it was being billed unseen).
+  function derivedQuantity(item, ctx, scan, footage) {
     var explicit = ctx.quantities && hasOwn(ctx.quantities, item.id) ? num(ctx.quantities[item.id]) : null;
-    if (explicit != null) return { qty: explicit, source: 'rep' };
+    if (explicit != null) return { qty: explicit, source: 'rep', suggested: null };
     switch (item.qtySource) {
       case 'gutter_lf': {
         var g = num(ctx.gutterLf);
-        if (g != null && g > 0) return { qty: g, source: 'gutterLf' };
-        if (scan.runLf > 0) return { qty: scan.runLf, source: 'gutter_lines' };
+        if (g != null && g > 0) return { qty: g, source: 'gutterLf', suggested: null };
+        if (footage.runOk && scan.runLf > 0) return { qty: scan.runLf, source: 'gutter_lines', suggested: null };
         var eave = ctx.measurements ? num(ctx.measurements.eaveLf) : null;
-        if (eaveOk && eave != null && eave > 0) return { qty: eave, source: 'eaveLf' };
-        return { qty: null, source: 'rep_entered' };
+        var hint = (footage.eaveSuggest && eave != null && eave > 0) ? eave : null;
+        return { qty: null, source: 'rep_entered', suggested: hint };
       }
       case 'downspout_2x3_lf': {
         var d = num(ctx.downspoutLf);
@@ -327,10 +365,14 @@
     var newGutters = (typeof ctx.newGutters === 'boolean')
       ? ctx.newGutters
       : fams.some(function (f) { return f.newGutters; });
-    // Every selected family must vouch for eaveLf: the merged measurements
-    // come from the LAST template selected, so one partial-run repair in the
-    // mix makes eaveLf the repaired run, not the house.
-    var eaveOk = fams.every(function (f) { return f.eaveLfIsWholeHouse; });
+    // Every selected family must vouch: the merged measurements come from
+    // the LAST template selected, and run lines add up across templates, so
+    // one partial-run repair in the mix makes either figure the repaired
+    // run, not the house.
+    var footage = {
+      runOk: fams.every(function (f) { return f.runLinesAreWholeHouse === true; }),
+      eaveSuggest: fams.every(function (f) { return f.suggestEaveLf === true; })
+    };
 
     var offered = {};
     var hidden = {};
@@ -366,6 +408,7 @@
         check: null,
         qty: null,
         qtySource: null,
+        suggestedQty: null,
         needsQuantity: false,
         requires: (it.requires || []).slice(),
         warrantyLine: v.warrantyLine || null,
@@ -399,10 +442,14 @@
       }
       offer.check = el.check || null;
 
-      var q = derivedQuantity(it, ctx, scan, eaveOk);
+      var q = derivedQuantity(it, ctx, scan, footage);
       if (q.qty != null) {
         var nq = normalizeQty(q.qty, it.unit);
         offer.qty = nq.error ? null : nq.qty;
+      }
+      if (offer.qty == null && q.suggested != null) {
+        var ns = normalizeQty(q.suggested, it.unit);
+        offer.suggestedQty = ns.error ? null : ns.qty;
       }
       offer.qtySource = q.source;
       offer.needsQuantity = offer.qty == null;
@@ -430,7 +477,7 @@
   function price(picks, ctx, tenantOverrides) {
     var L = lib();
     ctx = ctx || {};
-    var out = { rows: [], upgradeCents: 0, taxCents: 0, totalCents: 0, priced: [], errors: [] };
+    var out = { rows: [], upgradeCents: 0, taxCents: 0, totalCents: 0, taxRate: null, priced: [], errors: [] };
 
     var list = (Array.isArray(picks) ? picks : (picks == null ? [] : [picks])).map(function (p) {
       return (p && typeof p === 'object') ? { id: p.id, qty: p.qty } : { id: p, qty: undefined };
@@ -455,10 +502,17 @@
     // that sent two, and silently summing them bills a guard twice.
     var seen = {};
     list.forEach(function (p) { seen[p.id] = (seen[p.id] || 0) + 1; });
+    // Group membership counts DISTINCT ids, duplicated ones included. It
+    // once counted only ids picked exactly once, so Alu-Rex twice plus
+    // Amerimax refused Alu-Rex as a duplicate and quietly sold Amerimax —
+    // the silent winner the pick-one rule exists to stop (review of #1756).
     var byGroup = {};
+    var counted = {};
     list.forEach(function (p) {
       var it = itemById(L, p.id);
-      if (it && it.group && seen[p.id] === 1) (byGroup[it.group] = byGroup[it.group] || []).push(p.id);
+      if (!it || !it.group || hasOwn(counted, it.id)) return;
+      counted[it.id] = true;
+      (byGroup[it.group] = byGroup[it.group] || []).push(it.id);
     });
 
     var valid = {};
@@ -485,9 +539,23 @@
         return;
       }
       var raw = (p.qty !== undefined && p.qty !== null && p.qty !== '') ? p.qty : o.qty;
-      if (raw == null) { err(out.errors, id, 'quantity', o.name + ' needs a quantity.'); return; }
+      if (raw == null) {
+        // A suggestion is named so the rep knows where the figure came
+        // from, and is still refused: it is a template default, not a
+        // measurement of this house.
+        err(out.errors, id, 'quantity', o.name + ' needs a measured quantity' + (o.suggestedQty != null
+          ? ' (the template default of ' + o.suggestedQty + ' ' + o.unit + ' is not a measurement of this house)'
+          : '') + '.');
+        return;
+      }
       var nq = normalizeQty(raw, o.unit);
       if (nq.error) { err(out.errors, id, 'quantity', o.name + ' ' + nq.error + '.'); return; }
+      // Exact integer cents or nothing: past 2^53 a product stops being
+      // exact, and a silent wrap is the one failure a quote cannot have.
+      if (!Number.isSafeInteger(nq.qty * o.unitCents)) {
+        err(out.errors, id, 'quantity', o.name + ' quantity is too large to quote.');
+        return;
+      }
       valid[id] = { offer: o, qty: nq.qty };
     });
 
@@ -553,9 +621,15 @@
         err(out.errors, null, 'tax_rate', 'No valid tax rate: pass the estimate\'s saved decimal taxRate (0 is allowed).');
       } else {
         out.taxCents = taxOn(out.upgradeCents, rate);
+        // Recorded so applyToEstimate can refuse a payload taxed at a
+        // different rate than this quote.
+        out.taxRate = rate;
       }
     }
     out.totalCents = out.upgradeCents + out.taxCents;
+    if (!Number.isSafeInteger(out.totalCents)) {
+      err(out.errors, null, 'quantity', 'This upgrade quote is too large to total exactly.');
+    }
     return out;
   }
 
@@ -585,8 +659,14 @@
     var tax = num(base.tax != null ? base.tax : base.taxAmount) || 0;
     var grand = num(base.grandTotal != null ? base.grandTotal : base.total);
     if (grand == null) throw new Error('[NBDUpgrades] base grandTotal is required');
-    var upg = priced.upgradeCents | 0;
-    var upgTax = priced.taxCents | 0;
+    // Exact, non-negative integer cents or a throw. This read `| 0`, which
+    // wraps silently past 2^31 cents ($21.4M): a huge quote became a
+    // NEGATIVE subtotal on the saved estimate (review of #1756).
+    var upg = priced.upgradeCents;
+    var upgTax = priced.taxCents;
+    if (!Number.isSafeInteger(upg) || upg < 0 || !Number.isSafeInteger(upgTax) || upgTax < 0) {
+      throw new Error('[NBDUpgrades] upgradeCents and taxCents must be non-negative safe integers');
+    }
     var subtotalCents = Math.round(sub * 100) + upg;
     var taxCents = Math.round(tax * 100) + upgTax;
     var grandCents;
@@ -615,6 +695,14 @@
     };
   }
 
+  // A V2 pass-through fee row (estimate-v2-ui.js getCurrentEstimate: the
+  // measurement report and other flat Services charges, added after the
+  // engine and its job-minimum floor).
+  function isPassThroughRow(r) {
+    return !!r && r.upgrade !== true &&
+      (r.category === 'Services' || /^SVC /.test(String(r.code || '').trim().toUpperCase()));
+  }
+
   /**
    * applyToEstimate(payload, priced, opts) → a NEW payload (the input is not
    * mutated) with the upgrade rows appended after the engine rows and the
@@ -625,12 +713,48 @@
    * Refuses a payload that already carries upgrade rows: re-pricing must
    * start from the engine's base payload, or the old upgrades are billed
    * twice.
+   *
+   * Also refuses (review of #1756 — price() checked its ctx, but nothing
+   * checked that the PAYLOAD matched it):
+   *  - a per-SQ payload: its customer paper prints no lines, so the upgrade
+   *    would fold silently into "Roofing system — Preferred tier";
+   *  - an insurance payload: upgrades never go inside a claim;
+   *  - a payload taxed at a different rate than the quote;
+   *  - a FLOORED payload carrying pass-through rows (V2's Services lines):
+   *    V2 adds those after the floor, so unwinding subtotal + tax would pull
+   *    the fee under the floor, and adding a $10 upgrade LOWERED a $475
+   *    total to $410.70. Stage 2 must unwind engine rows only before it
+   *    lifts this refusal.
+   *
+   * Not touched, deliberately: retailBeforeOHP, overhead/profit and the
+   * internal margin block. Upgrades sit outside O&P and carry no cost
+   * basis, so there is nothing true to add there. V2's reopen
+   * (_reconstructEstimateFromSaved) derives materialRetail from
+   * retailBeforeOHP and rebuilds a face-value row's lineTotal from `total`;
+   * stage 2 must teach that path about upgrade rows before V2 reopens an
+   * upgraded estimate.
    */
   function applyToEstimate(payload, priced, opts) {
     opts = opts || {};
     if (!payload || !Array.isArray(payload.rows)) throw new Error('[NBDUpgrades] payload.rows is required');
     if (payload.rows.some(function (r) { return r && r.upgrade === true; })) {
       throw new Error('[NBDUpgrades] payload already has upgrade rows; rebuild from the base estimate');
+    }
+    if (payload.priceMode === 'per-sq' || payload.prices != null) {
+      throw new Error('[NBDUpgrades] refusing a per-SQ payload: its customer paper prints no line items');
+    }
+    if (payload.mode === 'insurance' || payload.insurance === true) {
+      throw new Error('[NBDUpgrades] refusing an insurance payload: upgrades need a separate signed homeowner addendum');
+    }
+    if (priced && Array.isArray(priced.rows) && priced.rows.length) {
+      var pr = num(payload.taxRate);
+      var qr = num(priced.taxRate);
+      if (pr == null || qr == null || Math.round(pr * 1e6) !== Math.round(qr * 1e6)) {
+        throw new Error('[NBDUpgrades] the quote was taxed at ' + qr + ' but the payload\'s taxRate is ' + pr + '; re-price with the payload\'s rate');
+      }
+    }
+    if (payload.minJobApplied && payload.rows.some(isPassThroughRow)) {
+      throw new Error('[NBDUpgrades] refusing a floored payload with pass-through rows: the floor unwind would absorb the fee');
     }
     var t = totalsWithUpgrades({
       subtotal: payload.subtotal,
