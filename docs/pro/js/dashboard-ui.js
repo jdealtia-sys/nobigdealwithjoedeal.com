@@ -159,6 +159,7 @@ function _hydrateViewTemplate(name) {
     oldScript.parentNode.replaceChild(newScript, oldScript);
   });
   _paintUserGreetings(view);
+  _wireViewAddressSearch(name, view);
   return true;
 }
 
@@ -1068,6 +1069,12 @@ function initAddressAutocomplete(inputId, onSelect) {
   const input = document.getElementById(inputId);
   const drop  = document.getElementById('ac-' + inputId);
   if(!input || !drop) return;
+  // Once per input (2026-09-25). There are now two callers: the boot list in
+  // initAllAutocomplete, and _wireViewAddressSearch when a view template is
+  // cloned. If both ever reached the same live input, a second binding would
+  // fetch every suggestion twice.
+  if(input._nbdAcBound) return;
+  input._nbdAcBound = true;
 
   input.addEventListener('input', () => {
     clearTimeout(_acTimers[inputId]);
@@ -1238,6 +1245,57 @@ function hideAcDrop(inputId) {
   if(drop) drop.style.display = 'none';
 }
 
+// Address search on a lazily-cloned view (Draw audit H9, 2026-09-25).
+// initAllAutocomplete() below binds its inputs ONCE, at boot. #drawSearch
+// lives inside <template id="tpl-view-draw">, which is only cloned into
+// #view-draw when the rep first opens the Drawing Tool, so at boot there was
+// no input to bind and initAddressAutocomplete returned early. No suggestion
+// ever appeared on the Draw view, on any device: the audit typed 38
+// characters and #ac-drawSearch never showed. _hydrateViewTemplate calls this
+// on the one clone that creates the input.
+//
+// mapSearch and pinAddrInput (tpl-view-map) and estAddr (tpl-view-est) are
+// also in the boot list and also templated. They are not bound here on
+// purpose: this change covers the Draw view only, and picking a mapSearch
+// suggestion starts a property-intel lookup that needs its own review.
+function _wireViewAddressSearch(name, view) {
+  if (name !== 'draw') return;
+  initAddressAutocomplete('drawSearch');
+  // Go, and the phone keyboard's Go key (an Enter keydown in the box), close
+  // ☰ Tools. A picked suggestion does the same, via its _acCallbacks entry.
+  // Both listeners are on the elements themselves: the document-level
+  // delegates that run searchDraw fire after them, and they only read the
+  // box's value.
+  const go = view.querySelector('[data-fn="searchDraw"]');
+  if (go) go.addEventListener('click', _closeDrawToolsAfterSearch);
+  const input = view.querySelector('#drawSearch');
+  if (input) input.addEventListener('keydown', (e) => { if (e.key === 'Enter') _closeDrawToolsAfterSearch(); });
+}
+
+// Close the phone ☰ Tools drawer once the rep has searched an address.
+// Before, the map flew to the house while the drawer stayed open over it,
+// with the address box and the keyboard still up, and the rep had to find
+// "✕ Close". This runs only when the drawer is open. On desktop the sidebar
+// is a fixed column, its toggle is display:none, and .open is never set, so
+// a desktop search is unchanged. An empty box is skipped because searchDraw
+// ignores it too.
+function _closeDrawToolsAfterSearch() {
+  const input = document.getElementById('drawSearch');
+  const sidebar = document.getElementById('map-sidebar-draw');
+  if (!input || !input.value.trim() || !sidebar || !sidebar.classList.contains('open')) return;
+  // Without this, a suggestion fetch still waiting on its 320ms debounce
+  // would reopen the list inside the closed drawer.
+  clearTimeout(_acTimers.drawSearch);
+  hideAcDrop('drawSearch');
+  // Dismiss the keyboard. Otherwise it stays up over the map for a box that
+  // is no longer on screen.
+  input.blur();
+  // Close it the same way tapping "✕ Close" does. That resets the button
+  // label and remeasures Leaflet once the drawer's .3s close has finished.
+  // invalidateSize keeps the centre, so the house stays in the middle.
+  toggleMapSidebar('map-sidebar-draw');
+}
+
 function initAllAutocomplete() {
   if(!window._acCallbacks) window._acCallbacks = {};
 
@@ -1275,6 +1333,10 @@ function initAllAutocomplete() {
   // opening the draw view.
   window._acCallbacks['drawSearch'] = (r) => {
     if(typeof drawMap !== 'undefined' && drawMap) drawMap.setView([parseFloat(r.lat), parseFloat(r.lon)], 19);
+    // A picked suggestion is a search too: close the phone ☰ Tools drawer
+    // over the map it just moved (H9, 2026-09-25). This does nothing when the
+    // drawer is shut, and nothing on desktop.
+    _closeDrawToolsAfterSearch();
   };
 
   // estAddr — just fill
