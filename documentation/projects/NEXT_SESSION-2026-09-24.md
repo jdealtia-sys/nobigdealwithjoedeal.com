@@ -127,3 +127,51 @@ bot claims are leads, not facts. Two examples from today:
   tool.
 - **Merging:** auto-merge is disabled on this repo (`enablePullRequestAutoMerge`
   fails). Poll checks, then `gh pr merge --match-head-commit <sha>`.
+
+## §6 — Later the same day: SEO, town pages, and a CRM phone lane (all merged and live)
+
+| PR | What |
+|---|---|
+| #1734 | 8 meta descriptions trimmed under 160 characters; 3 service titles shortened; the `/our-work` generator suffix changed to `\| NBD` (52 of 53 titles had overflowed). |
+| #1735 | 12 new `docs/areas/` town pages built on real `/our-work` jobs: Montgomery, Sycamore Twp, Madeira, Norwood, Sharonville, Newtown, Franklin, Miamisburg, Bethel, New Richmond, Newport KY, Union KY. The index shows 43 cities. |
+| #1736 | The dark seat add-on stepper is hidden until `window.NBD_SEAT_ADDON_ENABLED === true`. Set it only after the Stripe price, the `STRIPE_PRICE_SEAT` secret and a functions deploy. |
+| #1737 | Needs Attention now also flags `unpaid-final` (final_payment is no longer terminal), `proxy-phone` (Thumbtack 669 numbers) and `missing-date-of-loss` (storm jobs past 'new'). |
+| #1738 | Phone usability pass (see below), plus **`tests/e2e/phone-fit.spec.js`**. |
+| #1739 | Settings → Default Pipeline View: Auto / Board / List (per device). |
+| #1740 | **Phone field cards**: the list renders as cards on phones, with Call/Text/Map/Open buttons; swipe right to call, swipe left for the next stage. |
+| #1741 | Pipeline ••• Tools → **Find duplicates**. Review only; trash goes through the existing deleteLead flow. |
+
+**Jo's standing rule (2026-09-24): everything must fit and work at phone
+scale.** He works from an Android at about 412px.
+- `phone-fit.spec.js` (`@audit @phonefit`, in `test:e2e:authed:emu`) walks
+  22 views at 412px and 360px. It fails on sideways scroll, an element past
+  the edge outside an intentional scroller, or a view that never mounts.
+  Its first run caught the Ask Joe header at 360px.
+- Every CRM UI change also gets a *visual* 412px screenshot check.
+- Local runs on Windows: export the `PLAYWRIGHT_*` env vars **outside**
+  `emulators:exec`.
+
+**Phone behaviour now:**
+- Phones open **List** (`crm-list-view.js`: no saved choice and ≤768px).
+- A saved Board or List choice wins, and it survives logout (`KEEP`).
+- The floating `#addLeadFab` is hidden on phones.
+- Any test of *board* geometry at phone width must pin
+  `nbd-crm-view-mode=board` with addInitScript (see pro-authed.spec.js).
+
+**Known flake:** `@stranger`'s provision test timed out once on #1740 with
+emulator "Failed to authenticate" noise. A re-run of the failed job
+passed. Main had passed the same shard just before.
+
+**Thursday (Grok team receptionist) is live on Bland,** outside the repo:
+- Number: **(513) 940-5589**.
+- Agent: "Thursday - NBD Reception", voice Allie, prod v0.0.2, 5-minute
+  cap, no transfer.
+- Jo's cell forwards busy, unanswered and unreachable calls to it; Cloaked
+  Call Guard is paused.
+- Starter credit was about $1.72; Jo needs to add a card.
+- Details are in the memory note `grokbot-team-roster`.
+
+**Next candidates:**
+- the lead detail page (`/pro/customer`) at phone scale;
+- estimates on a phone;
+- duplicate *merge* (v1 is review-only).
