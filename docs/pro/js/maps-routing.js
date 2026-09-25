@@ -200,7 +200,11 @@ function initDrawMap() {
     // Create floating mode toggle button
     const modeBtn = document.createElement('button');
     modeBtn.id = 'drawModeToggle';
-    modeBtn.style.cssText = 'position:absolute;top:10px;left:10px;z-index:1000;'
+    // left:54px, not 10px: Leaflet's zoom control owns the top-left corner
+    // (10px inset, ~34px wide on touch). While the map was collapsed to 0px
+    // (see the note where this is appended) nobody could see that this
+    // button sat squarely on top of the zoom-in "+" (phone audit 2026-09-25).
+    modeBtn.style.cssText = 'position:absolute;top:10px;left:54px;z-index:1000;'
       + 'background:var(--orange,#BD5728);color:#fff;border:none;border-radius:8px;'
       + 'padding:10px 16px;font-family:\'Barlow Condensed\',sans-serif;font-size:13px;'
       + 'font-weight:800;letter-spacing:.04em;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.4);'
@@ -223,8 +227,15 @@ function initDrawMap() {
         if (drawOn) drawMap.dragging.disable();
       }
     });
+    // No inline position here. This used to set mapEl.style.position =
+    // 'relative' to anchor the button — which beat the stylesheet's
+    // `.map-area > div[id$="Map"]{position:absolute;inset:0}`, and with the
+    // old min-height:300px gone (#1098) the map collapsed to 0px tall on
+    // EVERY touch device: a blank Drawing Tool, with this very toggle clipped
+    // out of sight inside it (phone audit 2026-09-25, views#0). The
+    // stylesheet's position:absolute already anchors an absolute child.
     const mapEl = document.getElementById('drawMap');
-    if (mapEl) { mapEl.style.position = 'relative'; mapEl.appendChild(modeBtn); }
+    if (mapEl) mapEl.appendChild(modeBtn);
   }
 
   drawMap.on('click', e => {

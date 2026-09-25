@@ -1960,19 +1960,25 @@
     // The legacy modal-based flow that lived here referenced DOM that was
     // never built (#onboardingModal, #onbStep1, etc.); call removed.
     const name = user.displayName || user.email.split('@')[0];
-    // Template-hydration safety: #dashName, #homeGreeting, and the
+    // Template-hydration safety: the greetings and the
     // settings inputs live inside <template id="tpl-view-*"> mounts
     // that don't exist in the live DOM until dashboard-main.js
     // hydrates the view. Without these guards, the first null throw
     // aborts the rest of onAuthStateChanged → loadLeads is never
-    // called → kanban shows zero cards. View-hydrate code re-populates
-    // these from window._user when the view becomes active.
+    // called → kanban shows zero cards.
+    //
+    // 2026-09-25 (phone audit): that comment used to promise "view-hydrate
+    // code re-populates these from window._user" — nothing did, so the
+    // Dashboard greeting kept its hard-coded default whenever its template was
+    // cloned after this ran. The greetings are now [data-user-greeting] slots
+    // painted by _paintUserGreetings (dashboard-ui.js), which _hydrateViewTemplate
+    // also calls on every clone; the settings inputs are re-read by
+    // _loadProfileSettings when the Profile tab opens.
     const _setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     const _setVal  = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
     _setText('userName',     name);
     _setText('userAvatar',   name[0].toUpperCase());
-    _setText('dashName',     name);
-    _setText('homeGreeting', 'Welcome Back, ' + name.split(' ')[0]);
+    if (typeof window._paintUserGreetings === 'function') window._paintUserGreetings();
     _setVal('settingsName',  user.displayName || '');
     _setVal('settingsEmail', user.email || '');
     // Cal.com username — pull from the user profile if set and prime
@@ -4480,6 +4486,8 @@
     try {
       await updateProfile(window._user, {displayName: name});
       document.getElementById('userName').textContent = name;
+      // A rename should reach the greetings too, not wait for a reload.
+      if (typeof window._paintUserGreetings === 'function') window._paintUserGreetings();
       // Persist Cal.com username on the user profile.
       if (window.db && window.doc && window.setDoc) {
         await window.setDoc(window.doc(window.db, 'users', window._user.uid), {

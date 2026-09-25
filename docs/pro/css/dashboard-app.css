@@ -5038,6 +5038,26 @@ body {
 .task-modal-header{margin-bottom:16px;}
 .task-lead-name{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;text-transform:uppercase;color:var(--t);letter-spacing:.04em;}
 .task-lead-addr{font-size:11px;color:var(--m);margin-top:2px;}
+/* Customer picker (phone audit 2026-09-25, pipeline#3). tasks.js sets
+   data-task-mode on #taskModal: "pick" when it opened with no lead (the
+   phone "+" sheet's Task row), "picked" once one is chosen there, "lead" when
+   a caller passed a lead. The add row and list only mean something with a
+   lead, so they give way to the picker until one is chosen. Rows are 44px
+   touch targets; the search input is 16px so iOS doesn't zoom on focus. */
+#taskModal:not([data-task-mode="pick"]) .task-lead-pick{display:none;}
+#taskModal[data-task-mode="pick"] .task-add-row,
+#taskModal[data-task-mode="pick"] .task-list{display:none;}
+#taskModal:not([data-task-mode="picked"]) .task-lead-change{display:none;}
+.task-lead-change{margin-top:6px;background:none;border:none;padding:6px 0;min-height:32px;color:var(--orange);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;}
+.task-lead-pick{margin-bottom:12px;}
+.task-lead-pick-lbl{display:block;font-size:12px;color:var(--m);margin-bottom:6px;}
+.task-lead-pick input{width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 11px;font-family:'Barlow',sans-serif;font-size:16px;color:var(--t);outline:none;}
+.task-lead-pick input:focus{border-color:var(--orange);}
+.task-lead-results{display:flex;flex-direction:column;gap:6px;margin-top:8px;max-height:360px;overflow-y:auto;}
+.task-lead-row{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;min-height:44px;padding:8px 11px;background:var(--s2);border:1px solid var(--br);border-radius:8px;color:var(--t);font:inherit;text-align:left;cursor:pointer;}
+.task-lead-row:hover,.task-lead-row:focus-visible{border-color:var(--orange);}
+.task-lead-row-name{font-size:13px;font-weight:600;}
+.task-lead-row-sub{font-size:11px;color:var(--m);}
 .task-add-row{display:flex;gap:8px;margin-bottom:16px;align-items:flex-end;flex-wrap:wrap;}
 .task-add-row input[type=text]{flex:1 1 100%;min-width:0;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:9px 11px;font-family:'Barlow',sans-serif;font-size:13px;color:var(--t);outline:none;}
 .task-add-row input[type=text]:focus{border-color:var(--orange);}

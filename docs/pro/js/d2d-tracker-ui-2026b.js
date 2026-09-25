@@ -538,6 +538,18 @@
     if (typeof state.clearTapParcel === 'function') state.clearTapParcel();
   }
 
+  // Save's validation gates point at fields near the TOP of the knock sheet
+  // while Save sits at the bottom of a scrolled body. Centre the field in the
+  // sheet and focus its control (preventScroll: the focus must not undo the
+  // centring scroll with a jump of its own).
+  function _bringIntoView(el, focusEl) {
+    if (!el) return;
+    try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) { el.scrollIntoView(); }
+    if (focusEl && typeof focusEl.focus === 'function') {
+      try { focusEl.focus({ preventScroll: true }); } catch (_) { focusEl.focus(); }
+    }
+  }
+
   let _knockSubmitInFlight = false;
   async function handleSubmitKnock() {
     // Guard against double-submit: photo+voice uploads can take several
@@ -556,7 +568,11 @@
     let knockSaved = false;
     try {
     const address = (document.getElementById('d2d-qk-address')?.value || '').trim();
-    if (!address) { window.showToast?.('Address required', 'error'); return; }
+    if (!address) {
+      window.showToast?.('Address required', 'error');
+      _bringIntoView(document.getElementById('d2d-qk-address'), document.getElementById('d2d-qk-address'));
+      return;
+    }
     if (!state.currentKnockEntry?.disposition) { window.showToast?.('Disposition required', 'error'); return; }
 
     // ── Door-number accuracy gate ──────────────────────────────────
@@ -566,7 +582,7 @@
     const houseNum = state.extractHouseNumber(address);
     if (!houseNum) {
       window.showToast?.('Add the door number to this address', 'error');
-      document.getElementById('d2d-qk-address')?.focus();
+      _bringIntoView(document.getElementById('d2d-qk-address'), document.getElementById('d2d-qk-address'));
       return;
     }
     const entry = state.currentKnockEntry || {};
@@ -585,6 +601,12 @@
         wrap.classList.remove('d2d-addr-confirm-flash');
         void wrap.offsetWidth;              // restart the flash animation
         wrap.classList.add('d2d-addr-confirm-flash');
+        // The flash used to play off-screen: the confirm row sits under the
+        // address at the TOP of the sheet and this gate fires from Save at the
+        // BOTTOM — on a phone ~800px of scrolled body apart — so the toast
+        // pointed at a box the rep could not see (phone audit 2026-09-25,
+        // pipeline#5). Bring it to them.
+        _bringIntoView(wrap, document.getElementById('d2d-addr-confirm-chk'));
       }
       return;
     }

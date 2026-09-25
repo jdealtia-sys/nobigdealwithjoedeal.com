@@ -1859,15 +1859,18 @@ section('Phase C.4 mobile-nav — bottom-nav and More-drawer items');
   // mobileNav data-actions in the markup. (Crew-calendar More item
   // intentionally remains inline — defensive existence check.)
   // (Expenses + Money More-drawer items added with the expense initiative.)
+  // (Reports + Referrals added 2026-09-25, phone audit views#1 — they were
+  // sidebar-only and unreachable on a phone. Talk Tank came in with them but
+  // is not counted: `[a-z]+` stops at the hyphen, same as job-templates.)
   const mnCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"/g) || []).length;
-  assert('mobileNav conversions: 24 (3 bottom-nav + 21 more-drawer)',
-    mnCount === 24,
-    'expected 24 mobileNav data-actions; got ' + mnCount);
+  assert('mobileNav conversions: 26 (3 bottom-nav + 23 more-drawer)',
+    mnCount === 26,
+    'expected 26 mobileNav data-actions; got ' + mnCount);
 
   const closeMoreCount = (dash.match(/data-action="mobileNav"\s+data-target="[a-z]+"\s+data-close-more/g) || []).length;
-  assert('21 mobileNav items carry data-close-more (More-drawer items)',
-    closeMoreCount === 21,
-    'expected 21 data-close-more flags; got ' + closeMoreCount);
+  assert('23 mobileNav items carry data-close-more (More-drawer items)',
+    closeMoreCount === 23,
+    'expected 23 data-close-more flags; got ' + closeMoreCount);
 
   // C.4 finale: every mobileNav handler is delegated (no inline onclicks).
   const remaining = (dash.match(/onclick="mobileNav\(/g) || []).length;
