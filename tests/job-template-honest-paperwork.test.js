@@ -332,9 +332,10 @@ section('6. PORTAL — functions/portal.js tier label (lifted and run)');
 // ════════════════════════════════════════════════════════════════════
 {
   const PORTAL = read(path.join(ROOT, 'functions', 'portal.js')).replace(/\r\n/g, '\n');
-  const m = PORTAL.match(/\n\s*tierName:\s*(tierApplies\(latest\)[\s\S]*?),\n\s*signatureStatus:/);
+  const m = PORTAL.match(/\n\s*tierName:\s*([\s\S]*?),\n\s*signatureStatus:/);
   ok('found the tierName expression in getHomeownerPortalView', !!m, 'if it moved, update the extractor — do NOT delete the check');
-  const v = PORTAL.match(/\n\s*tier:\s*(tierApplies\(est\)[\s\S]*?),\n\s*mode:/);
+  const safeAt = PORTAL.indexOf('const safeEstimate = {');
+  const v = safeAt < 0 ? null : PORTAL.slice(safeAt).match(/\n\s*tier:\s*([\s\S]*?),\n\s*mode:/);
   ok('found the tier expression in getEstimateForView', !!v);
   ok('portal.js imports tierApplies from the shared module',
     /const \{[^}]*\btierApplies\b[^}]*\} = require\('\.\/customer-estimate-rows'\)/.test(PORTAL));
@@ -510,6 +511,11 @@ function throughPreflight(env, type, est) {
     const start = (id) => { click('clear-selection'); click('close-modal'); click('quick-use', id); return body(); };
 
     ok('UI loaded and bound its delegates', !!w.JobTemplatesUI && !!env.listeners.click && !!env.listeners.change);
+
+    // First open after page load: nothing has reset the state yet.
+    click('quick-use', 'jt_gr_hanger_resecure');
+    ok('first repair open after load: the box is there and OFF', /data-jt-action="set-repair-warranty"(?! checked)>/.test(body()),
+      (body().match(/set-repair-warranty[^>]*>/) || ['no box'])[0]);
 
     const gutterScreen = start('jt_gi_k5_seamless_full');
     ok('gutter build screen rendered', /jt-topctl/.test(gutterScreen));
