@@ -320,9 +320,12 @@ section('Customers map layer — dashboard.html wiring');
     !/<script\s+defer\s+src="js\/maps-routing\.js/.test(dash),
     'expected maps-routing.js to load only via ScriptLoader\'s drawtool bundle');
   const scriptLoader = read(path.join(PRO_JS, 'script-loader.js'));
-  assert('script-loader.js defines a drawtool bundle carrying maps-routing.js',
-    /drawtool:\s*\[\s*'js\/maps-routing\.js/.test(scriptLoader),
-    'expected BUNDLES.drawtool to list maps-routing.js');
+  // 2026-09-25 (draw lane L1): draw-geom.js (window.NBDDrawGeom, the pure
+  // geometry/totals module) rides the same bundle and must load FIRST, so
+  // maps-routing.js can call it from its first line once L2 wires it in.
+  assert('script-loader.js defines a drawtool bundle: draw-geom.js, then maps-routing.js',
+    /drawtool:\s*\[\s*'js\/draw-geom\.js\?v=\d+',\s*'js\/maps-routing\.js/.test(scriptLoader),
+    'expected BUNDLES.drawtool to list draw-geom.js immediately before maps-routing.js');
   assert("the 'draw' view resolves both mapvendor and drawtool",
     /draw:\s*\['mapvendor',\s*'drawtool'\]/.test(scriptLoader),
     "expected VIEW_BUNDLES.draw = ['mapvendor', 'drawtool']");

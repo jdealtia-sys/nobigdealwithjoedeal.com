@@ -372,7 +372,10 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-25  184/68/273 -> 185/68/274, tests/estimate-gutter-source.test.js
 //               (one gutter footage per job, Draw-tool decision 2), merged
 //               third. RE-MEASURED via --check after rebasing onto #1758.
-const FLOORS = { node: 185, smoke: 68, disk: 274 };
+//   2026-09-25  185/68/274 -> 186/68/275, tests/draw-geom.test.js (draw lane
+//               L1, the Drawing Tool's pure geometry module), merged fourth.
+//               RE-MEASURED via --check after rebasing onto #1760.
+const FLOORS = { node: 186, smoke: 68, disk: 275 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
