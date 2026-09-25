@@ -91,29 +91,40 @@ async function reachable(locator) {
   });
 }
 
+// Customers of our own, written straight to /leads. The lead-save UI path is
+// not under test here, and window._saveLead swallows a failed write into a
+// `null` return (seen on a loaded emulator), which left this spec with no
+// customer and an unrelated red. The doc carries what the leads create rule
+// requires (userId + the caller's companyId) and what the builder reads.
 async function seedLeads(page, n) {
   return safeEvaluate(page, async (count) => {
     const stamp = Date.now();
     const fsMod = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
     const db = window.db || window._db;
     const uid = (window._auth || window.auth).currentUser.uid;
+    const companyId = (window._userClaims && window._userClaims.companyId) || uid;
     const out = [];
     for (let i = 0; i < count; i++) {
       const last = 'Estb' + stamp + '-' + i;
       const lead = {
         firstName: '[E2E] Estb', lastName: last,
-        // Unique per attempt so LeadDedup's blocking prompt never fires.
-        address: (stamp % 1000) + i + ' Estbuilder Way, Milford, OH 45150',
+        address: stamp + '-' + i + ' Estbuilder Way, Milford, OH 45150',
         phone: '513' + String(stamp + i).slice(-7),
         email: 'e2e-estb-' + stamp + '-' + i + '@nbd.test',
         stage: 'new', e2eTestData: true,
+        userId: uid, companyId: companyId, createdAt: fsMod.serverTimestamp(),
       };
-      // ALREADY_EXISTS = the emulator commit-retry bug; the lead landed and
-      // the re-fetch below finds it.
-      try { await window._saveLead(lead); } catch (e) { if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e; }
-      const snap = await fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leads'),
-        fsMod.where('userId', '==', uid), fsMod.where('lastName', '==', last)));
-      let id = null; snap.forEach((d) => { if (!id) id = d.id; });
+      let id = null;
+      try {
+        id = (await fsMod.addDoc(fsMod.collection(db, 'leads'), lead)).id;
+      } catch (e) {
+        // ALREADY_EXISTS = the emulator commit-retry bug: the write landed,
+        // so find it by its unique lastName.
+        if (!/ALREADY_EXISTS/.test(String(e && e.message || e))) throw e;
+        const snap = await fsMod.getDocs(fsMod.query(fsMod.collection(db, 'leads'),
+          fsMod.where('userId', '==', uid), fsMod.where('lastName', '==', last)));
+        snap.forEach((d) => { if (!id) id = d.id; });
+      }
       out.push({ id, name: lead.firstName + ' ' + lead.lastName, email: lead.email, phone: lead.phone, address: lead.address });
     }
     if (typeof window.loadLeads === 'function') await window.loadLeads();
@@ -331,7 +342,7 @@ test.describe('phone estbuilder: scope rows at 412px @shard2', () => {
       expect(await scopeTotal(page), 'removing the line drops the total').not.toBe(T1);
       const undo = page.locator('#estV2Modal').getByRole('button', { name: 'Undo' });
       await expect(undo, 'an Undo control is offered').toBeVisible();
-      expect(await reachable(undo), 'Undo is not covered (step bar, toasts)').toBe(true);
+      expect(await reachable(undo), 'Undo is not covered (e.g. by the step bar)').toBe(true);
       await undo.tap();
       await expect(page.locator('#v2scopeList .v2-scope-item')).toHaveCount(n);
       await expect(row.locator('.qty')).toContainText('manual');
