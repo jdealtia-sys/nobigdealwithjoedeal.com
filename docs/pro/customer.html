@@ -593,6 +593,16 @@ body.nbd-photo-reorder .nbd-photo-item.drop-after {
   pointer-events:none; min-width:34px; text-align:center;
   font-variant-numeric:tabular-nums;
 }
+/* A photo that did not save (2026-09-25, #1773 review): red edge and bar,
+   dimmed thumbnail, "Failed" on the usual dark label (white on --red fails
+   contrast in the lighter-red themes) — it used to keep its last % ("0%"
+   for a refused start), indistinguishable from one still waiting. */
+.preview-item.failed::after {
+  content:''; position:absolute; inset:0; border-radius:inherit;
+  border:2px solid var(--red); pointer-events:none;
+}
+.preview-item.failed img { opacity:.45; }
+.preview-item.failed .preview-progress-bar { background:var(--red); }
 
 /* GLOBAL UPLOAD WIDGET
    Floating bottom-right indicator that surfaces in-flight uploads

@@ -2369,8 +2369,12 @@ function _uploadInProgress() {
 
 // Empty the queue, the preview and the file input's selection, so the next
 // open starts fresh. Never while a batch runs — see openUploadModal.
-function _resetUploadQueue() {
-  window._uploadQueue = [];
+// keepFailed leaves the photos that failed to upload, marked, and nothing
+// else (see uploadPhotos' failure branch).
+function _resetUploadQueue(keepFailed) {
+  window._uploadQueue = keepFailed
+    ? (window._uploadQueue || []).filter(function(it){ return it && it.failed; })
+    : [];
   const preview = document.getElementById('uploadPreview');
   if (preview) preview.innerHTML = '';
   const fileInput = document.getElementById('fileInput');
@@ -2417,7 +2421,13 @@ window.openUploadModal = function() {
   //   1) the JS queue array
   //   2) the preview container's innerHTML
   //   3) the file input's selection (so the same files can be picked again)
-  _resetUploadQueue();
+  // Except photos that FAILED (2026-09-25, #1773 review): those stay, marked
+  // "Failed" and never re-sent, until the rep dismisses them (Cancel) or
+  // starts the next batch. A rep who had the modal shut when the batch ended
+  // otherwise had a 9-second toast as the only record of which shots to
+  // pick again. Unlike the stale tiles Joe reported, these cannot be sent
+  // twice: nothing sends a failed tile.
+  _resetUploadQueue(true);
   window.nbdModal.open('uploadModal', { onClose: _uploadModalOnClose });
 };
 
@@ -2531,9 +2541,27 @@ function addFilesToQueue(files) {
         uploading: false
       });
       updateUploadPreview();
+      _showStagedPhotos();
     };
     reader.readAsDataURL(file);
   });
+}
+
+// A photo that lands while the modal is shut must not wait behind it
+// (2026-09-25, #1773 review). The picker stays open over the modal for as
+// long as the rep browses the camera roll — seconds, on an iPhone. If the
+// running batch's last photo settles meanwhile, uploadPhotos() clears the
+// batch and closes the modal, and the picked files then arrive in a fresh
+// queue behind a closed modal: no tiles, no Upload button, no indicator,
+// and the next open's fresh-start reset threw them away unsent. A photo that
+// lands MID-batch joins it (the loop re-reads the queue's length); one that
+// lands after reopens the modal onto itself, staged, for an Upload tap.
+// nbdModal.open directly, not openUploadModal: that one starts fresh.
+function _showStagedPhotos() {
+  if (_uploadBatchRunning || !window.nbdModal) return;
+  const modal = document.getElementById('uploadModal');
+  if (!modal || modal.classList.contains('open')) return;
+  window.nbdModal.open('uploadModal', { onClose: _uploadModalOnClose });
 }
 
 // updateUploadPreview() runs on every state_changed tick (potentially
@@ -2556,7 +2584,7 @@ function renderUploadPreviewStructure() {
   var html = '';
   for (var i = 0; i < window._uploadQueue.length; i++) {
     var item = window._uploadQueue[i];
-    html += '<div class="preview-item" data-upload-idx="' + i + '">';
+    html += '<div class="preview-item' + (item.failed ? ' failed' : '') + '" data-upload-idx="' + i + '">';
     html += '<img src="' + item.preview + '" alt="Preview" loading="lazy" decoding="async">';
     if (!item.uploading) {
       // data-arg was written as  data-arg=" + i + "  — the concatenation sat
@@ -2569,14 +2597,29 @@ function renderUploadPreviewStructure() {
       html += '<button class="preview-remove" data-action="removeFromQueue" data-arg="' + i + '">×</button>';
     }
     html += '<div class="preview-progress" style="display:' + (item.uploading ? 'block' : 'none') + ';">';
-    html += '<div class="preview-progress-bar" style="width:' + (item.progress || 0) + '%"></div>';
+    html += '<div class="preview-progress-bar" style="width:' + _uploadTileBar(item) + '%"></div>';
     html += '</div>';
-    html += '<div class="preview-progress-pct" style="display:' + (item.uploading ? 'block' : 'none') + ';">' + Math.round(item.progress || 0) + '%</div>';
+    html += '<div class="preview-progress-pct" style="display:' + (item.uploading ? 'block' : 'none') + ';">' + _uploadTileLabel(item) + '</div>';
     html += '</div>';
   }
   container.innerHTML = html;
-  uploadBtn.style.display = 'block';
-  uploadCount.textContent = window._uploadQueue.length;
+  // The button sends what has not been tried (2026-09-25): a failed photo
+  // kept on screen after its batch (see uploadPhotos) is a record, not part
+  // of the next send, so it is neither counted nor, alone, a reason to show
+  // the button. While a batch runs the button stays up, busy.
+  var sendable = window._uploadQueue.filter(function(it){ return it && !it.failed; }).length;
+  uploadBtn.style.display = (sendable || _uploadBatchRunning) ? 'block' : 'none';
+  uploadCount.textContent = sendable;
+}
+
+// A tile's bar and label. A photo that failed says so (2026-09-25, #1773
+// review): it used to keep its last progress — "0%" for a refused start —
+// so the reopened modal could not tell the rep which photo had not saved.
+function _uploadTileBar(item) {
+  return item.failed ? 100 : (item.progress || 0);
+}
+function _uploadTileLabel(item) {
+  return item.failed ? 'Failed' : Math.round(item.progress || 0) + '%';
 }
 
 // Surgical per-tick update — only touches the bar width + percent text
@@ -2598,10 +2641,11 @@ function updateUploadPreviewItem(idx) {
   var bar = tile.querySelector('.preview-progress-bar');
   var barWrap = tile.querySelector('.preview-progress');
   var pct = tile.querySelector('.preview-progress-pct');
-  if (bar) bar.style.width = (item.progress || 0) + '%';
+  tile.classList.toggle('failed', !!item.failed);
+  if (bar) bar.style.width = _uploadTileBar(item) + '%';
   if (barWrap) barWrap.style.display = item.uploading ? 'block' : 'none';
   if (pct) {
-    pct.textContent = Math.round(item.progress || 0) + '%';
+    pct.textContent = _uploadTileLabel(item);
     pct.style.display = item.uploading ? 'block' : 'none';
   }
   // Hide the remove button once the upload starts.
@@ -2727,6 +2771,12 @@ window.uploadPhotos = async function() {
   // photo twice. (The button is disabled while busy; this guards any other
   // caller.)
   if (_uploadBatchRunning) return;
+  // The last batch's failed tiles were a record for the rep, not part of
+  // this send (see the failure branch below).
+  if (window._uploadQueue.some(function(it){ return it && it.failed; })) {
+    window._uploadQueue = window._uploadQueue.filter(function(it){ return it && !it.failed; });
+    renderUploadPreviewStructure();
+  }
   if (window._uploadQueue.length === 0) return;
   if (!window._customerId) {
     if (window.showToast) window.showToast('Customer ID not found', 'error');
@@ -2736,7 +2786,9 @@ window.uploadPhotos = async function() {
 
   // The batch is the queue ARRAY itself, walked by index with its length
   // re-read on every pass, so a photo the rep adds from the reopened modal
-  // mid-batch joins it. Nothing may REPLACE window._uploadQueue while this
+  // joins it — if it lands before the batch's last photo settles; one that
+  // lands after is staged in the modal for its own Upload tap
+  // (_showStagedPhotos). Nothing may REPLACE window._uploadQueue while this
   // runs — that is exactly what "View details" did (see openUploadModal).
   const batch = window._uploadQueue;
   _uploadBatchRunning = true;
@@ -2784,8 +2836,13 @@ window.uploadPhotos = async function() {
       ? 'Uploaded ' + uploaded + ' of ' + attempted + ' photos — ' + failed + ' failed'
       : (attempted === 1 ? 'The photo failed to upload' : 'All ' + attempted + ' photos failed to upload');
     if (window.showToast) window.showToast(head + ' (' + _uploadFailureReason(firstError) + ')', 'error');
-    // As before, the modal stays open and the failed photos leave the queue.
-    _resetUploadQueue();
+    // The modal stays as it was (open or shut), and the photos that failed
+    // stay in it, marked "Failed" (2026-09-25, #1773 review) — the queue
+    // used to empty here, so the reopened modal was a blank drop zone and
+    // the rep had to work out from memory which shots to pick again. A
+    // record, not a retry: nothing re-sends a failed tile, so the Upload
+    // button neither counts nor shows for them. Cancel dismisses them.
+    _resetUploadQueue(true);
   } else {
     if (window.showToast) {
       window.showToast('✓ Uploaded ' + uploaded + ' photo' + (uploaded === 1 ? '' : 's'), 'success');
