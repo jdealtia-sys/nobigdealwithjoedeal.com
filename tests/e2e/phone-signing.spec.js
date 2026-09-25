@@ -21,15 +21,18 @@
 //
 // The contract is also held to the rule that matters most: the phone layout
 // lives only on screen. The record POSTed to submitSignature must be the
-// same bytes whichever layout the signer saw, and printing the live phone
-// document must produce the same PDF as printing the stored original.
+// same bytes whichever layout the signer saw — the bytes of a record signed
+// with no phone layout code loaded at all — and printing the live phone
+// document must produce the same PDF as printing the stored original, on
+// Letter and on a page narrow enough for the layout's width query.
 //
 // homeowner#2's second half (2026-09-25): the rep's doc viewer, where the
 // same contract is signed IN PERSON, showed it at print size too. It now
 // shares sign.html's phone layout (docs/pro/js/doc-phone-layout.js) and is
 // held to the same two rules — plus a third that only it has: html2pdf
 // renders the document's own <style> blocks in the rep's page, so what the
-// viewer saves, PDFs and prints must be the same bytes at 412/360 as at 1280.
+// viewer saves, PDFs and prints must be the same bytes at 412/360/1280 as
+// with no phone layout code loaded.
 //
 // Cloud Functions (getSignDocument / submitSignature / getEsignEnvelope /
 // submitEsignEnvelope) are mocked with page.route. Tagged @audit so the
@@ -106,17 +109,36 @@ async function drawSignature(p, f, frameEl, role) {
   await p.mouse.up();
 }
 
-// Chromium's print of `html` (a fresh 1280 page), minus the creation/mod
-// dates and random document ID it stamps on every PDF.
-async function pdfOf(browser, html) {
+// Chromium's print of `html` (a fresh 1280 page) on `paper`, minus the
+// creation/mod dates and random document ID it stamps on every PDF.
+async function pdfOf(browser, html, paper) {
   const ctx = await browser.newContext(ctxOpts(DESKTOP));
   try {
     const p = await ctx.newPage();
     await p.setContent(html, { waitUntil: 'load' });
-    const buf = await p.pdf({ format: 'Letter', printBackground: true });
+    const buf = await p.pdf({ ...paper, printBackground: true });
     return buf.toString('latin1').replace(/\/(CreationDate|ModDate) \([^)]*\)/g, '').replace(/\/ID \[<[0-9A-Fa-f]+> <[0-9A-Fa-f]+>\]/g, '');
   } finally { await ctx.close(); }
 }
+
+// The papers the live phone document is printed on. Letter is what a real
+// print uses, but it lays out 816px wide, where a max-width:600px rule could
+// never match — so on Letter alone the sheet's `screen` guard could go and
+// nothing would change (a 2026-09-25 review break-test dropped it and every
+// test stayed green). A 4in-wide page lays out 384px wide, inside the
+// sheet's width: there only `@media screen` keeps the phone layout out of
+// the print.
+const PAPERS = [['Letter', { format: 'Letter' }], ['4in-wide', { width: '4in', height: '6in' }]];
+
+// The reference record: the same contract signed at 1280 with
+// doc-phone-layout.js never loaded, so no phone layout code ran at all (the
+// consumers fall back to the document as served). Comparing phone records to
+// DESKTOP's alone cannot see a leftover that the add-then-strip round trip
+// leaves at EVERY width — desktop runs the same round trip; a 2026-09-25
+// review break-test made it leave a <meta> in all three records and every
+// test stayed green.
+const BARE = 'no phone layout code';
+const PHONE_LAYOUT_JS = /\/pro\/js\/doc-phone-layout\.js/;
 
 // First-run UI (the onboarding tour's full-screen overlay, the push opt-in
 // card) lands a moment AFTER dashboard boot on a fresh tenant — over the
@@ -193,11 +215,13 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
 
     const records = {};
     let livePhoneDoc = null;
-    for (const width of [...PHONES, DESKTOP]) {
-      await test.step(`${width}px`, async () => {
+    for (const run of [...PHONES, DESKTOP, BARE]) {
+      await test.step(run === BARE ? `${DESKTOP}px, ${BARE}` : `${run}px`, async () => {
+        const width = run === BARE ? DESKTOP : run;
         const phone = width < 1000;
         const ctx = await browser.newContext(ctxOpts(width));
         try {
+          if (run === BARE) await ctx.route(PHONE_LAYOUT_JS, (r) => r.abort());
           const p = await ctx.newPage();
           const widgetFailures = [];
           p.on('requestfailed', (r) => { if (r.url().includes(WIDGET)) widgetFailures.push(r.failure() ? r.failure().errorText : 'failed'); });
@@ -216,6 +240,7 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
           // a 15s timeout, which is how it read in CI on 2026-09-25.
           await f.waitForFunction(() => window.__NBD_LOADED && window.__NBD_LOADED['signature-widget'], null, { timeout: 15_000 })
             .catch((e) => { throw new Error(`${WIDGET} never ran in the sandboxed signing frame (request failures: ${widgetFailures.join(', ') || 'none'}): ${e.message}`); });
+          if (run === BARE) expect(await p.evaluate(() => typeof window.NBDDocPhoneLayout), 'reference run: no phone layout code loaded').toBe('undefined');
 
           const m = await f.evaluate(measureContract);
           if (phone) expectReadableOnPhone(expect, m, width, 'sign.html');
@@ -256,23 +281,27 @@ test.describe('phone signing: remote contract on sign.html @audit', () => {
           expect(signed, 'submitSignature received the signed document').toBeTruthy();
           expect(signed, 'phone layout sheet kept out of the signed record').not.toContain('nbd-doc-phone');
           expect(signed, 'touch sheet kept out of the signed record').not.toContain('nbd-sig-touch');
-          records[width] = normalizeSigned(signed);
+          records[run] = normalizeSigned(signed);
         } finally {
           await ctx.close();
         }
       });
     }
 
-    // The executed record does not depend on which layout the signer saw.
-    for (const width of PHONES) {
-      expect(records[width] === records[DESKTOP], `signed record at ${width}px is byte-identical to desktop's`).toBe(true);
+    // The executed record does not depend on which layout the signer saw,
+    // and carries nothing the layout code put there: every width equals the
+    // record signed with no phone layout code at all.
+    for (const run of [...PHONES, DESKTOP]) {
+      expect(records[run] === records[BARE], `signed record at ${run}px is byte-identical to the one signed with ${BARE}`).toBe(true);
     }
 
     // Printing the live phone document (phone + touch sheets present) gives
     // the same PDF as printing the stored original: both sheets are screen-only.
     expect(livePhoneDoc, 'the live phone document carried the phone sheet').toContain('id="nbd-doc-phone"');
-    const [livePdf, storedPdf] = [await pdfOf(browser, livePhoneDoc), await pdfOf(browser, contract)];
-    expect(livePdf === storedPdf, 'print of the live phone document matches print of the stored contract').toBe(true);
+    for (const [paper, opts] of PAPERS) {
+      const [livePdf, storedPdf] = [await pdfOf(browser, livePhoneDoc, opts), await pdfOf(browser, contract, opts)];
+      expect(livePdf === storedPdf, `${paper} print of the live phone document matches print of the stored contract`).toBe(true);
+    }
   });
 });
 
@@ -294,12 +323,14 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
     let contract = null;
     let livePhoneDoc = null;
     const saved = {}; const pdfIn = {}; const printIn = {};
-    for (const width of [...PHONES, DESKTOP]) {
-      await test.step(`${width}px`, async () => {
+    for (const run of [...PHONES, DESKTOP, BARE]) {
+      await test.step(run === BARE ? `${DESKTOP}px, ${BARE}` : `${run}px`, async () => {
+        const width = run === BARE ? DESKTOP : run;
         const phone = width < 1000;
         const ctx = await browser.newContext(ctxOpts(width));
         try {
           await returningUser(ctx);
+          if (run === BARE) await ctx.route(PHONE_LAYOUT_JS, (r) => r.abort());
           const p = await ctx.newPage();
           await loginAs(p, creds);
           if (!contract) {
@@ -311,6 +342,7 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
           // ~0.7s after DOMContentLoaded; a rep cannot open a document before
           // then, so neither does this test (it once measured the splash).
           await p.waitForSelector('#nbd-loader', { state: 'detached', timeout: 20_000 });
+          if (run === BARE) expect(await p.evaluate(() => typeof window.NBDDocPhoneLayout), 'reference run: no phone layout code loaded').toBe('undefined');
           if (phone) expect(await forceStandalone(p), 'found the installed-app rules to force').toBeGreaterThan(200);
           await safeEvaluate(p, () => {
             window.__e2eDoc = { persisted: [], pdf: null, print: null };
@@ -370,12 +402,12 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
             expect(html, `${width}px ${what}: touch sheet kept out`).not.toContain('nbd-sig-touch');
           }
           expect(got.persisted.every((h) => !h.includes('nbd-doc-phone')), `${width}px every re-finalize persisted a clean record`).toBe(true);
-          saved[width] = normalizeSigned(got.persisted[0]);
-          pdfIn[width] = normalizeSigned(got.pdf);
-          printIn[width] = normalizeSigned(got.print);
-          expect(printIn[width] === saved[width], `${width}px: the printed record is the saved record`).toBe(true);
+          saved[run] = normalizeSigned(got.persisted[0]);
+          pdfIn[run] = normalizeSigned(got.pdf);
+          printIn[run] = normalizeSigned(got.print);
+          expect(printIn[run] === saved[run], `${width}px: the printed record is the saved record`).toBe(true);
 
-          if (width === PHONES[0]) {
+          if (run === PHONES[0]) {
             // Only the generator's letter documents get the phone sheet: the
             // viewer also shows reports with their own design, like the Close
             // Board's light-on-dark page, which a white body would blank out.
@@ -397,18 +429,21 @@ test.describe('phone signing: in-person contract in the rep\'s doc viewer @audit
     }
 
     // The record does not depend on which layout the signer saw — saved,
-    // handed to html2pdf, or printed.
-    for (const width of PHONES) {
-      expect(saved[width] === saved[DESKTOP], `saved record at ${width}px is byte-identical to desktop's`).toBe(true);
-      expect(pdfIn[width] === pdfIn[DESKTOP], `html2pdf input at ${width}px is byte-identical to desktop's`).toBe(true);
-      expect(printIn[width] === printIn[DESKTOP], `print fallback at ${width}px is byte-identical to desktop's`).toBe(true);
+    // handed to html2pdf, or printed — and carries nothing the layout code
+    // put there: every width equals the run with no phone layout code.
+    for (const run of [...PHONES, DESKTOP]) {
+      expect(saved[run] === saved[BARE], `saved record at ${run}px is byte-identical to the one saved with ${BARE}`).toBe(true);
+      expect(pdfIn[run] === pdfIn[BARE], `html2pdf input at ${run}px is byte-identical to the one with ${BARE}`).toBe(true);
+      expect(printIn[run] === printIn[BARE], `print fallback at ${run}px is byte-identical to the one with ${BARE}`).toBe(true);
     }
 
     // Printing the live phone document (phone sheet present) from the
     // viewer's own Print gives the same PDF as printing the original.
     expect(livePhoneDoc, 'the live phone document carried the phone sheet').toContain('id="nbd-doc-phone"');
-    const [livePdf, storedPdf] = [await pdfOf(browser, livePhoneDoc), await pdfOf(browser, contract)];
-    expect(livePdf === storedPdf, 'print of the live phone document in the viewer matches print of the original').toBe(true);
+    for (const [paper, opts] of PAPERS) {
+      const [livePdf, storedPdf] = [await pdfOf(browser, livePhoneDoc, opts), await pdfOf(browser, contract, opts)];
+      expect(livePdf === storedPdf, `${paper} print of the live phone document in the viewer matches print of the original`).toBe(true);
+    }
   });
 });
 
