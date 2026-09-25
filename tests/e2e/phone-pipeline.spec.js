@@ -461,6 +461,13 @@ test.describe('phone pipeline @audit', () => {
     expect(z.covered, 'Tools items painted over by the FAB stack').toEqual([]);
     await closeAll();
     await page.setViewportSize({ width: 412, height: 860 });
+    // The list and the follow-up block choose their phone or desktop layout
+    // when they render, not on resize. A live refresh that lands while the
+    // phone is sideways leaves the desktop layout behind in portrait (a
+    // separate, older issue). Re-render in portrait, as the next refresh
+    // would, so the tests after this one start from the phone layout.
+    await safeEvaluate(page, () => { if (window.renderLeads) window.renderLeads(window._leads); });
+    await settle(page);
   });
 
   test('list cards show the real stage; swipe advances it; a cancelled swipe snaps back (pipeline#1, #11)', async () => {
