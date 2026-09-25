@@ -477,6 +477,20 @@ test('guard install + K5 together: a guard in the base hides the whole leaf grou
   LEAF.forEach((l) => eq(m[l].state, 'hidden', l));
 });
 
+test('a guard LINE in the base (no family rule involved) hides the whole leaf group', () => {
+  // A rep who adds a catalog guard line to a K5 estimate: the K5 family
+  // offers leaf protection, so only the base-scope scan can stop a second
+  // guard being sold over the first.
+  const lines = k5.lines.concat([{ code: 'GTR GG-MIC', name: 'Gutter Guard Micro-Mesh Stainless', quantity: 137 }]);
+  const m = offerMap(U.offeredFor(K5, ctxFor(K5, k5, { lines })));
+  LEAF.forEach((l) => {
+    eq(m[l].state, 'hidden', l);
+    truthy(/already has leaf protection/.test(m[l].reason), l + ' reason: ' + m[l].reason);
+  });
+  const named = k5.lines.concat([{ code: 'JT custom-1', name: 'Leaf guard (customer supplied)', quantity: 1 }]);
+  eq(offerMap(U.offeredFor(K5, ctxFor(K5, k5, { lines: named }))).alurex.state, 'hidden', 'custom line named as a guard');
+});
+
 test('a non-gutter template offers nothing; an unknown id offers nothing', () => {
   const roof = win.NBD_JOB_TEMPLATES.find((t) => t.category === 'roof_replacement');
   eq(U.offeredFor(roof.id, {}).length, 0, 'roof template');
@@ -609,6 +623,8 @@ test('ineligible, hidden, not-offered and unknown picks are refused with their o
 test('insurance and per-SQ refuse everything; no template ids refuses', () => {
   const ins = U.price(['alurex'], ctxFor(K5, k5, { mode: 'insurance' }));
   eq(ins.rows.length, 0, 'insurance rows'); eq(codes(ins.errors).join(), 'insurance', 'insurance');
+  const flag = U.price(['alurex'], ctxFor(K5, k5, { mode: 'cash', insurance: true }));
+  eq(flag.rows.length, 0, 'payload insurance:true rows'); eq(codes(flag.errors).join(), 'insurance', 'payload insurance:true');
   eq(codes(U.price(['alurex'], ctxFor(K5, k5, { insurance: true, priceMode: 'per-sq' })).errors).join(), 'insurance', 'insurance wins over per-sq');
   eq(codes(U.price(['alurex'], ctxFor(K5, k5, { priceMode: 'per-sq' })).errors).join(), 'per_sq', 'per-sq');
   eq(codes(U.price(['alurex'], { lines: k5.lines, taxRate: 0.07 }).errors).join(), 'no_templates', 'no templateIds');
