@@ -291,6 +291,31 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
     expect(r.overlapsLauncher, 'the toast clears the field-tools launcher').toBe(false);
   });
 
+  test('in-flight upload indicator rides above the bar', async () => {
+    await clearToasts(page);
+    // updateGlobalUploadStatus() shows the widget by adding .active while a
+    // batch uploads with the modal closed; drive that state directly rather
+    // than pushing real files through Storage.
+    await safeEvaluate(page, () => document.getElementById('nbdUploadWidget').classList.add('active'));
+    try {
+      expect(covered(await hitReport(page, '#nbdUploadWidgetReopen')), '"View details" on the upload indicator').toEqual([]);
+    } finally {
+      await safeEvaluate(page, () => document.getElementById('nbdUploadWidget').classList.remove('active'));
+    }
+  });
+
+  test('warranty claim modal covers the page chrome', async () => {
+    await clearToasts(page);
+    // The same call a stage move into Warranty Claim makes
+    // (customer-bootstrap.module.js progressStage → promptIntake).
+    await safeEvaluate(page, () => { window.__wcDone = window.WarrantyClaim.promptIntake(window._currentLead || {}).then(() => true); });
+    await page.waitForSelector('#nbd-warranty-claim-modal button', { timeout: 5_000 });
+    expect(covered(await hitReport(page, '#nbd-warranty-claim-modal button, #nbd-warranty-claim-modal textarea, #nbd-warranty-claim-modal select')), 'warranty modal controls').toEqual([]);
+    expect(await chromeTopmostWhileOpen(page), 'bar / launcher above the warranty backdrop').toEqual([]);
+    await page.locator('#nbd-warranty-claim-modal button', { hasText: /^cancel$/i }).tap();
+    await expect(page.locator('#nbd-warranty-claim-modal')).toHaveCount(0);
+  });
+
   test('field tools collapse behind one launcher and fan out on tap', async () => {
     await clearToasts(page);
     await page.evaluate(() => window.scrollTo(0, 0));
