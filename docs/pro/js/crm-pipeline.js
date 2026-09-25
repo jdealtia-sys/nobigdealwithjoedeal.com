@@ -66,6 +66,34 @@ function renderColumnCards(body, cards, stageKey) {
   }
 }
 
+// Follow-up alert rows (renderLeads). A phone shows three rows and a
+// "+ N more" button that opens the rest in place; a wider screen keeps its
+// five (2026-09-25 phone audit: five rows filled y≈225–572, so the first
+// pipeline card started near the bottom of an 860px screen). The fa-icon /
+// fa-addr hooks let kanban-force.css stack each row into two lines on a
+// phone, where the one-line flex row split names, "Due: 2026- / 09-26" and
+// a 20px-tall "View / →" button across lines. Expanded stays expanded for
+// the session: renderLeads re-runs on every data refresh.
+let _fuShowAll = false;
+function _renderFollowUpRows(box, overdue) {
+  const phone = !!(window.matchMedia && window.matchMedia('(max-width: 768px)').matches);
+  const cap = _fuShowAll ? overdue.length : (phone ? 3 : 5);
+  box.innerHTML = overdue.slice(0, cap).map(l => `
+        <div class="follow-up-alert">
+          <span class="fa-icon"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></span>
+          <span class="fa-name">${escHtml(l.firstName||'')} ${escHtml(l.lastName||'')}</span>
+          <span class="fa-addr" style="color:var(--m);font-size:11px;">${escHtml(String(l.address||'').split(',')[0])}</span>
+          <span class="fa-date">Due: ${escHtml(l.followUp)}</span>
+          <button class="fa-btn nbd-fa-edit" data-lead-id="${escHtml(l.id)}">View →</button>
+        </div>`).join('')
+    + (overdue.length > cap ? `<button type="button" class="fa-more">+ ${overdue.length - cap} more</button>` : '');
+  box.querySelectorAll('.nbd-fa-edit').forEach(btn => {
+    btn.addEventListener('click', () => editLead(btn.dataset.leadId));
+  });
+  const more = box.querySelector('.fa-more');
+  if (more) more.addEventListener('click', () => { _fuShowAll = true; _renderFollowUpRows(box, overdue); });
+}
+
 function renderLeads(leads, filtered){
   const all   = (leads  || window._leads || []);
   let list    = (filtered !== undefined && filtered !== null) ? filtered : all;
@@ -419,26 +447,25 @@ function renderLeads(leads, filtered){
   if(fp) fp.style.display = overdue.length ? 'flex':'none';
   // Follow-up alerts — render into the inner div, show/hide the wrapper.
   // Respect the dismiss flag so the user can hide them for the session.
+  // Also stand aside while the board is narrowed (2026-09-25 phone audit):
+  // `overdue` comes from the whole book, not the search/filter result, so a
+  // search for "deluca" kept five unrelated follow-up rows (~350px on a
+  // phone) above its two matches, and with the keyboard up not one match
+  // was on screen. window._filteredLeads is non-null exactly when a search,
+  // damage-type or filter-registry subset is showing; the block comes back
+  // when it clears, and the header's follow-up pill keeps the count. The
+  // rows still render while hidden, so the pill's scrollToFollowUps (an
+  // explicit "show me") never unhides a stale list.
   const alertWrap=document.getElementById('followUpAlertsWrap');
   const alertBox=document.getElementById('followUpAlerts');
   const dismissed = localStorage.getItem('nbd_crm_followup_hidden') === '1';
+  const narrowed = window._filteredLeads != null;
   if(alertWrap && alertBox){
     if(overdue.length && !dismissed){
-      alertWrap.style.display='block';
       const label = document.getElementById('followUpAlertsLabel');
       if (label) label.textContent = overdue.length + ' Follow-up' + (overdue.length === 1 ? '' : 's') + ' Due';
-      alertBox.innerHTML=overdue.slice(0,5).map(l=>`
-        <div class="follow-up-alert">
-          <span><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;vertical-align:middle;"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14"/><path d="M7 2v4M13 2v4"/></svg></span>
-          <span class="fa-name">${escHtml(l.firstName||'')} ${escHtml(l.lastName||'')}</span>
-          <span style="color:var(--m);font-size:11px;">${escHtml(String(l.address||'').split(',')[0])}</span>
-          <span class="fa-date">Due: ${escHtml(l.followUp)}</span>
-          <button class="fa-btn nbd-fa-edit" data-lead-id="${escHtml(l.id)}">View →</button>
-        </div>`).join('')
-        + (overdue.length > 5 ? `<div style="font-size:11px;color:var(--m);padding:6px 0;">+ ${overdue.length - 5} more</div>` : '');
-      alertBox.querySelectorAll('.nbd-fa-edit').forEach(btn => {
-        btn.addEventListener('click', () => editLead(btn.dataset.leadId));
-      });
+      _renderFollowUpRows(alertBox, overdue);
+      alertWrap.style.display = narrowed ? 'none' : 'block';
     } else { alertWrap.style.display='none'; }
   }
 
@@ -702,7 +729,7 @@ function renderHiddenStageChip(leads) {
     const cards = grp.map(l => `
         <div class="follow-up-alert">
           <span class="fa-name">${escHtml(l.firstName || '')} ${escHtml(l.lastName || '')}</span>
-          <span style="color:var(--m);font-size:11px;">${escHtml(String(l.address || '').split(',')[0])}</span>
+          <span class="fa-addr" style="color:var(--m);font-size:11px;">${escHtml(String(l.address || '').split(',')[0])}</span>
           <button class="fa-btn nbd-hidden-edit" data-lead-id="${escHtml(l.id)}">View →</button>
         </div>`).join('');
     return `<div style="margin-bottom:8px;">

@@ -121,6 +121,41 @@
     ));
   }
 
+  // One lead's stage list: its own job-type track in pipeline order, the
+  // same list the board's ⋮ "Move to stage…" submenu and the job-detail
+  // stage chip offer (window.stageOptionsForType — tenant-aware, hidden
+  // stages dropped). It used to be the CURRENT VIEW's columns
+  // (window._stageKeys), and a view only holds the pre-contract columns:
+  // the Ins tab has no Installing or Closed. A select with no option for
+  // the lead's stage silently shows its first option, so on the phone
+  // list (default view: Ins) a $41,200 job being installed and two
+  // finished jobs all read "New Lead", and swiping one said "Already at
+  // the last stage" (2026-09-25 phone audit). View columns stay the
+  // fallback when the stage module hasn't loaded.
+  function _trackStages(l, viewKeys, labelFor) {
+    let opts = null;
+    if (typeof window.stageOptionsForType === 'function') {
+      const jt = l.jobType
+        || (typeof window.inferJobType === 'function' ? window.inferJobType(l) : null)
+        || 'insurance';
+      try { opts = window.stageOptionsForType(jt); } catch (_) { opts = null; }
+    }
+    if (!Array.isArray(opts) || !opts.length) {
+      opts = (viewKeys || []).map((k) => ({ value: k, label: labelFor(k) }));
+    }
+    return opts;
+  }
+  // <option>s for the stage select. A stage outside the track (a custom or
+  // hidden stage, or a lead parked on another track's stage) still gets a
+  // selected option of its own, so the select never claims a stage the
+  // lead isn't in.
+  function _stageOptionsHtml(opts, sk, labelFor) {
+    const list = opts.some((o) => o.value === sk) ? opts : [{ value: sk, label: labelFor(sk) }].concat(opts);
+    return list.map((o) =>
+      '<option value="' + _esc(o.value) + '"' + (o.value === sk ? ' selected' : '') + '>'
+      + _esc(o.label || labelFor(o.value)) + '</option>').join('');
+  }
+
   const _SORTS = {
     name:     (l) => _name(l).toLowerCase(),
     stage:    (l) => {
@@ -179,9 +214,7 @@
       const ageD = _ageDays(created);
       const actD = _ageDays(act);
       const phone = (l.phone || '').trim();
-      const opts = stageKeys.map((k) =>
-        '<option value="' + _esc(k) + '"' + (k === sk ? ' selected' : '') + '>' + _esc(labelFor(k)) + '</option>'
-      ).join('');
+      const opts = _stageOptionsHtml(_trackStages(l, stageKeys, labelFor), sk, labelFor);
       return '<tr class="crm-list-row" data-id="' + _esc(l.id) + '">'
         + '<td class="cl-name"><a href="/pro/customer?id=' + encodeURIComponent(l.id) + '">' + _esc(_name(l)) + '</a>'
         +   '<div class="cl-addr">' + _esc(l.address || '') + '</div></td>'
@@ -239,14 +272,20 @@
       ? 'https://maps.apple.com/?q=' + q
       : 'https://www.google.com/maps/search/?api=1&query=' + q;
   }
-  // The next stage in pipeline order, skipping the dead ends a swipe should
-  // never land on by accident (Lost needs its reason flow, Closed is final).
-  function _nextStage(sk, stageKeys) {
-    if (NO_ADVANCE.has(sk)) return null;
-    for (let i = stageKeys.indexOf(sk) + 1; i > 0 && i < stageKeys.length; i++) {
-      if (!NO_ADVANCE.has(stageKeys[i])) return stageKeys[i];
-    }
-    return null;
+  // What a swipe-left does for this lead, in its own track's order (the
+  // same keys as its stage select — _trackStages). A swipe never lands on a
+  // dead end by accident (Lost needs its reason flow, Closed is final); it
+  // now STOPS in front of one rather than skipping past it, which on the job
+  // track used to jump Collections straight to Warranty Claim (a claim comes
+  // after Closed). Returns the next key, or null plus the toast to show.
+  function _swipeNext(sk, keys, labelFor) {
+    if (NO_ADVANCE.has(sk)) return { next: null, msg: 'Already at the last stage' };
+    const i = keys.indexOf(sk);
+    if (i === -1) return { next: null, msg: 'Pick the next stage from the stage list' };
+    const k = keys[i + 1];
+    if (!k) return { next: null, msg: 'Already at the last stage' };
+    if (NO_ADVANCE.has(k)) return { next: null, msg: 'Next is ' + labelFor(k) + ' — pick it from the stage list' };
+    return { next: k, msg: '' };
   }
 
   function _renderFieldCards(wrap, stageKeys, labelFor) {
@@ -259,13 +298,15 @@
       const phone = _digits(l.phone);
       const addr = (l.address || '').trim();
       const open = '/pro/customer?id=' + encodeURIComponent(l.id);
-      const opts = stageKeys.map((k) =>
-        '<option value="' + _esc(k) + '"' + (k === sk ? ' selected' : '') + '>' + _esc(labelFor(k)) + '</option>').join('');
+      const track = _trackStages(l, stageKeys, labelFor);
+      const opts = _stageOptionsHtml(track, sk, labelFor);
+      const swipe = _swipeNext(sk, track.map((o) => o.value), labelFor);
       const touch = actD == null ? '' : (actD === 0 ? 'touched today' : actD + 'd since last touch');
       const stale = actD != null && actD >= 7 ? ' cl-card-stale' : '';
       const btn = (cls, href, icon, label, extra) =>
         '<a class="cl-card-btn ' + cls + '" href="' + _esc(href) + '"' + (extra || '') + '>' + icon + '<span>' + label + '</span></a>';
-      return '<div class="cl-card" data-id="' + _esc(l.id) + '" data-phone="' + _esc(phone) + '" data-stage="' + _esc(sk) + '">'
+      return '<div class="cl-card" data-id="' + _esc(l.id) + '" data-phone="' + _esc(phone) + '" data-stage="' + _esc(sk) + '"'
+        + ' data-next="' + _esc(swipe.next || '') + '" data-next-msg="' + _esc(swipe.msg) + '">'
         + '<div class="cl-card-top"><a class="cl-card-name" href="' + open + '">' + _esc(_name(l)) + '</a>'
         +   (val > 0 ? '<span class="cl-card-val">$' + val.toLocaleString() + '</span>' : '') + '</div>'
         + (addr ? '<div class="cl-card-addr">' + _esc(addr) + '</div>' : '')
@@ -294,13 +335,24 @@
         if (typeof window.moveCard === 'function') window.moveCard(sel.dataset.id, sel.value);
       });
     });
-    wrap.querySelectorAll('.cl-card').forEach((card) => _wireSwipe(card, stageKeys, labelFor));
+    wrap.querySelectorAll('.cl-card').forEach((card) => _wireSwipe(card, labelFor));
   }
 
   // Touch-only swipe. Vertical movement wins (the page must still scroll),
   // and a swipe that starts on a control (select, button) is ignored.
-  function _wireSwipe(card, stageKeys, labelFor) {
+  function _wireSwipe(card, labelFor) {
     let x0 = null, y0 = null, dx = 0, horiz = false;
+    // Put the card back without acting. touchend runs it before deciding;
+    // touchcancel runs ONLY it: the OS takes a gesture over mid-swipe (the
+    // notification shade, an incoming call, the back gesture) and no
+    // touchend ever arrives. Without this the card stayed 120px sideways in
+    // the green "call" state with Open pushed off-screen (2026-09-25 phone
+    // audit).
+    const reset = () => {
+      x0 = null;
+      card.style.transform = '';
+      card.classList.remove('cl-card-swipe-call', 'cl-card-swipe-next');
+    };
     card.addEventListener('touchstart', (e) => {
       if (e.target.closest && e.target.closest('select, a, button')) { x0 = null; return; }
       const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; horiz = false;
@@ -315,19 +367,22 @@
         card.classList.toggle('cl-card-swipe-next', dx < -SWIPE_PX);
       }
     }, { passive: true });
+    card.addEventListener('touchcancel', reset, { passive: true });
     card.addEventListener('touchend', () => {
       if (x0 == null) return;
-      const moved = dx; x0 = null;
-      card.style.transform = '';
-      card.classList.remove('cl-card-swipe-call', 'cl-card-swipe-next');
+      const moved = dx;
+      reset();
       if (!horiz) return;
       if (moved > SWIPE_PX) {
         const phone = card.getAttribute('data-phone');
         if (phone) window.location.href = 'tel:' + phone;
         else if (typeof window.showToast === 'function') window.showToast('No phone number on this lead', 'info');
       } else if (moved < -SWIPE_PX) {
-        const next = _nextStage(card.getAttribute('data-stage'), stageKeys);
-        if (!next) { if (typeof window.showToast === 'function') window.showToast('Already at the last stage', 'info'); return; }
+        const next = card.getAttribute('data-next');
+        if (!next) {
+          if (typeof window.showToast === 'function') window.showToast(card.getAttribute('data-next-msg') || 'Already at the last stage', 'info');
+          return;
+        }
         if (typeof window.moveCard === 'function') {
           const id = card.getAttribute('data-id');
           // moveCard returns nothing and a stage gate can cancel it, so only

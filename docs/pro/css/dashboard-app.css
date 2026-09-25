@@ -4694,7 +4694,19 @@ body {
   #leadModal.modal-bg.open { align-items:flex-end!important; }
   .mfield input, .mfield select, .mfield textarea { font-size:16px!important; padding:12px 14px!important; min-height:48px!important; }
   .mfield label { font-size:11px!important; margin-bottom:6px!important; }
-  .mrow { flex-direction:column!important; gap:0!important; }
+  /* Two columns WITH a gutter (2026-09-25 phone audit). This used to read
+     `flex-direction:column; gap:0` — meant to stack the pairs, but .mrow is
+     a grid, so all it did was delete the 10px gap and leave every pair of
+     inputs touching (First|Last, Phone|Email … Job Value|Lead Cost). Pairs
+     stay side by side on purpose: Date of Loss sits beside Damage Type
+     (#1743). Row gap stays 0 — .mfield carries its own 12px bottom margin.
+     minmax(0,1fr): a bare 1fr can't shrink below a date input's min-content,
+     so at 360px the Date of Loss / Follow-Up columns grew and squeezed the
+     selects beside them to "No Claim Ye". */
+  .mrow { grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important; column-gap:10px!important; row-gap:0!important; }
+  /* "(if referred)" wrapped the Referral Code label to two lines, dropping
+     its input 13px below Source's. The label alone says enough on a phone. */
+  .mfield .mlabel-hint { display:none; }
   .msave { font-size:15px!important; padding:16px!important; min-height:52px!important; margin-top:8px!important; }
   .modal-close { width:44px!important; height:44px!important; font-size:20px!important; top:8px!important; right:8px!important; display:flex!important; align-items:center!important; justify-content:center!important; }
 

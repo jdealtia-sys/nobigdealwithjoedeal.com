@@ -1959,6 +1959,33 @@ const toggleKanbanFullscreen = function () {
 // resolves lexically with no global-object hop and Esc-to-exit keeps working
 // with the name off window.
 
+// Keep an open pipeline header dropdown on screen (2026-09-25 phone audit).
+// Both menus are anchored right:0 under their button, which is right for the
+// desktop row (it sits at the header's right edge) but not for a phone, where
+// the row is left-aligned and the Filters menu hung 130px off the left edge.
+// Nudge `right` so the menu sits 8px inside the viewport, and cap its height
+// at the space left above the fixed phone nav bar (#mobile-nav, z 1900, which
+// would otherwise cover the last items) so a short screen scrolls the menu
+// instead of cutting off Find duplicates / Card density.
+function _placeCrmMenu(menu) {
+  const PAD = 8;
+  menu.style.right = '';
+  menu.style.maxHeight = '';
+  const vw = document.documentElement.clientWidth;
+  let bottom = window.innerHeight;
+  const nav = document.getElementById('mobile-nav');
+  if (nav) {
+    const nr = nav.getBoundingClientRect();
+    if (nr.height > 0 && nr.top > 0 && nr.top < bottom) bottom = nr.top;
+  }
+  const r = menu.getBoundingClientRect();
+  let shift = 0;
+  if (r.left < PAD) shift = PAD - r.left;
+  else if (r.right > vw - PAD) shift = (vw - PAD) - r.right;
+  if (shift) menu.style.right = (-shift) + 'px';
+  menu.style.maxHeight = Math.max(120, Math.floor(bottom - r.top - PAD)) + 'px';
+}
+
 // Tools dropdown (collapsed secondary toolbar)
 function toggleCrmToolsMenu(ev) {
   const menu = document.getElementById('crmToolsMenu');
@@ -1966,6 +1993,7 @@ function toggleCrmToolsMenu(ev) {
   if (typeof closeCrmFiltersMenu === 'function') closeCrmFiltersMenu();
   const isOpen = menu.classList.toggle('open');
   if (isOpen) {
+    _placeCrmMenu(menu);
     // Reflect current filter active-state into the mobile Tools menu
     // items (Needs Attention / Stale Shares / etc.) before the user
     // sees it. The action-delegate also re-syncs on every toggle so
@@ -2001,6 +2029,7 @@ function toggleCrmFiltersMenu(ev) {
   closeCrmToolsMenu();
   const isOpen = menu.classList.toggle('open');
   if (isOpen) {
+    _placeCrmMenu(menu);
     if (typeof window.syncMobileToolsMenuActive === 'function') {
       window.syncMobileToolsMenuActive();
     }

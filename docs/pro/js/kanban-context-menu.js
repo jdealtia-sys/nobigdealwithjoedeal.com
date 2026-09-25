@@ -25,8 +25,9 @@
  *   - Open in Maps          → maps.apple.com / google.com/maps
  *   - Delete                → deleteLead (which already confirms)
  *
- * Dismissed on: outside click, Esc, scroll, second contextmenu
- * elsewhere. Auto-positions to stay inside viewport.
+ * Dismissed on: outside click, Esc, scroll (card menus only — not the
+ * chip pickers, whose anchor sits in a fixed overlay), second
+ * contextmenu elsewhere. Auto-positions to stay inside viewport.
  *
  * Exposes: window.KanbanContextMenu.{open, close}
  */
@@ -286,13 +287,23 @@
     menu.id = isSubmenu ? 'nbd-kanban-ctx-submenu' : 'nbd-kanban-ctx-menu';
     menu.setAttribute('role', 'menu');
     if (opts && opts.title) menu.setAttribute('aria-label', opts.title);
+    // Every menu is capped to the screen, not just submenus (2026-09-25
+    // phone audit). openPicker renders the job-detail stage chip's 25-stage
+    // list as a PRIMARY menu, which had max-height:none: 867px tall, so its
+    // overflow-y:auto never engaged and the top clamp below pinned it at 8px
+    // with Closed, Warranty Claim and Lost below the bottom of a 760px
+    // screen (Deductible onward at 360x680) — unreachable, since the page
+    // behind doesn't scroll either. innerHeight, not vh: a phone's 100vh
+    // includes the browser's collapsible toolbar.
+    const vhPx = window.innerHeight;
+    const maxH = isSubmenu ? Math.min(Math.round(vhPx * 0.7), vhPx - 16) : vhPx - 16;
     menu.style.cssText = `
       position:fixed; z-index:${isSubmenu ? 99998 : 99997};
       background:var(--s,#1a1f2a); color:var(--t,#e8eaf0);
       border:1px solid var(--br,#2a3344); border-radius:8px;
       box-shadow:0 8px 24px rgba(0,0,0,0.4);
       padding:6px 0; min-width:${isSubmenu ? 220 : 200}px;
-      max-height:${isSubmenu ? '70vh' : 'none'}; overflow-y:auto;
+      max-height:${Math.max(120, maxH)}px; overflow-y:auto; overscroll-behavior:contain;
       font-family:'Barlow',-apple-system,system-ui,sans-serif;
       font-size:13px; line-height:1.4;
       animation:nbd-ctx-fade .12s ease-out;`;
@@ -367,9 +378,18 @@
     }
     menuEl = menu;
     setTimeout(() => {
+      if (menuEl !== menu) return; // replaced or closed before the listeners armed
       document.addEventListener('mousedown', _outsideClick, { once: true, capture: true });
       document.addEventListener('keydown', _onEsc, { once: true });
-      window.addEventListener('scroll', closeMenu, { once: true, passive: true });
+      // Close-on-scroll is for a menu floated next to a board card, which
+      // moves when the page scrolls. A picker (openPicker) hangs off a chip
+      // in a fixed overlay — the job detail, the card-detail modal — that
+      // doesn't move, and a live data refresh re-rendering the board behind
+      // that overlay shrinks the page for a frame, clamps scrollY and fires
+      // this. It dismissed the stage picker mid-choice (2026-09-25 phone
+      // audit: document height 1049→849, scrollY 369→169, menu gone the
+      // same millisecond).
+      if (!(opts && opts.keepOnScroll)) window.addEventListener('scroll', closeMenu, { once: true, passive: true });
       // Close on the next contextmenu so a second right-click on a
       // different card opens its menu.
       document.addEventListener('contextmenu', _onSecondContext, { once: true, capture: true });
@@ -387,6 +407,14 @@
     closeSubmenu();
     if (menuEl && menuEl.parentNode) menuEl.parentNode.removeChild(menuEl);
     menuEl = null;
+    // Disarm this menu's dismiss listeners. They are `once`, so any that
+    // didn't fire stayed armed after an item pick or Esc — and the next
+    // menu opened (e.g. a picker, which doesn't arm close-on-scroll) was
+    // closed by the previous menu's leftover listener.
+    document.removeEventListener('mousedown', _outsideClick, true);
+    document.removeEventListener('keydown', _onEsc);
+    window.removeEventListener('scroll', closeMenu);
+    document.removeEventListener('contextmenu', _onSecondContext, true);
   }
 
   function openSubmenu(items, anchor, title) {
@@ -499,7 +527,7 @@
     closeMenu();
     const x = anchor && typeof anchor.x === 'number' ? anchor.x : 100;
     const y = anchor && typeof anchor.y === 'number' ? anchor.y : 100;
-    return renderMenu(items, x, y, { title: title || '' });
+    return renderMenu(items, x, y, { title: title || '', keepOnScroll: true });
   }
 
   window.KanbanContextMenu = {

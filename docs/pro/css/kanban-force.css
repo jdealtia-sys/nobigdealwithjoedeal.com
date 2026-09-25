@@ -302,6 +302,39 @@
   .kanban-col{ min-width:160px!important; max-width:160px!important; }
 }
 
+/* ── Board cards on a phone (2026-09-25 phone audit) ──
+   1. Legibility + taps. dashboard-app.css's ≤900px density block set every
+      card tag to 8.5px and the stage age to 9px. Two of those pills are
+      controls: the next-action chip runs the step (a button since
+      2026-09-15) and the phone number is a tel: link — both were 15px tall.
+      On a phone tags read at 10px, and those two get a 32px tap height. */
+@media (max-width:768px){
+  .k-card .kc-tag,
+  .k-card .kc-days{ font-size:10px!important; }
+  .k-card [data-action="run-next-action"]{ display:inline-flex; align-items:center; min-height:32px; padding:0 9px!important; }
+  .k-card .kc-phone-link{ min-height:32px; }
+}
+/* 2. The footer. mobile-polish.css §6 (#1738) gave the task badge, both
+      arrows and the ⋮ a 40px floor on touch screens — 4 x 40px + gaps =
+      170px in a no-wrap row, but the 430px/360px column widths above leave
+      a 138px/120px footer. The ⋮ hung 21px past a two-arrow card's edge at
+      412 and fully outside it at 360, where the column's overflow:hidden
+      left a 7px sliver and a thumb on it hit the column, not the menu. So at
+      those widths the footer is two rows — task badge + ⋮, then ◀ … ▶ —
+      keeping every target 40px. Cards with no arrows leave row 2 empty. */
+@media (max-width:430px) and (pointer:coarse){
+  .k-card .kc-footer{ display:grid!important; grid-template-columns:auto 1fr auto; align-items:center; }
+  .k-card .kc-actions,
+  .k-card .kc-move{ display:contents!important; }
+  /* min-height re-stated: §6's 40px floor loses to the density block's
+     later `min-height:24px!important`; in the old flex row the ⋮ only
+     reached 40px by stretching to the arrows' height. */
+  .k-card .kc-footer .kc-task-badge{ grid-row:1; grid-column:1; justify-self:start; min-height:40px!important; }
+  .k-card .kc-footer .kc-overflow{ grid-row:1; grid-column:3; min-height:40px!important; }
+  .k-card .kc-move > :first-child{ grid-row:2; grid-column:1; justify-self:start; }
+  .k-card .kc-move > :last-child{ grid-row:2; grid-column:3; justify-self:end; }
+}
+
 /* Bulk selection mode */
 .bulk-mode-active .k-card {
   cursor: pointer;
@@ -980,56 +1013,29 @@
   }
   .crm-hdr-views .kview-btn + .kview-btn{ border-left:1px solid var(--br)!important; }
 
-  /* RIGHT: action icon row.
-     R5.1: previous attempts to hide labels at narrow breakpoints
-     didn't catch every viewport. Real fix: when the row genuinely
-     can't fit on one line, allow horizontal scrolling so no button
-     ever clips. Combined with the existing wrap behavior we get a
-     two-tier graceful degradation: wrap → scroll → never truncate. */
+  /* RIGHT: action row — Filters ▾, Tools ⋯, ＋ Add Lead.
+     NOT a scroll box, at any width (2026-09-25 phone audit). Wave 5c
+     (2026-05-14) made this row a side-scroller — overflow-x:auto +
+     overflow-y:hidden + a mask fade — back when it carried 12-15 inline
+     buttons. The one-row toolbar (2026-07-06) moved all of those INTO the
+     two dropdowns below, which are position:absolute children of this
+     row, so the scroll box started clipping its own menus: a row ~42px
+     tall (30px on desktop) cut both menus off just under the buttons.
+     They opened with .open set and painted nothing — Find duplicates,
+     Deleted leads, Bulk select, Needs Attention and the other filters
+     were unreachable at every width, and a finger tap where "Find
+     duplicates" should be opened the customer card underneath. (The
+     dashboard-app.css mobile rule's overflow-x:visible couldn't help:
+     visible paired with a hidden axis computes to auto.) Three controls
+     never need to scroll, so the row just lays out; dashboard-ui.js
+     _placeCrmMenu keeps each open menu inside the viewport. */
   .crm-hdr-actions{
     display:flex; align-items:center; gap:2px;     /* Pro Chrome: was 4px — tighter clusters */
     margin-left:auto;
-    /* Wave 5c 2026-05-14: dedicated side-scroller treatment.
-       The action row carries 12-15 buttons by the time you count
-       Filters + Bulk + CSV — at any viewport narrower than ~1440px it
-       overflows the .crm-header right edge. Users couldn't tell the
-       row was scrollable, so we add three discoverability cues:
-         1. mask-image fade — the rightmost ~24px of the row fades to
-            transparent, communicating "more content this way →" even
-            when stationary.
-         2. Beefier scrollbar (6px high, accent-tinted thumb) so the
-            scroll affordance is visible on hover/scroll.
-         3. scroll-padding-inline-end so a momentum-scroll glides past
-            the last button into the fade-out gracefully.
-       The fade is purely visual — events still hit the underlying
-       buttons because mask-image doesn't intercept pointer-events. */
     flex-wrap:nowrap;
     min-width:0;
     max-width:100%;
-    padding-right:8px;
-    overflow-x:auto;
-    overflow-y:hidden;
-    scrollbar-width:thin;
-    scrollbar-color:color-mix(in srgb, var(--orange) 60%, var(--br)) transparent;
-    -webkit-mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
-            mask-image:linear-gradient(to right, #000 calc(100% - 24px), transparent);
-    scroll-padding-inline-end:24px;
-    scroll-snap-type:x proximity;
-  }
-  /* Buttons themselves become snap targets so momentum-scroll lands
-     mid-button instead of slicing one in half. */
-  .crm-hdr-actions > .crm-icon-btn,
-  .crm-hdr-actions > .crm-hdr-btn,
-  .crm-hdr-actions > .crm-tools-wrap{ scroll-snap-align:start; }
-  /* Beefier scrollbar on WebKit for affordance visibility. */
-  .crm-hdr-actions::-webkit-scrollbar{ height:6px; }
-  .crm-hdr-actions::-webkit-scrollbar-track{ background:transparent; }
-  .crm-hdr-actions::-webkit-scrollbar-thumb{
-    background:color-mix(in srgb, var(--orange) 55%, var(--br));
-    border-radius:3px;
-  }
-  .crm-hdr-actions::-webkit-scrollbar-thumb:hover{
-    background:var(--orange);
+    overflow:visible;
   }
   /* Prevent label truncation inside individual buttons — long
      labels like 'Stale Shares' / 'Hot first' wrap-as-no-wrap so the
@@ -1076,9 +1082,14 @@
 
   /* Tools dropdown */
   .crm-tools-wrap{ position:relative; display:inline-block; }
+  /* right:0 is only the starting anchor — _placeCrmMenu (dashboard-ui.js)
+     nudges `right` and sets max-height on open so the menu stays on screen
+     and above the phone nav bar. The row is left-aligned on phones, where
+     right:0 alone hung the Filters menu 130px off the left edge. */
   .crm-tools-menu{
     display:none; position:absolute; top:calc(100% + 6px); right:0;
-    min-width:200px; padding:6px;
+    min-width:200px; max-width:calc(100vw - 16px); padding:6px;
+    overflow-y:auto; overscroll-behavior:contain;
     background:var(--s2); border:1px solid var(--br); border-radius:8px;
     box-shadow:0 8px 24px rgba(0,0,0,.35);
     z-index:200;
@@ -1105,21 +1116,29 @@
   /* One-row toolbar (2026-07-06): buttons MOVED into the dropdowns keep
      their ids + .btn/.crm-hdr-btn/.crm-icon-btn classes (every filter
      module binds by id) — normalize them to menu-item form so the
-     header-button styling doesn't leak into the menus. */
+     header-button styling doesn't leak into the menus.
+     2026-09-25: the leak was never seen because the menus never painted
+     (see .crm-hdr-actions above). Once they did, the moved items read as
+     a second style inside one menu — .btn's condensed uppercase, and
+     .crm-icon-btn's centring, plus .crm-hdr-btn's 11px!important font and
+     5px 9px!important padding — so those are reset here too. The
+     !important pair is re-set for phones in the @768 block below. */
   .crm-tools-menu .crm-hdr-btn,
   .crm-tools-menu .crm-icon-btn{
-    display:flex; align-items:center; gap:7px;
-    width:100%; text-align:left;
+    display:flex; align-items:center; justify-content:flex-start; gap:7px;
+    width:100%; height:auto; text-align:left;
     background:transparent; border:none; box-shadow:none;
     border-left:3px solid transparent; border-radius:5px;
     padding:8px 12px; font-size:12px; color:var(--t);
+    font-family:inherit; font-weight:400; letter-spacing:normal; text-transform:none;
     min-height:0;
   }
+  .crm-tools-menu .crm-hdr-btn{ font-size:12px!important; padding:8px 12px!important; line-height:normal!important; }
   .crm-tools-menu .crm-hdr-btn:hover,
   .crm-tools-menu .crm-icon-btn:hover{ background:var(--s3); color:var(--orange); }
   /* Labels always visible inside menus — the compact-density and mobile
      rules that hide .crm-hdr-btn-label are for the inline header row. */
-  .crm-tools-menu .crm-hdr-btn-label{ display:inline !important; }
+  .crm-tools-menu .crm-hdr-btn-label{ display:inline !important; font-size:inherit; letter-spacing:inherit; }
   /* Filters button shows its active state like the old inline pills */
   #crmFiltersBtn.active{
     color:var(--orange);
@@ -1424,6 +1443,11 @@
     .crm-hdr-search{ width:100%; min-width:0; }
     .crm-hdr-actions{ width:100%; justify-content:flex-start; }
     .crm-hdr-views .kview-btn{ padding:5px 8px; font-size:10px; }
+    /* Moved header buttons match the phone menu items (dashboard-app.css
+       @768 `.crm-tools-menu button`: 13px, 10px 14px, 44px tall) — that
+       rule's specificity loses to the desktop reset above. */
+    .crm-tools-menu .crm-hdr-btn,
+    .crm-tools-menu .crm-icon-btn{ font-size:13px!important; padding:10px 14px!important; }
   }
 
   /* ════ END compact CRM header ════ */
@@ -1438,6 +1462,34 @@
   .fa-name{font-weight:700;color:var(--t);}
   .fa-date{color:var(--orange);font-size:11px;}
   .fa-btn{margin-left:auto;background:var(--orange);color:var(--accent-fg);border:none;border-radius:4px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:inherit;font-weight:700;}
+  /* "+ N more" under the follow-up rows is a button now (it opens the rest,
+     crm-pipeline.js _renderFollowUpRows); dressed as the old text line. */
+  .fa-more{display:block;background:none;border:none;padding:6px 0;font-size:11px;color:var(--m);cursor:pointer;font-family:inherit;text-align:left;}
+  .fa-more:hover{color:var(--orange);}
+  /* Phone follow-up rows (2026-09-25 phone audit). The one-line flex row
+     above crammed icon, name, street, date and button into 330px: names,
+     "Due: 2026- / 09-26" and "View / →" all broke across lines, and View
+     was 53x20 with 10px text. Two lines instead — name + due date, then the
+     street — with a 40px View button spanning both. The hidden-stage chip
+     (renderHiddenStageChip) reuses these rows without icon/date; its cells
+     just leave those areas empty. */
+  @media (max-width:768px){
+    .follow-up-alert{
+      display:grid!important;
+      grid-template-columns:auto minmax(0,1fr) auto auto;
+      grid-template-areas:"icon name date btn" "icon addr addr btn";
+      align-items:center; column-gap:8px; row-gap:2px;
+      padding:8px 8px 8px 12px;
+    }
+    .follow-up-alert .fa-icon{grid-area:icon;}
+    .follow-up-alert .fa-name{grid-area:name;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .follow-up-alert .fa-addr{grid-area:addr;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .follow-up-alert .fa-date{grid-area:date;white-space:nowrap;}
+    .follow-up-alert .fa-btn{grid-area:btn;margin-left:0;min-height:40px;padding:0 12px;font-size:12px;white-space:nowrap;}
+    .fa-more{min-height:40px;font-size:12px;}
+    /* Dismiss is inline-styled 10px / 4px 10px in dashboard.html. */
+    #followUpAlertsWrap [data-fn="hideFollowUpAlerts"]{min-height:40px!important;padding:0 14px!important;font-size:12px!important;}
+  }
 
 /* ══════════════════════════════════════════════════════════════
    PROSPECTS PAGE — D2D knocks awaiting promotion

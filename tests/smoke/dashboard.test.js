@@ -1111,33 +1111,35 @@ section('Wave 6 (A.1) — Pro Chrome on customer.html via shared theme-system.cs
     'customer.html should use color-mix(in srgb, var(--orange) ...) instead of literal rgba');
 }
 
-section('Wave 5c — .crm-hdr-actions side-scroller affordance');
+section('Pipeline header row is not a scroll box (2026-09-25 phone audit)');
 {
-  const dash = readDashboardStyles(); // html + extracted css (Rock 4 Phase 2b-d)
-  // 1. Fade gradient + snap-type — search whole file since there are
-  //    multiple .crm-hdr-actions rule blocks (one outer, one inside an
-  //    @media), and the new behavior lives in the wider block.
-  assert('.crm-hdr-actions has a mask-image fade on the right edge',
-    /mask-image:\s*linear-gradient\(to right,\s*#000\s+calc\(100% - 24px\),\s*transparent\)/.test(dash),
-    'expected mask-image right-edge fade so scrollability is visually communicated');
-  assert('.crm-hdr-actions uses scroll-snap-type x proximity',
-    /scroll-snap-type:\s*x\s+proximity/.test(dash),
-    'expected scroll-snap-type:x proximity for cleaner momentum stops');
-  // 2. Children become snap targets.
-  assert('.crm-hdr-btn / .crm-icon-btn become scroll-snap targets',
-    /\.crm-hdr-actions > \.crm-icon-btn,\s*\.crm-hdr-actions > \.crm-hdr-btn[\s\S]{0,80}scroll-snap-align:\s*start/.test(dash),
-    'expected scroll-snap-align:start on the action-row children');
-  // 3. Scrollbar is visible (6px) and tinted with the accent.
-  assert('.crm-hdr-actions scrollbar is 6px tall',
-    /\.crm-hdr-actions::-webkit-scrollbar\{\s*height:\s*6px/.test(dash),
-    'expected the webkit scrollbar height of 6px for affordance visibility');
-  assert('.crm-hdr-actions scrollbar thumb uses --orange-tinted color',
-    /\.crm-hdr-actions::-webkit-scrollbar-thumb\{[\s\S]{0,200}var\(--orange\)/.test(dash),
-    'expected scrollbar thumb tinted with --orange');
-  // 4. Old 3px height rule retired.
-  assert('old 3px scrollbar override retired',
-    !/\.crm-hdr-actions::-webkit-scrollbar\{\s*height:\s*3px/.test(dash),
-    'found leftover .crm-hdr-actions::-webkit-scrollbar height:3px — should be replaced by the Wave 5c 6px treatment');
+  // Wave 5c (2026-05-14) made .crm-hdr-actions an overflow-x:auto side
+  // scroller (mask fade, snap, 6px scrollbar) for a 12-15 button row, and
+  // this section used to pin that treatment. The one-row toolbar
+  // (2026-07-06) then moved those buttons INTO the Filters/Tools dropdowns,
+  // which are absolutely positioned inside the row — so the scroll box
+  // clipped both menus to nothing, at every width, for months. The row now
+  // lays out (three controls) and each menu places itself on open. The
+  // behaviour is pinned by tests/e2e/phone-pipeline.spec.js (hit-testing +
+  // real taps); this keeps a scroller from quietly coming back. Comments
+  // are stripped first: the fix's own comment names the old declarations.
+  const css = readDashboardStyles().replace(/\/\*[\s\S]*?\*\//g, '');
+  const blocks = [...css.matchAll(/\.crm-hdr-actions\s*\{([^}]*)\}/g)].map((m) => m[1]);
+  assert('.crm-hdr-actions rule blocks found', blocks.length >= 2);
+  assert('no .crm-hdr-actions block makes the row a scroll/clip box',
+    blocks.every((b) => !/overflow(-x|-y)?\s*:\s*(auto|scroll|hidden|clip)/.test(b)),
+    'a scrolling/clipping .crm-hdr-actions clips its own absolutely-positioned dropdown menus');
+  assert('the base .crm-hdr-actions block says overflow:visible',
+    blocks.some((b) => /(^|;|\s)overflow\s*:\s*visible/.test(b)));
+  assert('the old side-scroller scrollbar/snap rules are gone',
+    !/\.crm-hdr-actions::-webkit-scrollbar/.test(css) && !/\.crm-hdr-actions > \.crm-tools-wrap\s*\{\s*scroll-snap-align/.test(css));
+  assert('dropdown menus scroll themselves when a screen is short',
+    /\.crm-tools-menu\s*\{[^}]*overflow-y:\s*auto/.test(css));
+  const ui = read(path.join(PRO_JS, 'dashboard-ui.js'));
+  assert('both header menus are placed on screen when they open',
+    /function _placeCrmMenu\(menu\)/.test(ui)
+    && /function toggleCrmToolsMenu[\s\S]{0,400}_placeCrmMenu\(menu\)/.test(ui)
+    && /function toggleCrmFiltersMenu[\s\S]{0,300}_placeCrmMenu\(menu\)/.test(ui));
 }
 
 section('Wave 5b — Gradient flatten + bulk accent-fg migration');
@@ -1398,7 +1400,7 @@ section('Pipeline one-row toolbar (2026-07-06) — three controls, ids intact');
   assert('menu-item normalization for moved .crm-hdr-btn/.crm-icon-btn',
     /\.crm-tools-menu \.crm-hdr-btn,\s*\.crm-tools-menu \.crm-icon-btn\{/.test(styles));
   assert('labels forced visible inside menus',
-    /\.crm-tools-menu \.crm-hdr-btn-label\{ display:inline !important; \}/.test(styles));
+    /\.crm-tools-menu \.crm-hdr-btn-label\{ display:inline !important;/.test(styles));
   assert('mobile no longer id-hides the relocated filter buttons',
     !/#needsAttentionBtn,\s*#staleSharesBtn/.test(styles));
 }
