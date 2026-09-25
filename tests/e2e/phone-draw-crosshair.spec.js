@@ -1420,6 +1420,33 @@ test.describe.serial('phone draw crosshair on the real engine (L3) 412x860 @shar
     await T.setView(page, WING.view, WING.zoom);
   });
 
+  // An accessory shows no ring, so it must not snap either: before the gate
+  // lane its Confirm sent {edgeType}, and the engine's crosshair snap pulled
+  // a pipe boot aimed 5 px off a corner onto the corner.
+  test('an accessory lands exactly at the crosshair — never pulled onto a corner it showed no ring for', async () => {
+    const pxBetween = (a, b) => page.evaluate(([a1, b1]) => drawMap.latLngToContainerPoint(a1).distanceTo(drawMap.latLngToContainerPoint(b1)), [a, b]);
+    const toggle = () => page.evaluate(() => document.querySelector('#accessoryPanel [data-mr-action="toggleAccessoryMode"][data-mr-id="pipe"]').click());
+    await toggle();
+    await T.quietToasts(page);
+    await T.setView(page, WING.D, WING.zoom);
+    await aimOff(WING.D, 5, 0);
+    expect(await text('[data-dr-act="add"]'), 'Add places the pipe boot').toMatch(/^Place /);
+    expect(await box('.dr-snap:not(.dr-pickring)'), 'no ring for an accessory').toBeNull();
+    expect((await api('snap')).snapped, 'the engine WOULD snap a crosshair point here (z21, 5 px)').toBe(true);
+    const aim = await page.evaluate(() => { const c = drawMap.getCenter(); return { lat: c.lat, lng: c.lng }; });
+    const before = ((await T.drawState(page)).saved.accessories || []).length;
+    await tapSel('[data-dr-act="add"]');
+    await tapSel('[data-dr-act="confirm"]');
+    const acc = (await T.drawState(page)).saved.accessories || [];
+    expect(acc.length, 'one pipe boot placed').toBe(before + 1);
+    const put = acc[acc.length - 1];
+    expect(await pxBetween(put, aim), 'the pipe boot is where the crosshair was (px)').toBeLessThanOrEqual(0.75);
+    expect(await pxBetween(put, WING.D), '...not on corner D (px)').toBeGreaterThan(4);
+    await toggle();
+    await T.quietToasts(page);
+    await T.setView(page, WING.view, WING.zoom);
+  });
+
   test('switch off: the screen comes down whole, crosshair mode off, Leaflet\'s options back, and a tap places a point again', async () => {
     await T.quietToasts(page);
     await tapSel('[data-dr-act="add"]'); // a point pending, so there is a magnifier to take down too
