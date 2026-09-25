@@ -366,7 +366,10 @@ const RUNNABLE = ['node', 'smoke'];
 //               (Upgrades & Add-ons pricing core). MEASURED via --check on a
 //               branch cut from origin/main at df8bca1f. Sibling upgrade lanes
 //               are open the same day — whoever merges last re-measures.
-const FLOORS = { node: 183, smoke: 68, disk: 272 };
+//   2026-09-25  183/68/272 -> 184/68/273, tests/job-template-honest-paperwork.test.js
+//               (Upgrades slice 0), the sibling that merged second.
+//               RE-MEASURED via --check after rebasing onto #1756.
+const FLOORS = { node: 184, smoke: 68, disk: 273 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

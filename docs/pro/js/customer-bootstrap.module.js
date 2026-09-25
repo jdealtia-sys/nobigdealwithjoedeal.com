@@ -1869,7 +1869,10 @@ async function loadEstimates(leadId) {
     // globals the customer page keeps in sync (_currentLead / _leadDoc).
     const primaryId = (window._currentLead || window._leadDoc || {}).primaryEstimateId || null;
     const html = window._customerEstimates.map(est => {
-      const tier = String(est.tier || est.tierName || '');
+      // No chip when no tier applies (a Job Template estimate — 2026-09-25):
+      // a 'better' chip on a gutter quote was a default, not a choice.
+      const tier = (window.NBDCustomerEstimateRows?.tierApplies?.(est) === false)
+        ? '' : String(est.tier || est.tierName || '');
       const tierColor = tier==='best'?'var(--green)':tier==='better'?'#9B6DFF':'var(--orange)';
       const tierLabel = tier ? `<span style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:${tierColor};border:1px solid ${tierColor};padding:1px 6px;border-radius:3px;margin-left:6px;">${esc(tier)}</span>` : '';
       const dateStr = est.createdAt?.toDate ? est.createdAt.toDate().toLocaleDateString() : '—';
@@ -3155,7 +3158,9 @@ window.exportCustomerEstimate = async function(estimateId) {
     pdf.text((_rowsApi && typeof _rowsApi.estimateName === 'function')
       ? _rowsApi.estimateName(est)
       : (est.title || est.name || est.addr || 'Estimate'), 14, y); y += 8;
-    const tier = est.tier || est.tierName || '';
+    // Homeowner PDF: no "Tier: BETTER" line when no tier applies (2026-09-25).
+    const tier = (_rowsApi && typeof _rowsApi.tierApplies === 'function' && _rowsApi.tierApplies(est) === false)
+      ? '' : (est.tier || est.tierName || '');
     if (tier) { pdf.setFontSize(9); pdf.setTextColor(100,100,100); pdf.text(`Tier: ${tier.toUpperCase()}`, 14, y); y += 6; }
 
     // Customer-facing lines at RETAIL. Reading est.lineItems ONLY printed a
@@ -3276,6 +3281,17 @@ window.generateCertFromEstimate = async function(estimateId) {
   const est = window._customerEstimates.find(e => e.id === estimateId);
   if (!est) { if (typeof showToast === 'function') showToast('Estimate not found', 'error'); return; }
 
+  // Job-type warranty (2026-09-25). A Job Template estimate's workmanship
+  // warranty comes from its job type, not a roofing tier: this certificate
+  // said "Lifetime Workmanship" on gutter and repair jobs. null for every
+  // other estimate (and roofing), which keeps the lifetime certificate below.
+  const _jw = (window.NBDCustomerEstimateRows?.estimateWarranty?.(est)) || null;
+  const _jobW = (_jw && _jw.text !== null) ? _jw : null;
+  if (_jobW && !_jobW.text) {
+    if (typeof showToast === 'function') showToast('This estimate carries no workmanship warranty, so there is no warranty to certify.', 'error');
+    return;
+  }
+
   const lead = window._currentLead || {};
   // SECURITY: firstName/lastName/address come from public lead intake, and
   // est.title re-carries the address. This HTML is written via document.write
@@ -3291,7 +3307,9 @@ window.generateCertFromEstimate = async function(estimateId) {
   // who bought Elite could receive a certificate claiming only 5 years. All
   // tiers are now lifetime workmanship (estimate-config.js TIER_DISPLAY);
   // only the transferability/inspection differentiator varies by tier.
-  const _tierKey = String(est.tier || est.tierName || '').toLowerCase();
+  // A job-type warranty has no tier; a new roofing template estimate prints
+  // the tier wording its flow always saved ('better').
+  const _tierKey = _jobW ? '' : (_jw ? _jw.wordingTier : String(est.tier || est.tierName || '').toLowerCase());
   const _cfg = window.NBD_ESTIMATE_CONFIG;
   const tierLabelStr = (_cfg && typeof _cfg.tierLabel === 'function')
     ? _cfg.tierLabel(_tierKey) : ({ good: 'Standard', better: 'Preferred', best: 'Elite' })[_tierKey] || '';
@@ -3352,14 +3370,14 @@ window.generateCertFromEstimate = async function(estimateId) {
   <div class="details">
     <div class="row"><span class="label">Customer</span><span class="value">${custName}</span></div>
     <div class="row"><span class="label">Property</span><span class="value">${esc(lead.address || '—')}</span></div>
-    <div class="row"><span class="label">Work Performed</span><span class="value">${esc(est.title || 'Roofing Installation')}</span></div>
+    <div class="row"><span class="label">Work Performed</span><span class="value">${esc(est.title || (_jobW && est.name) || 'Roofing Installation')}</span></div>
     <div class="row"><span class="label">Completion Date</span><span class="value">${new Date(installDate).toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</span></div>
     ${tierLabelStr ? `<div class="row"><span class="label">Guarantee Tier</span><span class="value">${esc(tierLabelStr)}</span></div>` : ''}
-    <div class="row"><span class="label">Warranty Period</span><span class="value">Lifetime Workmanship</span></div>
+    <div class="row"><span class="label">Warranty Period</span><span class="value">${_jobW ? esc(_jobW.years ? _jobW.years + '-Year Workmanship' : 'As stated below') : 'Lifetime Workmanship'}</span></div>
     ${warrantyBlurb ? `<div class="row"><span class="label">Transferability</span><span class="value">${esc(warrantyBlurb)}</span></div>` : ''}
     <div class="row"><span class="label">Certificate #</span><span class="value">NBD-${estimateId.slice(0,8).toUpperCase()}</span></div>
   </div>
-  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. This warranty covers defects in workmanship for the lifetime of the installation.</p>
+  <p style="font-size:12px;color:#666;line-height:1.7;margin:20px 0;">This certificate warrants that all work performed by No Big Deal Home Solutions at the above property was completed using industry-standard materials and craftsmanship. ${_jobW ? esc(_jobW.text) + ' Defects in the workmanship it covers, appearing within that period, will be repaired at no cost to you.' : 'This warranty covers defects in workmanship for the lifetime of the installation.'}</p>
   <div class="footer">
     <div class="sig"><div class="sig-line">Contractor Signature</div></div>
     <div class="sig"><div class="sig-line">Date Issued: ${new Date().toLocaleDateString()}</div></div>

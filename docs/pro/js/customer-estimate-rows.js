@@ -235,12 +235,229 @@
     return est.title || est.name || est.addr || 'Estimate';
   }
 
+  // ── Tier + workmanship warranty of a SAVED estimate (2026-09-25) ────
+  // Job Templates showed a Good/Better/Best row that priced nothing: all 107
+  // templates resolve to identical totals at every tier. The saved tier was a
+  // silent default ('better'), and the paperwork turned it into "Preferred"
+  // plus a LIFETIME workmanship warranty on gutter jobs, repairs and
+  // inspections. Template estimates now save `tierApplies: false` and a
+  // job-type `warrantyKind` (job-templates.js buildEstimatePayload), and every
+  // customer-facing reader asks these two helpers instead of printing est.tier.
+  // documentation/projects/UPGRADES-ADDONS-DESIGN-2026-09-25.md
+  //
+  // They live here because this file already reaches all three runtimes that
+  // print an estimate: dashboard.html, customer.html and functions/ (the
+  // portal). customer.html does NOT load estimate-config.js, so the kind→years
+  // table below is a copy of NBD_ESTIMATE_CONFIG.WORKMANSHIP_WARRANTY, used
+  // only when that global is absent; tests/job-template-honest-paperwork.test.js
+  // fails if the two ever differ.
+  const WORKMANSHIP_WARRANTY_FALLBACK = {
+    gutter_system:   { years: 5 },
+    guard_only:      { years: 2 },
+    install_default: { years: 2 },
+    repair:          { years: 1, optIn: true },
+    none:            { years: 0 },
+    roof:            { tierWording: true },
+  };
+
+  // ESTIMATES SAVED BEFORE 2026-09-25 carry no tierApplies/warrantyKind, only
+  // the silent tier and `sourceTemplates`. The rule for them: a Job Template
+  // estimate whose sources include no ROOFING template gets no tier, and the
+  // workmanship warranty of its job type (LEGACY_WARRANTY_BY_ID below), never
+  // the tier's lifetime claim. Provable because (a) tiers priced nothing on any
+  // Job Template, so the saved tier never recorded a choice the homeowner paid
+  // for, and (b) the ids below are exactly the default templates whose
+  // warrantyKind is 'roof' — the test pins this pattern against
+  // job-templates-data.js both ways. Roofing keeps its tier and wording
+  // untouched, which is Jo's call for roofing. A template the rep made with
+  // Duplicate (jt_custom_*) cannot be classified from its id and falls on the
+  // no-claim side: printing nothing is honest for a roof, printing "lifetime"
+  // is not for a gutter.
+  const ROOFING_TEMPLATE_ID_RE = /^jt_fr_|^jt_sp_(standing_seam_full|exposed_fastener_metal|designer_shingle_full|cedar_shake_replacement|tpo_flat_full|modbit_lowslope)$/;
+
+  // The default templates whose job type carries a workmanship warranty with
+  // no rep choice involved: [warrantyKind, name], copied from
+  // job-templates-data.js (this file cannot load it — customer.html and the
+  // portal don't). Review 2026-09-25: without it, an in-flight K5 gutter job
+  // quoted before the change got NO warranty on its contract and a refused
+  // certificate, where Jo's term for a new gutter system is 5 years. Repairs
+  // are absent on purpose: an old estimate never had the 1-year box ticked, so
+  // it prints none (the rep re-creates the estimate to add it). Inspections,
+  // cleaning and Duplicates (jt_custom_*) are absent too and print none.
+  // tests/job-template-honest-paperwork.test.js pins this table to the data
+  // both ways (every gutter_system / guard_only / install_default default is
+  // here with its kind and name, and nothing else is).
+  const LEGACY_WARRANTY_BY_ID = {
+    jt_lf_chimney_cricket: ['install_default', 'Chimney Cricket / Saddle Install'],
+    jt_lf_skylight_replace_curb: ['install_default', 'Skylight Replacement (Curb-Mount)'],
+    jt_lf_kickout_install: ['install_default', 'Kickout Flashing Install + Siding Patch'],
+    jt_gr_downspout_ext_4ea: ['install_default', 'Downspout Extension Install (4 EA)'],
+    jt_gr_guard_install_50lf: ['guard_only', 'Gutter Guard Install (50 LF)'],
+    jt_gi_k5_seamless_full: ['gutter_system', 'Seamless K5 Gutter System (Full Wrap)'],
+    jt_gi_k6_oversize: ['gutter_system', 'Seamless K6 Oversize Gutter System'],
+    jt_gi_half_round: ['gutter_system', 'Half-Round Gutter System'],
+    jt_gi_gutters_guards_package: ['gutter_system', 'Gutters + Guards Complete Package'],
+    jt_gi_downspout_only: ['install_default', 'Downspout-Only Package (Whole House)'],
+    jt_gi_partial_run_60: ['gutter_system', 'Partial Gutter Run (One Elevation)'],
+    jt_gi_copper_accent: ['gutter_system', 'Copper Accent Run (Front Elevation)'],
+    jt_gi_new_construction: ['gutter_system', 'New Construction Gutter Package'],
+    jt_sf_fascia_replacement_wrap: ['install_default', 'Fascia Replacement (60 LF) + Aluminum Wrap'],
+    jt_sf_soffit_replacement_vented: ['install_default', 'Soffit Replacement — Vented (~80 SF)'],
+    jt_sf_alum_fascia_wrap: ['install_default', 'Aluminum Fascia Wrap Only (80 LF)'],
+    jt_sf_rake_board_replacement: ['install_default', 'Rake Board Replacement (30 LF)'],
+    jt_vt_ridge_vent_retrofit: ['install_default', 'Ridge Vent Retrofit (Cut-In, ~40 LF)'],
+    jt_vt_turbine_vent_install: ['install_default', 'Turbine Vent Install'],
+    jt_vt_power_attic_fan: ['install_default', 'Power Attic Fan Install (Electric)'],
+    jt_vt_solar_attic_fan: ['install_default', 'Solar Attic Fan Install'],
+    jt_vt_bath_fan_termination: ['install_default', 'Bath Fan Roof Termination'],
+    jt_vt_soffit_intake_retrofit: ['install_default', 'Intake / Soffit Vent Retrofit'],
+    jt_vt_balance_package: ['install_default', 'Ventilation Balance Package (Intake + Exhaust)'],
+    jt_sp_porch_metal_accent: ['install_default', 'Porch / Accent Standing Seam Metal Roof'],
+    jt_sp_flat_roof_coating: ['install_default', 'Flat Roof Coating / Restoration'],
+    jt_ex_siding_replace_elevation: ['install_default', 'Siding Replacement — One Elevation'],
+    jt_ex_window_replace_1: ['install_default', 'Window Replacement (1 EA)'],
+    jt_ex_entry_door_replace: ['install_default', 'Entry Door Replacement'],
+    jt_ex_deck_rebuild_100sf: ['install_default', 'Small Deck Rebuild (~100 SF)'],
+  };
+
+  // warrantyParts for an estimate saved before 2026-09-25, from its sources.
+  function legacyWarrantyParts(est) {
+    return (Array.isArray(est.sourceTemplates) ? est.sourceTemplates : []).map(function (id) {
+      const hit = Object.prototype.hasOwnProperty.call(LEGACY_WARRANTY_BY_ID, String(id))
+        ? LEGACY_WARRANTY_BY_ID[String(id)] : null;
+      return hit ? { kind: hit[0], name: hit[1] } : { kind: null, name: '' };
+    });
+  }
+
+  function warrantyTable() {
+    const cfg = (typeof window !== 'undefined') && window.NBD_ESTIMATE_CONFIG;
+    return (cfg && cfg.WORKMANSHIP_WARRANTY) || WORKMANSHIP_WARRANTY_FALLBACK;
+  }
+
+  // Per-SQ is the one pricing model where Good/Better/Best changes the price
+  // (V2's 545/595/660 per SQ). A template estimate re-saved from V2 in per-SQ
+  // mode is a roofing quote with a real tier, whatever it started as.
+  function isPerSqEstimate(est) {
+    return !!est && (est.priceMode === 'per-sq' || est.prices != null);
+  }
+
+  function isJobTemplateEstimate(est) {
+    return !!est && (est.builder === 'template'
+      || (Array.isArray(est.sourceTemplates) && est.sourceTemplates.length > 0));
+  }
+
+  function hasRoofingSource(est) {
+    return Array.isArray(est.sourceTemplates)
+      && est.sourceTemplates.some(function (id) { return ROOFING_TEMPLATE_ID_RE.test(String(id)); });
+  }
+
+  /**
+   * Does a Good/Better/Best tier apply to this saved estimate?
+   * false → print nothing tier-related (no "Preferred", no "Better tier").
+   * true for anything that is not a Job Template estimate, so every other
+   * builder's output is untouched; true for null (nothing to suppress).
+   */
+  function tierApplies(est) {
+    if (!est) return true;
+    if (isPerSqEstimate(est)) return true;
+    if (est.tierApplies === true) return true;
+    if (est.tierApplies === false) return false;
+    if (isJobTemplateEstimate(est)) return hasRoofingSource(est);
+    return true;
+  }
+
+  function warrantyYears(kind, repairWarranty) {
+    const entry = warrantyTable()[kind];
+    if (!entry || entry.tierWording) return 0;
+    if (entry.optIn && repairWarranty !== true) return 0;
+    const y = Number(entry.years);
+    return Number.isFinite(y) && y > 0 ? y : 0;
+  }
+
+  function joinNames(names) {
+    if (names.length <= 1) return names[0] || '';
+    return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1];
+  }
+
+  /**
+   * The workmanship warranty a saved estimate carries.
+   *
+   *   null — not a Job Template estimate (or per-SQ, or a pre-2026-09-25
+   *          roofing one). The caller keeps its existing tier wording.
+   *   { kind:'roof', wordingTier, text:null } — roofing: print the caller's
+   *          existing tier wording for `wordingTier`. A new roofing template
+   *          estimate has no tier, so this is 'better', the value that flow
+   *          always saved; the printed sentence is unchanged.
+   *   { kind, wordingTier:'', years, text } — any other job type. `text` is
+   *          the plain-text sentence to print ('' = no workmanship warranty:
+   *          an unticked repair, an inspection). `years` is set when one
+   *          duration covers the whole job, else null. Plain text: HTML
+   *          renderers escape it.
+   *   …plus `legacy: true` for a non-roofing template estimate saved before
+   *          2026-09-25: its kinds come from LEGACY_WARRANTY_BY_ID, so a gutter
+   *          system still gets its 5 years and a repair gets none (the box
+   *          did not exist). Screens use the flag to say why there is none.
+   */
+  function estimateWarranty(est) {
+    if (!est || isPerSqEstimate(est) || !isJobTemplateEstimate(est)) return null;
+    let kind = est.warrantyKind || null;
+    let parts = est.warrantyParts;
+    let legacy = false;
+    if (!kind) {
+      if (est.tierApplies !== undefined) return { kind: null, wordingTier: '', years: null, text: '' };
+      if (hasRoofingSource(est)) return null;
+      legacy = true;
+      parts = legacyWarrantyParts(est);
+      kind = (parts.length && parts.every(function (p) { return p.kind === parts[0].kind; }))
+        ? parts[0].kind : (parts.length ? 'mixed' : null);
+    }
+    // One return shape; `legacy` only rides on the pre-2026-09-25 results.
+    const result = function (years, text) {
+      const r = { kind: kind, wordingTier: '', years: years, text: text };
+      if (legacy) r.legacy = true;
+      return r;
+    };
+    if (kind === 'roof') {
+      const t = tierApplies(est) ? String(est.tier || est.selectedTier || '').toLowerCase() : '';
+      return { kind: 'roof', wordingTier: t || 'better', years: null, text: null };
+    }
+    if (!(Array.isArray(parts) && parts.length)) parts = [{ name: '', kind: kind }];
+    const covered = [];
+    parts.forEach(function (p) {
+      const y = warrantyYears(p && p.kind, est.repairWarranty);
+      if (y > 0) covered.push({ name: String((p && p.name) || '').trim(), years: y });
+    });
+    if (!covered.length) return result(null, '');
+    const uniform = covered.every(function (c) { return c.years === covered[0].years; });
+    if (uniform && covered.length === parts.length) {
+      return result(covered[0].years, covered[0].years + '-year workmanship warranty.');
+    }
+    // Part of the job is warranted and part is not, or durations differ: name
+    // each warranted part, so the sentence cannot be read as covering the rest.
+    const byYears = {};
+    const order = [];
+    covered.forEach(function (c) {
+      if (!byYears[c.years]) { byYears[c.years] = []; order.push(c.years); }
+      if (c.name) byYears[c.years].push(c.name);
+    });
+    const text = order.map(function (y) {
+      const names = byYears[y];
+      return y + '-year workmanship warranty' + (names.length ? ' on ' + joinNames(names) : '') + '.';
+    }).join(' ');
+    return result(null, text);
+  }
+
   const _api = {
     buildDocLineItems: buildDocLineItems,
     buildDisplayRows: buildDisplayRows,
     numFrom: numFrom,
     estimateValue: estimateValue,
     estimateName: estimateName,
+    tierApplies: tierApplies,
+    estimateWarranty: estimateWarranty,
+    WORKMANSHIP_WARRANTY_FALLBACK: WORKMANSHIP_WARRANTY_FALLBACK,
+    ROOFING_TEMPLATE_ID_RE: ROOFING_TEMPLATE_ID_RE,
+    LEGACY_WARRANTY_BY_ID: LEGACY_WARRANTY_BY_ID,
   };
   if (typeof window !== 'undefined') {
     window.NBDCustomerEstimateRows = _api;

@@ -59,6 +59,10 @@
     'MAT DEL': 1
   };
 
+  // Workmanship warranty kinds a template may declare (job-templates-data.js
+  // header; years live in NBD_ESTIMATE_CONFIG.WORKMANSHIP_WARRANTY).
+  const WARRANTY_KINDS = ['roof', 'gutter_system', 'guard_only', 'install_default', 'repair', 'none'];
+
   // Typical-house measurement context — the BASE of the resolveSelection
   // overlay: DEFAULT_MEASUREMENTS ← each selected template's (possibly
   // PARTIAL) measurements object, in selection order ← opts.measurements
@@ -828,6 +832,53 @@
     return arr.map(s => (typeof s === 'string' ? { templateId: s } : s)).filter(s => s && s.templateId);
   }
 
+  // ─── Tier + workmanship warranty (2026-09-25) ───────────────────────
+  // Good/Better/Best priced nothing on any template: tier reaches price only
+  // through EstimateLogic.resolveMaterial(materialId, tier), and no template
+  // line carries a materialId, so all 107 resolve to identical totals at every
+  // tier (tests/job-template-honest-paperwork.test.js re-measures this). The
+  // row still defaulted to 'better' and the paperwork printed that as
+  // "Preferred" + a lifetime workmanship warranty. The row now shows only for
+  // a template that says `tierPriced: true` — METADATA, never inferred from
+  // the price band, which is blank for every template a tenant has not costed.
+  // The tier path itself stays intact for the roofing ladder that will set it.
+  function tiersApply(selection) {
+    return normalizeSelection(selection).some(s => {
+      const t = get(s.templateId);
+      return !!(t && t.tierPriced === true);
+    });
+  }
+
+  // A template's workmanship warranty kind. Defaults declare one explicitly.
+  // A custom saved before the field existed (an edited default keeps the
+  // default's id; a Duplicate records basedOn) inherits its default's kind.
+  // A from-scratch custom with neither gets the cautious reading of its own
+  // jobType: installs 2 yr, everything else no warranty unless the rep ticks
+  // the repair box — never lifetime unless it is a roof replacement.
+  function warrantyKindOf(tpl) {
+    if (!tpl) return null;
+    if (WARRANTY_KINDS.indexOf(tpl.warrantyKind) !== -1) return tpl.warrantyKind;
+    const baseId = tpl.basedOn || tpl.id;
+    const base = defaults().find(d => d && d.id === baseId);
+    if (base && WARRANTY_KINDS.indexOf(base.warrantyKind) !== -1) return base.warrantyKind;
+    if (tpl.category === 'roof_replacement') return 'roof';
+    if (tpl.jobType === 'inspection') return 'none';
+    if (tpl.jobType === 'install' || tpl.jobType === 'replacement') return 'install_default';
+    return 'repair';
+  }
+
+  // The estimate-level warranty for a set of templates. Any roofing template
+  // makes the whole estimate 'roof' (its wording is the unchanged roofing
+  // wording); otherwise one shared kind, or 'mixed' with the per-template parts
+  // NBDCustomerEstimateRows.estimateWarranty() names in the sentence.
+  function selectionWarranty(tpls) {
+    const parts = tpls.map(t => ({ name: String(t.name || ''), kind: warrantyKindOf(t) }));
+    let kind = null;
+    if (parts.some(p => p.kind === 'roof')) kind = 'roof';
+    else if (parts.length) kind = parts.every(p => p.kind === parts[0].kind) ? parts[0].kind : 'mixed';
+    return { kind, parts };
+  }
+
   function itemChoice(choices, index) {
     if (!choices) return null;
     return choices[index] != null ? choices[index] : (choices[String(index)] || null);
@@ -864,8 +915,10 @@
    * (rep-negotiated) by design. Pushes 'Priced manually: <name>'.
    * county → engine tax map; defaults '' — neutral "Other / My county"
    * (estimate-v2-ui parity; EstimateLogic fails safe at the 7% fallback).
+   * opts.tier is honored only when a selected template is tierPriced.
    * Returns {lines, totals, measurements, minJobCharge, county,
-   *          sourceTemplates, warnings}.
+   *          sourceTemplates, warnings, tierApplies, warrantyKind,
+   *          warrantyParts}.
    */
   function resolveSelection(selection, opts) {
     opts = opts || {};
@@ -878,6 +931,7 @@
     const unpricedLines = [];
     const lineItems = [];
     const sourceTemplates = [];
+    const usedTpls = [];
     const seenSingleton = {};   // code → { line, qty: effective fixed qty }
     const measurements = Object.assign({}, DEFAULT_MEASUREMENTS);
     let minJobCharge = null;
@@ -891,6 +945,7 @@
         return;
       }
       sourceTemplates.push(tpl.id);
+      usedTpls.push(tpl);
 
       // Overlay, never wholesale: a template's PARTIAL measurements object
       // (e.g. {deckReplacePct: 1}) merges over the typical-house defaults.
@@ -996,13 +1051,23 @@
 
     const county = opts.county || ''; // neutral default (estimate-v2-ui.js parity) — engine taxes at the 7% fallback
 
+    // Tier + warranty travel with the resolve so buildEstimatePayload can
+    // record them: whether a tier applies at all, and the job-type warranty.
+    const tierApplies = usedTpls.some(t => t && t.tierPriced === true);
+    const warranty = selectionWarranty(usedTpls);
+
     if (!window.EstimateLogic || typeof window.EstimateLogic.resolveEstimate !== 'function') {
       warnings.push('EstimateLogic not loaded — cannot resolve');
-      return { lines: [], totals: null, measurements, minJobCharge, county, sourceTemplates, warnings };
+      return { lines: [], totals: null, measurements, minJobCharge, county, sourceTemplates, warnings,
+        tierApplies, warrantyKind: warranty.kind, warrantyParts: warranty.parts };
     }
 
+    // No tier applies → resolve at 'better' whatever the UI last held. The
+    // engine still needs a rung to hand resolveMaterial, and every rung prices
+    // the same here, so this changes no number; it only stops a stale tier
+    // from riding along into the saved estimate.
     const settings = {
-      tier: opts.tier || (sel[0] && sel[0].tier) || 'better',
+      tier: tierApplies ? (opts.tier || (sel[0] && sel[0].tier) || 'better') : 'better',
       mode: opts.jobMode || 'cash',
       county: county
     };
@@ -1016,7 +1081,10 @@
       minJobCharge,
       county,
       sourceTemplates,
-      warnings
+      warnings,
+      tierApplies,
+      warrantyKind: warranty.kind,
+      warrantyParts: warranty.parts
     };
   }
 
@@ -1028,7 +1096,7 @@
   /**
    * buildEstimatePayload(resolved, meta)
    *   resolved: resolveSelection() result (totals required)
-   *   meta:     {name, leadId, addr, owner, deposit, county?}
+   *   meta:     {name, leadId, addr, owner, deposit, county?, repairWarranty?}
    * county persists (V2 _buildSavePayload parity — estimate-v2-ui.js:2120)
    * so reopen doesn't silently re-tax at a different rate; meta.owner/addr
    * pass through (blank default stays '').
@@ -1045,6 +1113,20 @@
     const m = resolved.measurements || {};
     const num = (v) => (v != null && isFinite(Number(v)) ? Number(v) : null);
     const mk = (num(est.materialMarkupPct) != null ? num(est.materialMarkupPct) : 0.25);
+    // "No tier applies" is RECORDED, not implied (2026-09-25): tier and
+    // selectedTier are null and tierApplies is false, so no reader can turn a
+    // silent default back into "Preferred". Only an explicit
+    // resolved.tierApplies === true (a tierPriced template) saves a tier.
+    const tierApplies = resolved.tierApplies === true;
+    const savedTier = tierApplies ? (est.tier || 'better') : null;
+    const warrantyParts = Array.isArray(resolved.warrantyParts) ? resolved.warrantyParts : [];
+    // The 1-year repair warranty is a per-estimate choice, off unless the rep
+    // ticked it, and meaningless on a job with no repair part — or on one with
+    // a roofing template, whose wording covers the whole estimate (the build
+    // screen hides the box there).
+    const repairWarranty = meta.repairWarranty === true
+      && resolved.warrantyKind !== 'roof'
+      && warrantyParts.some(p => p && p.kind === 'repair');
 
     return {
       // Identity
@@ -1052,10 +1134,16 @@
       builder:         'template',
       estimateVersion: 'v2',
       method:          est.method || 'line-item',
-      tier:            est.tier || 'better',
+      tier:            savedTier,
+      tierApplies:     tierApplies,
       mode:            est.mode || 'cash',
       insurance:       est.mode === 'insurance',
       sourceTemplates: resolved.sourceTemplates || [],
+      // Workmanship warranty by job type — printed by every paperwork path
+      // through NBDCustomerEstimateRows.estimateWarranty().
+      warrantyKind:    resolved.warrantyKind || null,
+      warrantyParts:   warrantyParts.map(p => ({ name: String((p && p.name) || ''), kind: (p && p.kind) || null })),
+      repairWarranty:  repairWarranty,
       // Customer association
       leadId:          meta.leadId || null,
       addr:            meta.addr || '',
@@ -1116,7 +1204,7 @@
       // Totals — grandTotal is the canonical customer total (RETAIL after
       // markup + OH&P + tax/minimum rules).
       grandTotal:      est.total,
-      selectedTier:    est.tier || 'better',
+      selectedTier:    savedTier,
       priceMode:       'line-item',
       deposit:         (meta.deposit != null ? Number(meta.deposit) : null),
       materialCost:    est.materialCost,
@@ -1290,6 +1378,7 @@
     USAGE_DOC_ID,
     DATA_VERSION,
     SINGLETON_CODES,
+    WARRANTY_KINDS,
 
     list,
     get,
@@ -1306,6 +1395,8 @@
     adoptLegacyCosts,
     jtCostKey,
     hydrateFromCloud,
+    tiersApply,
+    warrantyKindOf,
     resolveSelection,
     buildEstimatePayload,
     createEstimate,

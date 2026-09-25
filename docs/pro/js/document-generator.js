@@ -2065,6 +2065,42 @@ window.NBDDocGen = {
     `;
   },
 
+  /**
+   * Workmanship warranty BY JOB TYPE (2026-09-25). A Job Template estimate
+   * carries a warrantyKind instead of a tier (NBDCustomerEstimateRows
+   * .estimateWarranty), and the doc data builders pass its sentence here as
+   * data.workmanshipWarranty. Returns:
+   *   null — no job-type warranty on this document: the tier badge above
+   *          renders exactly as it always has (roofing, V2, classic, manual);
+   *   ''   — this job carries no workmanship warranty (an unticked repair, an
+   *          inspection): the Warranty Coverage section is left out entirely
+   *          rather than printing a tier's lifetime promise;
+   *   text — the sentence to print.
+   */
+  _jobWarrantyText(data) {
+    const t = data && data.workmanshipWarranty;
+    return (typeof t === 'string') ? t : null;
+  },
+
+  /** The Warranty Coverage body: the job-type sentence, else the tier badge. */
+  renderWarrantyFor(data) {
+    const text = this._jobWarrantyText(data);
+    if (text === null) return this.renderWarrantyBadge(data.warrantyTier);
+    const years = Number(data.workmanshipWarrantyYears);
+    const headline = (Number.isFinite(years) && years > 0)
+      ? years + '-Year Workmanship Warranty'
+      : 'Workmanship Warranty';
+    return `
+      <div class="warranty-badge">
+        ${headline}
+      </div>
+      <div class="warranty-details">
+        <div><strong>${headline}</strong></div>
+        <div style="margin-top: 0.08in;">${this._escHtml(text)}</div>
+      </div>
+    `;
+  },
+
   // ============================================================================
   // SECTION 5: DOCUMENT TEMPLATE - PROPOSAL/ESTIMATE
   // ============================================================================
@@ -2210,11 +2246,11 @@ window.NBDDocGen = {
               ${lineItemsHTML}
             </div>
 
-            <!-- WARRANTY -->
+            ${this._jobWarrantyText(merged) === '' ? '' : `<!-- WARRANTY -->
             <div class="section">
               <div class="section-title">Warranty Coverage</div>
-              ${this.renderWarrantyBadge(merged.warrantyTier)}
-            </div>
+              ${this.renderWarrantyFor(merged)}
+            </div>`}
 
             <!-- PHOTOS -->
             <div class="section">
@@ -2373,11 +2409,11 @@ window.NBDDocGen = {
               </div>
             </div>
 
-            <!-- WARRANTY -->
+            ${this._jobWarrantyText(merged) === '' ? '' : `<!-- WARRANTY -->
             <div class="section">
               <div class="section-title">Warranty Coverage</div>
-              ${this.renderWarrantyBadge(merged.warrantyTier)}
-            </div>
+              ${this.renderWarrantyFor(merged)}
+            </div>`}
 
             <!-- CHANGE ORDERS -->
             <div class="section">

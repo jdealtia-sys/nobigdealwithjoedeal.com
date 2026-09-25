@@ -250,7 +250,11 @@
     var out = '';
     if (isPrimary) out += '<span class="ceh-chip is-primary">★ Primary</span>';
     out += '<span class="ceh-chip">' + kindLabel(est) + '</span>';
-    if (est.tier) out += '<span class="ceh-chip">' + esc(String(est.tier)) + '</span>';
+    // No tier chip when no tier applies — a Job Template estimate's saved
+    // tier was a silent default before 2026-09-25 (shared rule).
+    var rowsApi = window.NBDCustomerEstimateRows;
+    var tierOk = !(rowsApi && typeof rowsApi.tierApplies === 'function' && rowsApi.tierApplies(est) === false);
+    if (est.tier && tierOk) out += '<span class="ceh-chip">' + esc(String(est.tier)) + '</span>';
     if (est.sq != null && Number(est.sq)) out += '<span class="ceh-chip">' + esc(Number(est.sq).toFixed(2)) + ' SQ</span>';
     var sig = est.signatureStatus || '';
     if (sig === 'signed') out += '<span class="ceh-chip is-good">✓ Signed</span>';

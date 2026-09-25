@@ -192,7 +192,8 @@
     "map-views-hydration.test.js",
     "lead-trades-unknown.test.js",
     "strip-redundant-inline-css.test.js",
-    "upgrade-pricing.test.js"
+    "upgrade-pricing.test.js",
+    "job-template-honest-paperwork.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

@@ -126,7 +126,8 @@
     selected: [],            // ordered template ids
     choices: {},             // templateId -> [{included, qty, brandCode, unitPriceOverride}]
     collapsed: {},           // templateId -> bool (preconfirm sections)
-    tier: 'better',
+    tier: 'better',          // used only when a selected template is tierPriced (see tiersApply)
+    repairWarranty: false,   // per-estimate "1-year workmanship warranty" box — repair-kind jobs only, off by default
     jobMode: 'cash',
     county: '',              // tax jurisdiction — neutral "Other / My county" default (estimate-v2-ui.js parity; engines fail safe at $150 permit / 7% tax)
     measurements: Object.assign({}, MEAS_DEFAULTS),
@@ -459,6 +460,7 @@
   function resolveOpts() {
     return {
       tier: state.tier,
+      repairWarranty: state.repairWarranty === true,
       jobMode: state.jobMode,
       county: state.county || '',
       measurements: Object.assign({}, state.measurements)
@@ -470,6 +472,44 @@
     if (!JT || typeof JT.resolveSelection !== 'function') return null;
     try { return JT.resolveSelection(buildSelection(), resolveOpts()); }
     catch (e) { console.error('[job-templates-ui] resolveSelection failed:', e); return null; }
+  }
+
+  // Does Good/Better/Best price anything for this selection? Only a template
+  // flagged tierPriced says yes (none today), so the row is hidden and nothing
+  // tier-related prints. 2026-09-25 — see job-templates.js tiersApply.
+  function tiersApplyNow() {
+    var JT = engine();
+    return !!(JT && typeof JT.tiersApply === 'function' && JT.tiersApply(state.selected));
+  }
+
+  // The "1-year workmanship warranty" box shows only when a selected template
+  // is a repair: repairs are warranted case by case (Jo, 2026-09-25 — "some
+  // repairs won't get any depending on severity"), so it starts unticked.
+  // Not beside a roofing template: the roofing wording then covers the whole
+  // estimate, so the box would change nothing (review 2026-09-25).
+  function selectionHasRepair() {
+    var JT = engine();
+    if (!JT || typeof JT.warrantyKindOf !== 'function') return false;
+    var kinds = state.selected.map(function (tid) { return JT.warrantyKindOf(getTpl(tid)); });
+    return kinds.indexOf('repair') !== -1 && kinds.indexOf('roof') === -1;
+  }
+
+  // The workmanship-warranty sentence this estimate's paperwork will print.
+  // Built from the SAME payload createEstimate saves and read through the SAME
+  // helper the proposal/contract/portal paths use, so the preview cannot say
+  // something the paper does not. Roofing returns the existing tier wording.
+  function warrantySentence(res) {
+    var JT = engine();
+    var rows = window.NBDCustomerEstimateRows;
+    if (!res || !res.totals || !JT || typeof JT.buildEstimatePayload !== 'function'
+        || !rows || typeof rows.estimateWarranty !== 'function') return '';
+    try {
+      var w = rows.estimateWarranty(JT.buildEstimatePayload(res, { repairWarranty: state.repairWarranty === true }));
+      if (!w) return '';
+      if (w.text !== null) return w.text;
+      var cfg = window.NBD_ESTIMATE_CONFIG;
+      return (cfg && typeof cfg.tierWarrantyText === 'function') ? cfg.tierWarrantyText(w.wordingTier) : '';
+    } catch (e) { return ''; }
   }
 
   // Defensive totals reader — the engine returns {lines, totals} with retail
@@ -781,6 +821,11 @@
       '.jt-prop-tots .r{display:flex;justify-content:space-between;padding:5px 0;color:#334155;}',
       '.jt-prop-tots .g{border-top:2px solid #1a202c;margin-top:5px;padding-top:9px;font-size:17px;font-weight:800;color:#1a202c;}',
       '.jt-prop-note{margin-top:20px;font-size:11px;color:#94a3b8;line-height:1.5;}',
+      '.jt-prop-warranty{margin-top:16px;font-size:12.5px;color:#334155;line-height:1.5;}',
+      // Repair-job "1-year workmanship warranty" box: the whole label is the
+      // tap target, 44px tall on touch.
+      '.jt-warr{display:flex;align-items:center;gap:8px;min-height:36px;font-size:13px;font-weight:600;color:var(--t,#e8eaf0);cursor:pointer;-webkit-tap-highlight-color:transparent;}',
+      '@media (pointer:coarse){.jt-warr{min-height:44px;}}',
       '@media (max-width:640px){.jt-prop{padding:20px 14px;}}',
       '.jt-createbar{max-width:820px;margin:16px auto 0;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-radius:10px;padding:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}',
       '.jt-createbar .fld{flex:1;min-width:200px;}',
@@ -873,6 +918,7 @@
     state.step = 'library';
     state.creating = false;
     state.leadId = null; // lead context is per-open, never sticky
+    state.repairWarranty = false; // a warranty is chosen per estimate — never carried into the next one
     if (state.host === 'modal') {
       state.host = 'view';
       state.forScope = false;
@@ -1134,10 +1180,21 @@
     ensureChoices();
     seedMeasurements();
 
-    var tierSeg = '<div><span class="jt-ctl-lbl">Tier</span><div class="jt-seg">' +
-      TIERS.map(function (t) {
-        return '<button type="button" class="' + (state.tier === t ? 'on' : '') + '" data-jt-action="set-tier" data-id="' + t + '">' + TIER_LABELS[t] + '</button>';
-      }).join('') + '</div></div>';
+    // Tier row only where the tier prices something (a tierPriced template —
+    // none today). On every current template it changed no number and only
+    // printed "Preferred" on the paperwork (2026-09-25).
+    var tierSeg = tiersApplyNow()
+      ? '<div><span class="jt-ctl-lbl">Tier</span><div class="jt-seg">' +
+        TIERS.map(function (t) {
+          return '<button type="button" class="' + (state.tier === t ? 'on' : '') + '" data-jt-action="set-tier" data-id="' + t + '">' + TIER_LABELS[t] + '</button>';
+        }).join('') + '</div></div>'
+      : '';
+
+    var repairBox = selectionHasRepair()
+      ? '<div><span class="jt-ctl-lbl">Warranty</span>' +
+        '<label class="jt-warr"><input type="checkbox" class="jt-check" data-jt-action="set-repair-warranty"' +
+        (state.repairWarranty ? ' checked' : '') + '> 1-year workmanship warranty</label></div>'
+      : '';
 
     var modeSeg = '<div><span class="jt-ctl-lbl">Job mode</span><div class="jt-seg">' +
       ['cash', 'insurance'].map(function (m) {
@@ -1157,7 +1214,7 @@
       '<button type="button" class="jt-btn" data-jt-action="toggle-meas">📐 Measurements ' + (state.measOpen ? '▾' : '▸') + '</button></div>';
 
     var html = '<div class="jt-col">' +
-      '<div class="jt-topctl">' + tierSeg + modeSeg + countySel + measBtn + '</div>' +
+      '<div class="jt-topctl">' + tierSeg + modeSeg + countySel + repairBox + measBtn + '</div>' +
       (state.measOpen ? renderMeasPanel() : '');
 
     state.selected.forEach(function (tid) {
@@ -1456,6 +1513,8 @@
 
     var d = new Date();
     var dateStr = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+    // '' for an unticked repair or an inspection — then no warranty line.
+    var warranty = warrantySentence(res);
 
     // Lead-context flow: openPicker/openPreconfirm({leadId}) staged the
     // lead — _jtWireLeadPicker() (called from paintModal right after this
@@ -1492,8 +1551,8 @@
           '<div class="jt-prop-kind" style="color:' + esc(colors.accent) + ';">' + kind + '</div>' +
         '</div>' +
         '<div class="jt-prop-meta" style="text-align:right;">' +
-          esc(dateStr) + '<br>' +
-          esc(TIER_LABELS[state.tier] || state.tier) + ' tier' +
+          esc(dateStr) +
+          (tiersApplyNow() ? '<br>' + esc(TIER_LABELS[state.tier] || state.tier) + ' tier' : '') +
         '</div>' +
       '</div>' +
       '<hr>' +
@@ -1504,6 +1563,7 @@
         (rowsHtml || '<tr><td colspan="5" style="color:#94a3b8;">No billable line items — adjust quantities or measurements.</td></tr>') +
       '</tbody></table>' +
       '<div class="jt-prop-tots">' + totsHtml + '</div>' +
+      (warranty ? '<div class="jt-prop-warranty"><b>Workmanship warranty:</b> ' + esc(warranty) + '</div>' : '') +
       '<div class="jt-prop-note">Prepared with ' + esc(companyName()) + '. Pricing reflects the selected scope and is valid for 30 days. Final invoice follows the signed agreement.</div>' +
       '</div>' +
       // Create bar (rep-facing, below the paper)
@@ -2234,6 +2294,13 @@
       if (action === 'set-county') {
         state.county = el.value || '';
         scheduleResolve();
+        return;
+      }
+
+      // ── Repair job: per-estimate 1-year workmanship warranty (no price
+      //    change, so no re-resolve; it is saved by createEstimate) ──
+      if (action === 'set-repair-warranty') {
+        state.repairWarranty = !!el.checked;
         return;
       }
 

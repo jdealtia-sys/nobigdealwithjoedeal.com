@@ -48,6 +48,20 @@
     return ({ good: 'STANDARD', better: 'PREFERRED', best: 'ELITE' })[key] || String(key).toUpperCase();
   }
 
+  // Job-type workmanship warranty of the estimate being formatted
+  // (2026-09-25). A Job Template estimate edited in the V2 builder carries its
+  // saved warrantyKind here (estimate-v2-ui.js _jobTypeFieldsOf), and its
+  // warranty is its JOB TYPE's, not roofing's lifetime tier ladder. Returns the
+  // plain-text sentence ('' = no workmanship warranty), or null when the
+  // existing roofing wording applies: any non-template estimate, per-SQ, a
+  // roofing template, or a page that did not load customer-estimate-rows.js.
+  function jobWarrantyText(estimate) {
+    const rows = (typeof window !== 'undefined') ? window.NBDCustomerEstimateRows : null;
+    if (!rows || typeof rows.estimateWarranty !== 'function') return null;
+    const w = rows.estimateWarranty(estimate);
+    return (w && typeof w.text === 'string') ? w.text : null;
+  }
+
   function fmtMoney(n, showZero) {
     const v = Number(n) || 0;
     if (v === 0 && !showZero) return '—';
@@ -885,13 +899,26 @@ ${footer}
       </table>
     `;
 
-    // Warranty blurb
-    const warranty = `
+    // Warranty blurb. A Job Template estimate's workmanship warranty is set by
+    // its job type (review 2026-09-25): this blurb promised a LIFETIME labor
+    // warranty and "Better/Best tier upgrades" on template gutter, repair and
+    // inspection quotes, and it is the only warranty text their V2 Retail /
+    // Single Quote prints. Job type → its sentence, or no Workmanship line at
+    // all when the job carries none; no tier sentence either way (no tier
+    // applies). Roofing and every other estimate print exactly what they did.
+    const _jobW = jobWarrantyText(estimate);
+    const warranty = (_jobW === null) ? `
       <h2>Warranty</h2>
       <p style="font-size:12px;color:#444;">
         <strong>Materials:</strong> Manufacturer warranty per product (see scope details).<br>
         <strong>Workmanship:</strong> Lifetime ${escapeHtml(_b.isNbd ? 'NBD' : _b.seal)} labor warranty on all installation — transferability varies by tier, see above.<br>
         <strong>System Warranty:</strong> Available with ${escapeHtml(((estimate.lines || []).find(l => /warranty/i.test(l.name)) || {}).name || 'Better/Best tier upgrades')}.
+      </p>
+    ` : `
+      <h2>Warranty</h2>
+      <p style="font-size:12px;color:#444;">
+        <strong>Materials:</strong> Manufacturer warranty per product (see scope details).${_jobW ? `<br>
+        <strong>Workmanship:</strong> ${escapeHtml(_jobW)}` : ''}
       </p>
     `;
 

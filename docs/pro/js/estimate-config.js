@@ -222,10 +222,46 @@
       return w.inspection ? 'Fully transferable + annual inspection' : 'Fully transferable';
     },
 
+    // ── Workmanship warranty by JOB TYPE (2026-09-25, Jo-confirmed) ──
+    // The tier-display block above is ROOFING's guarantee ladder. Job
+    // Templates cover eleven trades, and every one of their estimates was
+    // saving tier 'better' by default, so gutter, repair and inspection
+    // paperwork printed "Preferred" and a LIFETIME workmanship warranty
+    // while NBD's written proposals say 2 years
+    // (documentation/projects/UPGRADES-ADDONS-DESIGN-2026-09-25.md). Each Job
+    // Template now declares a `warrantyKind` (job-templates-data.js — explicit
+    // data, reviewed per template), and this table turns a kind into years:
+    //   gutter_system   — a NEW gutter system
+    //   guard_only      — leaf protection over existing gutters
+    //   install_default — every other install/replacement (soffit & fascia,
+    //                     ventilation, flashing, exterior, specialty); matches
+    //                     Jo's written proposals
+    //   repair          — 1 year, but ONLY when the rep ticks the per-estimate
+    //                     "1-year workmanship warranty" box. Off by default:
+    //                     some repairs get no warranty, depending on severity.
+    //                     Temporary emergency work (tarp, stopgap, board-up)
+    //                     is this kind too: none by default, rep's choice.
+    //   none            — inspections, documentation, cleaning, washing and
+    //                     moss treatment (no workmanship to warrant, no box)
+    //   roof            — NOT a year count: roofing keeps the tier wording
+    //                     above (tierWarrantyText) byte-for-byte.
+    // Defaults only — tenant-overridable later. The sentence is built by
+    // NBDCustomerEstimateRows.estimateWarranty(), which reads this table and
+    // carries a copy for pages that don't load this file (customer.html);
+    // tests/job-template-honest-paperwork.test.js pins the two together.
+    WORKMANSHIP_WARRANTY: Object.freeze({
+      gutter_system:   Object.freeze({ years: 5 }),
+      guard_only:      Object.freeze({ years: 2 }),
+      install_default: Object.freeze({ years: 2 }),
+      repair:          Object.freeze({ years: 1, optIn: true }),
+      none:            Object.freeze({ years: 0 }),
+      roof:            Object.freeze({ tierWording: true })
+    }),
+
     // Source-of-truth marker — engines log this to Sentry on
     // load so we can correlate "classic engine ran but V2 config
     // didn't load" cases if they ever happen.
-    _version: '2026-09-09',
+    _version: '2026-09-25',
     _loadedFrom: 'estimate-config.js'
   });
 

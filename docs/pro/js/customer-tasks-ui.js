@@ -1783,6 +1783,9 @@ function getCustomerDocData() {
   const estimates = window._customerEstimates || [];
   const photos = window._allPhotos || [];
   const est = estimates.length > 0 ? estimates[0] : null;
+  // Job Template estimates (2026-09-25) carry a job-type warranty and no
+  // tier; null for every other estimate, which keeps its tier wording.
+  const _jw = (window.NBDCustomerEstimateRows?.estimateWarranty?.(est)) || null;
   const beforePhotos = photos.filter(p => (p.phase||'').toLowerCase() === 'before');
   const afterPhotos = photos.filter(p => (p.phase||'').toLowerCase() === 'after');
   const duringPhotos = photos.filter(p => (p.phase||'').toLowerCase() === 'during');
@@ -1824,7 +1827,9 @@ function getCustomerDocData() {
     totalPrice: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
     estimateAmount: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
     contractPrice: jobVal ? '$' + Number(jobVal).toLocaleString() : '',
-    warrantyTier: est?.tier || est?.tierName || lead.warrantyTier || '',
+    warrantyTier: _jw ? _jw.wordingTier : (est?.tier || est?.tierName || lead.warrantyTier || ''),
+    workmanshipWarranty: (_jw && _jw.text !== null) ? _jw.text : null,
+    workmanshipWarrantyYears: _jw ? _jw.years : null,
     // Was `est?.lineItems || []`, which is ALWAYS empty for a V2 estimate —
     // V2 writes `rows`. The empty array reached resolveDocManufacturer, which
     // finds no shingle line and falls back to its hardcoded default, so

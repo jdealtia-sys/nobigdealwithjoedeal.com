@@ -507,6 +507,29 @@
     if (isTransferable && w.transferWindowDays) warrantyText += ' This coverage is transferable to one subsequent owner within ' + w.transferWindowDays + ' days of sale.';
     else if (isTransferable) warrantyText += ' This coverage is fully transferable and follows the property through all subsequent owners.';
 
+    // Job-type warranty (2026-09-25). A Job Template estimate's warranty is
+    // set by its job type (5 yr gutter system, 2 yr install, 1 yr repair only
+    // when quoted with it), not a roofing tier. doc-preflight passes the
+    // sentence as d.workmanshipWarranty; everything above is roofing's
+    // lifetime certificate and must not print for a gutter or repair job.
+    // Roofing estimates never set the field, so their certificate is unchanged.
+    let job = null;
+    if (typeof d.workmanshipWarranty === 'string') {
+      const yrs = Number(d.workmanshipWarrantyYears);
+      const hasYears = Number.isFinite(yrs) && yrs > 0;
+      job = {
+        badge: d.workmanshipWarranty
+          ? (hasYears ? yrs + '-YEAR WORKMANSHIP WARRANTY' : 'WORKMANSHIP WARRANTY')
+          : 'NO WORKMANSHIP WARRANTY',
+        body: d.workmanshipWarranty
+          ? esc(d.workmanshipWarranty) + ' If a defect in the workmanship it covers appears within that period, it will be repaired at no cost to you.'
+          : 'No workmanship warranty applies to this work.',
+        coverage: !d.workmanshipWarranty ? 'None' : (hasYears ? yrs + '-Year Workmanship' : 'Workmanship — see above'),
+        // "1 year", not "1 years" — the opt-in repair warranty is 1 year.
+        expiration: hasYears ? yrs + (yrs === 1 ? ' year' : ' years') + ' from issue date' : 'See above'
+      };
+    }
+
     return page('Warranty Certificate', `
       <style>
         .cert-border { border:4px double ${t.color}; padding:48px 40px; margin:20px 0; position:relative; }
@@ -534,18 +557,19 @@
           <p>This certifies that all work performed at the property of</p>
           <p class="cert-name">${esc(d.homeownerName)}</p>
           <p style="color:#555;">${esc(d.address)}</p>
-          <div class="tier-badge">LIFETIME WORKMANSHIP WARRANTY — ${t.label} TIER</div>
+          ${job ? `<div class="tier-badge">${job.badge}</div>
+          <p style="max-width:520px;margin:0 auto;font-size:14px;color:#444;">${job.body}</p>` : `<div class="tier-badge">LIFETIME WORKMANSHIP WARRANTY — ${t.label} TIER</div>
           <p style="max-width:520px;margin:0 auto;font-size:14px;color:#444;">${warrantyText}</p>
           <p style="font-size:14px;color:#444;margin-top:8px;">
-            Additionally, the roofing materials carry ${esc(resolveDocManufacturer(d.estimateLineItems).manufacturerWarranty)}.</p>
+            Additionally, the roofing materials carry ${esc(resolveDocManufacturer(d.estimateLineItems).manufacturerWarranty)}.</p>`}
         </div>
         <dl class="cert-details">
           <div><dt>Certificate #</dt><dd>${esc(d.certificateNumber)}</dd></div>
           <div><dt>Issue Date</dt><dd>${esc(d.issueDate)}</dd></div>
-          <div><dt>Coverage</dt><dd>Lifetime Workmanship</dd></div>
-          <div><dt>Expiration</dt><dd>${esc(d.expirationDate)}</dd></div>
+          <div><dt>Coverage</dt><dd>${job ? job.coverage : 'Lifetime Workmanship'}</dd></div>
+          <div><dt>Expiration</dt><dd>${esc(job ? job.expiration : d.expirationDate)}</dd></div>
           ${d.workPerformed ? `<div><dt>Work Performed</dt><dd>${esc(d.workPerformed)}</dd></div>` : ''}
-          <div><dt>Warranty Tier</dt><dd>${t.label}</dd></div>
+          ${job ? '' : `<div><dt>Warranty Tier</dt><dd>${t.label}</dd></div>`}
         </dl>
         ${d.coverageDetails ? `<p style="max-width:520px;margin:16px auto 0;font-size:13px;color:#555;text-align:center;">${esc(d.coverageDetails)}</p>` : ''}
         <div class="cert-seal">&#10003;</div>

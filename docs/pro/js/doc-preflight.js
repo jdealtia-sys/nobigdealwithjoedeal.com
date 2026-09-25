@@ -176,6 +176,11 @@
     if (typeof src === 'string' && src.indexOf('estimate.') === 0) {
       var key = src.slice('estimate.'.length);
       if (key === 'lineItems') return mapEstimateLineItems(ctx.estimate);
+      // A Job Template estimate saves no tier (2026-09-25). Its warranty
+      // wording tier comes from its job type: 'better' for roofing (the value
+      // that flow always saved, so roofing paperwork is unchanged) and '' for
+      // every other job type, whose sentence prints instead.
+      if (key === 'tier' && ctx.jobWarranty) return ctx.jobWarranty.wordingTier || '';
       return getPath(ctx.estimate, key) || '';
     }
 
@@ -1164,8 +1169,28 @@
     lineItemsMode: {}, // { fieldKey: 'locked' | 'override' }
     signers: [],       // [{ role, label, required, enabled, removable }]
     softAck: false,    // address-completeness warning acknowledged this open()
-    softIssues: []     // [{ label, message }] from FIELD_VALIDATORS
+    softIssues: [],    // [{ label, message }] from FIELD_VALIDATORS
+    // NBDCustomerEstimateRows.estimateWarranty(estimate) for this open():
+    // non-null with a string `text` when the estimate is a Job Template one
+    // whose warranty comes from its JOB TYPE, not a tier (2026-09-25).
+    jobWarranty: null
   };
+
+  // True when this document's warranty is decided by the estimate's job type,
+  // so the Good/Better/Best warranty cards must not be offered: picking
+  // "Better" there is how a gutter contract used to promise a lifetime
+  // workmanship warranty. Roofing (text === null) keeps the cards.
+  function jobWarrantyGoverns() {
+    return !!(state.jobWarranty && typeof state.jobWarranty.text === 'string');
+  }
+
+  // `required` as this open() enforces it. The warranty-tier field is
+  // satisfied by the estimate itself when the job type governs the warranty
+  // (an empty tier is then correct, not missing).
+  function fieldRequired(f) {
+    if (!f || !f.required) return false;
+    return !(f.type === 'warranty-tier' && jobWarrantyGoverns());
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // SECTION 5: STYLES (injected once)
@@ -1362,14 +1387,14 @@
         bodyHTML = '<input class="dpf-input" type="text" data-field="' + esc(field.key) + '" value="' + esc(value || '') + '">';
     }
 
-    var missingCls = field.required && isEmpty(value) ? ' missing' : '';
+    var missingCls = fieldRequired(field) && isEmpty(value) ? ' missing' : '';
     return '<div class="dpf-field' + missingCls + '" data-field-wrap="' + esc(field.key) + '">' +
       labelHTML + bodyHTML + helpHTML + errorHTML +
       '</div>';
   }
 
   function renderLabel(field) {
-    var dot = field.required ? '<span class="dpf-required-dot" title="Required"></span>' : '';
+    var dot = fieldRequired(field) ? '<span class="dpf-required-dot" title="Required"></span>' : '';
     var badge = '<span class="dpf-persist-badge ' + field.persist + '" title="' + persistTooltip(field.persist) + '">' + persistLabel(field.persist) + '</span>';
     return '<div class="dpf-field-label">' + dot + esc(field.label) + badge + '</div>';
   }
@@ -1540,6 +1565,22 @@
 
   // ── WARRANTY TIER RENDERER ──────────────────────────────────
   function renderWarrantyTier(field, value) {
+    // Job-type warranty (2026-09-25): the estimate already decides it, so show
+    // what will print instead of offering tier cards that would override it.
+    if (jobWarrantyGoverns()) {
+      var jt = state.jobWarranty.text;
+      return '<div class="dpf-warranty-grid"><div class="dpf-warranty-card selected" data-job-warranty="1">' +
+        '<div class="dpf-warranty-name">From the estimate</div>' +
+        '<div class="dpf-warranty-desc">' + (jt
+          ? esc(jt)
+          // An estimate saved before job-type warranties never had the repair
+          // box, so "quoted without one" would be false for it (review
+          // 2026-09-25) — tell the rep how to attach one instead.
+          : state.jobWarranty.legacy
+            ? 'No workmanship warranty — this estimate predates job-type warranties; re-create it from Job Templates to attach one.'
+            : 'No workmanship warranty — this job type carries none, or the repair was quoted without one.') +
+        '</div></div></div>';
+    }
     // GBB audit, 2026-09-09: was 5/10/20-year — see WARRANTY_TIER_OPTIONS above.
     var tiers = [
       { id: 'good',   name: 'Good',   tag: 'Lifetime Workmanship',        desc: 'Lifetime workmanship warranty, non-transferable. Standard manufacturer coverage.' },
@@ -1684,7 +1725,7 @@
     var n = 0;
     Object.keys(state.fieldIndex).forEach(function (k) {
       var f = state.fieldIndex[k];
-      if (f.required && isEmpty(state.values[k])) n++;
+      if (fieldRequired(f) && isEmpty(state.values[k])) n++;
     });
     return n;
   }
@@ -1947,7 +1988,7 @@
     if (!wrap) return;
     var f = state.fieldIndex[key];
     if (!f) return;
-    if (f.required && isEmpty(state.values[key])) wrap.classList.add('missing');
+    if (fieldRequired(f) && isEmpty(state.values[key])) wrap.classList.add('missing');
     else wrap.classList.remove('missing');
     // Update banner count
     var banner = document.querySelector('#' + MODAL_ID + ' .dpf-required-banner');
@@ -2148,15 +2189,32 @@
     var photos = window._allPhotos || [];
     var overrides = (lead.docOverrides && lead.docOverrides[type]) || {};
 
-    var ctx = { lead: lead, estimate: estimate, photos: photos, overrides: overrides };
+    // Job-type workmanship warranty (2026-09-25): null for anything that is
+    // not a Job Template estimate, so every other document is untouched.
+    var _rowsApi = window.NBDCustomerEstimateRows;
+    var jobWarranty = (_rowsApi && typeof _rowsApi.estimateWarranty === 'function')
+      ? _rowsApi.estimateWarranty(estimate) : null;
+    // A warranty certificate for a job that carries no workmanship warranty
+    // would certify a promise nobody made. Say so instead of opening.
+    if (type === 'warranty_certificate' && jobWarranty && jobWarranty.text === '') {
+      toast('This estimate carries no workmanship warranty, so there is no warranty to certify.', 'error');
+      return;
+    }
+
+    var ctx = { lead: lead, estimate: estimate, photos: photos, overrides: overrides, jobWarranty: jobWarranty };
     var schema = DOC_SCHEMAS[type];
     var values = {};
     var fieldIndex = {};
     var lineItemsMode = {};
+    state.jobWarranty = jobWarranty;
+    var jobGoverns = jobWarrantyGoverns();
 
     schema.sections.forEach(function (sec) {
       sec.fields.forEach(function (field) {
         values[field.key] = resolveFieldValue(field, ctx);
+        // The job type decides this warranty: no tier, and a tier saved on an
+        // earlier document for this lead (docOverrides) must not come back.
+        if (jobGoverns && field.type === 'warranty-tier') values[field.key] = '';
         fieldIndex[field.key] = field;
         if (field.type === 'line-items') lineItemsMode[field.key] = 'locked';
       });
@@ -2212,6 +2270,7 @@
     state.schema = null;
     state.values = {};
     state.fieldIndex = {};
+    state.jobWarranty = null;
   }
 
   /**
@@ -2222,7 +2281,7 @@
     var missing = [];
     Object.keys(state.fieldIndex).forEach(function (k) {
       var f = state.fieldIndex[k];
-      if (f.required && isEmpty(state.values[k])) missing.push(f.label);
+      if (fieldRequired(f) && isEmpty(state.values[k])) missing.push(f.label);
     });
     if (missing.length) {
       toast('Missing required fields: ' + missing.join(', '), 'error');
@@ -2260,6 +2319,16 @@
         docOverrides[k] = v;
       }
     });
+
+    // Job-type warranty: the renderers print this sentence ('' = none) in
+    // place of a tier's lifetime wording (document-generator.js
+    // renderWarrantyFor, the warranty certificate, the server contract).
+    if (jobWarrantyGoverns()) {
+      mergedData.warrantyTier = '';
+      mergedData.workmanshipWarranty = state.jobWarranty.text;
+      mergedData.workmanshipWarrantyYears = state.jobWarranty.years;
+      mergedData.warrantyKind = state.jobWarranty.kind;
+    }
 
     // Derive extra fields the templates expect
     hydrateDerivedFields(mergedData);
@@ -2373,7 +2442,11 @@
     if (data.changesDescription == null && data.changeDescription) data.changesDescription = data.changeDescription;    // change_order
     if (data.insuranceCompany == null && data.insCarrier) data.insuranceCompany = data.insCarrier;                     // supplement_request
     if (data.issueDate == null && data.installDate) data.issueDate = data.installDate;                                 // warranty_certificate
-    if (data.warranty == null && data.warrantyTier) {                                                                  // contract (renderer's "5 · Warranty"
+    // Job-type warranty (2026-09-25) wins over the tier bridges below: its
+    // sentence, or null for none so contract.hbs drops the section instead of
+    // printing a promise. warrantyTier is '' here, so neither bridge fires.
+    if (data.warranty == null && typeof data.workmanshipWarranty === 'string') data.warranty = data.workmanshipWarranty || null;
+    if (data.warranty == null && data.warrantyTier) {                                                                // contract (renderer's "5 · Warranty"
       var _wCfg = window.NBD_ESTIMATE_CONFIG;                                                                          // section is dropped entirely when
       var _wTxt = (_wCfg && typeof _wCfg.tierWarrantyText === 'function')                                              // warranty is null/empty). Mirrors
         ? _wCfg.tierWarrantyText(data.warrantyTier) : 'Lifetime workmanship warranty.';                                // renderWarrantyBadge's composition
