@@ -1259,17 +1259,22 @@
     return (U && typeof U.price === 'function' && typeof U.offeredFor === 'function') ? U : null;
   }
 
-  // The tenant's own upgrade data, read from ONE place: companyProfile.upgrades
-  // = { prices: { <upgradeId>: <retail cents> | { enabled: false } },
-  //     certifiedInstallerName: '' }. Settings → Upgrade prices writes it;
-  // until then the library's Jo-approved prices stand and the installer copy
-  // stays "an independent certified installer" (tenant neutral).
+  // The tenant's own upgrade data, read from ONE place: what Settings →
+  // Upgrade prices saves (#1762), companyProfile.pricing.upgradePrices =
+  //   { <upgradeId>: { cents, enabled, installerName } }
+  // passed EXPLICITLY, so the card and the save price from the same map the
+  // owner edited. No saved map → {} = the library's Jo-approved prices alone
+  // (never a guess: a needs_price item stays unofferable). The certified
+  // installer is named per item there (installerName wins inside offeredFor);
+  // with none saved the copy stays "an independent certified installer"
+  // (tenant neutral). 2026-09-25: this read companyProfile.upgrades, which
+  // nothing writes — the Settings lane's contract note asked for this switch.
   function tenantUpgradeSettings() {
     const cp = window._companyProfile;
-    const u = (cp && cp.upgrades && typeof cp.upgrades === 'object') ? cp.upgrades : {};
+    const up = cp && cp.pricing && cp.pricing.upgradePrices;
     return {
-      overrides: (u.prices && typeof u.prices === 'object') ? u.prices : null,
-      tenant: { certifiedInstallerName: typeof u.certifiedInstallerName === 'string' ? u.certifiedInstallerName : '' }
+      overrides: (up && typeof up === 'object' && !Array.isArray(up)) ? up : {},
+      tenant: {}
     };
   }
 

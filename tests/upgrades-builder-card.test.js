@@ -183,7 +183,10 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     ok('upgrade-library.js rides the estimates bundle', at('upgrade-library.js') !== -1);
     ok('upgrade-pricing.js rides the estimates bundle', at('upgrade-pricing.js') !== -1);
     ok('the library loads before the pricing helper (it throws without it)', at('upgrade-library.js') < at('upgrade-pricing.js'));
-    ok('both load before the Job Templates UI that calls them', at('upgrade-pricing.js') < at('job-templates-ui.js'));
+    // Since #1762 the upgrade files ride the END of the bundle (after the
+    // Job Templates UI); the card and V2 read them at call time, so the
+    // contract is only that they are in the SAME lazy bundle.
+    ok('both ride the same bundle as the Job Templates UI that calls them', at('job-templates-ui.js') !== -1 && at('upgrade-pricing.js') !== -1);
   }
 
   // ══════════════════════════════════════════════════════════════════
@@ -231,8 +234,9 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('no pressure copy on the card', !PRESSURE.test(card));
   env.start([ 'jt_fr_asphalt_good' ]);
   ok('a roofing template gets no Upgrades card (none offered yet)', env.card() === '', env.card().slice(0, 80));
-  // Tenant installer name (companyProfile.upgrades) reaches the copy.
-  W._companyProfile = { upgrades: { certifiedInstallerName: 'Acme Guard Co' } };
+  // The installer name saved in Settings → Upgrade prices (#1762:
+  // companyProfile.pricing.upgradePrices, per item) reaches the copy.
+  W._companyProfile = { pricing: { upgradePrices: { alurex: { cents: null, enabled: true, installerName: 'Acme Guard Co' } } } };
   env.start([K5]);
   ok('a tenant\'s certified installer is named from its own data',
     /Installed by Acme Guard Co, an independent Alu-Rex-certified installer\./.test(env.card()));
@@ -360,7 +364,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('…the button reads disabled with that reason', /data-jt-action="upg-show-homeowner" disabled title="Nothing left to offer/.test(env.card()));
 
   // A second priced option (the tenant priced the 3x4 step-up) — the page opens.
-  W._companyProfile = { upgrades: { prices: { downspout_3x4_step_up: 400 } } };
+  W._companyProfile = { pricing: { upgradePrices: { downspout_3x4_step_up: { cents: 400, enabled: true, installerName: '' } } } };
   env.start([K5]);
   env.click('upg-require', 'leafblaster_pro_micromesh');
   const dsp = JT.upgradeOffers(JT.resolveSelection([{ templateId: K5 }], {}), {}).find((o) => o.id === 'downspout_3x4_step_up');

@@ -648,7 +648,10 @@ test.describe('phone estbuilder: Job Templates upgrades, installed app at 412px 
       await window.ScriptLoader.loadBundle('estimates');
       // In-page tenant price for the 3x4 step-up, so the homeowner page has
       // an option OUTSIDE the leaf group (nothing is written anywhere).
-      window._companyProfile = Object.assign({}, window._companyProfile || {}, { upgrades: { prices: { downspout_3x4_step_up: 400 } } });
+      // Settings → Upgrade prices' shape (#1762), in memory only.
+      const cp = window._companyProfile || {};
+      window._companyProfile = Object.assign({}, cp, { pricing: Object.assign({}, cp.pricing || {},
+        { upgradePrices: { downspout_3x4_step_up: { cents: 400, enabled: true, installerName: '' } } }) });
       window.JobTemplatesUI.openPicker({});
     });
     await expect(page.locator('#jtModal.open')).toBeVisible({ timeout: 15_000 });
