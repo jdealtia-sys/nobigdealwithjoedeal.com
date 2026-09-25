@@ -32,6 +32,15 @@ const ANDROID_UA = 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 
 // 1x1 PNG — enough for the upload modal to queue and preview a file.
 const PNG_1PX = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
 
+// A fake microphone, so the dictation test can record for real. Keeps the
+// config's pinned-Chromium escape hatch (test.use replaces launchOptions).
+test.use({
+  launchOptions: {
+    ...(process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } : {}),
+    args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'],
+  },
+});
+
 // Context options the config's `use` would normally supply; a context made
 // in beforeAll doesn't inherit them.
 function contextOptions(testInfo, extra) {
@@ -212,6 +221,7 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
     testInfo.setTimeout(120_000);
     ctx = await browser.newContext(contextOptions(testInfo, {
       viewport: { width: 412, height: 860 }, isMobile: true, hasTouch: true, userAgent: ANDROID_UA,
+      permissions: ['microphone'],
     }));
     page = await ctx.newPage();
     await prepare(page);
@@ -393,6 +403,44 @@ test.describe.serial('customer page chrome on a phone @audit', () => {
       if (r.dialBottom > r.barTop || !r.taskOk) misses.push(`re-render ${i + 1}: launcher bottom ${Math.round(r.dialBottom)} vs bar top ${Math.round(r.barTop)}, TASK tappable ${r.taskOk}`);
     }
     expect(misses, 'launcher stays above the bar and TASK stays tappable right after the bar re-renders').toEqual([]);
+  });
+
+  test('dictation: the recording pill and the result stay off the mic', async () => {
+    await clearToasts(page);
+    // Never let a test reach a real transcription backend: in CI a callable
+    // can resolve to production (ci-e2e-calls-production-functions). Answer
+    // it here in the callable wire format.
+    const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': 'POST, OPTIONS' };
+    const answer = (route) => (route.request().method() === 'OPTIONS'
+      ? route.fulfill({ status: 204, headers: cors })
+      : route.fulfill({ status: 200, headers: cors, contentType: 'application/json', body: JSON.stringify({ result: { transcript: 'check the ridge vent', cleaned: 'Check the ridge vent.' } }) }));
+    await page.route('**/dictate', answer);
+    await page.route('**/transcribeVoiceMemo', answer);
+    await page.evaluate(() => { window.scrollTo(0, 0); if (document.activeElement) document.activeElement.blur(); });
+    try {
+      await page.locator('#nbd-fab-dial').tap();
+      const mic = page.locator('#nbd-whisper-fab');
+      await safeWaitForFunction(page, () => getComputedStyle(document.getElementById('nbd-whisper-fab')).opacity === '1', { timeout: 5_000 });
+      await mic.tap();
+      await safeWaitForFunction(page, () => {
+        const v = document.getElementById('nbd-whisper-viz');
+        return /⏹/.test(document.getElementById('nbd-whisper-fab').textContent) && !!v && v.style.display !== 'none';
+      }, { timeout: 10_000 });
+      await page.waitForTimeout(1_200); // a clip long enough to be sent
+      // Before the fix the pill sat on the mic, so ⏹ — the only way to stop
+      // a dictation short of the 60s ceiling — hit-tested as the pill.
+      expect(covered(await hitReport(page, '#nbd-whisper-fab')), 'the ⏹ stop control while recording').toEqual([]);
+      await mic.tap();
+      await safeWaitForFunction(page, () => !/⏹/.test(document.getElementById('nbd-whisper-fab').textContent), { timeout: 5_000 });
+      await page.waitForSelector('#nbd-whisper-tip', { timeout: 10_000 });
+      expect(covered(await hitReport(page, '#nbd-whisper-fab, #nbd-qc-fab, #nbd-qci-fab, #nbd-fab-dial')), 'field tools with the dictation result showing').toEqual([]);
+      await page.locator('#nbd-whisper-tip .nbd-whisper-tip-close').tap();
+      await expect(page.locator('#nbd-whisper-tip')).toHaveCount(0);
+    } finally {
+      await page.unroute('**/dictate');
+      await page.unroute('**/transcribeVoiceMemo');
+      await page.touchscreen.tap(40, 300);
+    }
   });
 
   test('Edit Photo sheet covers the page chrome; Delete is the sheet', async () => {

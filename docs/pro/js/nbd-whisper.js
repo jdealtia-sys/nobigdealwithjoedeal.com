@@ -393,6 +393,7 @@
         'box-shadow:0 8px 32px rgba(0,0,0,0.5);';
       document.body.appendChild(tip);
     }
+    _placeAboveMic(tip);
     tip.innerHTML =
       '<div style="font-size:11px;color:#94a3b8;margin-bottom:6px;letter-spacing:0.05em;">DICTATED</div>' +
       '<div id="nbd-whisper-tip-text" style="margin-bottom:10px;white-space:pre-wrap;">' + escHtml(text) + '</div>' +
@@ -414,6 +415,25 @@
     closeBtn.addEventListener('click', () => tip.remove());
     // Auto-dismiss after 30s — gives time to read + copy without lingering.
     setTimeout(() => { try { tip.remove(); } catch (_) {} }, 30_000);
+  }
+
+  // ─── Keep the pill + result tip OFF the mic (2026-09-25, phone audit) ──
+  // Both were pinned at bottom:~90px, which clears the mic only at its
+  // desktop slot (bottom 20px, 54px tall, so its top edge sits 74px up). On
+  // a phone the mic lives in the speed-dial fan row, and on customer.html it
+  // is lifted above the quick-action bar as well, so the recording pill
+  // landed right on it: the ⏹ stop control hit-tested as the pill, a rep
+  // could not stop a dictation and it ran to the 60s ceiling (measured at
+  // 412px on customer.html; the dashboard's fan row has the same overlap).
+  // Measure where the mic actually is and float above it. Math.max keeps
+  // the desktop slot at its old 90px.
+  function _placeAboveMic(el) {
+    const mic = document.getElementById(FLOAT_BTN_ID);
+    if (!el || !mic || !mic.getClientRects().length) return;
+    const r = mic.getBoundingClientRect();
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    if (!vh || r.bottom <= 0 || r.top >= vh) return;
+    el.style.bottom = Math.max(90, Math.round(vh - r.top + 10)) + 'px';
   }
 
   // ─── Live audio visualizer ──────────────────────────────────────
@@ -441,6 +461,7 @@
       }
     }
     viz.style.display = 'flex';
+    _placeAboveMic(viz);
     const canvas = document.getElementById('nbd-whisper-canvas');
     const ctx = canvas && canvas.getContext('2d');
     const timerEl = document.getElementById('nbd-whisper-timer');
