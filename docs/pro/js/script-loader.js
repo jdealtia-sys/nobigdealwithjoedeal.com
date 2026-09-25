@@ -204,7 +204,7 @@
       // Rock 2 PR 6: the estimates-list row actions (Firestore CRM ops, no
       // pricing math) split out of estimates.js.
       'js/estimate-crm-ops.js?v=2',
-      'js/estimate-finalization.js?v=3',
+      'js/estimate-finalization.js?v=4',
       'js/estimate-v2-ui.js?v=16',
       'js/estimate-supplement.js?v=2',
       'js/supplement-ui.js?v=2',

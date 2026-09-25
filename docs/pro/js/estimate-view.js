@@ -29,10 +29,15 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  // Whole dollars as before; cents when the amount has them. Review of #1763
+  // (2026-09-25): an upgraded estimate's total carries exact upgrade tax, so
+  // a whole-dollar Project Total disagreed with the proposal and invoice.
   function money(n) {
     const v = Number(n);
     if (!isFinite(v)) return '$0';
-    return '$' + Math.round(v).toLocaleString();
+    const c = Math.round(v * 100);
+    const d = (c % 100 === 0) ? 0 : 2;
+    return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
   // ─── "Back to your project" (phone audit, 2026-09-25) ───────────
   // The Back button used to be a bare history.back(). That only works when

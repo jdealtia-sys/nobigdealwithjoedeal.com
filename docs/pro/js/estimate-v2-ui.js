@@ -707,6 +707,10 @@
       /* An upgrade row (stage 2, 2026-09-25) has only ×: two empty
          placeholders keep its price in the same column as every other row. */
       .v2-scope-item .v2-act-ph { visibility:hidden; pointer-events:none; }
+      /* Upgrades out of the price (insurance, per-SQ, empty scope) — review
+         of #1763, 2026-09-25: said here instead of dropped silently. */
+      .v2-upg-off { margin:0 0 8px; padding:8px 10px; border:1px solid var(--gold,#eab308); border-radius:8px;
+        font-size:12px; line-height:1.4; color:var(--t,#e8eaf0); background:color-mix(in srgb, var(--gold,#eab308) 12%, transparent); }
       /* .edit-note joined these rules 2026-09-25 (phone audit estimate#6): the
          📝 button was added later with NO rule at all, so it rendered as a
          bare browser-default grey chip, 22px wide on a phone. */
@@ -2362,6 +2366,50 @@
     return out;
   }
 
+  // Does the per-SQ customer-total overlay in getCurrentEstimate apply? The
+  // SAME condition it runs on, so the upgrade rule and the price cannot drift.
+  function _perSqOverlayApplies() {
+    return state.mode === 'per-sq'
+      && state.jobMode !== 'insurance'
+      && !!window.EstimateBuilderV2
+      && typeof window.EstimateBuilderV2.calculateAllTiers === 'function'
+      && !!state.measurements && Number(state.measurements.rawSqft) > 0;
+  }
+
+  // Why this estimate's upgrade rows are NOT in the price right now, or null
+  // when they are (review of #1763, 2026-09-25). They stay in state.upgrades
+  // either way, so undoing the cause brings them back; while a reason holds,
+  // the scope list and the Selected list say so and a save logs them
+  // "removed" instead of leaving the log claiming "chosen" for a line the
+  // saved estimate no longer has.
+  function _upgradesOffReason(itemsCount) {
+    if (!(state.upgrades || []).length) return null;
+    if (state.jobMode === 'insurance') return 'upgrades are never part of an insurance claim';
+    if (_perSqOverlayApplies()) return 'a per-SQ quote prints no line items — switch to line-item to include them';
+    if (!itemsCount) return 'upgrades add onto the job’s scope, and the scope is empty';
+    return null;
+  }
+
+  // The scope list's warning while upgrades are out of the price ('' when
+  // they are in it, or there are none).
+  function _upgradesOffHtml(reason) {
+    const n = (state.upgrades || []).length;
+    if (!n || !reason) return '';
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    return '<div class="v2-upg-off" role="status" data-upg-off>⚠ ' + n + ' upgrade' + (n === 1 ? '' : 's') +
+      ' the homeowner chose ' + (n === 1 ? 'is' : 'are') + ' not in this price: ' + esc(reason) + '. Saving now leaves ' +
+      (n === 1 ? 'it' : 'them') + ' off this estimate.</div>';
+  }
+
+  // A total prints its cents when it has any (review of #1763, 2026-09-25:
+  // upgrades add exact tax on top of the $25-rounded engine total, so a
+  // whole-dollar display disagreed with the saved grandTotal).
+  function _fmtTotal(n) {
+    const c = Math.round((Number(n) || 0) * 100);
+    const d = (c % 100 === 0) ? 0 : 2;
+    return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+
   // Re-add a reopened estimate's upgrade rows to a live re-resolve (stage 2,
   // 2026-09-25). Each at its FROZEN face value — the quoted price never moves
   // with today's library — and taxed at the estimate's CURRENT rate with the
@@ -2374,10 +2422,17 @@
   // Not on an insurance claim and not on a per-SQ quote: upgrades never go
   // inside a claim, and a per-SQ customer paper prints no lines. The rows
   // stay in state.upgrades (switching back restores them) but price nothing.
-  function _applyUpgradeLines(estimate) {
+  //
+  // Review of #1763 (2026-09-25): whether upgrades price is decided by
+  // _upgradesOffReason — ONE rule for the price, the scope list's warning,
+  // the Selected list and the saved log — and the per-SQ half reads whether
+  // the per-SQ overlay REALLY applies (_perSqOverlayApplies), not the mode
+  // toggle alone: a per-SQ toggle the overlay cannot honour (no roof area)
+  // prices line-item, so the upgrades stay in that price.
+  function _applyUpgradeLines(estimate, itemsCount) {
     const ups = state.upgrades || [];
     if (!ups.length || !estimate) return;
-    if (state.jobMode === 'insurance' || state.mode === 'per-sq') return;
+    if (_upgradesOffReason(itemsCount)) return;
     const U = window.NBDUpgrades;
     const rate = Number(estimate.taxRate) || 0;
     let upgCents = 0;
@@ -2477,7 +2532,10 @@
     // Upgrades BEFORE pass-through fees: the job-minimum unwind in
     // _applyUpgradeLines must see the engine's own totals only (a Services
     // fee added after the floor would otherwise be pulled under it).
-    if (items.length) _applyUpgradeLines(estimate);
+    _applyUpgradeLines(estimate, items.length);
+    // Read by renderScope / the Selected list (never persisted:
+    // buildSavePayload names its fields).
+    estimate.upgradesOffReason = _upgradesOffReason(items.length);
 
     // Append every pass-through line. These are flat-fee charges
     // (measurement report, e-sign fee, permit upcharge) that don't
@@ -2518,11 +2576,7 @@
     const passThruSum = (state.passThru || [])
       .reduce((s, p) => s + (Number(p.amount) || 0), 0);
     estimate.priceMode = 'line-item';   // flipped to 'per-sq' only when the overlay applies
-    if (state.mode === 'per-sq'
-        && state.jobMode !== 'insurance'
-        && window.EstimateBuilderV2
-        && typeof window.EstimateBuilderV2.calculateAllTiers === 'function'
-        && state.measurements && Number(state.measurements.rawSqft) > 0) {
+    if (_perSqOverlayApplies()) {
       const tiers = window.EstimateBuilderV2.calculateAllTiers(buildPerSqInput());
       // Fold flat pass-through fees (e.g. the $75 aerial-measurement report that
       // applyMeasurementResult auto-adds) into EACH tier's customer total, so the
@@ -2950,10 +3004,14 @@
     // isn't ready we still list the picks with their catalog identity.
     let byCode = {};
     let markupPct = null;
+    // Upgrades out of the price: the estimate's own reason, or (no estimate:
+    // nothing in the scope) the empty-scope one.
+    let upOffReason = _upgradesOffReason(0);
     try {
       const est = getCurrentEstimate();
       (est && est.lines || []).forEach(l => { byCode[l.code] = l; });
       if (est && est.materialMarkupPct != null) markupPct = est.materialMarkupPct;
+      if (est) upOffReason = est.upgradesOffReason || null;
     } catch (e) { byCode = {}; }
 
     const rows = [];
@@ -2976,11 +3034,14 @@
         total: Number(p.amount) || 0, overridden: false, passThru: true
       });
     });
-    // Upgrade rows at their quoted face value (stage 2, 2026-09-25).
+    // Upgrade rows at their quoted face value (stage 2, 2026-09-25) — or,
+    // while they are out of the price, no amount and the reason (review of
+    // #1763: they used to list at full price beside a total without them).
+    const upOff = upOffReason;
     (state.upgrades || []).forEach(r => {
       rows.push({
         code: r.code, name: r.desc || 'Upgrade', qty: Number(r.quantity) || 1, unit: r.unit || '',
-        total: _upgradeRowCents(r) / 100, overridden: false
+        total: upOff ? null : _upgradeRowCents(r) / 100, overridden: false, upgradeOff: upOff
       });
     });
 
@@ -3002,6 +3063,7 @@
             <div class="name">${esc((r.name || '').substring(0, 60))}${(r.name || '').length > 60 ? '…' : ''}</div>
             <div style="font-size:10px;color:var(--m,#98a0ab);margin-top:2px;">${qtyStr}${r.overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}</div>
             ${_v2TierMismatch(r.tier) ? '<div class="tier-warn">⚠ ' + esc(r.tier) + '-tier item on a ' + esc(state.tier) + '-tier job</div>' : ''}
+            ${r.upgradeOff ? '<div class="tier-warn">⚠ Not in this price: ' + esc(r.upgradeOff) + '</div>' : ''}
           </div>
           <div class="cost" style="display:flex;align-items:center;gap:8px;">
             <div style="text-align:right;">
@@ -3065,7 +3127,8 @@
     // the pass-through list are empty. A standalone "$75 measurement
     // report" quote is valid.
     if (!state.scope.length && !(state.passThru && state.passThru.length)) {
-      listDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">No items selected yet</div><div class="ne-sub">Pick from the catalog or load a preset.</div></div>';
+      listDiv.innerHTML = '<div class="nbd-empty" style="padding:24px 8px;"><div class="ne-icon">🧾</div><div class="ne-msg">No items selected yet</div><div class="ne-sub">Pick from the catalog or load a preset.</div></div>' +
+        _upgradesOffHtml(_upgradesOffReason(0));
       totalEl.textContent = '$0';
       const mT0 = document.getElementById('v2mTotal');
       if (mT0) mT0.textContent = '$0';
@@ -3114,7 +3177,7 @@
       ? { value: prevEditEl.value, focused: document.activeElement === prevEditEl }
       : null;
 
-    listDiv.innerHTML = visibleLines.map(line => {
+    listDiv.innerHTML = _upgradesOffHtml(estimate.upgradesOffReason) + visibleLines.map(line => {
       const safeQty = fmtQty(line.quantity, line.unit);
       const overridden = !!line.qtyOverridden;
       // Per-line rep note (overrides.note) — annotation only, shown here
@@ -3155,10 +3218,10 @@
       }
     }
 
-    totalEl.textContent = '$' + Math.round(estimate.total).toLocaleString();
+    totalEl.textContent = _fmtTotal(estimate.total);
     // Phase 1b: mirror into the mobile step bar's always-visible total.
     const mT = document.getElementById('v2mTotal');
-    if (mT) mT.textContent = '$' + Math.round(estimate.total).toLocaleString();
+    if (mT) mT.textContent = _fmtTotal(estimate.total);
 
     const taxDisplay = estimate.taxRate > 0
       ? `<br>Tax: <strong>$${Math.round(estimate.tax).toLocaleString()}</strong> (${(estimate.taxRate * 100).toFixed(2)}%)`
@@ -3838,7 +3901,23 @@
       })),
       upgradeLibraryVersion: (lines[0] && lines[0].upgradeVersion) || null,
     };
-    if (state.upgradeLog) out.upgradeLog = JSON.parse(JSON.stringify(state.upgradeLog));
+    if (state.upgradeLog) {
+      out.upgradeLog = JSON.parse(JSON.stringify(state.upgradeLog));
+      // A chosen / required item this save does NOT carry (the rep removed
+      // it, or it is out of the price — insurance, per-SQ, empty scope) is
+      // logged "removed", keeping what it was, so the saved log never claims
+      // a line the estimate lacks (review of #1763, 2026-09-25). Derived per
+      // save from the untouched state.upgradeLog: bring the line back and the
+      // next save logs it as it was.
+      const onSave = {};
+      lines.forEach((l) => { if (l.upgradeId) onSave[l.upgradeId] = true; });
+      (out.upgradeLog.items || []).forEach((it) => {
+        if (it && (it.status === 'chosen' || it.status === 'required') && !onSave[it.id]) {
+          it.removedFrom = it.status;
+          it.status = 'removed';
+        }
+      });
+    }
     return out;
   }
 

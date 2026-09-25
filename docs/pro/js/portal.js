@@ -28,9 +28,14 @@
     return /^https?:\/\//i.test(s) ? s : '';
   };
 
+  // Whole dollars as before; cents when the amount has them. Review of #1763
+  // (2026-09-25): an upgraded estimate's total carries exact upgrade tax, so
+  // a whole-dollar portal total disagreed with the proposal and invoice.
   function fmtMoney(n) {
     if (n == null || isNaN(Number(n))) return '—';
-    return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    const c = Math.round(Number(n) * 100);
+    const d = (c % 100 === 0) ? 0 : 2;
+    return '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
   }
 
   function signaturePill(status) {

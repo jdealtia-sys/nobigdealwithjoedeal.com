@@ -150,6 +150,9 @@
     createdName: '',
     lastResolved: null,
     creating: false,
+    // The Create estimate refusal, shown on the preview beside the button
+    // (review of #1763, 2026-09-25: a toast sits under #jtModal, unseen).
+    createErr: '',
     // Upgrades & Add-ons (stage 2, 2026-09-25) — the build screen's Upgrades
     // card + Show homeowner page. Per estimate: closeModal() resets it, so a
     // pick, a star or a "No thanks" never rides into the next customer's quote.
@@ -165,8 +168,12 @@
   // declined: id → true            the homeowner tapped "No thanks"
   // more:     "More" expanded; homeowner: the Show homeowner page is open;
   // shown:    it was opened at least once for this estimate (saved in the log)
+  // notice:   { id, msg } an inline refusal on the card ('*' = the card's
+  //           top line), cleared by the next upgrade tap. Inline, not a
+  //           toast: the toast layer sits under #jtModal, so a refusal
+  //           toasted here was never seen (review of #1763, 2026-09-25).
   function freshUpg() {
-    return { picks: {}, qty: {}, required: {}, stars: {}, declined: {}, more: false, homeowner: false, shown: false };
+    return { picks: {}, qty: {}, required: {}, stars: {}, declined: {}, more: false, homeowner: false, shown: false, notice: null };
   }
 
   // costEdits: jt-cost-book key → {materialCost, laborCost}, staged while the
@@ -853,6 +860,8 @@
       '@media (max-width:640px){.jt-prop{padding:20px 14px;}}',
       '.jt-createbar{max-width:820px;margin:16px auto 0;background:var(--s,#111418);border:1px solid var(--br,#2a2f35);border-radius:10px;padding:14px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}',
       '.jt-createbar .fld{flex:1;min-width:200px;}',
+      '.jt-create-err{flex-basis:100%;font-size:13px;font-weight:700;color:var(--red,#ef4444);line-height:1.4;}',
+      '.jt-create-err:empty{display:none;}',
       // ── Lead picker (EntityResolver) ──
       '.er-picker{position:relative;}',
       // Two-choice chooser — same flex:1 primary/secondary pair pattern as
@@ -909,6 +918,7 @@
       // --green / --gold / --red apply (a fixed #10b981 on the "paper" theme's
       // white reads at about 2.5:1).
       '.jt-upg-gerr{font-size:12.5px;color:var(--red,#ef4444);line-height:1.45;}',
+      '.jt-upg-gerr:empty{display:none;}',
       '.jt-upg-grp{border:1px solid var(--br,#2a2f35);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;}',
       '.jt-upg-grp-hd{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;}',
       '.jt-upg-grp-t{font-size:14px;font-weight:800;color:var(--t,#e8eaf0);}',
@@ -959,6 +969,7 @@
       '.jt-ho-hdr p{margin:0;font-size:14px;color:#475569;line-height:1.45;}',
       '.jt-ho-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 24px;}',
       '.jt-ho-col{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}',
+      '.jt-ho-min{margin:0;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;border-radius:12px;padding:10px 14px;font-size:14px;line-height:1.45;}',
       '.jt-ho-incl{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:0 14px;}',
       '.jt-ho-incl summary{min-height:48px;display:flex;align-items:center;font-size:15px;font-weight:700;cursor:pointer;color:#1a202c;}',
       '.jt-ho-incl ul{margin:0 0 12px;padding-left:20px;font-size:14px;color:#334155;line-height:1.6;}',
@@ -1029,6 +1040,7 @@
     if (e) e.classList.remove('open');
     state.step = 'library';
     state.creating = false;
+    state.createErr = '';
     state.leadId = null; // lead context is per-open, never sticky
     state.repairWarranty = false; // a warranty is chosen per estimate — never carried into the next one
     state.upg = freshUpg();       // so are upgrade picks, stars and "No thanks" answers
@@ -1658,13 +1670,76 @@
       else if (e) general.push(e.message);
     });
     return { offers: offers, byId: byId, slots: upgSlots(offers), blocked: blocked, sel: sel, pv: pv,
-      errors: errors, errById: errById, general: general };
+      errors: errors, errById: errById, general: general,
+      minJobCharge: res.minJobCharge != null ? res.minJobCharge : null };
+  }
+
+  // The pick-one group's "Make required" pick, or null.
+  //
+  // Review of #1763 (2026-09-25): a group holding a required pick IS base
+  // scope — the job gets that guard — so none of the group's options is a
+  // homeowner choice any more. That is the rule NBDUpgrades.offeredFor
+  // already applies when a template's own scope carries a guard
+  // (groupInScope). The homeowner page used to hide only the required item
+  // and still offer its siblings; "Add" on one ran upgPickOn, which swapped
+  // the rep's required guard OUT of the base scope, so the total moved by the
+  // price DIFFERENCE, not by the price on the card, and the log lost the
+  // rep's "required".
+  function upgGroupRequiredId(group) {
+    if (!group) return null;
+    var L = upgLib();
+    var u = state.upg;
+    var items = L ? L.items : [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].group === group && u.required[items[i].id] && u.picks[items[i].id]) return items[i].id;
+    }
+    return null;
+  }
+
+  // The required pick that holds an option in place, or null: the option
+  // itself when it is required, else its group's required pick.
+  function upgRequiredHolding(o) {
+    if (!o) return null;
+    if (state.upg.required[o.id] && state.upg.picks[o.id]) return o.id;
+    return upgGroupRequiredId(o.group);
   }
 
   // What the homeowner page may show: a saved price, eligible, a measured
-  // quantity, and not already moved into the base scope by "Make required".
+  // quantity, and not already in the base scope — neither moved there by
+  // "Make required" itself nor in a pick-one group whose guard was.
   function upgShowable(o) {
-    return !!o && o.state === 'available' && o.unitCents != null && o.qty != null && !state.upg.required[o.id];
+    return !!o && o.state === 'available' && o.unitCents != null && o.qty != null && !upgRequiredHolding(o);
+  }
+
+  // Why "Show homeowner" has nothing to show.
+  function upgNothingToShowText(m) {
+    var heldOnly = m && m.offers.some(function (o) {
+      return o.state === 'available' && o.unitCents != null && o.qty != null && !!upgRequiredHolding(o);
+    });
+    return heldOnly
+      ? 'Nothing left to offer: the priced options are already in the price as required.'
+      : 'Nothing priced and measured to show yet.';
+  }
+
+  // The rep's inline refusal for a row ('*' = the card's top line).
+  function upgNoticeFor(id) {
+    var n = state.upg.notice;
+    return (n && n.id === id) ? n.msg : '';
+  }
+
+  // A job minimum absorbs part of an option's price (review of #1763,
+  // 2026-09-25): the pricing core re-applies the floor to the WHOLE job
+  // (NBDUpgrades.totalsWithUpgrades), so on a floored job an option first
+  // fills the gap up to the minimum and the total rises by less than its
+  // price. The card and the homeowner page say so instead of letting the
+  // quoted price and the total silently disagree. '' when no floor applies.
+  function upgMinJobText(m) {
+    var base = m && m.pv && m.pv.base;
+    if (!base || !base.minJobApplied) return '';
+    var floor = Number(m.minJobCharge) > 0 ? Math.round(Number(m.minJobCharge) * 100) : null;
+    var at = floor != null ? moneyCents(floor) : moneyCents(Math.round(Number(base.grandTotal) * 100));
+    return 'This job is priced at its ' + at + ' minimum charge. An option counts toward that minimum first, ' +
+      'so the total goes up by less than the option’s price until the job passes ' + at + '.';
   }
 
   function upgLineCents(o) {
@@ -1745,8 +1820,29 @@
       : '';
     return '<div class="jt-upg-opt' + (picked ? ' on' : '') + '" data-upg-row="' + esc(o.id) + '">' + pick +
       '<div class="jt-upg-tools">' + tools + '</div>' + whyField +
-      '<div class="jt-upg-err" data-upg-err="' + esc(o.id) + '" role="alert">' + esc(m.errById[o.id] || '') + '</div>' +
+      '<div class="jt-upg-err" data-upg-err="' + esc(o.id) + '" role="alert">' + esc(m.errById[o.id] || upgNoticeFor(o.id)) + '</div>' +
       '</div>';
+  }
+
+  // The ★ Recommended badge follows the reason as it is typed (review of
+  // #1763, 2026-09-25: it appeared only on the next repaint, so the rep saw
+  // a pressed "★ Recommended" tool and no badge). Patched in place — a
+  // repaint would take the phone's keyboard away mid-word.
+  function upgPatchStarBadge(id) {
+    var host = document.getElementById('jtUpgCard');
+    var nm = host && typeof host.querySelector === 'function' ? host.querySelector('[data-upg-row="' + id + '"] .jt-upg-nm') : null;
+    if (!nm) return;
+    var want = hasOwn(state.upg.stars, id) && !!String(state.upg.stars[id] || '').trim();
+    var badge = nm.querySelector('.jt-upg-badge.star');
+    if (want && !badge) {
+      badge = document.createElement('span');
+      badge.className = 'jt-upg-badge star';
+      badge.textContent = '★ Recommended';
+      var after = nm.querySelector('.jt-upg-badge.no');
+      if (after) nm.insertBefore(badge, after); else nm.appendChild(badge);
+    } else if (!want && badge && badge.parentNode) {
+      badge.parentNode.removeChild(badge);
+    }
   }
 
   function upgSlotHtml(s, m) {
@@ -1754,8 +1850,18 @@
     var live = s.items.filter(function (o) { return o.state === 'available'; });
     var noneOn = !s.items.some(function (o) { return o.state === 'available' && state.upg.picks[o.id]; });
     var footage = live.length && live[0].unit ? upgQtyField(s.key, live[0], live[0].unit === 'LF' ? 'Footage' : 'Qty') : '';
+    // A required pick makes the whole group base scope (upgGroupRequiredId):
+    // say so here, since the homeowner page will not show this group at all.
+    var reqId = upgGroupRequiredId(s.group);
+    var reqItem = reqId ? s.items.filter(function (o) { return o.id === reqId; })[0] : null;
+    var reqNote = reqItem
+      ? '<div class="jt-upg-note" data-upg-grp-req="' + esc(s.group) + '">' + esc(reqItem.name) +
+        ' is required, so this job’s ' + esc(String(s.label).toLowerCase()) + ' is in the price and the homeowner is not offered another option. ' +
+        'To change it, tap “✓ Required” to release it first.</div>'
+      : '';
     return '<div class="jt-upg-grp" data-upg-slot="' + esc(s.key) + '">' +
       '<div class="jt-upg-grp-hd"><span class="jt-upg-grp-t">' + esc(s.label) + '<small>pick one</small></span>' + footage + '</div>' +
+      reqNote +
       (live.length
         ? '<button type="button" class="jt-upg-none' + (noneOn ? ' on' : '') + '" data-jt-action="upg-pick-none" data-id="' + esc(s.group) + '" aria-pressed="' + (noneOn ? 'true' : 'false') + '">' +
           '<span class="jt-upg-ind r" aria-hidden="true">' + (noneOn ? '✓' : '') + '</span>None</button>'
@@ -1771,14 +1877,17 @@
       '<span class="jt-upg-t">Upgrades</span>' +
       '<span class="jt-upg-sum" data-upg-sum>' + esc(m.blocked ? '· not on insurance jobs' : upgSummary(m)) + '</span>' +
       (m.blocked ? '' : '<button type="button" class="jt-btn jt-btn-primary jt-upg-show" data-jt-action="upg-show-homeowner"' +
-        (canShow ? '' : ' disabled title="Nothing priced and measured to show yet"') + '>Show homeowner</button>') +
+        (canShow ? '' : ' disabled title="' + esc(upgNothingToShowText(m)) + '"') + '>Show homeowner</button>') +
       '</div>';
     if (m.blocked) {
       return '<div class="jt-upg" data-upg-card>' + hdr + '<div class="jt-upg-body"><div class="jt-upg-note">' + esc(m.blocked) + '</div></div></div>';
     }
     var vis = m.slots.slice(0, UPG_VISIBLE_SLOTS);
     var more = m.slots.slice(UPG_VISIBLE_SLOTS);
+    var minTxt = upgMinJobText(m);
     var body = (m.general.length ? '<div class="jt-upg-gerr" role="alert">' + esc(m.general.join(' ')) + '</div>' : '') +
+      '<div class="jt-upg-gerr" data-upg-err="*" role="alert">' + esc(upgNoticeFor('*')) + '</div>' +
+      (minTxt ? '<div class="jt-upg-note" data-upg-min>' + esc(minTxt) + '</div>' : '') +
       vis.map(function (s) { return upgSlotHtml(s, m); }).join('');
     if (more.length) {
       body += state.upg.more
@@ -1806,8 +1915,9 @@
     setText('[data-upg-sum]', upgSummary(m));
     m.offers.forEach(function (o) {
       setText('[data-upg-px="' + o.id + '"]', upgPriceText(o));
-      setText('[data-upg-err="' + o.id + '"]', m.errById[o.id] || '');
+      setText('[data-upg-err="' + o.id + '"]', m.errById[o.id] || upgNoticeFor(o.id));
     });
+    setText('[data-upg-err="*"]', upgNoticeFor('*'));
     m.slots.forEach(function (s) {
       var o = s.items.filter(function (x) { return x.state === 'available'; })[0];
       if (o) setText('[data-upg-hint="' + s.key + '"]', upgQtyHint(o));
@@ -1869,6 +1979,7 @@
     });
     if (singles) groupsHtml += '<section class="jt-ho-grp"><h3>More options</h3>' + singles + '</section>';
     var incl = upgIncludedNames(m);
+    var minTxt = upgMinJobText(m);
     var pay = m.pv && m.pv.payload;
     var totalC = pay ? Math.round(Number(pay.grandTotal) * 100) : null;
     var taxC = pay ? Math.round(Number(pay.tax) * 100) : 0;
@@ -1878,6 +1989,7 @@
         '<p>Your price already covers everything under “Already included”. Add an option only if you want it.</p>' +
       '</div>' +
       '<div class="jt-ho-body"><div class="jt-ho-col">' +
+        (minTxt ? '<p class="jt-ho-min" data-ho-min>' + esc(minTxt) + '</p>' : '') +
         (incl.length ? '<details class="jt-ho-incl"><summary>Already included (' + incl.length + ')</summary><ul>' +
           incl.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></details>' : '') +
         groupsHtml +
@@ -1963,25 +2075,43 @@
     return upgModel(res);
   }
 
+  // The refusal when a tap would drop a required pick (review of #1763,
+  // 2026-09-25). "Make required" is the rep's call that the job needs this
+  // item; only its own "✓ Required" button releases it. A sibling tap or
+  // None used to swap it out silently.
+  function upgRequiredNotice(atId, reqId, m) {
+    var req = m && m.byId[reqId];
+    var name = req ? req.name : 'This item';
+    return { id: atId, msg: (atId === reqId ? 'Required on this job.' : name + ' is required on this job.') +
+      ' Tap its “✓ Required” to release it first.' };
+  }
+
   function onUpgradeAction(action, id) {
     var m = upgCurrentModel();
     if (!m) return;
     var o = id ? m.byId[id] : null;
     var u = state.upg;
+    // An inline refusal for this tap; the next upgrade tap clears it.
+    var notice = null;
+    var reqId;
     switch (action) {
       case 'upg-pick':
         if (!o || o.state !== 'available') return;
+        reqId = upgRequiredHolding(o);
+        if (reqId) { notice = upgRequiredNotice(id, reqId, m); break; }
         if (u.picks[id]) upgPickOff(id); else upgPickOn(o);
         break;
       case 'upg-pick-none':
+        reqId = upgGroupRequiredId(id);
+        if (reqId) { notice = upgRequiredNotice(reqId, reqId, m); break; }
         m.offers.forEach(function (x) { if (x.group === id) upgPickOff(x.id); });
         break;
       case 'upg-star':
         if (!o || o.state !== 'available') return;
         if (hasOwn(u.stars, id)) { delete u.stars[id]; break; }
         if (upgStarCount() >= UPG_MAX_STARS) {
-          toast('Up to ' + UPG_MAX_STARS + ' recommendations. Unstar one first.', 'info');
-          return;
+          notice = { id: id, msg: 'Up to ' + UPG_MAX_STARS + ' recommendations. Unstar one first.' };
+          break;
         }
         u.stars[id] = '';
         break;
@@ -1995,17 +2125,20 @@
         u.more = !u.more;
         break;
       case 'upg-show-homeowner':
-        if (m.errors.length) { toast('Fix the upgrade first: ' + m.errors[0].message, 'error'); return; }
-        if (!m.offers.some(upgShowable)) { toast('Nothing priced and measured to show yet.', 'info'); return; }
+        if (m.errors.length) { notice = { id: '*', msg: 'Fix the upgrade first: ' + m.errors[0].message }; break; }
+        if (!m.offers.some(upgShowable)) { notice = { id: '*', msg: upgNothingToShowText(m) }; break; }
         u.homeowner = true;
         u.shown = true;
         break;
+      // The homeowner can only act on what the page offers (upgShowable):
+      // a required item, or any option of a group holding one, is base
+      // scope and never replaced or declined from here.
       case 'upg-ho-add':
         if (!upgShowable(o)) return;
         upgPickOn(o);
         break;
       case 'upg-ho-no':
-        if (!o) return;
+        if (!upgShowable(o)) return;
         upgPickOff(id);
         u.declined[id] = true;
         break;
@@ -2015,6 +2148,7 @@
       default:
         return;
     }
+    u.notice = notice;
     upgRepaint();
     // Focus follows the hand-over: into the homeowner page when it opens
     // (a screen reader or keyboard starts on its title, not on the rep
@@ -2255,6 +2389,7 @@
         leadField +
         '<button type="button" class="jt-btn jt-btn-primary" data-jt-action="create-estimate"' + (state.creating ? ' disabled' : '') + '>' +
           (state.creating ? 'Creating…' : 'Create estimate') + '</button>' +
+        '<div class="jt-create-err" id="jtCreateErr" role="alert">' + esc(state.createErr || '') + '</div>' +
       '</div>';
   }
 
@@ -2590,6 +2725,7 @@
 
   function goPreview() {
     state.step = 'preview';
+    state.createErr = '';
     paintModal();
   }
 
@@ -2623,6 +2759,15 @@
     }
   }
 
+  // The refusal beside Create estimate, patched in place so the typed
+  // estimate name survives; the toast is kept for any page where it shows.
+  function showCreateErr(msg) {
+    state.createErr = msg || '';
+    var el = document.getElementById('jtCreateErr');
+    if (el) el.textContent = state.createErr;
+    if (msg) toast(msg, 'error');
+  }
+
   function doCreateEstimate() {
     if (state.creating) return;
     var JT = engine();
@@ -2638,9 +2783,10 @@
     // worse than no estimate.
     var upgModelNow = upgModel(resolveCurrent());
     if (upgModelNow && upgModelNow.errors.length) {
-      toast('Fix the upgrade first: ' + upgModelNow.errors[0].message, 'error');
+      showCreateErr('Not saved — fix the upgrade first: ' + upgModelNow.errors[0].message);
       return;
     }
+    showCreateErr('');
 
     state.creating = true;
     var btn = document.querySelector('[data-jt-action="create-estimate"]');
@@ -2687,8 +2833,9 @@
         console.error('[job-templates-ui] createEstimate failed:', e);
         state.creating = false;
         var upErr = e && Array.isArray(e.upgradeErrors) && e.upgradeErrors[0];
-        toast(upErr ? 'Not saved — fix the upgrade first: ' + upErr.message : 'Could not create the estimate', 'error');
-        paintModal(); // re-enable the button
+        state.createErr = upErr ? 'Not saved — fix the upgrade first: ' + upErr.message : 'Could not create the estimate. Try again.';
+        toast(state.createErr, 'error');
+        paintModal(); // re-enable the button (and show createErr beside it)
       });
   }
 
@@ -3023,7 +3170,10 @@
       }
       if (action === 'upg-reason') {
         var sid = el.dataset.id;
-        if (sid && hasOwn(state.upg.stars, sid)) state.upg.stars[sid] = String(el.value == null ? '' : el.value).slice(0, 140);
+        if (sid && hasOwn(state.upg.stars, sid)) {
+          state.upg.stars[sid] = String(el.value == null ? '' : el.value).slice(0, 140);
+          upgPatchStarBadge(sid);
+        }
         return;
       }
 

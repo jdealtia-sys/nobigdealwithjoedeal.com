@@ -1330,11 +1330,18 @@
     const stars = recommendedReasons(offers, up);
     const declined = (up && up.declined) || {};
     const required = (up && up.required) || {};
+    // A pick-one group whose pick was made required is base scope: its other
+    // options were never the homeowner's to choose (the build screen keeps
+    // them off the Show homeowner page), so they are not logged as
+    // "offered" — the rule offeredFor applies to a guard already in the
+    // template's scope (review of #1763, 2026-09-25).
+    const heldGroup = {};
+    avail.forEach(o => { if (o.group && required[o.id] && got[o.id]) heldGroup[o.group] = o.id; });
     return {
       version: version || null,
       at: new Date().toISOString(),
       shownToHomeowner: !!(up && up.shownToHomeowner),
-      items: avail.map(o => {
+      items: avail.filter(o => !(o.group && heldGroup[o.group] && heldGroup[o.group] !== o.id)).map(o => {
         const p = got[o.id] || null;
         const unitCents = p ? p.unitCents : o.unitCents;
         const qty = p ? p.qty : (o.qty != null ? o.qty : null);

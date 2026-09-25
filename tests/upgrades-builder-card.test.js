@@ -54,7 +54,7 @@ const cents = (d) => Math.round(Number(d) * 100);
 // plus the Upgrades card slot and the homeowner page).
 // ════════════════════════════════════════════════════════════════════
 const DOM_IDS = ['jtModal', 'jtModalBody', 'jtModalFoot', 'jtStepLbl', 'jtUIStyles', 'jtEditModal',
-  'jtEstName', 'jtLeadSel', 'jtRunTotal', 'jtEditCard', 'jtUpgCard'];
+  'jtEstName', 'jtLeadSel', 'jtRunTotal', 'jtEditCard', 'jtUpgCard', 'jtCreateErr'];
 function makeSandbox(extraWin) {
   const byId = {};
   const listeners = {};
@@ -156,6 +156,8 @@ const pressed = (html, action, id) => {
   return m ? m[1] === 'true' : null;
 };
 const sumText = (html) => { const m = /data-upg-sum>([^<]*)</.exec(html); return m ? m[1] : null; };
+// A row's inline alert (an engine error or a refusal notice); '*' = the card's top line.
+const errText = (html, id) => { const m = new RegExp('data-upg-err="' + id.replace('*', '\\*') + '" role="alert">([^<]*)<').exec(html); return m ? m[1] : null; };
 const footTotalCents = (html) => { const m = /Total \(retail\): <b>\$([\d,.]+)<\/b>/.exec(html); return m ? cents(m[1].replace(/,/g, '')) : null; };
 const hoTotalCents = (html) => { const m = /Total with your choices<b>\$([\d,.]+)<\/b>/.exec(html); return m ? cents(m[1].replace(/,/g, '')) : null; };
 // "150 ft × $18 = $2,700" → cents of the line
@@ -276,11 +278,14 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('a zero footage on a picked guard is an error on its row', /data-upg-err="alurex" role="alert">[^<]*quantity/.test(card), (card.match(/data-upg-err="alurex"[^>]*>[^<]*/) || [''])[0]);
   ok('…the summary says to fix it and the foot says upgrades are not added', /fix the upgrade/.test(sumText(card)) && /upgrades not added/.test(env.foot()));
   env.click('go-preview');
+  ok('fixture: the preview renders an empty refusal slot beside Create estimate', /id="jtCreateErr" role="alert"><\/div>/.test(env.body()));
   const nSaved = env.saved.length;
   env.click('create-estimate');
   await wait(30);
-  ok('Create estimate refuses to save while a pick cannot be priced', env.saved.length === nSaved && /Fix the upgrade first/.test(env.toasts[env.toasts.length - 1] || ''),
-    env.toasts.slice(-1)[0]);
+  ok('Create estimate refuses to save while a pick cannot be priced', env.saved.length === nSaved);
+  // Inline beside the button: the toast layer sits under #jtModal (review of #1763).
+  ok('…and says why ON the preview, beside the button (role=alert), not only in a toast',
+    /^Not saved — fix the upgrade first: .*quantity/.test(env.byId.jtCreateErr.textContent || ''), env.byId.jtCreateErr.textContent);
   env.click('back-to-preconfirm');
   env.input({ jtAction: 'upg-qty', id: 'group:leaf_protection' }, { value: '' });
   await wait(320);
@@ -308,14 +313,14 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   env.input({ jtAction: 'upg-reason', id: 'alurex' }, { value: 'Two big oaks over the back run' });
   env.click('upg-star', 'amerimax_lockin_mesh');
   env.input({ jtAction: 'upg-reason', id: 'amerimax_lockin_mesh' }, { value: '   ' });
-  const toastsBefore = env.toasts.length;
   env.click('upg-star', 'leafblaster_pro_micromesh');
   card = env.card();
-  ok('a third star is refused, with a reason why', pressed(card, 'upg-star', 'leafblaster_pro_micromesh') === false
-    && /Up to 2 recommendations/.test(env.toasts.slice(toastsBefore).join(' ')));
+  ok('a third star is refused, with the reason ON its row (a toast here sits under the modal)', pressed(card, 'upg-star', 'leafblaster_pro_micromesh') === false
+    && /^Up to 2 recommendations/.test(errText(card, 'leafblaster_pro_micromesh') || ''), errText(card, 'leafblaster_pro_micromesh'));
   ok('the reasoned star shows its badge', /class="jt-upg-badge star">★ Recommended/.test(card.split('data-upg-row="alurex"')[1].split('data-upg-row=')[0]));
   ok('the blank-reason star shows no badge', !/class="jt-upg-badge star"/.test(card.split('data-upg-row="amerimax_lockin_mesh"')[1].split('data-upg-row=')[0]));
   env.click('upg-star', 'amerimax_lockin_mesh');
+  ok('…the refusal clears on the next tap', errText(env.card(), 'leafblaster_pro_micromesh') === '', errText(env.card(), 'leafblaster_pro_micromesh'));
   env.click('upg-star', 'leafblaster_pro_micromesh');
   ok('unstarring frees a slot', pressed(env.card(), 'upg-star', 'leafblaster_pro_micromesh') === true && pressed(env.card(), 'upg-star', 'amerimax_lockin_mesh') === false);
   env.click('upg-star', 'leafblaster_pro_micromesh');
@@ -329,11 +334,65 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   card = env.card();
   ok('Make required picks it and marks it Required', pressed(card, 'upg-pick', 'leafblaster_pro_micromesh') === true
     && pressed(card, 'upg-require', 'leafblaster_pro_micromesh') === true && /jt-upg-badge req">Required/.test(card));
+  ok('…and the group says its guard is now in the price, not the homeowner\'s choice',
+    /data-upg-grp-req="leaf_protection">LeafBlaster PRO stainless micromesh gutter guard is required/.test(card));
+  const reqPickSnap = () => LEAF.map((id) => id + '=' + pressed(env.card(), 'upg-pick', id) + '/' + pressed(env.card(), 'upg-require', id)).join(' ');
+  const reqHeld = 'amerimax_lockin_mesh=false/false leafblaster_pro_micromesh=true/true leafblaster_pro_reinforced=false/false alurex=false/false';
+  ok('fixture: LeafBlaster alone is picked and required', reqPickSnap() === reqHeld, reqPickSnap());
+
+  // Review of #1763 (all three lenses): a sibling tap swapped the required
+  // guard out. On the rep's card it is refused and says why, on the row.
+  env.click('upg-pick', 'alurex');
+  card = env.card();
+  ok('rep card: tapping a sibling does NOT replace the required guard', reqPickSnap() === reqHeld, reqPickSnap());
+  ok('…it says why on the tapped row', /^LeafBlaster PRO stainless micromesh gutter guard is required on this job\. Tap its “✓ Required” to release it first\.$/.test(errText(card, 'alurex') || ''),
+    errText(card, 'alurex'));
+  env.click('upg-pick-none', 'leaf_protection');
+  ok('rep card: None does not drop the required guard either (the reason shows on it)', reqPickSnap() === reqHeld
+    && /^Required on this job\./.test(errText(env.card(), 'leafblaster_pro_micromesh') || ''), reqPickSnap());
+  env.click('upg-pick', 'leafblaster_pro_micromesh');
+  ok('rep card: untapping the required guard itself is refused too', reqPickSnap() === reqHeld);
+
+  // Only the leaf group is priced by default, and it is now base scope.
+  env.click('upg-show-homeowner');
+  ok('Show homeowner with nothing left to offer: refused, and says so on the card', !env.hoOpen()
+    && /^Nothing left to offer: the priced options are already in the price as required\.$/.test(errText(env.card(), '*') || ''), errText(env.card(), '*'));
+  ok('…the button reads disabled with that reason', /data-jt-action="upg-show-homeowner" disabled title="Nothing left to offer/.test(env.card()));
+
+  // A second priced option (the tenant priced the 3x4 step-up) — the page opens.
+  W._companyProfile = { upgrades: { prices: { downspout_3x4_step_up: 400 } } };
+  env.start([K5]);
+  env.click('upg-require', 'leafblaster_pro_micromesh');
+  const dsp = JT.upgradeOffers(JT.resolveSelection([{ templateId: K5 }], {}), {}).find((o) => o.id === 'downspout_3x4_step_up');
+  ok('fixture: a tenant price makes the 3x4 step-up quotable on K5', dsp && dsp.state === 'available' && dsp.unitCents === 400 && dsp.qty > 0,
+    JSON.stringify(dsp && { s: dsp.state, u: dsp.unitCents, q: dsp.qty }));
   env.click('upg-show-homeowner');
   let ho = env.ho();
-  ok('the homeowner page does not offer a required item as a choice', !/data-ho-id="leafblaster_pro_micromesh"/.test(ho));
+  ok('the homeowner page opens for the other option', env.hoOpen() && /data-ho-id="downspout_3x4_step_up"/.test(ho));
+  ok('the homeowner page does not offer the required item as a choice', !/data-ho-id="leafblaster_pro_micromesh"/.test(ho));
+  ok('…NOR any other option of its group: no card, no Add, no No thanks, no "choose one, or none"',
+    LEAF.every((id) => !new RegExp('data-ho-id="' + id + '"|data-id="' + id + '"').test(ho)) && !/Leaf protection<small>/.test(ho),
+    LEAF.filter((id) => new RegExp('data-id="' + id + '"').test(ho)).join(','));
   ok('…it lists it under "Already included"', /Already included \(\d+\)[\s\S]*<li>LeafBlaster PRO stainless micromesh gutter guard<\/li>/.test(ho));
+  const hoReq0 = hoTotalCents(ho);
+  // A stale page or a forged event: Add / No thanks on a held option are refused.
+  env.click('upg-ho-add', 'alurex');
+  env.click('upg-ho-add', 'amerimax_lockin_mesh');
+  env.click('upg-ho-no', 'leafblaster_pro_micromesh');
+  env.click('upg-ho-no', 'leafblaster_pro_reinforced');
+  ho = env.ho();
+  ok('an Add / No thanks on the required group changes neither the picks nor the total', hoTotalCents(ho) === hoReq0
+    && /<li>LeafBlaster PRO stainless micromesh gutter guard<\/li>/.test(ho) && reqPickSnap() === reqHeld, hoTotalCents(ho) + ' vs ' + hoReq0 + ' · ' + reqPickSnap());
+  env.click('upg-ho-add', 'downspout_3x4_step_up');
+  ho = env.ho();
+  const dspC = dsp.qty * 400;
+  const reqBaseP = JT.applyUpgrades(JT.buildEstimatePayload(JT.resolveSelection([{ templateId: K5 }], {}), {}), JT.resolveSelection([{ templateId: K5 }], {}),
+    { picks: ['leafblaster_pro_micromesh'], required: { leafblaster_pro_micromesh: true }, quantities: {} }).payload;
+  ok('fixture: the page\'s opening total is the base WITH the required guard', hoReq0 === cents(reqBaseP.grandTotal), hoReq0 + ' vs ' + cents(reqBaseP.grandTotal));
+  ok('Add on the other option moves the total by EXACTLY its card price + its tax', hoTotalCents(ho) - hoReq0 === dspC + U.taxCentsAt(dspC, reqBaseP.taxRate),
+    (hoTotalCents(ho) - hoReq0) + ' vs ' + (dspC + U.taxCentsAt(dspC, reqBaseP.taxRate)));
   env.click('upg-ho-done');
+  ok('after hand back the rep\'s guard is still picked AND required', reqPickSnap() === reqHeld && pressed(env.card(), 'upg-pick', 'downspout_3x4_step_up') === true, reqPickSnap());
   env.click('go-preview');
   const prevReq = env.body();
   ok('preview prints it as a plain base-scope line (no "Upgrade —")',
@@ -345,6 +404,22 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('saved: plain desc, "Base scope", upgradeRequired, still face value', reqRow && reqRow.desc === 'LeafBlaster PRO stainless micromesh gutter guard'
     && reqRow.category === 'Base scope' && reqRow.upgradeRequired === true && cents(reqRow.retailTotal) === dAlu.qty * 1200, JSON.stringify(reqRow && { d: reqRow.desc, c: reqRow.category }));
   ok('saved log: status "required"', !!(sv && sv.upgradeLog) && (sv.upgradeLog.items.find((i) => i.id === 'leafblaster_pro_micromesh') || {}).status === 'required');
+  ok('saved log: the held group\'s other options are NOT logged as "offered" (never the homeowner\'s choice)',
+    !!(sv && sv.upgradeLog) && !sv.upgradeLog.items.some((i) => LEAF.indexOf(i.id) !== -1 && i.id !== 'leafblaster_pro_micromesh')
+      && (sv.upgradeLog.items.find((i) => i.id === 'downspout_3x4_step_up') || {}).status === 'chosen',
+    sv && sv.upgradeLog && sv.upgradeLog.items.map((i) => i.id + ':' + i.status).join(','));
+  ok('saved: the other option is an "Upgrade —" line at its card price', (sv.rows.find((r) => r.upgradeId === 'downspout_3x4_step_up') || {}).upgradeCents === dspC);
+  W._companyProfile = null;
+
+  // Releasing is the rep's own button: then the group is a choice again.
+  env.start([K5]);
+  env.click('upg-require', 'leafblaster_pro_micromesh');
+  env.click('upg-require', 'leafblaster_pro_micromesh');
+  ok('"✓ Required" releases it (still picked, no longer required)', pressed(env.card(), 'upg-pick', 'leafblaster_pro_micromesh') === true
+    && pressed(env.card(), 'upg-require', 'leafblaster_pro_micromesh') === false && !/data-upg-grp-req=/.test(env.card()));
+  env.click('upg-pick', 'alurex');
+  ok('…and then a sibling replaces it as usual', pressed(env.card(), 'upg-pick', 'alurex') === true && pressed(env.card(), 'upg-pick', 'leafblaster_pro_micromesh') === false
+    && errText(env.card(), 'alurex') === '');
 
   // ══════════════════════════════════════════════════════════════════
   section('6. SHOW HOMEOWNER — priced and measured only; Add / No thanks; running total with tax');
@@ -551,7 +626,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     const rq = FIN.formatEstimate(est, 'retail-quote', { customer: { name: 'Jane Smith', address: '1 Elm St' }, estimate: { number: 'EST-1', date: '2026-09-25' } }).html;
     const pt = /PROJECT TOTAL<\/strong><\/td>\s*<td class="num"><strong>\$([\d,.]+)</.exec(rq);
     ok('the V2 Retail Quote lists the upgrade in the scope', rq.indexOf('<strong>Upgrade — Alu-Rex DoublePro gutter guard</strong>') !== -1);
-    ok('…and its PROJECT TOTAL is the upgraded total', !!pt && Number(pt[1].replace(/,/g, '')) === Math.round(est.total), pt && pt[1]);
+    ok('…and its PROJECT TOTAL is the upgraded total, to the cent', !!pt && cents(pt[1].replace(/,/g, '')) === cents(est.total), pt && pt[1]);
     re = V2.buildSavePayload(est, st);
     const reRow2 = re.rows.find((r) => r.code === 'UPG LG-ARX');
     ok('edited re-save keeps the tagged row and the upgraded total', reRow2 && reRow2.upgrade === true && cents(reRow2.retailTotal) === cardLine
@@ -571,6 +646,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     // A county with a different rate re-taxes the upgrade exactly.
     const counties = (w.EstimateBuilderV2.getCountyTaxMap && w.EstimateBuilderV2.getCountyTaxMap()) || {};
     const other = Object.keys(counties).find((k) => Number(counties[k]) !== Number(doc0.taxRate));
+    const countyWas0 = st.county;
     if (other) {
       st.county = other;
       const e3 = V2.effectiveEstimate();
@@ -583,6 +659,28 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
       ok('a second county rate exists to test re-taxing', false, JSON.stringify(counties));
     }
 
+    // A total WITH cents (review of #1763): Hamilton County's 7.8% on the
+    // upgrade gives exact tax cents on top of the $25-rounded engine total.
+    // The Retail Quote printed PROJECT TOTAL / Balance rounded to the dollar
+    // (fmtMoneyBig), so the V2 paper disagreed with the saved grandTotal and
+    // with the proposal, contract, portal and invoice.
+    ok('fixture: Hamilton County is a tax jurisdiction (7.8%)', Number(counties['hamilton-oh']) === 0.078, String(counties['hamilton-oh']));
+    st.county = 'hamilton-oh';
+    const eh = V2.effectiveEstimate();
+    ok('fixture: at 7.8% the upgraded total carries cents', cents(eh.total) % 100 !== 0 && upLines(eh).length === 1, String(eh.total));
+    const rqh = FIN.formatEstimate(eh, 'retail-quote', { customer: { name: 'Jane Smith', address: '1 Elm St' }, estimate: { number: 'EST-2', date: '2026-09-25' } }).html;
+    const money2 = (c) => '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const ptH = /PROJECT TOTAL<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
+    ok('Retail Quote PROJECT TOTAL prints the cents: ' + money2(cents(eh.total)), !!ptH && ptH[1] === money2(cents(eh.total)), ptH && ptH[1]);
+    const depH = /Deposit \([^)]*\)<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
+    const balH = /Balance Due \([^)]*\)<\/strong><\/td>\s*<td class="num"><strong>(\$[\d,.]+)</.exec(rqh);
+    ok('…and deposit + balance foot to it exactly', !!depH && !!balH
+      && cents(depH[1].replace(/[$,]/g, '')) + cents(balH[1].replace(/[$,]/g, '')) === cents(eh.total), [depH && depH[1], balH && balH[1]].join(' + '));
+    const reH = V2.buildSavePayload(eh, st);
+    ok('…and the saved grandTotal is that same figure', cents(reH.grandTotal) === cents(eh.total) && cents(reH.grandTotal) === cents(ptH && ptH[1].replace(/[$,]/g, '')));
+    st.county = countyWas0;
+    ok('fixture: back on the saved county the total is the saved one', cents(V2.effectiveEstimate().total) === cents(doc0.grandTotal), String(V2.effectiveEstimate().total));
+
     // Insurance: upgrades never go inside a claim — dropped from the price,
     // kept in state (switching back restores them).
     st.jobMode = 'insurance';
@@ -591,8 +689,48 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     const insSave = V2.buildSavePayload(ins, st);
     ok('insurance re-save: no upgrade rows, and upgradeCents written as 0 (not left stale)', !insSave.rows.some((r) => r.upgrade) && insSave.upgradeCents === 0
       && Array.isArray(insSave.upgrades) && insSave.upgrades.length === 0);
+    const logOf = (p, id) => ((p.upgradeLog && p.upgradeLog.items) || []).find((i) => i.id === id) || {};
+    ok('insurance re-save: the log says the chosen upgrade was removed (not "chosen" for a line the estimate lacks)',
+      logOf(insSave, 'alurex').status === 'removed' && logOf(insSave, 'alurex').removedFrom === 'chosen', JSON.stringify(logOf(insSave, 'alurex')));
+    ok('…while the builder keeps the original record (switching back restores it)', (st.upgradeLog.items.find((i) => i.id === 'alurex') || {}).status === 'chosen');
     st.jobMode = 'cash';
     ok('back to cash: the upgrade line returns', upLines(V2.effectiveEstimate()).length === 1);
+    ok('…and a save logs it "chosen" again', logOf(V2.buildSavePayload(V2.effectiveEstimate(), st), 'alurex').status === 'chosen');
+
+    // Review of #1763: two more paths used to drop the upgrade SILENTLY.
+    // (1) Per-SQ — gated on the toggle alone. A per-SQ quote prints no
+    // lines, so the upgrade is out of that price, but the builder now says
+    // so and the log records it; and a per-SQ toggle the overlay cannot
+    // honour (no roof area) prices line-item WITH the upgrade.
+    st.mode = 'per-sq';
+    const ps1 = V2.effectiveEstimate();
+    ok('per-SQ (overlay applies): no upgrade line, and the estimate says why', ps1.priceMode === 'per-sq' && upLines(ps1).length === 0
+      && /per-SQ quote prints no line items/.test(ps1.upgradesOffReason || ''), ps1.priceMode + ' · ' + ps1.upgradesOffReason);
+    const psSave = V2.buildSavePayload(ps1, st);
+    ok('…its save writes upgradeCents 0 and logs the upgrade "removed"', psSave.upgradeCents === 0 && logOf(psSave, 'alurex').status === 'removed');
+    const sqftWas = st.measurements.rawSqft;
+    st.measurements.rawSqft = 0;
+    const ps2 = V2.effectiveEstimate();
+    ok('per-SQ toggled with no roof area: priced line-item, WITH the upgrade', ps2.priceMode === 'line-item' && upLines(ps2).length === 1
+      && !ps2.upgradesOffReason && cents(ps2.total) === cents(doc0.grandTotal), ps2.priceMode + ' ' + ps2.total);
+    st.measurements.rawSqft = sqftWas;
+    st.mode = 'line-item';
+    // (2) An empty catalog scope with only a pass-through fee left.
+    const scopeWas = st.scope, feesWas = st.passThru;
+    st.scope = [];
+    st.passThru = [{ code: 'SVC MEAS', desc: 'Measurement report', amount: 75, source: 'passthru' }];
+    const pe1 = V2.effectiveEstimate();
+    ok('empty scope + a fee: the upgrade is out of the price and the estimate says why', !!pe1 && upLines(pe1).length === 0
+      && /scope is empty/.test(pe1.upgradesOffReason || ''), pe1 && pe1.upgradesOffReason);
+    st.scope = scopeWas; st.passThru = feesWas;
+    // (3) The rep removed the line (× in the scope list).
+    const upsWas = st.upgrades;
+    st.upgrades = [];
+    const rmSave = V2.buildSavePayload(V2.effectiveEstimate(), st);
+    ok('a removed upgrade: upgradeCents 0 and logged "removed" (removedFrom "chosen")', rmSave.upgradeCents === 0
+      && logOf(rmSave, 'alurex').status === 'removed' && logOf(rmSave, 'alurex').removedFrom === 'chosen');
+    st.upgrades = upsWas;
+    ok('restored: the line and the saved total are back', upLines(V2.effectiveEstimate()).length === 1 && cents(V2.effectiveEstimate().total) === cents(doc0.grandTotal));
 
     // A plain V2 estimate is untouched by any of this.
     const plain = JSON.parse(JSON.stringify(JT.buildEstimatePayload(res0, {})));
@@ -646,6 +784,40 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     env.click('close-modal');
     ok('closing the modal resets picks, stars and answers (never carried to the next quote)',
       JSON.stringify(Object.keys(env.win.JobTemplatesUI)) && (env.start([K5]), LEAF.every((id) => pressed(env.card(), 'upg-pick', id) === false) && !/★/.test(env.card())));
+  }
+
+  // ══════════════════════════════════════════════════════════════════
+  section('11. JOB MINIMUM — a floored job says an option counts toward the minimum first');
+  // ══════════════════════════════════════════════════════════════════
+  {
+    // Review of #1763 (minor): the pricing core re-applies the job minimum
+    // to the WHOLE job, so on a floored job an option first fills the gap
+    // and the total moves by less than its price. The card and the
+    // homeowner page now say so instead of silently disagreeing.
+    const RESEAL = 'jt_gr_reseal';
+    const tpl = JT.get(RESEAL);
+    env.start([RESEAL]);
+    ok('fixture: an unfloored reseal shows no minimum note', !/data-upg-min/.test(env.card()));
+    for (let i = 1; i < tpl.items.length; i++) {
+      env.input({ jtAction: 'item-include', tid: RESEAL, idx: String(i) }, { checked: false, type: 'checkbox', closest: () => null });
+    }
+    await wait(320);
+    const flRes = JT.resolveSelection([{ templateId: RESEAL, itemChoices: Object.fromEntries(tpl.items.map((x, i) => [i, { include: i === 0 }])) }], {});
+    const flBase = JT.buildEstimatePayload(flRes, {});
+    ok('fixture: one line left, the job is floored at its minimum', flBase.minJobApplied === true && cents(flBase.grandTotal) === cents(flRes.minJobCharge),
+      flBase.grandTotal + ' / ' + flRes.minJobCharge);
+    env.input({ jtAction: 'upg-qty', id: 'group:leaf_protection' }, { value: '10' });
+    await wait(320);
+    env.click('upg-pick', 'amerimax_lockin_mesh');
+    card = env.card();
+    const minMsg = 'This job is priced at its $' + Number(flRes.minJobCharge).toLocaleString('en-US') + ' minimum charge.';
+    ok('the card says the job is at its minimum and an option counts toward it first',
+      new RegExp('data-upg-min>' + minMsg.replace(/[$.]/g, '\\$&') + ' An option counts toward that minimum first').test(card), (card.match(/data-upg-min>[^<]*/) || ['none'])[0]);
+    ok('fixture: 10 ft of Amerimax ($60) leaves the floored total where it was', footTotalCents(env.foot()) === cents(flBase.grandTotal), String(footTotalCents(env.foot())));
+    env.click('upg-show-homeowner');
+    ok('the homeowner page says it too, above the options', env.hoOpen() && new RegExp('class="jt-ho-min" data-ho-min>' + minMsg.replace(/[$.]/g, '\\$&')).test(env.ho()));
+    env.click('upg-ho-done');
+    env.click('close-modal');
   }
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');
