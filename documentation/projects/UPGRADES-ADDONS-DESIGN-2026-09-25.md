@@ -1,0 +1,106 @@
+# Upgrades & Add-ons: design decision (2026-09-25)
+
+**Status:** designed, not built. The first build slice waits on Jo's pricing answers (see *Decisions Jo still owes*).
+**Came from:** Jo's question, "our job templates have Good/Better/Best, but on gutters the tiers don't do anything. Make tiers meaningful, or build an upgrades tool?"
+**Method:** a design workflow with six research lanes (a code map, four trade groups covering all 11 template categories, and a UX study), three competing designs, three judges (Jo / homeowner / engineer lenses), and one synthesis. The headline code claims below were then re-verified by hand.
+
+## The decision
+
+**Upgrades & Add-ons is its own feature, for every category. It never rides the Good/Better/Best buttons.**
+
+Jo made the key call himself. On roofing, the tier buttons already mean "which shingle line", so they can't also carry upgrades; that would be two features on one trigger.
+
+- **Tier:** picks ONE base material (radio buttons). It shows only where a real ladder exists and actually changes the price.
+- **Upgrades:** pick any number of extras (checkboxes). An upgrade costs the same on every rung and sits on top of whatever base was chosen.
+
+## Code facts (verified 2026-09-25)
+
+- **Tiers do nothing on any job template.** All **107** default job templates, run through the real resolver (`JobTemplates.resolveSelection`), give identical totals and identical per-line retail at good, better and best. Tier only reaches price through `EstimateLogic.resolveMaterial(materialId, tier)`, and none of the 277 catalog items or template lines carries a `materialId`.
+  - The only working tier pricing is V2 per-SQ cash (545/595/660) and its copy in the classic builder.
+  - The roof "ladder" is really three separate templates (`jt_fr_asphalt_good/better/best`).
+- **Silent pre-ticks.** `seedChoices` (job-templates-ui.js) sets `included:true` on every line, including lines marked `optional`. That means:
+  - The K6 template's $6,050 includes about $850 of gutter apron.
+  - The Guards Package ticks an underground drain.
+  - The asphalt "Best" template bundles about 11 extras (full-deck ice & water, SmartVent, System Plus, …) on top of the Class 4 shingle.
+- **A hidden tier still prints.** The saved tier defaults to `better`. The portal maps it to "Preferred" (functions/portal.js), and the document generator prints that tier's lifetime-workmanship sentence on gutter paperwork. That contradicts NBD's written 2-year workmanship warranty.
+- **Upgrade machinery already exists, but none of it is homeowner-priced.** There are 101 `optional` items (the engine ignores the flag) and 70 rep-only "Upsell:" notes.
+  - The V2 Add-Ons boxes are silently ignored in line-item mode.
+  - `TIER_MATERIAL_MAP` is unmounted.
+  - Close Board's "Best" card promises gutters and a full deck that aren't in the price.
+- **How to print upgrades.** Upgrade lines should be **face-value retail rows, added after the engine** (like V2's pass-through fees). Routing them through markup, O&P and $25 rounding would print a different number than the one quoted, because the customer paper prints lines before O&P plus one separate O&P row.
+- **V2 reopen drops unknown codes.** An estimate reopened in V2 drops any code the catalog doesn't know, so V2 needs a small change to keep upgrade rows.
+
+## How it works (the chosen design: "builder upgrades panel")
+
+**Rep side, in the Job Templates build screen:**
+- The tier row hides wherever it prices nothing.
+- An **Upgrades** card lists about 3 curated upgrades per job type, at most 5 behind "More". A "pick one" group, such as leaf protection, counts as one.
+- Nothing is pre-ticked, and at most 2 are starred "Recommended". A star needs a reason from THIS house.
+- **"Make required"** moves an item into the base scope, for code work.
+- A **"Show homeowner"** button turns the same list into one clean full-screen page: Add / No thanks, a running total, and a warranty line only where the warranty is real.
+
+**Saving and printing:** picks save as ordinary retail lines ("Upgrade — Alu-Rex leaf protection, 125 ft"). Estimate-view, the portal, the proposal, the contract and the invoice already print lines like that.
+
+**Pricing rules:**
+- Upgrade prices are exact cents on top of the base: no O&P re-division and no rounding.
+- **No research-guess price ever reaches a homeowner**, only prices Jo has saved (Settings → Upgrade prices).
+
+## Gutter guards, from Jo's real lineup
+
+This matches how Jo already sells. His hand-built proposals say "same gutter, same downspouts — the only variable is what goes on top".
+
+| Leaf protection (pick one) | Retail | Warranty wording allowed |
+|---|---|---|
+| Amerimax Lock-In steel mesh (Jo installs) | **$6/LF** (Jo's price) | manufacturer limited warranty only |
+| LeafBlaster PRO micromesh (Jo installs) | **$12/LF** (Jo's price) | "40-year limited parts warranty". **Never** "lifetime" or "no-clog" |
+| LeafBlaster PRO Frame-Reinforced | price needed (suggest about $15/LF) | same; its warranty excludes excessive snowfall |
+| Alu-Rex (installed by a certified sub): Gutter Clean Pro for existing gutters, DoublePro/HoverPro for new ones | price needed | "lifetime clog-free limited warranty" (one transfer; DoublePro/HoverPro include pine areas) |
+
+Jo's base gutter pricing, for context:
+- seamless gutter: $12/LF, plus a $5/LF two-story adder;
+- downspouts: $250 per drop, with elbows and extensions;
+- fascia repair: $25/LF, first 10 LF included.
+
+**Not offered:** Leaf Sentry (dropped by Jo), and dealer-locked systems (LeafFilter, LeafGuard, Gutter Helmet).
+
+## Build order
+
+0. **Honest paperwork, about half a day.**
+   - Hide the tier row on templates where it prices nothing, and save "no tier applies".
+   - Stop printing "Preferred" and the tier's lifetime-workmanship sentence when that is set.
+   - Remove the Close Board copy that promises unpriced gutters, full deck and ice & water.
+1. **Gutter installs, cash jobs.**
+   - A public upgrade library (retail only, in cents).
+   - A small pricing helper covering eligibility, quantities that follow gutter footage, one-per-group, and exact-cent totals.
+   - The Upgrades card and the "Show homeowner" page.
+   - The V2 reopen fix.
+   - Settings → Upgrade prices.
+   - Turn the silent apron and drain pre-ticks into upgrades.
+   - Tests where the card price equals the printed line equals the change in the total, each break-tested.
+2. **Roofing.**
+   - A real asphalt ladder, where the tier swaps only shingle, ridge and starter.
+   - The Best bundle's extras become upgrades.
+   - GAF System Plus and TAMKOShield only when certification allows.
+3. **Remaining trades:** ventilation, soffit/fascia, specialty, exterior, and care plans.
+4. **Homeowner picks upgrades on the texted estimate link.** The picks lock at signature.
+5. **Insurance.** A separate signed homeowner-upgrade addendum. Never inside a claim, and nothing free or discounted on claim jobs (KY KRS 367.628).
+
+## What NOT to do
+
+- Don't put upgrades on the tier buttons, and never make Class 4 an upgrade card.
+- No pre-ticks, and no "free", "today only", "limited time" or crossed-out prices.
+- Don't sell required or code work (the first ice & water course, drip edge, kickout flashing) as optional; use "Make required".
+- Don't give per-square roofs upgrades until their customer paper prints lines. It hides every line today.
+- Never publish a cost or margin figure under `docs/`.
+
+## Decisions Jo still owes
+
+1. The Alu-Rex retail price (from the sub's price to NBD).
+2. A LeafBlaster PRO Frame-Reinforced price.
+3. The workmanship warranty split. Recommended: **5 years** on new gutter systems (only if the installing sub backs 5 in writing), **2 years** on guard-only installs, **1 year** on repairs. Jo's current proposals say 2 years across the board.
+4. Later: OK to make the asphalt "Best" template = Class 4 shingle only, with its other extras as upgrades? (Its default price drops a lot.)
+
+## Related
+
+- [NEXT_SESSION-2026-09-25](NEXT_SESSION-2026-09-25.md): the session this came from.
+- [phone-audit-2026-09-25](../qa/phone-audit-2026-09-25.md): the same session's phone audit.
