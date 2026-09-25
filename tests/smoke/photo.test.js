@@ -1033,6 +1033,34 @@ section('NBDDocGen branding: logo resolves in viewer context, orange/navy theme'
     !!imgRule);
   assert('firebase.json: image assets serve CORP cross-origin',
     !!(imgRule && (imgRule.headers || []).find(h => h.key === 'Cross-Origin-Resource-Policy' && h.value === 'cross-origin')));
+
+  // The same holds for EVERY same-origin URL the generator bakes into a
+  // document (_assetOrigin() + '/path'): sign.html and the doc viewer show
+  // documents in an <iframe srcdoc> sandboxed without allow-same-origin, so
+  // those fetches come from an opaque origin and the global CORP same-origin
+  // blocks them. signature-widget.js was blocked that way in production until
+  // 2026-09-25 - no signature pad worked on any signing link. Resolve the
+  // header each path is really served with: Hosting applies every matching
+  // rule in order, so the LAST matching rule that sets the key wins. Only the
+  // glob forms the CORP rules use today are resolved (exact, **, /dir/**); a
+  // new form fails the first assert instead of being guessed at.
+  // tests/e2e/phone-signing.spec.js checks the same with superstatic's matcher.
+  const docGenSrc = read(path.join(ROOT, 'docs/pro/js/document-generator.js'));
+  const bakedPaths = [...docGenSrc.matchAll(/_assetOrigin\(\)\s*\+\s*'(\/[^']+)'/g)].map(m => m[1]);
+  assert('document-generator: bakes the signature widget script by absolute URL',
+    bakedPaths.includes('/pro/js/signature-widget.js'));
+  const corpOf = r => (r.headers || []).find(h => h.key === 'Cross-Origin-Resource-Policy');
+  const corpRules = (fbCfg.hosting.headers || []).filter(corpOf);
+  const plainGlob = s => typeof s === 'string' && (s === '**' || /^\/[^*?{}()[\]@!+]*(\/\*\*)?$/.test(s));
+  assert('firebase.json: every CORP header rule uses a glob this check resolves (exact, **, /dir/**)',
+    corpRules.every(r => plainGlob(r.source)));
+  const globHits = (s, p) => s === '**' || s === p || (s.endsWith('/**') && p.startsWith(s.slice(0, -2)));
+  for (const p of bakedPaths) {
+    let corp;
+    for (const r of corpRules) if (globHits(r.source, p)) corp = corpOf(r).value;
+    assert(`firebase.json: ${p} is served CORP cross-origin (loadable in the sandboxed signing/viewer frame)`,
+      corp === 'cross-origin');
+  }
 }
 
 section('NBDUrl helper: canonical customer URL builder');

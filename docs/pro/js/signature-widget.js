@@ -155,11 +155,40 @@
     return out.toDataURL('image/png');
   };
 
+  // ── Finger-sized controls (2026-09-25, phone audit homeowner#3) ──
+  // The pad's Clear / Undo buttons come from document-generator.js's
+  // _injectSignatureAssets CSS: font-size 11px, padding 4px 10px — 48x22 and
+  // 102x22 on a phone, the only way to redo a botched finger signature. A tap
+  // 14px below Clear's centre landed on the block, not the button.
+  //
+  // Sized HERE rather than in that CSS because the generator's <style> is
+  // part of the legal record (stored, printed, and rendered by the doc
+  // viewer's html2pdf in the rep's own page, where a phone media query would
+  // match). This sheet exists only while a pad is live and is cut back out
+  // of the serialised HTML in finalize(), so the record is unchanged. It
+  // covers every surface that loads the widget: remote signing (sign.html)
+  // and the rep's in-person signing in the doc viewer.
+  var TOUCH_STYLE_ID = 'nbd-sig-touch';
+  var touchStyleEl = null;
+  function ensureTouchStyle() {
+    if (touchStyleEl || !document.head) return;
+    touchStyleEl = document.createElement('style');
+    touchStyleEl.id = TOUCH_STYLE_ID;
+    touchStyleEl.textContent =
+      '@media screen and (pointer:coarse),screen and (max-width:600px){' +
+      '.nbd-sig-controls{gap:10px;flex-wrap:wrap;margin-top:8px;}' +
+      '.nbd-sig-controls button{min-height:44px;padding:10px 16px;font-size:15px;border-radius:8px;border-color:#b8bec8;color:#1A3057;}' +
+      '.nbd-sig-state{font-size:14px;}' +
+      '}';
+    document.head.appendChild(touchStyleEl);
+  }
+
   function initBlock(block) {
     if (block.__nbdSigInit) return;
     if (block.getAttribute('data-nbd-sig-finalized') === '1') return;
     var canvas = block.querySelector('canvas.nbd-sig-canvas');
     if (!canvas) return;
+    ensureTouchStyle();
     var pad = new NBDSignaturePad(canvas);
     var entry = {
       block: block,
@@ -314,6 +343,9 @@
     // string. Prepend the doctype so the saved HTML still parses
     // correctly when reopened.
     var html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    // The touch sheet is display chrome, not document: cut its exact
+    // serialisation back out so the record matches what was sent.
+    if (touchStyleEl) html = html.split(touchStyleEl.outerHTML).join('');
     return { ok: true, html: html, signers: signedSigners };
   }
 

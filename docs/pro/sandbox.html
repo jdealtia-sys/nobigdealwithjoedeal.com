@@ -93,6 +93,26 @@ a{color:inherit}
 .sb-foot{border-top:1px solid var(--br);padding:20px;text-align:center;font-size:11px;color:var(--m)}
 .sb-foot a{color:var(--m)}
 @media(max-width:700px){.sb-board{grid-auto-columns:78vw}.sb-nav-right .hide-m{display:none}}
+/* Phone targets (2026-09-25, phone audit homeowner#10). HTML5 drag never
+   fires on touch, so the per-card arrows are the ONLY way a prospect on a
+   phone moves a card (sandbox-demo.js says as much) — and they were 26x22
+   with an 11px muted glyph. The nav squeezed too: the NBD mark (a flex item
+   with no flex-shrink) crushed to 27px with its text spilling out, and the
+   badge and START FREE each wrapped onto two lines. What fixes it is room:
+   20px nav padding + 12px gaps left 3px short at 412, so they tighten; and
+   the badge, which says nothing the hero doesn't, goes below 400px where
+   the nav cannot hold it at all. flex-shrink:0 and nowrap are guards for a
+   wider fallback font (Barlow not loaded) — at the tested widths they are
+   not what keeps the nav on one line. */
+@media(max-width:700px){
+  .sb-card-arrows{gap:6px}
+  .sb-arrow{width:44px;height:40px;font-size:18px;color:var(--t)}
+  .sb-drawer-close{width:40px;height:40px}
+  .sb-logo .mark{flex-shrink:0}
+  .sb-badge,.sb-nav-right a.cta{white-space:nowrap}
+  .sb-nav{padding:0 12px;gap:10px}
+}
+@media(max-width:400px){.sb-badge{display:none}}
 </style>
 </head>
 <body>

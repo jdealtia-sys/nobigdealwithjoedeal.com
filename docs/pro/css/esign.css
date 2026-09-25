@@ -185,6 +185,27 @@ body {
 .es-apply { flex: 1 1 auto; border: 0; background: var(--es-orange); color: #fff; border-radius: 10px; padding: 11px 14px; font-size: 15px; font-weight: 800; cursor: pointer; min-height: 44px; }
 .es-apply:disabled { opacity: .5; cursor: default; }
 
+/* Checkbox sheet (2026-09-25): a legible excerpt of the page around a box the
+   signer reached with "Next field", so they read what they tick. The excerpt
+   is rendered at 1.5x (10pt -> 15px) and scrolls sideways; pan-x keeps a
+   vertical swipe from fighting the sheet's own scroll. */
+.es-check-wrap { display: flex; flex-direction: column; gap: 8px; }
+.es-check-lead { margin: 0; font-size: 14px; line-height: 1.45; color: var(--es-ink); }
+.es-excerpt {
+  overflow-x: auto; overflow-y: hidden;
+  border: 1px solid var(--es-line); border-radius: 10px; background: #fff;
+  -webkit-overflow-scrolling: touch; touch-action: pan-x;
+}
+.es-excerpt-page { position: relative; }
+.es-excerpt-page canvas { display: block; }
+.es-excerpt-box {
+  position: absolute; pointer-events: none;
+  border: 2px solid var(--es-orange); border-radius: 3px;
+  box-shadow: 0 0 0 4px rgba(189, 87, 40, .25);
+}
+.es-check-hint { margin: 0; font-size: 12px; color: var(--es-muted); }
+.es-check-hint:empty { display: none; }
+
 .es-consent { display: flex; flex-direction: column; gap: 12px; }
 .es-check { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.45; color: var(--es-ink); }
 .es-check input { width: 22px; height: 22px; flex: 0 0 auto; margin-top: 1px; }

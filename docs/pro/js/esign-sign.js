@@ -53,6 +53,35 @@ const el = {
   submit: $('esSubmit'), doneErr: $('esDoneErr'),
 };
 
+/* The checkbox sheet's excerpt block (see openCheckSheet). Built here, not in
+   esign.html: hosting ignores ?v=, so for the HTML's cache lifetime after a
+   deploy an old esign.html runs THIS file — markup it expected in the page
+   would be null and take the whole signing flow down with it. */
+function buildCheckWrap() {
+  const wrap = document.createElement('div');
+  wrap.className = 'es-check-wrap';
+  wrap.id = 'esCheckWrap';
+  wrap.hidden = true;
+  const lead = document.createElement('p');
+  lead.className = 'es-check-lead';
+  lead.textContent = 'This box is in your document. Read the text around it, then check it.';
+  const excerpt = document.createElement('div');
+  excerpt.className = 'es-excerpt';
+  excerpt.id = 'esExcerpt';
+  excerpt.setAttribute('role', 'img');
+  excerpt.setAttribute('aria-label', 'The document text around this checkbox');
+  const hint = document.createElement('p');
+  hint.className = 'es-check-hint';
+  hint.id = 'esCheckHint';
+  wrap.append(lead, excerpt, hint);
+  const foot = el.sheet.querySelector('.es-sheet-foot');
+  el.sheet.querySelector('.es-sheet-panel').insertBefore(wrap, foot);
+  el.checkWrap = wrap;
+  el.excerpt = excerpt;
+  el.checkHint = hint;
+}
+buildCheckWrap();
+
 let pdfDoc = null;
 let envelope = null;      // { title, fields, pages, signerName, companyName }
 let scale = 1;
@@ -403,6 +432,7 @@ function setSheetMode(mode) {
 
 function syncApply() {
   if (!activeField) return;
+  if (activeField.type === 'checkbox') { el.apply.disabled = false; return; }
   let ready;
   if (isInk(activeField)) {
     ready = sheetMode === 'draw' ? !pad.isEmpty() : !!el.typeInput.value.trim();
@@ -412,20 +442,37 @@ function syncApply() {
   el.apply.disabled = !ready;
 }
 
-function openField(f) {
+/**
+ * @param {object} f
+ * @param {{viaNext?: boolean}} [opts] viaNext: the signer pressed "Next
+ *   field" rather than tapping this field on the page.
+ */
+function openField(f, opts) {
   activeField = f;
   document.querySelectorAll('.es-field.is-target').forEach((n) => n.classList.remove('is-target'));
   const node = document.querySelector(`.es-field[data-field-id="${CSS.escape(f.id)}"]`);
   if (node) node.classList.add('is-target');
 
-  // A checkbox needs no sheet — toggling in place is one tap instead of three.
   if (f.type === 'checkbox') {
+    // "Next field" must never tick a box by itself (2026-09-25, phone audit
+    // homeowner#6). It used to land here and toggle in place, so walking a
+    // phone envelope with Next alone checked a required acknowledgment with
+    // no act on the box: the overlay is empty when unchecked, f.label is
+    // always '' (esign-setup.js and esign-autodetect.js write label:''), and
+    // the PDF's own words beside it render at 10pt x fitScale = 5.5-6.3px
+    // on a phone. Next now opens a sheet that shows those words, legibly,
+    // and the signer checks the box themselves.
+    if (opts && opts.viaNext) { openCheckSheet(f); return; }
+    // A direct tap is an act on the box itself, so it keeps the one-tap
+    // toggle (pinned by tests/esign-signer-flow.test.js).
     values[f.id] = { checked: !(values[f.id] && values[f.id].checked) };
     repaint(f);
     activeField = null;
     return;
   }
 
+  el.checkWrap.hidden = true;
+  el.apply.textContent = 'Apply';
   const ink = isInk(f);
   el.sheetTitle.textContent = f.label || (
     f.type === 'signature' ? 'Sign here' :
@@ -457,7 +504,133 @@ function openField(f) {
   if (!ink) setTimeout(() => el.textInput.focus(), 60);
 }
 
+const isChecked = (f) => !!(values[f.id] && values[f.id].checked);
+
+function openCheckSheet(f) {
+  el.sheetTitle.textContent = f.label || (f.required === false ? 'Optional checkbox' : 'Required checkbox');
+  el.tabs.hidden = true;
+  el.padWrap.hidden = true;
+  el.typeWrap.hidden = true;
+  el.textWrap.hidden = true;
+  el.undo.hidden = true;
+  el.clear.hidden = true;
+  el.checkWrap.hidden = false;
+  el.apply.textContent = isChecked(f) ? 'Uncheck this box' : 'Check this box';
+  el.sheet.hidden = false;
+  syncApply();
+  renderExcerpt(f).catch((e) => {
+    console.warn('[esign] excerpt render failed', e);
+    el.excerpt.textContent = '';
+    el.checkHint.textContent = 'The excerpt could not be drawn. Close this, zoom into the page to read the text beside the box, then tap the box itself.';
+  });
+}
+
+/**
+ * Which side of the box its statement is on, from pdf.js's text layer: the
+ * text on the box's own line (the text's mid-height inside the box's height)
+ * nearest the box. `start` is where the left-hand run begins, so the reader
+ * can open at the first word. null when the line has no text layer.
+ */
+async function statementSide(page, vp, r) {
+  let tc;
+  try { tc = await page.getTextContent(); } catch (_) { return null; }
+  let left = null;
+  let right = null;
+  for (const it of (tc && tc.items) || []) {
+    if (!it.str || !it.str.trim() || !it.transform) continue;
+    const [a, b, c, d, e, f] = it.transform;
+    const n = Math.hypot(a, b) || 1;
+    const p0 = vp.convertToViewportPoint(e, f);
+    const p1 = vp.convertToViewportPoint(e + ((it.width || 0) * a) / n, f + ((it.width || 0) * b) / n);
+    if (Math.abs(p1[1] - p0[1]) > 1) continue;              // not a horizontal run on screen
+    const mid = p0[1] - 0.35 * Math.hypot(c, d) * vp.scale;  // baseline up to mid x-height
+    if (mid < r.top || mid > r.top + r.height) continue;    // another line
+    const x0 = Math.min(p0[0], p1[0]);
+    const x1 = Math.max(p0[0], p1[0]);
+    if (x0 >= r.left + r.width - 2) {
+      const gap = x0 - (r.left + r.width);
+      if (!right || gap < right.gap) right = { gap };
+    } else if (x1 <= r.left + 2) {
+      const gap = r.left - x1;
+      left = left ? { gap: Math.min(left.gap, gap), start: Math.min(left.start, x0) } : { gap, start: x0 };
+    }
+  }
+  if (left && (!right || left.gap < right.gap)) return { side: 'left', start: left.start };
+  return right ? { side: 'right' } : null;
+}
+
+/**
+ * Draw the band of the page around a checkbox at a READABLE scale, the box
+ * outlined. The whole page width is kept (the statement can sit on either
+ * side of the box) and the excerpt scrolls sideways, opening where the
+ * statement starts (statementSide).
+ * Rendered by pdf.js at the excerpt scale — not cropped from the page canvas,
+ * which at phone fit-scale holds 5-6px text that would only enlarge to blur.
+ */
+const EXCERPT_SCALE = 1.5;     // 10pt body text -> 15 CSS px
+const EXCERPT_BAND_PT = 46;    // ~3 lines of 10-12pt text above and below
+let excerptSeq = 0;
+
+async function renderExcerpt(f) {
+  const seq = ++excerptSeq;
+  el.excerpt.textContent = '';
+  el.checkHint.textContent = 'Scroll the excerpt sideways to read the whole line.';
+  const page = await pdfDoc.getPage(f.page + 1);
+  if (seq !== excerptSeq) return;
+  const vp = page.getViewport({ scale: EXCERPT_SCALE });
+  const r = boxToViewRect(vp, f);
+  const side = await statementSide(page, vp, r);
+  if (seq !== excerptSeq) return;
+  const band = EXCERPT_BAND_PT * EXCERPT_SCALE;
+  const top = Math.max(0, Math.floor(r.top - band));
+  const bottom = Math.min(Math.floor(vp.height), Math.ceil(r.top + r.height + band));
+  const w = Math.floor(vp.width);
+  const h = Math.max(1, bottom - top);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+  const inner = document.createElement('div');
+  inner.className = 'es-excerpt-page';
+  inner.style.width = `${w}px`;
+  inner.style.height = `${h}px`;
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  canvas.style.width = `${w}px`;
+  canvas.style.height = `${h}px`;
+  const mark = document.createElement('div');
+  mark.className = 'es-excerpt-box';
+  mark.style.left = `${r.left}px`;
+  mark.style.top = `${r.top - top}px`;
+  mark.style.width = `${r.width}px`;
+  mark.style.height = `${r.height}px`;
+  inner.appendChild(canvas);
+  inner.appendChild(mark);
+  el.excerpt.appendChild(inner);
+  // Open where the statement STARTS. A box at the left of its line has the
+  // words to its right: start just left of the box. A box at the right
+  // margin ("…is accurate and current: [ ]") has them to its LEFT, and
+  // starting at the box showed only the last word or two. The page's text
+  // layer says which side the nearest words are on; with no text there (a
+  // scanned page) the box-first start stands.
+  el.excerpt.scrollLeft = Math.max(0, (side && side.side === 'left' ? side.start : r.left) - 24);
+  // Opening at the first word can leave the box itself past the right edge.
+  if (r.left + r.width > el.excerpt.scrollLeft + el.excerpt.clientWidth) {
+    el.checkHint.textContent = 'Scroll the excerpt sideways: the box is at the end of this line.';
+  }
+
+  await page.render({
+    canvasContext: canvas.getContext('2d'),
+    viewport: vp,
+    // Shift the page up so the band's top edge lands on the canvas origin.
+    transform: [dpr, 0, 0, dpr, 0, -top * dpr],
+  }).promise;
+  if (seq !== excerptSeq) return;
+  if (el.excerpt.scrollWidth <= el.excerpt.clientWidth + 1) el.checkHint.textContent = '';
+}
+
 function closeSheet() {
+  excerptSeq++;              // abandon an excerpt still rendering
+  el.excerpt.textContent = '';
   el.sheet.hidden = true;
   activeField = null;
   document.querySelectorAll('.es-field.is-target').forEach((n) => n.classList.remove('is-target'));
@@ -478,7 +651,11 @@ el.textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !el.a
 el.apply.addEventListener('click', () => {
   const f = activeField;
   if (!f) return;
-  if (isInk(f)) {
+  if (f.type === 'checkbox') {
+    // The sheet's own button, pressed after the excerpt was on screen: the
+    // signer's affirmative act on this box.
+    values[f.id] = { checked: !isChecked(f) };
+  } else if (isInk(f)) {
     const png = sheetMode === 'draw' ? pad.toPNG() : typedToPNG(el.typeInput.value);
     if (!png) return;
     values[f.id] = { png };
@@ -504,7 +681,7 @@ function scrollToField(f) {
 }
 el.next.addEventListener('click', () => {
   const nxt = remaining()[0];
-  if (nxt) { scrollToField(nxt); setTimeout(() => openField(nxt), 320); }
+  if (nxt) { scrollToField(nxt); setTimeout(() => openField(nxt, { viaNext: true }), 320); }
 });
 
 /* ── finish ────────────────────────────────────────────────────────────── */

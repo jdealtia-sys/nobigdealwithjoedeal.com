@@ -78,7 +78,14 @@
   .pr-cta:active:not(:disabled) { transform: scale(.97); }
   .pr-cta:disabled { opacity: .4; cursor: not-allowed; }
   @media (max-width: 720px) {
-    .pr-counter { display: none; }
+    /* The "x/y reviewed" counter is the Review Sprint's progress, and phones
+       are where reps run the sprint — it was display:none here, and the
+       "Needs review" filter is no substitute (it counts photos with no phase
+       at all, AI guesses included). Stacked small above the CTA instead
+       (2026-09-25, phone audit homeowner#9). */
+    .pr-stats { flex-direction: column; align-items: flex-end; gap: 3px; }
+    .pr-counter { font-size: 11px; line-height: 1.2; }
+    .pr-counter strong { font-size: 12px; }
     .pr-leadname { font-size: 15px; }
   }
 
@@ -246,6 +253,22 @@
     line-height: 1.2;
   }
   .pr-chip:active { transform: scale(.95); }
+  /* Finger-sized on phones (2026-09-25, phone audit homeowner#9). The chips
+     ARE the Review Sprint (#331: tap = accept the AI value, long-press =
+     change), four per tile, tile after tile — and they measured 20.6px tall
+     with 4px between them, so a thumb a few px low landed on the tile body
+     and did nothing. Filter pills (31px) and bulk-bar buttons (30px) came up
+     with them; the bulk bar also wraps, because at 360 Share was cut off and
+     Delete / Done sat entirely past the right edge of a bar with no
+     scroll affordance. Desktop keeps the dense layout. */
+  @media (max-width: 720px) {
+    .pr-tile-chips { gap: 6px; }
+    .pr-chip { min-height: 38px; padding: 8px 12px; font-size: 13px; }
+    .pr-filter { min-height: 40px; }
+    .pr-bulk-bar { flex-wrap: wrap; }
+    .pr-bulk-spacer { display: none; }
+    .pr-bulk-btn { min-height: 40px; }
+  }
   /* Suggested state — AI gave a value, rep hasn't accepted yet */
   .pr-chip[data-state="suggested"] {
     border-color: rgba(189,87,40,.55);
