@@ -36,7 +36,7 @@
 //     PLAYWRIGHT_TEST_USER_EMAIL=playwright-e2e@nbd.test \
 //     PLAYWRIGHT_TEST_USER_PASSWORD=nbd-e2e-password-1 \
 //     npx playwright test --config=playwright.config.js phone-views.spec.js --workers=1
-const { test, expect, devices } = require('@playwright/test');
+const { test, expect } = require('@playwright/test');
 const zlib = require('zlib');
 const fs = require('fs');
 const path = require('path');
