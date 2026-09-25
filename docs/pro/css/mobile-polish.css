@@ -186,7 +186,7 @@
      .72 opacity, so it read as a blank button. */
   .kc-task-badge.empty {
     opacity: 1 !important;
-    color: var(--ink-soft, var(--m)) !important;
+    color: var(--m) !important;
     border: 1px dashed color-mix(in srgb, var(--ink, #fff) 30%, transparent) !important;
   }
 
