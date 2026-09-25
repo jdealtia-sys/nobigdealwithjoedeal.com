@@ -21,6 +21,7 @@
 //     npx playwright test --config=playwright.config.js phone-portal.spec.js --workers=1
 const { test, expect } = require('@playwright/test');
 const { requireTestUser, loginAs, safeEvaluate, safeWaitForFunction } = require('./fixtures/auth');
+const { buildContract, measureContract, expectReadableOnPhone, expectPaperOnDesktop } = require('./fixtures/generated-contract');
 
 const PHONE = {
   isMobile: true,
@@ -160,6 +161,26 @@ async function touchDrag(page, x, y, dx, dy) {
 }
 
 const scrollY = (page) => safeEvaluate(page, () => Math.round(window.scrollY));
+
+// homeowner#2's portal half: a REAL generated contract (the generator runs
+// in the rep's signed-in dashboard — the only place its bundle loads), served
+// as getPortalDocumentHtml's html, opened with the homeowner's "View".
+// Returns the document's frame once the contract is in it.
+async function openContractInPortal(page, kind, { touch = true } = {}) {
+  await loginAs(page, requireTestUser());
+  const contract = await buildContract(page);
+  expect(contract, 'generator produced a contract').toMatch(/class="document-container"/);
+  await openPortal(page, kind, {
+    doc: (route) => route.fulfill({ status: 200, headers: CORS, contentType: 'application/json', body: JSON.stringify({ html: contract }) }),
+  });
+  const view = page.locator('.portal-doc-view').first();
+  await view.scrollIntoViewIfNeeded();
+  if (touch) await view.tap(); else await view.click();
+  await page.waitForSelector('.doc-modal-overlay.open .doc-modal-iframe', { state: 'visible', timeout: 15_000 });
+  const f = await (await page.$('.doc-modal-iframe')).contentFrame();
+  await f.waitForFunction(() => !!document.querySelector('.document-container .document-header'), null, { timeout: 15_000 });
+  return f;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 test.describe('phone portal: the estimate page @shard2 @phoneportal', () => {
@@ -447,6 +468,36 @@ test.describe('phone portal: the project page @shard2 @phoneportal', () => {
     await expect(status).not.toContainText('Not shared');
     expect(await hitsItself(page, '.doc-modal-close'), 'the viewer can still be closed').toBe('ok');
   });
+
+  // homeowner#2, second half — "Your Documents → View" showed the generated
+  // contract at print size: 9px clause text (the 3-day cancellation notice
+  // included) in a narrow column inside a card with a 16px margin. It now
+  // shares sign.html's phone layout (js/doc-phone-layout.js), and on a phone
+  // the viewer takes the whole screen that layout was sized for.
+  test('a generated contract in Your Documents reads at phone size, on the whole screen', async ({ page }) => {
+    test.setTimeout(120_000);
+    const f = await openContractInPortal(page, 'complete');
+    for (const width of [412, 360]) {
+      await page.setViewportSize({ width, height: 860 });
+      await page.waitForTimeout(200);
+      const frame = await safeEvaluate(page, () => {
+        const r = document.querySelector('.doc-modal-iframe').getBoundingClientRect();
+        return { left: r.left, width: r.width };
+      });
+      expect(frame.left, `${width}px: the document starts at the screen edge`).toBeLessThanOrEqual(0.5);
+      expect(frame.width, `${width}px: the document gets the whole width`).toBeGreaterThanOrEqual(width - 1);
+      expectReadableOnPhone(expect, await f.evaluate(measureContract), width, 'portal');
+      const close = await safeEvaluate(page, () => {
+        const b = document.querySelector('.doc-modal-close').getBoundingClientRect();
+        return { w: b.width, h: b.height };
+      });
+      expect(close.h, `${width}px: Close height`).toBeGreaterThanOrEqual(44);
+      expect(close.w, `${width}px: Close width`).toBeGreaterThanOrEqual(44);
+      expect(await hitsItself(page, '.doc-modal-close'), `${width}px: Close is reachable`).toBe('ok');
+    }
+    await page.locator('.doc-modal-close').tap();
+    await expect(page.locator('.doc-modal-overlay'), 'a tap on Close closes the viewer').not.toHaveClass(/\bopen\b/);
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════
@@ -488,6 +539,15 @@ test.describe('phone portal: desktop unchanged @shard2 @phoneportal', () => {
     await page.mouse.up();
     const left = await page.evaluate(() => parseFloat(document.querySelector('#ba-card .nbd-ba-handle').style.left));
     expect(left, 'desktop: the handle follows the mouse').toBeLessThan(25);
+  });
+
+  test('desktop: a generated contract in Your Documents keeps its paper layout in the card', async ({ page }) => {
+    test.setTimeout(120_000);
+    const f = await openContractInPortal(page, 'complete', { touch: false });
+    expectPaperOnDesktop(expect, await f.evaluate(measureContract), 'portal');
+    expect(await f.evaluate(() => !!document.getElementById('nbd-doc-phone')), 'the phone sheet rides along (screen-only, inactive at this width)').toBe(true);
+    const card = await safeEvaluate(page, () => Math.round(document.querySelector('.doc-modal').getBoundingClientRect().width));
+    expect(card, 'desktop: the viewer stays an 820px card').toBe(820);
   });
 });
 

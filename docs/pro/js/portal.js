@@ -1501,7 +1501,15 @@
           return;
         }
         const iframe = modal.querySelector('.doc-modal-iframe');
-        iframe.srcdoc = data.html;
+        // Phone audit homeowner#2 (2026-09-25): a generated contract showed
+        // here at print size — 9px clause text in a 245px column on a 412px
+        // phone (193px at 360; the modal's own 16px margin took 32px more,
+        // see portal.html). doc-phone-layout.js (shared with sign.html and
+        // the rep's doc viewer) adds a screen-only phone sheet to the copy
+        // SHOWN; this viewer only displays, so nothing is ever read back to
+        // strip. Read at call time: absent, the document shows as served.
+        const phone = window.NBDDocPhoneLayout;
+        iframe.srcdoc = phone ? phone.withPhoneLayout(data.html) : data.html;
         modal.querySelector('.doc-modal-status').style.display = 'none';
         iframe.style.display = 'block';
         _emitAuditEvent('document_view', docId);
