@@ -280,8 +280,15 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     await page.locator(item).scrollIntoViewIfNeeded();
     await expectTappable(page, item, 'More > Drawing Tool');
     await page.locator(item).tap();
+    // Measure only AFTER initDrawMap has run: the collapse came from init
+    // itself (an inline style it wrote), so the empty container measures
+    // fine for the moment before it — a break-test caught this assertion
+    // passing on the broken code by reading too early. The touch toggle is
+    // appended at the end of init's touch branch, so it marks "init done".
+    await expect(page.locator('#drawMap.leaflet-container #drawModeToggle')).toBeAttached({ timeout: 15_000 });
+    await page.waitForTimeout(300);
     await expect.poll(() => safeEvaluate(page, () => Math.round(document.getElementById('drawMap').getBoundingClientRect().height)),
-      { message: '#drawMap height', timeout: 15_000 }).toBeGreaterThan(200);
+      { message: '#drawMap height after init', timeout: 5_000 }).toBeGreaterThan(200);
     await expectTappable(page, '#drawMap', 'the map surface');
     await expectTappable(page, '#drawModeToggle', 'DRAW MODE / NAVIGATE toggle');
     await expectTappable(page, '#drawMap .leaflet-control-zoom-in', 'zoom-in (+)');
@@ -320,6 +327,7 @@ test.describe.serial('phone dashboard nav + quick create @shard2', () => {
     await page.locator(cust).tap();
     for (const id of ['reports', 'talk-tank', 'refrewards']) {
       const tile = `#navCustomizeModal .ncm-pool-item[data-tab-id="${id}"]`;
+      await expect(page.locator(tile), `tab-bar picker offers ${id}`).toHaveCount(1);
       await page.locator(tile).scrollIntoViewIfNeeded();
       await expectTappable(page, tile, `tab-bar picker > ${id}`);
     }
