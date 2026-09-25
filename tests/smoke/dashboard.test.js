@@ -5187,8 +5187,14 @@ section('Embedded per-customer estimate hub (CustomerEstimateHub)');
     && /function doDuplicate\(id\)/.test(hub));
   assert("hub 'new' action opens the V2 builder prefilled with the lead",
     /function newEstimate\(\)[\s\S]{0,200}openEstimateV2Builder', \[\{ leadId: _leadId \}\]/.test(hub));
-  assert('hub edit keeps V2 in-context and only navigates for Classic',
-    /if \(isV2\(est\)\)[\s\S]{0,200}openEstimateV2Builder[\s\S]{0,300}goTo\('est'\)/.test(hub));
+  // V2 opens its own modal and a Log Estimate record its amount editor (phone
+  // audit 2026-09-25), both over the customer overlay, so only Classic leaves.
+  const openBuilderSrc = hub.slice(hub.indexOf('function openBuilder('), hub.indexOf('function newEstimate('))
+    .replace(/\/\/.*$/gm, '');
+  assert('hub edit keeps V2 and logged records in-context and only navigates for Classic',
+    /if \(isV2\(est\)\) \{\s*withEstimates\('openEstimateV2Builder'[^;]*;\s*return;\s*\}/.test(openBuilderSrc)
+    && /if \(isLogged\(est\)[^)]*\) \{\s*window\.viewEstimate\(estId\);\s*return;\s*\}/.test(openBuilderSrc)
+    && openBuilderSrc.indexOf("goTo('est')") > openBuilderSrc.indexOf('window.viewEstimate(estId)'));
   // The estimate engine is lazy — actions must load the bundle, not no-op.
   assert('hub actions load the lazy estimates bundle before firing',
     /function withEstimates\([\s\S]{0,700}ScriptLoader\.loadBundle\('estimates'\)/.test(hub));
