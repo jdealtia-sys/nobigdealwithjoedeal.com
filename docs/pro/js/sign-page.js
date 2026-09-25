@@ -52,6 +52,12 @@
   // widget returns before submitSignature sees it, so the signed record is
   // byte-identical to a desktop signer's — see that file for why the
   // layout can never live in the document itself.
+  // Since that move only the generator's letter documents (.document-
+  // container: contract, proposal, the two inspection reports) get the
+  // sheet; #1746 applied it to every document. A .doc-page document (change
+  // order, invoice, AOB...) is shown here as served again — deliberately:
+  // the sheet was measured against the letter template only, and those
+  // templates carry no signature pads, so they cannot be signed here anyway.
   // Read at call time: if that script failed to load, the document is
   // shown and submitted exactly as served (nothing added, nothing to strip).
   function withPhoneLayout(html) {
