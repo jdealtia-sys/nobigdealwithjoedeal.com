@@ -2519,10 +2519,29 @@ console.log('✓ Customer page enhancements loaded');
 // The single-page customer record replaced tabs with a sticky jump-nav but
 // nothing indicated the current section. IntersectionObserver toggles
 // .active on the matching link. CSP-safe: no inline handlers.
+//
+// 2026-09-25 (phone audit): on a phone the bar is a sideways scroller that
+// shows ~3 of its 7 chips, and this only ever toggled the class — so the
+// highlighted chip was usually scrolled out of sight (at Voice Intel it sat
+// at x=446-536 in a bar ending at 306), and after tapping Contact and
+// scrolling back up, the active Overview chip was at x=-299. The bar now
+// brings the active chip into view. It scrolls the BAR only, never the
+// page: scrollIntoView() would also drag the page to the bar while it is
+// still below the fold at scroll 0. Above the first section nothing is
+// current, so nothing stays lit there.
+// It also publishes the bar's live height as --jump-nav-h, which the
+// photo bulk-action bar uses to pin BELOW the bar instead of under it.
 (function () {
   function initSpy() {
     var nav = document.querySelector('.jump-nav');
-    if (!nav || !('IntersectionObserver' in window)) return;
+    if (!nav) return;
+    var root = document.documentElement;
+    var publishHeight = function () {
+      if (nav.offsetHeight) root.style.setProperty('--jump-nav-h', nav.offsetHeight + 'px');
+    };
+    publishHeight();
+    if ('ResizeObserver' in window) new ResizeObserver(publishHeight).observe(nav);
+    if (!('IntersectionObserver' in window)) return;
     var links = Array.prototype.slice.call(nav.querySelectorAll('a[href^="#"]'));
     if (!links.length) return;
     var map = {};
@@ -2531,15 +2550,43 @@ console.log('✓ Customer page enhancements loaded');
       var sec = document.getElementById(id);
       if (sec) map[id] = a;
     });
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    function reveal(a) {
+      if (nav.scrollWidth <= nav.clientWidth + 1) return; // everything already shows
+      var nb = nav.getBoundingClientRect();
+      var ab = a.getBoundingClientRect();
+      // 28px = the right-edge mask fade (customer.html, ≤768px) — a chip
+      // under the fade reads as "more this way", not as visible.
+      if (ab.left >= nb.left && ab.right <= nb.right - 28) return;
+      var delta = (ab.left + ab.width / 2) - (nb.left + nb.width / 2);
+      try { nav.scrollBy({ left: delta, behavior: reduceMotion ? 'auto' : 'smooth' }); }
+      catch (e) { nav.scrollLeft += delta; }
+    }
+    var ids = Object.keys(map);
+    var inBand = {};
     var io = new IntersectionObserver(function (entries) {
+      // Book-keep the whole batch first: one callback can carry a leave
+      // and an enter, and deciding on the leave alone would blink the
+      // highlight off between two sections.
+      var entered = null;
       entries.forEach(function (en) {
-        if (!en.isIntersecting) return;
-        links.forEach(function (a) { a.classList.remove('active'); });
-        var a = map[en.target.id];
-        if (a) a.classList.add('active');
+        if (en.isIntersecting) { inBand[en.target.id] = true; entered = en.target.id; }
+        else delete inBand[en.target.id];
       });
+      if (entered) {
+        links.forEach(function (a) { a.classList.remove('active'); });
+        var a = map[entered];
+        if (a) { a.classList.add('active'); reveal(a); }
+      } else if (!Object.keys(inBand).length) {
+        // Nothing in the band. Above the first section (the customer
+        // header) no chip is current; anywhere else keep the last one.
+        var first = document.getElementById(ids[0]);
+        if (first && first.getBoundingClientRect().top > window.innerHeight * 0.2) {
+          links.forEach(function (a) { a.classList.remove('active'); });
+        }
+      }
     }, { rootMargin: '-20% 0px -70% 0px' });
-    Object.keys(map).forEach(function (id) { io.observe(document.getElementById(id)); });
+    ids.forEach(function (id) { io.observe(document.getElementById(id)); });
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initSpy);
   else initSpy();

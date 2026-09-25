@@ -102,8 +102,10 @@
       var inputAttrs = readOnly
         ? (checked ? ' checked' : '') + ' disabled'
         : (checked ? ' checked' : '') + ' data-change-action="toggleJobChecklistItem" data-arg="' + esc(i.key) + '" data-pass-el="true"';
+      // Padding widens the tap area (it measured 57x13 on a phone); the
+      // matching negative margin keeps the checklist row the same height.
       var generateLink = (readOnly && !checked)
-        ? ' <a href="#documentsTab" style="font-size:11px;color:var(--orange,#BD5728);text-decoration:underline;margin-left:6px;">Generate&nbsp;&rarr;</a>'
+        ? ' <a href="#documentsTab" style="display:inline-block;font-size:11px;color:var(--orange,#BD5728);text-decoration:underline;padding:10px 6px;margin:-10px 0 -10px 0;">Generate&nbsp;&rarr;</a>'
         : '';
       return '<label style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-top:1px solid var(--br,rgba(255,255,255,.06));cursor:' + (readOnly ? 'default' : 'pointer') + ';">' +
         '<input type="checkbox"' + inputAttrs +

@@ -211,6 +211,15 @@
   // One row shape everywhere. CSP: no inline handlers — the View link is a
   // plain anchor (scheme-validated in normalize) and delete routes through
   // the page's data-action delegate.
+  //
+  // The three .doc-btn <button>s reset their UA look with
+  // `font-family:inherit`, NOT the `font:inherit` shorthand they used to
+  // carry (2026-09-25 phone audit). The shorthand also reset font-size, so
+  // .doc-btn's 11px lost to the inherited 16px: "Share with homeowner" grew
+  // to 179px and, with .doc-actions flex-shrink:0, collapsed the file name
+  // to 0px on a phone and pushed the ✕ past a 360px screen. The generated
+  // row's View button rendered 16px beside the 11px View links for the
+  // same reason.
   function rowHtml(doc) {
     var label = esc(doc.name);
     return '<div class="doc-item" data-doc-id="' + esc(doc.id) + '">'
@@ -226,14 +235,14 @@
           ? '<a href="' + esc(doc.url) + '" target="_blank" rel="noopener noreferrer" class="doc-btn">View</a>'
           : (doc.htmlPath
               ? '<button type="button" class="doc-btn" data-doc-view="' + esc(doc.id) + '"'
-                + ' style="background:none;border:0;cursor:pointer;font:inherit;">View</button>'
+                + ' style="background:none;border:0;cursor:pointer;font-family:inherit;">View</button>'
               : ''))
       + (doc.shareable
           ? '<button type="button" class="doc-btn" data-doc-share="' + esc(doc.id) + '"'
             + ' title="' + (doc.shareUrl
                 ? 'Copy the view link for this report'
                 : 'Create a no-login link the homeowner or adjuster can open on a phone') + '"'
-            + ' style="background:none;border:0;cursor:pointer;font:inherit;">'
+            + ' style="background:none;border:0;cursor:pointer;font-family:inherit;">'
             + (doc.shareUrl ? 'Copy link' : 'Share link') + '</button>'
           : '')
       // Uploaded (non-generated) rows only — generated documents are always
@@ -245,7 +254,7 @@
             + ' title="' + (doc.sharedWithHomeowner
                 ? 'Stop showing this in the homeowner\'s portal'
                 : 'Show this in the homeowner\'s portal Documents card') + '"'
-            + ' style="background:none;border:0;cursor:pointer;font:inherit;'
+            + ' style="background:none;border:0;cursor:pointer;font-family:inherit;'
             + (doc.sharedWithHomeowner ? 'color:var(--green,#2e9e5b);' : '') + '">'
             + (doc.sharedWithHomeowner ? '✓ Shared' : 'Share with homeowner') + '</button>'
           : '')

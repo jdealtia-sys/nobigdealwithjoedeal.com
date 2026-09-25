@@ -130,12 +130,15 @@
 
   // One contact slot row. Filled → name + tap-to-call / sms / email
   // action links (RoofLink-style). Empty → a "+ Add" affordance that
-  // opens the claim editor.
-  function contactRow(label, c) {
+  // opens the claim editor AT that contact's section (`slot`, below):
+  // it used to open at the top every time, which on a 412px phone put the
+  // Claim Handler fields at y=861 — under the fold, behind 17 other fields
+  // (2026-09-25 phone audit).
+  function contactRow(label, c, slot) {
     var has = c && (c.name || c.phone || c.email);
     var inner;
     if (!has) {
-      inner = '<button type="button" data-action="openClaimEditor" style="background:none;border:none;color:var(--blue,#3b82f6);font-size:15px;cursor:pointer;padding:4px 0;font-weight:600;">＋ Add</button>';
+      inner = '<button type="button" data-action="openClaimEditor" data-arg="' + esc(slot) + '" aria-label="Add ' + esc(label) + '" style="background:none;border:none;color:var(--blue,#3b82f6);font-size:15px;cursor:pointer;padding:4px 0;min-height:36px;font-weight:600;">＋ Add</button>';
     } else {
       var digits = String(c.phone || '').replace(/\D/g, '');
       var links = '';
@@ -185,9 +188,9 @@
         factCell('Scope of Work', dt(c.scopeOfWork)) +
       '</div>' +
       '<div style="margin-top:14px;">' +
-        contactRow('Adjuster', c.adjuster) +
-        contactRow('Claim Handler', c.claimHandler) +
-        contactRow('Mortgage Company', c.mortgageCompany) +
+        contactRow('Adjuster', c.adjuster, 'adjuster') +
+        contactRow('Claim Handler', c.claimHandler, 'handler') +
+        contactRow('Mortgage Company', c.mortgageCompany, 'mortgage') +
       '</div>';
   }
 
@@ -223,14 +226,24 @@
     return '<div class="mfield" style="flex:1;min-width:0;"><label style="display:block;color:var(--m,#9ca3af);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">' + esc(label) + '</label>' +
       '<select id="' + id + '" style="width:100%;background:rgba(255,255,255,.05);border:1px solid var(--br,rgba(255,255,255,.12));border-radius:8px;color:var(--t);padding:9px 10px;font-size:14px;font-family:inherit;box-sizing:border-box;">' + opts + '</select></div>';
   }
+  // align-items:flex-end (2026-09-25): at 412px "Estimate Amount ($)" and
+  // "Approved Amount ($)" wrap to two lines in their 103px columns while
+  // "Deductible ($)" does not, so the Deductible input sat 13px higher than
+  // its neighbours. Bottom-aligning the cells lines the inputs up whatever
+  // the labels do; single-line rows are unchanged.
   function row() {
-    return '<div style="display:flex;gap:10px;margin-bottom:10px;">' + Array.prototype.slice.call(arguments).join('') + '</div>';
+    return '<div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-end;">' + Array.prototype.slice.call(arguments).join('') + '</div>';
   }
-  function section(t) {
-    return '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange,#BD5728);margin:16px 0 8px;">' + esc(t) + '</div>';
+  function section(t, slot) {
+    return '<div' + (slot ? ' data-claim-section="' + esc(slot) + '"' : '') + ' style="font-family:\'Barlow Condensed\',sans-serif;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--orange,#BD5728);margin:16px 0 8px;">' + esc(t) + '</div>';
   }
+  // Contact slot → the section heading and the field a "+ Add" lands on.
+  var SLOT_FIELD = { adjuster: 'clmAdjName', handler: 'clmHandlerName', mortgage: 'clmMortgageName' };
 
-  window.openClaimEditor = function () {
+  // `slot` is set by a contact row's "+ Add" (data-arg); Edit and every
+  // other caller pass nothing and get the editor from the top, as before.
+  window.openClaimEditor = function (slot) {
+    var focusId = (typeof slot === 'string' && SLOT_FIELD.hasOwnProperty(slot)) ? SLOT_FIELD[slot] : null;
     var lead = window._currentLead || {};
     var c = normalizeClaim(lead);
     var old = document.getElementById('claimEditModal');
@@ -242,7 +255,7 @@
       '<div class="modal" style="max-width:560px;width:100%;max-height:86vh;overflow-y:auto;background:var(--s,#1a1d23);border:1px solid var(--br,rgba(255,255,255,.1));border-radius:14px;padding:20px;">' +
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">' +
           '<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:20px;font-weight:800;color:var(--t);">Claim Details</div>' +
-          '<button type="button" data-action="closeClaimEditor" style="background:none;border:none;color:var(--m,#9ca3af);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;">×</button>' +
+          '<button type="button" data-action="closeClaimEditor" aria-label="Close" style="background:none;border:none;color:var(--m,#9ca3af);font-size:22px;cursor:pointer;padding:4px 8px;line-height:1;min-width:40px;min-height:40px;">×</button>' +
         '</div>' +
         section('Claim') +
         row(field('Claim Number', 'clmNumber', 'text', c.number, 'CLM-123456'),
@@ -260,15 +273,15 @@
             field('Estimate Amount ($)', 'clmEstimateAmount', 'number', c.estimateAmount, '18500'),
             field('Approved Amount ($)', 'clmApprovedAmount', 'number', c.approvedAmount, '16200')) +
         row(field('Scope of Work', 'clmScopeOfWork', 'text', c.scopeOfWork, 'Full roof replacement, gutters…')) +
-        section('Adjuster') +
+        section('Adjuster', 'adjuster') +
         row(field('Name', 'clmAdjName', 'text', c.adjuster.name, 'Mike Johnson'),
             field('Phone', 'clmAdjPhone', 'tel', c.adjuster.phone, '(513) 555-0100')) +
         row(field('Email', 'clmAdjEmail', 'email', c.adjuster.email, 'adjuster@carrier.com')) +
-        section('Claim Handler') +
+        section('Claim Handler', 'handler') +
         row(field('Name', 'clmHandlerName', 'text', c.claimHandler.name, ''),
             field('Phone', 'clmHandlerPhone', 'tel', c.claimHandler.phone, '')) +
         row(field('Email', 'clmHandlerEmail', 'email', c.claimHandler.email, '')) +
-        section('Mortgage Company') +
+        section('Mortgage Company', 'mortgage') +
         row(field('Company', 'clmMortgageName', 'text', c.mortgageCompany.name, ''),
             field('Phone', 'clmMortgagePhone', 'tel', c.mortgageCompany.phone, '')) +
         '<div style="display:flex;gap:10px;margin-top:16px;">' +
@@ -276,9 +289,23 @@
           '<button type="button" id="saveClaimBtn" data-action="saveClaimEdits" style="flex:2;background:var(--orange,#BD5728);border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:800;cursor:pointer;padding:12px;">SAVE CLAIM</button>' +
         '</div>' +
       '</div>';
+    // nbdModal's focusFirst() takes an [autofocus] field over the first
+    // button (the ×), so the "+ Add" slot's Name field gets the caret.
+    // focusFirst focuses with preventScroll, so the card is scrolled to the
+    // section explicitly — by scrollTop on the card only, never
+    // scrollIntoView(), which would also move the page behind the modal.
+    var focusEl = focusId ? bg.querySelector('#' + focusId) : null;
+    if (focusEl) focusEl.setAttribute('autofocus', '');
     document.body.appendChild(bg);
     if (window.nbdModal) window.nbdModal.open('claimEditModal');
-    else bg.classList.add('open');
+    else { bg.classList.add('open'); if (focusEl) focusEl.focus({ preventScroll: true }); }
+    if (focusEl) {
+      var card = bg.querySelector('.modal');
+      var head = bg.querySelector('[data-claim-section="' + slot + '"]');
+      if (card && head) {
+        card.scrollTop += head.getBoundingClientRect().top - card.getBoundingClientRect().top - 12;
+      }
+    }
   };
 
   window.closeClaimEditor = function () {
