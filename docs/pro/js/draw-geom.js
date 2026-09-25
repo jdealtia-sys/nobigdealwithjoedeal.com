@@ -418,6 +418,37 @@
     });
   }
 
+  // The run a new Gutters segment continues (2026-09-25, L2 review). A
+  // Gutters line drawn in Line mode, voiced, or retyped to Gutters used to be
+  // a run of its own, so two touching Line-mode gutter lines counted as two
+  // runs with a downspout each (#gr-ds, the takeoff and the saved
+  // downspouts). A segment with an end (p1 or p2) on an END of an existing
+  // run — a corner only one of that run's segments reaches — belongs to that
+  // run. Returns its runId, or null for a new run. Gutter mode does not use
+  // this: there a run ends only when the rep finishes it.
+  function gutterRunAt(lines, p1, p2, eps) {
+    const e = Number.isFinite(eps) && eps > 0 ? eps : MERGE_EPS_DEG;
+    const byRun = new Map();
+    (lines || []).forEach(function (l) {
+      if (!l || l.type !== LT.GUTTERS || l.runId === undefined || l.runId === null || !l.p1 || !l.p2) return;
+      if (!byRun.has(l.runId)) byRun.set(l.runId, []);
+      byRun.get(l.runId).push(l.p1, l.p2);
+    });
+    let found = null;
+    byRun.forEach(function (pts, id) {
+      if (found !== null) return;
+      const m = mergeCoincidentEndpoints(pts, e);
+      const degree = m.vertices.map(function () { return 0; });
+      m.index.forEach(function (k) { if (k >= 0) degree[k]++; });
+      const ends = m.vertices.filter(function (v, k) { return degree[k] === 1; });
+      const touches = [p1, p2].some(function (p) {
+        return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && ends.some(function (v) { return sameCorner(v, p, e); });
+      });
+      if (touches) found = id;
+    });
+    return found;
+  }
+
   // ── Estimate import ────────────────────────────────────────────────
   // The corrected LT -> field table (audit B7). Each type lands in exactly
   // one field. The V2 builder reads ridgeLf, hipLf, valleyLf, rakeLf, eaveLf,
@@ -516,13 +547,23 @@
   //     (decision 7, default ON). The V2 engine sizes those lines straight
   //     from the LF it is given (estimate-logic-engine.js: 'rake': 'rakeLf',
   //     no pitch term), so this is the only place pitch is applied to them;
-  //   - drawn gutter feet go as guttersLf, only when drawn (> 0): since #1760
-  //     the engine prices gutters ONCE, from guttersLf when > 0, else eaveLf.
-  //     Pipes / chimneys / skylights go only when placed on the map — no
-  //     marker is not evidence of none, so a draft's typed count survives;
+  //   - guttersLf is ALWAYS sent: the drawn feet, or 0 when no run is drawn.
+  //     Since #1760 the engine prices gutters ONCE, from guttersLf when > 0,
+  //     else eaveLf, and 0 is its "not measured" value. 2026-09-25 (L2
+  //     review, blocking): this used to be sent only when > 0, and V2 state
+  //     (plus its 10-minute draft) outlives a close with no lead, so a job
+  //     with no gutters drawn kept the PREVIOUS drawing's footage — 113 LF
+  //     of job A priced job B's gutters instead of B's 120 LF eave;
+  //   - pipes / chimneys / skylights go when placed on the map. With no
+  //     marker, a count is sent as 0 only when the PREVIOUS drawing import
+  //     put one there (`previousCounts`, which the caller keeps): that value
+  //     is another roof's, while a count the rep typed or a lead prefilled
+  //     survives, because no marker is not evidence of none. `sentCounts`
+  //     is what this import put there, for the caller to keep;
   //   - `pitch` is riseForEstimate() (Flat -> 3/12, never the old `|| 8`).
   // input: { lines:[{type, dist, rise?}], accessories, pitchFactor, slope,
-  //          totals: {base, pitched, estimated}, downspouts? }
+  //          totals: {base, pitched, estimated}, downspouts?,
+  //          previousCounts?: {pipes, chimneys, skylights} }
   function estimateImport(input) {
     const i = input || {};
     const lines = Array.isArray(i.lines) ? i.lines : [];
@@ -541,9 +582,15 @@
       rawSqft: Math.round(pitched), pitch: pitch,
       eaveLf: agg.eaveLf, ridgeLf: agg.ridgeLf, rakeLf: use.rakeLf, hipLf: use.hipLf, valleyLf: use.valleyLf, wallLf: agg.wallLf
     };
-    if (agg.guttersLf > 0) v2.guttersLf = agg.guttersLf;
-    ['pipes', 'chimneys', 'skylights'].forEach(function (k) { if (agg[k] > 0) v2[k] = agg[k]; });
-    const classic = { rawSqft: Math.round(pitched), ridge: agg.ridgeLf, eave: agg.eaveLf, hip: use.hipLf, gutterLF: agg.guttersLf };
+    v2.guttersLf = agg.guttersLf > 0 ? agg.guttersLf : 0;
+    const prev = i.previousCounts && typeof i.previousCounts === 'object' ? i.previousCounts : {};
+    const sentCounts = {};
+    ['pipes', 'chimneys', 'skylights'].forEach(function (k) {
+      if (agg[k] > 0) v2[k] = agg[k];
+      else if (Number(prev[k]) > 0) v2[k] = 0;
+      if (agg[k] > 0) sentCounts[k] = agg[k];
+    });
+    const classic = { rawSqft: Math.round(pitched), ridge: agg.ridgeLf, eave: agg.eaveLf, hip: use.hipLf, gutterLF: v2.guttersLf };
     const anyLine = lines.some(function (l) { return l && Number(l.dist) > 0; });
     let warning = null;
     if (base <= 0) warning = (anyLine || agg.pipes + agg.chimneys + agg.skylights > 0) ? 'no-roof' : 'empty';
@@ -554,6 +601,7 @@
       notPriced: { ridgeVentLf: agg.ridgeVentLf, dripEdgeLf: agg.dripEdgeLf },
       guttersLf: agg.guttersLf,
       downspouts: Number.isFinite(i.downspouts) ? i.downspouts : agg.downspouts,
+      sentCounts: sentCounts,
       warning: warning, agg: agg
     };
   }
@@ -801,6 +849,7 @@
     downspouts: downspouts,
     computeTotals: computeTotals,
     gutterRuns: gutterRuns,
+    gutterRunAt: gutterRunAt,
     aggregateForEstimate: aggregateForEstimate,
     estimateImport: estimateImport,
     structureTotals: structureTotals,

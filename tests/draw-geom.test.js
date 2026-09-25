@@ -512,8 +512,22 @@ console.log('\n[L2: what Generate Estimate sends]');
   const flat = G.estimateImport({ lines, accessories: acc, pitchFactor: '1.202', slope: false, totals: { base: 1075, pitched: 1292.5 } });
   ok('slope switch OFF sends the flat feet (24 / 12 / 17)', flat.v2.rakeLf === 24 && flat.v2.hipLf === 12 && flat.v2.valleyLf === 17 && flat.sloped.rakeLf === 29);
   const none = G.estimateImport({ lines: [L(5, 30)], accessories: [], pitchFactor: '1.0', slope: true, totals: { base: 900, pitched: 900 } });
-  ok('nothing placed / no gutters drawn: no pipes or guttersLf key (a draft\'s typed count survives); Flat -> pitch 3',
-    !('pipes' in none.v2) && !('guttersLf' in none.v2) && none.v2.pitch === 3 && none.drawnRise === 0);
+  // 2026-09-25 (L2 review, blocking): this pin used to say "no guttersLf
+  // key". V2 keeps its state across a close, so the missing key left the
+  // previous drawing's gutter feet priced on this job. 0 = "not measured":
+  // the engine falls back to eave (GUTTER_LF) and per-SQ adds no gutters.
+  ok('no gutters drawn: guttersLf is SENT as 0 (never omitted), and Classic gets 0 too',
+    'guttersLf' in none.v2 && none.v2.guttersLf === 0 && none.classic.gutterLF === 0);
+  ok('nothing placed, no previous import: no pipes / chimneys / skylights key (a typed or prefilled count survives); Flat -> pitch 3',
+    !('pipes' in none.v2) && !('chimneys' in none.v2) && !('skylights' in none.v2) && none.v2.pitch === 3 && none.drawnRise === 0
+    && JSON.stringify(none.sentCounts) === '{}');
+  ok('sentCounts = only the counts this drawing placed', JSON.stringify(imp.sentCounts) === JSON.stringify({ pipes: 2, chimneys: 1, skylights: 1 }));
+  // Job A placed 2 pipes + a skylight; job B places only a chimney.
+  const jobB = G.estimateImport({ lines: [L(5, 30)], accessories: [{ type: 'chimney' }], slope: true, totals: { base: 900, pitched: 900 },
+    previousCounts: { pipes: 2, skylights: 1 } });
+  ok('a count the PREVIOUS drawing import set, with no marker now, is sent as 0 (A\'s skylight left B priced)',
+    jobB.v2.pipes === 0 && jobB.v2.skylights === 0 && jobB.v2.chimneys === 1 && JSON.stringify(jobB.sentCounts) === '{"chimneys":1}');
+  ok('previousCounts of 0 / junk clear nothing', !('pipes' in G.estimateImport({ lines: [L(5, 30)], totals: { base: 1, pitched: 1 }, previousCounts: { pipes: 0, skylights: 'x' } }).v2));
   const perLine = G.estimateImport({ lines: [L(4, 20, { rise: 4 }), L(4, 20, { rise: 8 })], slope: true, totals: { base: 1, pitched: 1 } });
   ok('each rake slopes at its own facet\'s pitch (20 ft @4/12 + 20 ft @8/12 = 45 LF)', perLine.v2.rakeLf === Math.round(20 * G.slopeFactors(4).rake + 20 * sf.rake) && perLine.v2.rakeLf === 45);
   const gutOnly = G.estimateImport({ lines: [L(10, 66.6, { runId: 1 })], slope: true, totals: { base: 0, pitched: 0 } });
@@ -522,6 +536,22 @@ console.log('\n[L2: what Generate Estimate sends]');
     G.estimateImport({ lines: [L(0, 20)], totals: { base: 25, pitched: 30, estimated: true } }).warning === 'estimated-area'
     && G.estimateImport({ lines: [], totals: { base: 0, pitched: 0 } }).warning === 'empty');
   ok('Classic payload: pitched sf, ridge, eave, sloped hip, gutter feet', JSON.stringify(imp.classic) === JSON.stringify({ rawSqft: 1293, ridge: 19, eave: 33, hip: 13, gutterLF: 82 }));
+}
+console.log('\n[L2 review: a Line-mode gutter continues the run whose end it touches]');
+{
+  const P = (x) => ({ lat: 39.1, lng: -84.1 + x * 1e-5 });
+  const seg = (a, b, runId) => ({ type: 10, dist: 10, p1: P(a), p2: P(b), runId });
+  const lines = [seg(0, 1, 1), seg(1, 2, 1), seg(5, 6, 2), { type: 5, dist: 9, p1: P(9), p2: P(10) }];
+  ok('starts on run 1\'s far end -> run 1', G.gutterRunAt(lines, P(2), P(3)) === 1);
+  ok('ends on run 1\'s first end (drawn toward it) -> run 1', G.gutterRunAt(lines, P(-1), P(0)) === 1);
+  ok('touches run 2\'s end -> run 2', G.gutterRunAt(lines, P(6), P(7)) === 2);
+  ok('touches only run 1\'s MIDDLE corner -> a new run (null)', G.gutterRunAt(lines, P(1), P(1.5)) === null);
+  ok('touches only an eave -> a new run (null); no lines -> null', G.gutterRunAt(lines, P(10), P(11)) === null && G.gutterRunAt(null, P(0), P(1)) === null);
+  // Joined at its start, run 1's ends are now -1 and 2 — the end set is by degree, not by array order.
+  const joined = lines.concat([seg(-1, 0, 1)]);
+  ok('after a join at the start, the old start is no longer an end', G.gutterRunAt(joined, P(0), P(0.5)) === null && G.gutterRunAt(joined, P(-2), P(-1)) === 1);
+  const runs = G.gutterRuns(lines.concat([seg(2, 3, G.gutterRunAt(lines, P(2), P(3)))]));
+  ok('two touching Line-mode segments + a run = one run and one downspout', runs.length === 2 && runs[0].segmentCount === 3 && runs[0].downspouts === 1);
 }
 console.log('\n[L2: per-structure totals (Jo decision 3)]');
 {

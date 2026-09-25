@@ -702,9 +702,20 @@ function _addLine(rec) {
   return l;
 }
 
+// The runId for a Gutters segment drawn outside Gutter mode (Line mode, voice,
+// a retype): the run it continues when it starts or ends on that run's end,
+// else a new run (2026-09-25, L2 review — each such line used to be its own
+// run with its own downspout). `exceptId` leaves a retyped line itself out.
+function _gutterRunFor(p1, p2, exceptId) {
+  const others = drawnLines.filter(x => x.id !== exceptId);
+  const id = window.NBDDrawGeom.gutterRunAt(others, p1, p2);
+  return id !== null ? id : _nextRunId++;
+}
+
 function finalizeLine(p1, p2, dot1, dot2) {
-  // A Gutters line drawn in Line mode is a one-segment run of its own.
-  const l = _addLine({type:drawLT, p1, p2, dot1, dot2, subtype:'line', runId: drawLT === 10 ? _nextRunId++ : null});
+  // A Gutters line drawn in Line mode continues the run whose end it touches,
+  // else it is a one-segment run of its own.
+  const l = _addLine({type:drawLT, p1, p2, dot1, dot2, subtype:'line', runId: drawLT === 10 ? _gutterRunFor(p1, p2) : null});
   clearTemp(); renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
   return l.id;
 }
@@ -1164,8 +1175,9 @@ function retypeLine(id, ltIndex) {
   if(!l || !lt || l.type === ltIndex) return;
   _pushUndo();
   l.type = ltIndex; l.name = lt.n; l.color = lt.color;
-  // A line retyped TO Gutters is its own run; retyped away, it leaves one.
-  l.runId = ltIndex === 10 ? (l.runId || _nextRunId++) : null;
+  // A line retyped TO Gutters joins the run whose end it touches, else it is
+  // its own run; retyped away, it leaves one.
+  l.runId = ltIndex === 10 ? (l.runId || _gutterRunFor(l.p1, l.p2, l.id)) : null;
   l.line.setStyle({color:lt.color, dashArray:lt.dash||null});
   l.lbl.setIcon(_measIcon(l.dist, lt.color)); _labelPassThrough(l.lbl, drawOn);
   renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
@@ -1537,9 +1549,25 @@ function _estimatePlan() {
     pitchFactor: document.getElementById('pitchSel')?.value || 1.202,
     slope: slopeLfOn,
     totals: {base:t.combined.base, pitched:t.combined.pitched, estimated:t.combined.estimated},
-    downspouts: t.combined.downspouts
+    downspouts: t.combined.downspouts,
+    previousCounts: _lastImportCounts()
   });
   return { t, imp };
+}
+
+// The pipe / chimney / skylight counts the LAST drawing import put into the
+// V2 builder (2026-09-25, L2 review). V2 keeps its state across a close with
+// no lead, and restores a draft for 10 minutes, so without this a drawing with
+// no markers left the previous roof's counts priced (A's skylight stayed on
+// B). estimateImport() sends 0 for exactly those. localStorage because the
+// V2 draft outlives a reload; nbd_-prefixed so logout's purge takes it too.
+const _IMPORT_COUNTS_KEY = 'nbd_draw_import_counts_v1';
+function _lastImportCounts() {
+  try { return JSON.parse(localStorage.getItem(_IMPORT_COUNTS_KEY) || 'null') || {}; }
+  catch (e) { return {}; }
+}
+function _rememberImportCounts(counts) {
+  try { localStorage.setItem(_IMPORT_COUNTS_KEY, JSON.stringify(counts || {})); } catch (e) { /* storage blocked */ }
 }
 
 function importToEstimate() {
@@ -1555,6 +1583,7 @@ function _sendToV2(imp) {
   // nbd_v2_draft_v1 draft asynchronously; it applies these AFTER the draft
   // restore and owns the toast (NEW-D39, d8 sweep).
   window.openEstimateV2Builder({ importMeasurements: Object.assign({}, imp.v2) });
+  _rememberImportCounts(imp.sentCounts);
 }
 
 async function _sendToClassic(imp) {
@@ -1583,7 +1612,10 @@ async function _sendToClassic(imp) {
   set('estEave', c.eave);
   set('estHip', c.hip);
   // Drawn gutter feet price the classic gutter add-on (its only gutter line).
-  if (c.gutterLF > 0) set('estGutterLF', c.gutterLF);
+  // Always set (2026-09-25, L2 review): startNewEstimateOriginal() does not
+  // clear estGutterLF, so a drawing with no gutters kept the previous
+  // drawing's feet — a $960.50 add-on at $8.50/LF on a job with none.
+  set('estGutterLF', c.gutterLF > 0 ? c.gutterLF : '');
   const noteEl = document.getElementById('drawImportNote');
   if (noteEl) {
     noteEl.style.display = 'block';
@@ -1628,9 +1660,19 @@ function _openEstimateChooser(plan) {
       : v[k] + ' LF']);
   });
   rows.push(['Wall / step flashing', v.wallLf + ' LF']);
-  if (imp.guttersLf > 0) rows.push(['Gutters', imp.guttersLf + ' LF  ·  ' + imp.downspouts + ' downspout' + (imp.downspouts === 1 ? '' : 's')]);
-  ['pipes', 'chimneys', 'skylights'].forEach(k => { if (v[k]) rows.push([k[0].toUpperCase() + k.slice(1), String(v[k])]); });
-  if (imp.notPriced.ridgeVentLf > 0) rows.push(['Ridge vent (not sent)', imp.notPriced.ridgeVentLf + ' LF — the builder sizes ridge vent from Ridge']);
+  // Gutters always go (0 = none drawn), so say which footage prices them.
+  rows.push(['Gutters', imp.guttersLf > 0
+    ? imp.guttersLf + ' LF  ·  ' + imp.downspouts + ' downspout' + (imp.downspouts === 1 ? '' : 's')
+    : 'none drawn — 0 sent; line items use eave']);
+  ['pipes', 'chimneys', 'skylights'].forEach(k => {
+    const n = k[0].toUpperCase() + k.slice(1);
+    if (v[k] > 0) rows.push([n, String(v[k])]);
+    else if (v[k] === 0) rows.push([n, '0 — clears the last drawing’s count']);
+  });
+  if (imp.notPriced.ridgeVentLf > 0) {
+    rows.push(['Ridge vent (not sent)', imp.notPriced.ridgeVentLf + ' LF — the builder sizes ridge cap and vent from Ridge'
+      + (v.ridgeLf > 0 ? '' : '; no Ridge lines are drawn, so neither is priced')]);
+  }
   if (imp.notPriced.dripEdgeLf > 0) rows.push(['Drip edge (not sent)', imp.notPriced.dripEdgeLf + ' LF — the builder sizes it from eave + rake']);
   const tbl = el('div', 'font-size:12px;line-height:1.5;margin-bottom:10px;');
   tbl.dataset.role = 'est-rows';
@@ -1657,9 +1699,19 @@ function _openEstimateChooser(plan) {
     const warn = el('div', 'background:rgba(234,179,8,.10);border:1px solid rgba(234,179,8,.45);border-radius:6px;padding:8px 10px;font-size:12px;margin-bottom:10px;');
     warn.dataset.role = 'est-warning';
     warn.appendChild(el('div', 'font-weight:700;margin-bottom:4px;', imp.warning === 'no-roof' ? 'No roof area drawn' : 'Roof area is estimated, not measured'));
+    // Name only the guessed structure(s) and their own footprint (L2
+    // review): a job whose house is measured but whose garage has lines and
+    // no closed section used to read "No roof section is closed, so the
+    // <whole job> sf footprint is guessed".
+    const guessed = t.per.filter(p => p.source === 'eave-rake' || p.source === 'lines');
+    const guessedSf = Math.round(guessed.reduce((s, p) => s + p.base, 0));
     warn.appendChild(el('div', '', imp.warning === 'no-roof'
       ? 'Nothing is outlined, so the estimate gets 0 sf of roof — only the lengths above.'
-      : 'No roof section is closed, so the ' + Math.round(t.combined.base) + ' sf footprint is guessed from your lines. Close a perimeter for a measured area.'));
+      : (t.per.length > 1
+        ? guessed.map(p => p.name).join(', ') + (guessed.length === 1 ? ' has' : ' have') + ' no closed section, so '
+          + (guessed.length === 1 ? 'its ' : 'their ') + guessedSf + ' sf footprint is guessed from lines'
+          + (t.combined.measured ? ' (the rest is measured)' : '') + '. Close a perimeter for a measured area.'
+        : 'No roof section is closed, so the ' + guessedSf + ' sf footprint is guessed from your lines. Close a perimeter for a measured area.')));
     const lab = el('label', 'display:flex;gap:8px;align-items:center;margin-top:6px;font-weight:700;cursor:pointer;');
     ack = document.createElement('input');
     ack.type = 'checkbox';
@@ -3195,7 +3247,7 @@ function voiceAddMeasurement(typeIdx, dist) {
   p2 = L.latLng(p1.lat, p1.lng + dist * ftToLng);
 
   _pushUndo();
-  _addLine({type:typeIdx, p1, p2, dist, dot1:_dotAt(p1, lt.color), dot2:_dotAt(p2, lt.color), subtype:null, runId: typeIdx === 10 ? _nextRunId++ : null});
+  _addLine({type:typeIdx, p1, p2, dist, dot1:_dotAt(p1, lt.color), dot2:_dotAt(p2, lt.color), subtype:null, runId: typeIdx === 10 ? _gutterRunFor(p1, p2) : null});
   // Chain from end (voice keeps its chaining; the next voice line starts here)
   drawStart = p2; drawStartDot = _findDot(p2); drawStartDotNew = false;
   renderLineList(); recalc(); recalcGutters(); autoSaveDrawing();
@@ -3418,6 +3470,18 @@ async function removeStructure(id) {
 function renderStructureList() {
   const el = document.getElementById('structureList');
   if(!el) return;
+  // 2026-09-25 (L2 review): in WebKit a finger tap on a row did not switch
+  // structures. The rows are <div>s handled only by the document-level
+  // [data-mr-action] delegate, and WebKit fires a tap's click only on a node
+  // that it counts as clickable: one with a click listener on it or on an
+  // ancestor ELEMENT. The document listener does not count, and neither did
+  // the row's cursor:pointer. Measured in Playwright WebKit (iPhone 14 Pro,
+  // installed-app rules): touchstart/pointerup/touchend and no click, until
+  // a listener sat on this list. The delegate still does the work.
+  if (el.dataset.tapListener !== '1') {
+    el.dataset.tapListener = '1';
+    el.addEventListener('click', function () { /* makes the rows tappable in WebKit; see above */ });
+  }
   if(structures.length < 2) {
     el.innerHTML = '<p style="font-size:10px;color:var(--m);text-align:center;padding:6px;">Single structure. Add more for garage, shed, etc.</p>';
     return;

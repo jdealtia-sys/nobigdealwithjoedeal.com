@@ -146,8 +146,22 @@ function suite(label, ctxOpts, opts) {
     async function stubImport() {
       await page.evaluate(() => {
         window.__imports = window.__imports || [];
-        window.openEstimateV2Builder = function (opts) { window.__imports.push(JSON.parse(JSON.stringify(opts || {}))); };
+        // The real opener, kept once for the 'carry' test's real-builder check.
+        if (!window.__realOpenV2 && typeof window.openEstimateV2Builder === 'function' && !window.openEstimateV2Builder.__capture) window.__realOpenV2 = window.openEstimateV2Builder;
+        const capture = function (opts) { window.__imports.push(JSON.parse(JSON.stringify(opts || {}))); };
+        capture.__capture = true;
+        window.openEstimateV2Builder = capture;
       });
+    }
+    // Place n markers of one accessory kind (panel buttons are in the closed
+    // phone drawer; its delegate is a document click). `at0` is where the
+    // first goes; the rest step 10 ft east.
+    async function placeAccessories(kind, n, at0) {
+      await page.evaluate((k) => document.querySelector(`#accessoryPanel [data-mr-action="toggleAccessoryMode"][data-mr-id="${k}"]`).click(), kind);
+      await quiet();
+      for (let j = 0; j < n; j++) await tapLL(at(at0, j * 10, 0), `${kind} ${j + 1}`);
+      await page.evaluate((k) => document.querySelector(`#accessoryPanel [data-mr-action="toggleAccessoryMode"][data-mr-id="${k}"]`).click(), kind);
+      await quiet();
     }
     // Generate Estimate the way a rep does. The L2 in-page chooser names both
     // builders; main's native confirm is answered by the dialog handler.
@@ -348,6 +362,84 @@ function suite(label, ctxOpts, opts) {
       expect(g.imp.rawSqft).toBe(0);
     });
 
+    // L2 review (blocking): V2 keeps its state across a close when no lead is
+    // attached (and restores its draft for 10 minutes); guttersLf and the
+    // marker counts went only when > 0, so job B, with no gutters drawn, was
+    // priced with job A's 67 LF instead of its own eave, and kept A's pipes.
+    only('carry', 'the next job never inherits the last drawing\'s gutter feet or marker counts (V2, through the real builder)', async () => {
+      const gutterTruth = Math.round(G.hav(WING.D, WING.C) + G.hav(WING.C, WING.B));
+      // Job A: the wing, gutter D-C-B, 2 pipe boots and a skylight.
+      await fresh('perim');
+      await closeWing();
+      await T.arm(page, 'gutter');
+      await tapLL(WING.D, 'D'); await tapLL(WING.C, 'C'); await tapLL(WING.B, 'B');
+      await placeAccessories('pipe', 2, at(WING.view, -22, 38));
+      await placeAccessories('skylight', 1, at(WING.view, 8, 38));
+      await stubImport();
+      const a = (await generate('v2')).imp;
+      expect(a.guttersLf, 'job A: drawn gutter feet').toBe(gutterTruth);
+      expect([a.pipes, a.skylights], 'job A: pipes, skylights').toEqual([2, 1]);
+      // Job B: the wing only, at 4/12 (so its import is told apart from A's).
+      await fresh('perim');
+      await page.evaluate(() => { const p = document.getElementById('pitchSel'); p.value = '1.054'; p.dispatchEvent(new Event('change', { bubbles: true })); });
+      await closeWing();
+      const gb = await generate('v2');
+      const b = gb.imp;
+      expect(b.guttersLf, 'job B, no gutters drawn: guttersLf is sent as 0 (the engine then prices from eave), never omitted').toBe(0);
+      expect(b.pipes, 'job B: A\'s pipe count is cleared').toBe(0);
+      expect(b.skylights, 'job B: A\'s skylight is cleared').toBe(0);
+      expect('chimneys' in b, 'a count no drawing set is left alone (a typed / prefilled one survives)').toBe(false);
+      expect(gb.text, 'the chooser says the gutters are none drawn').toMatch(/Gutters\s*none drawn/);
+      // The same two imports, in order, through the REAL V2 builder (its
+      // applyImportedMeasurements merges only the keys it gets). Its draft
+      // store is Firestore: those calls are no-ops here, nothing is written.
+      const st = await page.evaluate(async ([ia, ib]) => {
+        const isDraft = (ref) => !!ref && /estimate_drafts/.test(String((ref && ref.path) || ''));
+        const keep = { setDoc: window.setDoc, getDoc: window.getDoc, deleteDoc: window.deleteDoc };
+        window.setDoc = function (ref) { return isDraft(ref) ? Promise.resolve() : keep.setDoc.apply(this, arguments); };
+        window.getDoc = function (ref) { return isDraft(ref) ? Promise.resolve({ exists: () => false, data: () => null }) : keep.getDoc.apply(this, arguments); };
+        window.deleteDoc = function (ref) { return isDraft(ref) ? Promise.resolve() : keep.deleteDoc.apply(this, arguments); };
+        try { localStorage.removeItem('nbd_v2_draft_v1'); } catch (e) { /* storage blocked */ }
+        const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { if (fn()) return true; } catch (e) { /* not yet */ } await new Promise((r) => setTimeout(r, 100)); } return false; };
+        const m = () => window.EstimateV2UI.getState().measurements;
+        const open = window.__realOpenV2;
+        try {
+          open({ importMeasurements: ia });
+          const gotA = await until(() => m().guttersLf === ia.guttersLf && m().pitch === ia.pitch, 20000);
+          const afterA = gotA ? { guttersLf: m().guttersLf, pipes: m().pipes, skylights: m().skylights } : null;
+          window.EstimateV2UI.close();
+          await new Promise((r) => setTimeout(r, 400));
+          open({ importMeasurements: ib });
+          const gotB = await until(() => m().pitch === ib.pitch, 20000);
+          const s = window.EstimateV2UI.getState().measurements;
+          const input = document.querySelector('#estV2Modal [data-field="guttersLf"]');
+          const out = { gotA, afterA, gotB, guttersLf: s.guttersLf, eaveLf: s.eaveLf, pipes: s.pipes, skylights: s.skylights, input: input ? input.value : null };
+          window.EstimateV2UI.close();
+          return out;
+        } finally { Object.assign(window, keep); }
+      }, [a, b]);
+      expect(st.gotA && st.afterA, 'V2 took job A: ' + JSON.stringify(st)).toEqual({ guttersLf: gutterTruth, pipes: 2, skylights: 1 });
+      expect(st.gotB, 'V2 took job B').toBe(true);
+      expect(st.guttersLf, `V2 guttersLf after job B (A's ${gutterTruth} LF would price B's gutters)`).toBe(0);
+      expect(st.eaveLf, 'V2 eaveLf = job B\'s eave').toBe(b.eaveLf);
+      expect([st.pipes, st.skylights], 'V2 pipes, skylights after job B').toEqual([0, 0]);
+      expect(st.input, 'the V2 gutter box does not show A\'s feet').not.toBe(String(gutterTruth));
+      await quiet();
+    });
+
+    only('lineGutter', 'Line mode: a Gutters line drawn on a run\'s end continues that run (one downspout, not two)', async () => {
+      await fresh('line');
+      await page.evaluate(() => window.selLT(10, document.querySelectorAll('.lt-btn')[10]));
+      const p1 = at(WING.view, -20, 20), p2 = at(p1, 18, 0), p3 = at(p2, 0, -14);
+      await tapLL(p1, 'gutter 1 start'); await tapLL(p2, 'gutter 1 end');
+      await tapLL(p2, 'gutter 2 start, on gutter 1\'s end'); await tapLL(p3, 'gutter 2 end');
+      const st = await T.drawState(page);
+      const segs = st.saved.lines.filter((l) => l.type === 10);
+      expect(segs.length, 'two gutter lines').toBe(2);
+      expect(new Set(segs.map((l) => l.runId)).size, 'one run (each Line-mode gutter used to be its own)').toBe(1);
+      expect(st.text.ds, '#gr-ds for one 32 ft run').toBe('1');
+    });
+
     only('b3', 'B3: a single line is deleted and retyped from its popup and from the list; ids are integers', async () => {
       await fresh('line');
       const rows = [[0, 30], [2, 22], [3, 14]];
@@ -480,6 +572,25 @@ function suite(label, ctxOpts, opts) {
       const g = await generate('v2');
       expect(g.imp.rawSqft, 'the estimate gets the combined pitched area').toBe(Math.round(parseFloat(st.text.pitched)));
       expect(g.text, 'the chooser breaks it down by structure').toMatch(/By structure[\s\S]*Garage/i);
+      expect(g.warning, 'both structures are measured: nothing to acknowledge').toBe(null);
+      // A third structure with only an eave and a rake line: its area is a
+      // guess. The warning names IT and ITS guessed footprint (L2 review: it
+      // said "No roof section is closed" and quoted the whole job's area).
+      await page.evaluate(() => window.__NBD_CALL_REGISTRY.addStructure('Shed'));
+      await quiet();
+      await T.arm(page, 'line');
+      const s0 = at(WING.view, 8, -30); // east of the garage, clear of its corners
+      await page.evaluate(() => window.selLT(5, document.querySelectorAll('.lt-btn')[5]));
+      await tapLL(s0, 'shed eave start'); await tapLL(at(s0, 12, 0), 'shed eave end');
+      await page.evaluate(() => window.selLT(4, document.querySelectorAll('.lt-btn')[4]));
+      await tapLL(at(s0, 16, 0), 'shed rake start'); await tapLL(at(s0, 16, -8), 'shed rake end');
+      const s3 = await T.drawState(page);
+      const shedLines = s3.saved.lines.filter((l) => !l.isPerim);
+      const shedSf = Math.round(lineSum(shedLines, 5) * lineSum(shedLines, 4));
+      const g3 = await generate('v2', { ack: true });
+      expect(g3.warning, 'the warning names the guessed structure').toMatch(/Shed has no closed section/);
+      expect(g3.warning, `...and only its own guessed ${shedSf} sf`).toContain(shedSf + ' sf footprint is guessed');
+      expect(g3.warning, 'the measured structures are said to be measured').toMatch(/the rest is measured/);
     });
 
     only('h4', 'H4: while drawing, a tap ON an existing line places a point (it was swallowed)', async () => {
@@ -626,6 +737,17 @@ function suite(label, ctxOpts, opts) {
       expect(f.gutter, 'estGutterLF = drawn gutter feet').toBe(String(Math.round(G.hav(WING.D, WING.C) + G.hav(WING.C, WING.B))));
       expect(f.pitch).toBe('1.0|Flat');
       expect(f.raw, 'updateEstCalc ran').toBe(Math.round(parseFloat(st.text.pitched)) + ' sf');
+      // L2 review (blocking): the next drawing, with no gutters, must not
+      // keep these feet — startNewEstimateOriginal() never clears the field,
+      // and it used to be set only when > 0 ($960.50 on a job with none).
+      await T.openDraw(page);
+      if (touch) { await touch.detach(); touch = await T.touchSession(page); }
+      await fresh('perim');
+      await closeWing();
+      await page.evaluate(() => { document.getElementById('estRawSqft').value = ''; });
+      await generate('classic');
+      await expect.poll(() => page.evaluate(() => (document.getElementById('estRawSqft') || {}).value || ''), { message: 'the classic form was filled again', timeout: 10_000 }).toBe(String(Math.round(parseFloat(st.text.pitched))));
+      expect(await page.evaluate(() => document.getElementById('estGutterLF').value), 'estGutterLF after a drawing with no gutters (was the previous drawing\'s feet)').toBe('');
       expect(pageErrors, 'uncaught page errors while drawing').toEqual([]);
     });
   });
@@ -637,7 +759,7 @@ function suite(label, ctxOpts, opts) {
 // basics. Keeps the file near 3 minutes for @shard2.
 suite('412px', T.phoneContextOptions(412), {
   phone: true, fullTypes: true,
-  tests: ['b4', 'ghost', 'b5', 'b7', 'gutterOnly', 'b3', 'b8', 'b9', 'undo', 'structures', 'h4', 'timers', 'saveLoad', 'reload', 'classic'],
+  tests: ['b4', 'ghost', 'b5', 'b7', 'gutterOnly', 'carry', 'lineGutter', 'b3', 'b8', 'b9', 'undo', 'structures', 'h4', 'timers', 'saveLoad', 'reload', 'classic'],
 });
 suite('360px', T.phoneContextOptions(360), {
   phone: true, fullTypes: false,
@@ -645,5 +767,5 @@ suite('360px', T.phoneContextOptions(360), {
 });
 suite('desktop 1280', { viewport: { width: 1280, height: 900 }, serviceWorkers: 'block' }, {
   phone: false, fullTypes: false,
-  tests: ['b4', 'b5', 'b7', 'h4', 'drag', 'undo'],
+  tests: ['b4', 'b5', 'b7', 'lineGutter', 'h4', 'drag', 'undo'],
 });
