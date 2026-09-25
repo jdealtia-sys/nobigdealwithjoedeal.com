@@ -27,8 +27,10 @@
 // and does a 30-minute daylight test on his iPhone's installed app before it
 // goes live for anyone. Off — the default — a phone behaves exactly as it
 // did before this file: the only thing added is that switch (inside ☰
-// Tools, coarse pointers only). No screen, no body classes or CSS vars, no
-// toast move, no setCrosshair call, so the engine keeps tap-to-place.
+// Tools, below Controls, coarse pointers only — nothing a rep reaches in
+// the drawer moves for it, see mountSwitch). No screen, no body classes or
+// CSS vars, no toast move, no setCrosshair call, so the engine keeps
+// tap-to-place.
 // Switching on builds the screen live; switching off tears ALL of it down
 // live (DOM, map / document / window listeners, observers, rAF, timers, the
 // magnifier's map, body classes and CSS vars) and calls setCrosshair(false),
@@ -185,8 +187,15 @@
     if (host.sw) host.sw.setAttribute('aria-checked', String(!!host.screen));
   }
 
-  // "Crosshair drawing (beta)" in ☰ Tools, under Draw Mode (where the rep
-  // picks how to draw). A real switch: role="switch" + aria-checked, 48px.
+  // "Crosshair drawing (beta)" in ☰ Tools, right under Controls (▶ Draw /
+  // Undo / Redo / ✕). A real switch: role="switch" + aria-checked, 48px.
+  // Not under Draw Mode, where the first cut put it: that 56px row pushed
+  // the Eave/Rake chooser, the Line Type grid and ✓ Finish run under the
+  // bottom nav on every phone with the switch OFF (393x852 and 412x860:
+  // on screen when Tools opens on main, behind the nav with the switch in;
+  // gate review, 2026-09-25). Below Controls it sits after every control
+  // the drawing flow uses, so none of them moves; only the lists and tools
+  // further down (already a scroll away) shift by its height.
   function mountSwitch() {
     var sheet = document.getElementById('map-sidebar-draw');
     if (!sheet || sheet.querySelector('[data-nbd="draw-crosshair-switch"]')) return;
@@ -209,7 +218,7 @@
     track.appendChild(el('span', 'dr-switch-knob'));
     sw.appendChild(text); sw.appendChild(track);
     wrap.appendChild(sw);
-    var row = sheet.querySelector('.draw-mode-row');
+    var row = sheet.querySelector('.draw-btns');
     if (row && row.parentNode) row.parentNode.insertBefore(wrap, row.nextSibling);
     else sheet.appendChild(wrap);
     sw.addEventListener('click', function () {
@@ -965,6 +974,17 @@
         var bs = document.body.style;
         // Landscape docks the bar in a right-hand column (css): stop short of it.
         var right = br.top < a.top + a.height / 2 ? window.innerWidth - br.left + 8 : window.innerWidth - a.right + 12;
+        // ...and short of ☰ Tools (the side buttons sit under it), in both
+        // orientations. Only a toast's ✕ takes a finger, and it landed on
+        // the centre of ☰ Tools — the one way back to the beta switch — so
+        // a tap meant for Tools closed the toast instead (gate review,
+        // 2026-09-25). Measured here, not per toggle: the button is right-
+        // anchored and its label only narrows once the sheet is used
+        // (☰ Draw Tools 97px wide, then ✕ Close 71 / ☰ Tools 72), so its
+        // left edge moves right, or 1px at most back, inside the 8px gap.
+        var tools = area.querySelector('.map-toggle-btn');
+        var tr = tools ? tools.getBoundingClientRect() : null;
+        if (tr && tr.width > 0 && tr.bottom > a.top) right = Math.max(right, window.innerWidth - tr.left + 8);
         bs.setProperty('--dr-toast-top', Math.round(a.top + 8) + 'px');
         bs.setProperty('--dr-toast-left', Math.round(a.left + 12) + 'px');
         bs.setProperty('--dr-toast-right', Math.round(Math.max(12, right)) + 'px');

@@ -8,7 +8,9 @@
    Jo's release gate). A mouse-driven desktop — even a narrow window — and a
    phone with the switch off never get them, so their layout and tap/click-
    to-place are untouched. The one exception is the switch itself (last
-   section), styled by its own classes wherever the JS adds it.
+   section), styled by its own classes wherever the JS adds it. An unscoped
+   rule here would change every phone's Draw screen with the switch off, so
+   tests/draw-reticle-css-scope.test.js fails on one (gate review).
 
    Colours: theme tokens (--s, --s2, --t, --m, --br, --orange, --accent-fg)
    so light and dark both work. The two exceptions are deliberate: the
@@ -163,8 +165,15 @@
 #view-draw.dr-on #map-sidebar-draw [data-fn="screenshotMap"],
 #view-draw.dr-on #map-sidebar-draw [data-fn="startAutoDetect"]{display:none!important;}
 /* The drawer's Eave/Rake mode flips the edge a TAP picks, and on this screen
-   a tap only aims: Edit's Flip does that job here (gate lane, 2026-09-25). */
-#view-draw.dr-on #modeERBtn{display:none!important;}
+   a tap only aims: Edit's Flip does that job here (gate lane, 2026-09-25).
+   Its status line goes too ("Tap any Eave or Rake line…") — the engine can
+   still be in 'er' when the switch goes on, and the bar shows Edit then —
+   and so does the perimeter one ("tap map to trace. Tap first dot to
+   close."): here a tap only aims, and the bar's readout says what Add will
+   do (gate review, 2026-09-25). */
+#view-draw.dr-on #modeERBtn,
+#view-draw.dr-on #erBar,
+#view-draw.dr-on #perimBar{display:none!important;}
 
 /* Toasts float 134px up on phones — right through the bar — and lifted to
    just above the bar they still sat ON the crosshair on any phone under
@@ -265,9 +274,12 @@ body.dr-bar-on .toast-container .toast .toast-close{pointer-events:auto;}
 }
 
 /* ── The beta switch (release gate, 2026-09-25): "Crosshair drawing (beta)"
-   in ☰ Tools, under Draw Mode. js/draw-reticle.js adds it on coarse pointers
-   only, and it shows with the screen OFF too, so these rules are scoped to
-   the switch, not to .dr-on. A real switch (role="switch"), 48px tall. ── */
+   in ☰ Tools, under Controls (below every control the drawing flow uses, so
+   none of them moves — gate review). js/draw-reticle.js adds it on coarse
+   pointers only, and it shows with the screen OFF too, so these rules are
+   scoped to the switch, not to .dr-on. A real switch (role="switch"), 48px
+   tall. tests/draw-reticle-css-scope.test.js holds every rule in this file
+   to one of the three scopes. ── */
 #map-sidebar-draw .dr-switch-row{margin:0 0 10px;}
 #map-sidebar-draw .dr-switch{
   width:100%;min-height:48px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;
