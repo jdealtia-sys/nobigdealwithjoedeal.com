@@ -704,6 +704,9 @@
       .v2-scope-item .actions {
         float:right; display:flex; gap:4px; margin-left:8px;
       }
+      /* An upgrade row (stage 2, 2026-09-25) has only ×: two empty
+         placeholders keep its price in the same column as every other row. */
+      .v2-scope-item .v2-act-ph { visibility:hidden; pointer-events:none; }
       /* .edit-note joined these rules 2026-09-25 (phone audit estimate#6): the
          📝 button was added later with NO rule at all, so it rendered as a
          bare browser-default grey chip, 22px wide on a phone. */
@@ -3130,12 +3133,12 @@
       return `
         <div class="v2-scope-item${overridden ? ' overridden' : ''}${isUpg ? ' upgrade' : ''}" data-code="${escLocal(line.code)}">
           <div class="actions">
-            ${isUpg ? '' : `<button class="edit-note" type="button" data-action="edit-note" title="${lineNote ? 'Edit note' : 'Add note'}" style="${lineNote ? 'color:var(--orange,#BD5728);' : ''}">📝</button>
+            ${isUpg ? '<span class="edit-note v2-act-ph" aria-hidden="true"></span><span class="edit-qty v2-act-ph" aria-hidden="true"></span>' : `<button class="edit-note" type="button" data-action="edit-note" title="${lineNote ? 'Edit note' : 'Add note'}" style="${lineNote ? 'color:var(--orange,#BD5728);' : ''}">📝</button>
             <button class="edit-qty" type="button" data-action="override-qty" title="Edit quantity">✎</button>`}
             <button class="rm" type="button" data-action="remove-from-scope" title="Remove">×</button>
           </div>
           <div class="total">$${Math.round(lineRetail(line, estimate.materialMarkupPct)).toLocaleString()}</div>
-          <div class="name">${escLocal((line.name || '').substring(0, 38))}</div>
+          <div class="name">${escLocal(isUpg ? (line.name || '') : (line.name || '').substring(0, 38))}</div>
           <div class="qty">${safeQty} ${escLocal(line.unit)} · ${escLocal(line.code)}${overridden ? ' · <span style="color:var(--blue,#22d3ee);">manual</span>' : ''}${isUpg ? ' · <span style="color:var(--orange,#BD5728);">upgrade · quoted price</span>' : ''}</div>
           ${lineNote ? `<div class="line-note" style="font-size:11px;color:var(--m,#9ca3af);font-style:italic;margin-top:2px;">📝 ${escLocal(lineNote)}</div>` : ''}
           ${_v2TierMismatch(line.tier) ? `<div class="tier-warn">⚠ ${escLocal(line.tier)}-tier item on a ${escLocal(state.tier)}-tier job</div>` : ''}
