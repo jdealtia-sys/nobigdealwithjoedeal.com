@@ -569,7 +569,13 @@ function throughPreflight(env, type, est) {
     const raw = read(path.join(PRO_JS, 'close-board.js'));
     const src = raw.replace(/\bimport\(/g, '__testImport(');
     const els = {};
-    const mk = () => ({ innerHTML: '', textContent: '', style: {}, dataset: {}, querySelector: () => null, querySelectorAll: () => [],
+    // textContent -> innerHTML escapes like a real element: close-board's esc()
+    // renders every card through that round trip (a stub that kept them
+    // unrelated rendered every card as '' and the page check passed on nothing).
+    const mk = () => ({ _h: '', get innerHTML() { return this._h; }, set innerHTML(v) { this._h = String(v); },
+      get textContent() { return this._h; },
+      set textContent(v) { this._h = String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); },
+      style: {}, dataset: {}, querySelector: () => null, querySelectorAll: () => [],
       addEventListener() {}, classList: { add() {}, remove() {}, contains() { return false; }, toggle() {} } });
     const store = {};
     const sb = {
@@ -603,6 +609,7 @@ function throughPreflight(env, type, est) {
         ['good', 'better', 'best'].map((k) => (deal.tiers[k].lineItems || []).length).join('/'));
       const cards = (pageHtml.match(/class="tier-desc">[^<]*</g) || []).join(' ');
       ok('the homeowner deal page renders three tier cards', (pageHtml.match(/class="tier-desc"/g) || []).length === 3);
+      ok('the homeowner deal page shows each tier\'s real card copy', (cards.match(/shingle line/g) || []).length === 3, cards);
       ok('the homeowner deal page promises no gutters / deck / ice & water on any card', cards && !/gutter|deck|ice/i.test(cards), cards);
     }
     // The other two builders of tier cards (a hand-made deal, the default
