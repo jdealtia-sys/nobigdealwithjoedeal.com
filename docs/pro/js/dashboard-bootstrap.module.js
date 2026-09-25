@@ -1534,11 +1534,12 @@
     try { _resetLeadsCache(); } catch (_) { /* best-effort */ }
     // The company profile too (2026-09-25, PR #1774 review). Nothing reset
     // it: _companyProfileLoaded stayed true with the previous account's
-    // profile (or, after purgeAccountStorage, bare defaults) in memory, and
-    // the Estimates panel still counted as painted from it — so Save All
-    // could full-replace the NEW account's company jurisdictions and county
-    // rates with the old account's rows, or with nothing. The boot below
-    // reads this account's profile afresh.
+    // profile in memory (or bare defaults, after the shared-device storage
+    // purge), and the Estimates panel still counted as painted from it — so
+    // Save All could full-replace the NEW account's company jurisdictions
+    // and county rates with the old account's rows, or with nothing. The
+    // boot below reads this account's profile afresh. (No storage purge
+    // here: see the nbd_last_uid block in the auth callback.)
     try { if (typeof window._resetCompanyProfile === 'function') window._resetCompanyProfile(); } catch (_) { /* best-effort */ }
     try { _forgetEstimatePanelPaint(); } catch (_) { /* best-effort */ }
   }
