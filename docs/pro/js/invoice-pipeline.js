@@ -539,13 +539,17 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       total = folded.total;
       const supplementTotal = folded.supplementTotal;
 
-      // Honor the estimate's saved deposit (insurance 0% or rep override); else 50%.
-      // CLASSIC builder saves deposit as an object {pct,amount,remainder}; V2 saves
-      // a number. Coerce both, and fall back to 50% if neither yields a finite value
-      // (avoids NaN deposit/balanceDue on classic estimates — review blocker).
-      const depRaw = est.deposit;
-      const depNum = (depRaw && typeof depRaw === 'object') ? Number(depRaw.amount) : Number(depRaw);
-      const depositAmount = Number.isFinite(depNum) ? depNum : total * 0.5;
+      // Deposit — deposit-rule.js (2026-09-25) on the INVOICE total (which
+      // folds in approved supplements): cash under $2,000 none, cash $2,000+
+      // 50%, insurance the deductible + the ACV payment, a rep override
+      // (classic Override %) honored. This was "the saved deposit, else 50%":
+      // a Job Template estimate saves no deposit, so a $555 repair invoiced a
+      // $277.50 deposit, and a doc saved under the old 50/50 / 0% logic
+      // carried its stale number into the invoice. The lead's deductible
+      // fills in when the estimate carries none (resolved just below).
+      const _depRule = window.NBDDepositRule || null;
+      let depositPlan = null;
+      let depositAmount = 0;
 
       // Resolve the customer's identity + contact ONCE so downstream send
       // (email/SMS), the paid-receipt, and the rendered "Bill To" actually have
@@ -562,6 +566,11 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
       const customerName  = resolveCustomerName(est, lead);
       const customerEmail = est.customerEmail || (lead && lead.email) || '';
       const customerPhone = est.customerPhone || (lead && lead.phone) || '';
+
+      if (_depRule) {
+        depositPlan = _depRule.fromEstimate(est, { totalCents: Math.round(Number(total) * 100), lead: lead || null });
+        depositAmount = depositPlan.depositCents / 100;
+      }
 
       // Create invoice doc
       const invoiceData = {
@@ -596,7 +605,9 @@ let _NBD_IP_DELEGATE_BOUND; // module-local (globals Tranche 1 — was window.*)
         paidAt: null,
         viewedAt: null,
         notes: '',
-        terms: 'Net 14. 50% deposit due upon scheduling.',
+        // The rule's own sentence, not "50% deposit due upon scheduling".
+        depositTerms: depositPlan ? depositPlan.summary : '',
+        terms: 'Net 14.' + (depositPlan && depositPlan.summary ? ' ' + depositPlan.summary : ''),
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: window._auth?.currentUser?.uid || 'system',

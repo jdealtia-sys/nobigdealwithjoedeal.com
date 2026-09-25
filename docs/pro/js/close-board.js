@@ -634,6 +634,22 @@
     const betterPay = calcMonthlyPayment(deal.tiers.better.price, 7.99, 60);
     const bestPay = calcMonthlyPayment(deal.tiers.best.price, 7.99, 60);
     const BRAND = _dealBrand();
+    // Deposit per tier (2026-09-25) — deposit-rule.js, the same answer the
+    // quote, contract and invoice give: cash under $2,000 none, $2,000+ 50%
+    // at signing, insurance the deductible + the ACV payment. The deal page
+    // named no deposit at all, and its insurance box said "you typically only
+    // pay your deductible" — true of the homeowner's pocket, but silent on
+    // the ACV payment the rule asks for up front.
+    const _depRule = window.NBDDepositRule || null;
+    const _dealMode = deal.insuranceClaim ? 'insurance' : 'cash';
+    const _tierPlan = (price) => (_depRule && Number(price) > 0)
+      ? _depRule.compute({ total: Number(price), mode: _dealMode, deductible: deal.deductible })
+      : null;
+    const depositLine = (price) => {
+      const p = _tierPlan(price);
+      return p ? `<div class="tier-deposit">${esc(p.label)}: <strong>${esc(p.valueText)}</strong></div>` : '';
+    };
+    const _insPlan = _tierPlan(deal.tiers.better.price) || _tierPlan(deal.tiers.good.price) || _tierPlan(deal.tiers.best.price);
 
     return `<!DOCTYPE html>
 <html lang="en"><head>
@@ -667,6 +683,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
 .tier-monthly{font-size:12px;color:#8b8e96;}
 .tier-desc{font-size:13px;color:#8b8e96;margin-top:8px;line-height:1.5;}
 .tier-warranty{font-size:11px;color:var(--orange);margin-top:6px;font-weight:600;}
+.tier-deposit{font-size:12px;color:#e5e7eb;margin-top:6px;}
 .tier-items{margin-top:12px;border-top:1px solid #2a2d35;padding-top:10px;}
 .tier-item{display:flex;justify-content:space-between;padding:4px 0;font-size:12px;color:#8b8e96;border-bottom:1px solid #1a1d2310;}
 .finance-section{margin-top:20px;}
@@ -720,6 +737,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
       <div class="tier-monthly">or ~${fmtCurrency(goodPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.good.description)}</div>
       <div class="tier-warranty">🛡️ ${esc(tierDisplayWarrantyBlurb('good'))}</div>
+      ${depositLine(deal.tiers.good.price)}
     </div>
     <div class="tier recommended" id="tier-better" data-deal-tier="better">
       <div class="tier-name">★★ ${esc(tierDisplayLabel('better'))}</div>
@@ -727,6 +745,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
       <div class="tier-monthly">or ~${fmtCurrency(betterPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.better.description)}</div>
       <div class="tier-warranty">🛡️ ${esc(tierDisplayWarrantyBlurb('better'))}</div>
+      ${depositLine(deal.tiers.better.price)}
     </div>
     <div class="tier" id="tier-best" data-deal-tier="best">
       <div class="tier-name">★★★ ${esc(tierDisplayLabel('best'))}</div>
@@ -734,6 +753,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
       <div class="tier-monthly">or ~${fmtCurrency(bestPay)}/mo with financing</div>
       <div class="tier-desc">${esc(deal.tiers.best.description)}</div>
       <div class="tier-warranty">🛡️ ${esc(tierDisplayWarrantyBlurb('best'))}</div>
+      ${depositLine(deal.tiers.best.price)}
     </div>
   </div>
 
@@ -743,7 +763,7 @@ body{font-family:'Barlow',sans-serif;background:#0d0f14;color:#e5e7eb;min-height
     <div class="ins-detail">Carrier: <strong>${esc(deal.insuranceCarrier)}</strong></div>
     ${deal.claimNumber ? `<div class="ins-detail">Claim #: ${esc(deal.claimNumber)}</div>` : ''}
     ${deal.deductible ? `<div class="ins-detail">Your deductible: <strong>${fmtCurrency(deal.deductible)}</strong></div>` : ''}
-    <div style="font-size:11px;color:#8b8e96;margin-top:8px;">We work directly with your insurance — you typically only pay your deductible.</div>
+    <div style="font-size:11px;color:#8b8e96;margin-top:8px;">We work directly with your insurance. ${esc(_insPlan && _insPlan.terms ? _insPlan.terms : '')}</div>
   </div>
   ` : ''}
 

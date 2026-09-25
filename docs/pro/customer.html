@@ -2511,6 +2511,11 @@ body.nbd-photo-selecting .nbd-photo-checkbox,
      docs persist the internal COST basis in rows[].rate/total; this maps them
      to customer prices (exportCustomerEstimate fails closed without it). -->
 <script defer src="js/customer-estimate-rows.js?v=2"></script>
+<!-- deposit-rule.js (2026-09-25): the ONE deposit rule — the invoice, the
+     contract / proposal pre-flight and company-profile.js's payment-terms
+     defaults all read it. This page loads no estimate-config.js, so the
+     rule's own DEFAULTS apply (pinned equal to the config by test). -->
+<script defer src="js/deposit-rule.js?v=1"></script>
 <script defer src="js/booking-events.js?v=2"></script>
 <script defer src="js/customer-quick-actions.js?v=1"></script>
 <script type="module" src="js/customer-bootstrap.module.js?v=3"></script>

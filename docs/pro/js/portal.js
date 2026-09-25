@@ -749,6 +749,15 @@
                 ? '<div class="kv-key">Total</div><div class="big-num">' + esc(fmtMoney(e.grandTotal)) + '</div>'
                 : '<div class="kv-key">Total</div><div class="kv-val" style="color:var(--muted);">Your rep is still putting the numbers together.</div>') +
               (e.tierName ? '<div class="kv-val" style="margin-top:6px;color:var(--muted);">' + esc(e.tierName) + '</div>' : '') +
+              // Payment terms (2026-09-25): the deposit rule's own sentence,
+              // stamped by the rep's builder and validated server-side
+              // (functions/deposit-plan-view.js) — the same words the quote,
+              // contract and invoice print. Absent on older estimates.
+              ((e.depositPlan && e.depositPlan.summary)
+                ? '<div class="kv-key" style="margin-top:12px;">' + esc(e.depositPlan.label || 'Due at signing') + '</div>' +
+                  '<div class="kv-val" data-portal-deposit><strong>' + esc(e.depositPlan.valueText || '') + '</strong></div>' +
+                  '<div class="kv-val" style="margin-top:4px;color:var(--muted);font-size:13px;line-height:1.5;">' + esc(e.depositPlan.summary) + '</div>'
+                : '') +
               // The itemized scope. /pro/estimate-view.html is a complete,
               // deployed, cost-redacted line-item viewer — every line with
               // quantity and retail total, the roof measurements, the tier

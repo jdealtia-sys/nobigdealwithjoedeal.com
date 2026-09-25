@@ -145,7 +145,9 @@
         'Show them: "You paid for RCV coverage, so insurance owes you full replacement value"',
         'Explain: "ACV is what the roof is worth TODAY. RCV is new. Depreciation is the difference."',
         'Reassure: "We get ACV now to start work. After completion, we submit final invoice and you get depreciation check."',
-        'Walk them through the signed agreement so they see the 50/50 deposit structure',
+        // 2026-09-25 (deposit rule, deposit-rule.js): was "the 50/50 deposit
+        // structure" — not the insurance rule.
+        'Walk them through the signed agreement so they see the payment schedule: deductible at signing, the ACV check as soon as it is released, the balance on completion',
         'Set expectation: "You\'ll get 2 checks from insurance and need to endorse both to us"'
       ],
       codeRefs: [],

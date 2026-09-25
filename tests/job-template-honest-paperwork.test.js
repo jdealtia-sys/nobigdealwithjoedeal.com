@@ -406,6 +406,9 @@ section('6. PORTAL — functions/portal.js tier label (lifted and run)');
 function docStack(withConfig) {
   const env = makeSandbox({ _brand: () => ({ legalName: 'No Big Deal Home Solutions', colors: {}, contact: {} }) });
   if (withConfig) load(env, 'docs/pro/js/estimate-config.js');
+  // Both pages load the deposit rule eagerly (2026-09-25); the contract's
+  // required Deposit Amount prefills from it.
+  load(env, 'docs/pro/js/deposit-rule.js');
   load(env, 'docs/pro/js/customer-estimate-rows.js');
   load(env, 'docs/pro/js/document-generator.js');
   load(env, 'docs/pro/js/document-generator-templates.js');

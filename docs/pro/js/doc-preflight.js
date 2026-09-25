@@ -140,9 +140,28 @@
    *   2. lead[key]                (if key exists on lead)
    *   3. source resolver
    */
+  // Deposit defaults retired by the deposit rule (2026-09-25). A contract
+  // generated before the rule persisted its PREFILLS as per-doc overrides —
+  // the 50% literal below and jobValue × 0.5 — so without this the next
+  // contract for that lead would bring the old 50/50 back as if a rep had
+  // typed it. Only those exact values are retired; a figure a rep actually
+  // edited is still an override and still wins.
+  var RETIRED_SCHEDULE_LITERAL = '50% due upon contract execution; remaining balance due upon substantial completion.';
+  function isRetiredDepositDefault(key, v, ctx) {
+    if (key === 'paymentSchedule') return String(v == null ? '' : v).trim() === RETIRED_SCHEDULE_LITERAL;
+    if (key === 'depositAmount' || key === 'payment1Amount') {
+      var lead = (ctx && ctx.lead) || {};
+      var est = (ctx && ctx.estimate) || {};
+      var jv = parseFloat(lead.jobValue || est.grandTotal || 0);
+      return !!jv && String(v) === (jv * 0.5).toFixed(2);
+    }
+    return false;
+  }
+
   function resolveFieldValue(field, ctx) {
     // 1. Per-doc override wins
-    if (ctx.overrides && Object.prototype.hasOwnProperty.call(ctx.overrides, field.key)) {
+    if (ctx.overrides && Object.prototype.hasOwnProperty.call(ctx.overrides, field.key)
+        && !isRetiredDepositDefault(field.key, ctx.overrides[field.key], ctx)) {
       return ctx.overrides[field.key];
     }
 
@@ -229,6 +248,28 @@
     });
   }
 
+  /**
+   * The job's deposit plan from deposit-rule.js (2026-09-25): the contract
+   * price the pre-flight prefills (computed.jobValue's own priority), the
+   * estimate's mode + claim, the lead's deductible as fallback.
+   * extra.total / extra.overrideAmount carry the rep's edited Contract Price
+   * and Deposit Amount at submit time.
+   */
+  function depositPlanFor(ctx, extra) {
+    var R = (typeof window !== 'undefined') && window.NBDDepositRule;
+    if (!R) return null;
+    ctx = ctx || {};
+    extra = extra || {};
+    var lead = ctx.lead || {};
+    var est = ctx.estimate || {};
+    var total = (extra.total != null && extra.total !== '')
+      ? extra.total
+      : (lead.jobValue || est.grandTotal || est.total || est.amount || 0);
+    var opts = { total: total, lead: lead };
+    if (extra.overrideAmount != null && extra.overrideAmount !== '') opts.overrideAmount = extra.overrideAmount;
+    return R.fromEstimate(est, opts);
+  }
+
   /** Named computed values. */
   function computeValue(name, ctx, field) {
     var lead = ctx.lead || {};
@@ -247,8 +288,15 @@
       case 'receiptNumber':
         return 'RCT-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-5);
       case 'depositAmount':
-        var jv = parseFloat(lead.jobValue || est.grandTotal || 0);
-        return jv ? (jv * 0.5).toFixed(2) : '';
+        // deposit-rule.js (2026-09-25) — was a flat jobValue × 0.5, so a
+        // $555 repair's contract asked $277.50 and an insurance job's asked
+        // half the claim instead of the deductible + ACV payment.
+        var dpA = depositPlanFor(ctx);
+        return (dpA && dpA.totalCents > 0) ? (dpA.depositCents / 100).toFixed(2) : '';
+      case 'depositTerms':
+        // The same plan in words, for the contract's Payment Schedule / Terms.
+        var dpT = depositPlanFor(ctx);
+        return (dpT && dpT.summary) ? dpT.summary : '';
       case 'dueDate':
         var d = new Date();
         d.setDate(d.getDate() + 30);
@@ -416,10 +464,16 @@
         {
           id: 'payment', title: 'Payment & Schedule', collapsed: false,
           fields: [
+            // Deposit rule (2026-09-25): both prefill from deposit-rule.js —
+            // cash under $2,000 no deposit, $2,000+ 50%, insurance the
+            // deductible + the ACV payment. A Deposit Amount the rep edits is
+            // a rep override: the contract's schedule honors it (never below
+            // an insurance deductible). Were "Typically 50%" + a 50% literal.
             { key: 'depositAmount', label: 'Deposit Amount', type: 'currency',
-              source: 'computed.depositAmount', persist: PERSIST.DOCUMENT, required: true, help: 'Typically 50% of contract price.' },
+              source: 'computed.depositAmount', persist: PERSIST.DOCUMENT, required: true,
+              help: 'Set by the deposit rule: cash under $2,000 none, $2,000+ 50%, insurance the deductible + ACV payment. Edit to override.' },
             { key: 'paymentSchedule', label: 'Payment Schedule / Terms', type: 'textarea', rows: 2,
-              source: 'literal:50% due upon contract execution; remaining balance due upon substantial completion.',
+              source: 'computed.depositTerms',
               persist: PERSIST.DOCUMENT },
             { key: 'startDate', label: 'Start Date', type: 'date',
               source: 'computed.todayISO', persist: PERSIST.DOCUMENT, required: true },
@@ -2202,6 +2256,11 @@
     }
 
     var ctx = { lead: lead, estimate: estimate, photos: photos, overrides: overrides, jobWarranty: jobWarranty };
+    // Deposit rule context (2026-09-25): submit() re-asks the rule with the
+    // rep's final Contract Price / Deposit Amount, and swaps an untouched
+    // terms paragraph for the final plan's sentence.
+    state.depositCtx = { lead: lead, estimate: estimate };
+    state.depositTermsDefault = computeValue('depositTerms', ctx, {});
     var schema = DOC_SCHEMAS[type];
     var values = {};
     var fieldIndex = {};
@@ -2271,6 +2330,8 @@
     state.values = {};
     state.fieldIndex = {};
     state.jobWarranty = null;
+    state.depositCtx = null;
+    state.depositTermsDefault = '';
   }
 
   /**
@@ -2328,6 +2389,27 @@
       mergedData.workmanshipWarranty = state.jobWarranty.text;
       mergedData.workmanshipWarrantyYears = state.jobWarranty.years;
       mergedData.warrantyKind = state.jobWarranty.kind;
+    }
+
+    // Deposit plan (2026-09-25) for the documents that state payment terms:
+    // deposit-rule.js on the rep's final Contract Price, with an edited
+    // Deposit Amount honored as a rep override (never below an insurance
+    // deductible). The server contract turns it into its Payment Schedule
+    // table; the proposal prints its sentence.
+    if (state.type === 'contract' || state.type === 'proposal') {
+      var _dpPlan = depositPlanFor(state.depositCtx, {
+        total: mergedData.totalPrice,
+        overrideAmount: mergedData.depositAmount
+      });
+      if (_dpPlan && _dpPlan.totalCents > 0 && window.NBDDepositRule) {
+        mergedData.depositPlan = window.NBDDepositRule.toStored(_dpPlan);
+        // An untouched terms paragraph follows the FINAL plan, so an edited
+        // Deposit Amount can't leave a paragraph still stating the rule's figure.
+        if (typeof mergedData.paymentSchedule === 'string' && state.depositTermsDefault
+            && mergedData.paymentSchedule.trim() === String(state.depositTermsDefault).trim()) {
+          mergedData.paymentSchedule = _dpPlan.summary;
+        }
+      }
     }
 
     // Derive extra fields the templates expect

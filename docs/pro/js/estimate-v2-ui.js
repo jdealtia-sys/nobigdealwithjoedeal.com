@@ -137,7 +137,13 @@
     photos: [],
     _leadPhotos: null,
     customer: { name: '', address: '', phone: '', email: '' },
-    claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' },
+    // deductible null = not entered (2026-09-25). It was a $2,500
+    // placeholder; once the deposit rule made the deductible the insurance
+    // deposit, that placeholder would have printed "Your $2,500 deductible is
+    // due at signing" on a homeowner's quote nobody had entered a deductible
+    // for. Unset, the paperwork says the deductible is due without a number
+    // and the builder warns the rep.
+    claim: { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: null, acv: null, recoverableDepreciation: null, policyNumber: '' },
     searchFilter: '',
     categoryFilter: 'all',
     // Per-job minimum-charge floor. null means "use engine default"
@@ -806,6 +812,18 @@
         line-height:1.6;
       }
       .v2-rollup strong { color:var(--t,#e8eaf0); }
+      /* Deposit line (2026-09-25, deposit-rule.js) — left-aligned prose so a
+         two-line insurance sentence stays readable at 360px. */
+      .v2-deposit:empty { display:none; }
+      .v2-deposit {
+        margin-top:10px; padding-top:10px; border-top:1px solid var(--br,#2a2f35);
+        text-align:left; font-size:12px; line-height:1.5; color:var(--t,#e8eaf0);
+        overflow-wrap:anywhere;
+      }
+      .v2-deposit-head { display:flex; justify-content:space-between; gap:8px; font-weight:700; }
+      .v2-deposit-head strong { color:var(--orange,#BD5728); }
+      .v2-deposit-sum { color:var(--m,#9ca3af); margin-top:2px; }
+      .v2-deposit-note { color:var(--orange,#BD5728); margin-top:4px; font-size:11px; }
       .v2-export-btns {
         display:grid; grid-template-columns:1fr 1fr 1fr;
         gap:8px; margin-top:14px;
@@ -1096,6 +1114,16 @@
             <label>Deductible</label>
             <input type="number" id="v2claimDeductible" data-claim="deductible" placeholder="e.g. 2500" min="0" step="50">
           </div>
+          <!-- ACV (2026-09-25, deposit rule): the carrier scope's ACV line,
+               before the deductible. The insurance deposit is the deductible
+               plus the carrier's first check (ACV − deductible); blank = not
+               known yet, and the paperwork says the ACV payment is due when
+               the carrier releases it. Same claim.acv field the save payload
+               and the insurance scope already carry. -->
+          <div class="v2-field">
+            <label>ACV (carrier scope, before deductible)</label>
+            <input type="number" id="v2claimAcv" data-claim="acv" placeholder="Blank until the carrier's scope arrives" min="0" step="0.01" inputmode="decimal">
+          </div>
           <div class="v2-field">
             <label>Date of Loss</label>
             <input type="date" id="v2claimDateOfLoss" data-claim="dateOfLoss">
@@ -1113,6 +1141,7 @@
           <div class="v2-total-card">
             <div class="v2-total-lbl">Grand Total</div>
             <div class="v2-total-val" id="v2total">$0</div>
+            <div class="v2-deposit" id="v2deposit" aria-live="polite"></div>
             <div class="v2-rollup" id="v2rollup"></div>
           </div>
 
@@ -1420,10 +1449,16 @@
       if (el.dataset.claim) {
         state.claim = state.claim || {};
         const key = el.dataset.claim;
-        // Deductible coerces to number; other claim fields stay strings.
+        // Deductible coerces to number; ACV to a number or null (blank = not
+        // known yet — never 0, which would read as "carrier pays nothing");
+        // other claim fields stay strings.
         state.claim[key] = (key === 'deductible')
           ? (Number(el.value) || 0)
-          : el.value;
+          : (key === 'acv')
+            ? ((el.value !== '' && isFinite(Number(el.value)) && Number(el.value) > 0) ? Number(el.value) : null)
+            : el.value;
+        // The deposit follows the deductible and the ACV (deposit-rule.js).
+        if (key === 'deductible' || key === 'acv') renderDepositLine();
         saveDraftDebounced();
         return;
       }
@@ -2595,11 +2630,9 @@
         estimate.subtotal = (Number(chosen.subtotal) || 0) + passThruSum;
         estimate.taxRate  = chosen.taxRate;
         estimate.tax      = chosen.tax;
-        // Deposit on the ALL-IN customer total (cash 50% / insurance 0%, $25 round),
-        // so the doc's "(50%)" label and deposit/balance foot to the shown total.
-        estimate.deposit  = (state.jobMode === 'insurance')
-          ? 0
-          : Math.round((estimate.total * 0.5) / 25) * 25;
+        // The deposit is stamped on the ALL-IN customer total at the end of
+        // getCurrentEstimate (_stampDeposit → deposit-rule.js). This line used
+        // to be its own "cash 50% / insurance 0%" copy (2026-09-25).
         estimate.tier     = (tiers[state.tier] ? state.tier : 'better');
         estimate.prices   = { good: tiers.good.total, better: tiers.better.total, best: tiers.best.total };
         estimate.perSqTiers = tiers;        // .total now passThru-inclusive; reused in finalize
@@ -2620,7 +2653,49 @@
     // Per-SQ still wins downstream: estimateWarranty() treats a per-SQ quote
     // as roofing with a real tier.
     if (state.jobType) Object.assign(estimate, JSON.parse(JSON.stringify(state.jobType)));
+    return _stampDeposit(estimate);
+  }
+
+  // ═════════════════════════════════════════════════════════
+  // Deposit (2026-09-25) — deposit-rule.js is the ONE answer. Every V2
+  // surface (the builder's deposit line, the on-screen Retail / Single Quote,
+  // the server Retail Quote PDF, the BoldSign body, the saved doc the invoice
+  // and portal read) takes it from here, computed on the estimate's all-in
+  // customer total with the live claim fields. Before: an on-screen 50/50
+  // fallback, a hard-coded 25% on the server PDF and a $0 insurance deposit.
+  // ═════════════════════════════════════════════════════════
+  function _depositPlanFor(estimate, claim, jobMode) {
+    const R = window.NBDDepositRule;
+    if (!R || !estimate) return null;
+    const c = claim || {};
+    return R.compute({
+      total: estimate.total,
+      mode: jobMode || estimate.mode || 'cash',
+      deductible: c.deductible,
+      acv: c.acv
+    });
+  }
+  function _stampDeposit(estimate) {
+    if (!estimate) return estimate;
+    const plan = _depositPlanFor(estimate, state.claim, state.jobMode);
+    estimate.depositPlan = plan;
+    estimate.deposit = plan ? plan.depositCents / 100 : null;
     return estimate;
+  }
+  // The builder's own deposit line, under the grand total: what the homeowner
+  // will read, plus the rep-only notes (no deductible entered, override).
+  function renderDepositLine(estimate) {
+    const el = document.getElementById('v2deposit');
+    if (!el) return;
+    const est = estimate || ((state.scope.length || (state.passThru && state.passThru.length)) ? getCurrentEstimate() : null);
+    const plan = est && est.depositPlan;
+    if (!plan || !(plan.totalCents > 0)) { el.innerHTML = ''; return; }
+    const e = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    el.innerHTML =
+      '<div class="v2-deposit-head"><span>' + e(plan.label) + '</span><strong>' + e(plan.valueText) + '</strong></div>' +
+      '<div class="v2-deposit-sum">' + e(plan.summary) + '</div>' +
+      (plan.repNote ? '<div class="v2-deposit-note">' + e(plan.repNote) + '</div>' : '');
   }
 
   // ═════════════════════════════════════════════════════════
@@ -3133,6 +3208,7 @@
       const mT0 = document.getElementById('v2mTotal');
       if (mT0) mT0.textContent = '$0';
       rollupEl.innerHTML = '';
+      renderDepositLine(null);
       return;
     }
 
@@ -3222,6 +3298,7 @@
     // Phase 1b: mirror into the mobile step bar's always-visible total.
     const mT = document.getElementById('v2mTotal');
     if (mT) mT.textContent = _fmtTotal(estimate.total);
+    renderDepositLine(estimate);
 
     const taxDisplay = estimate.taxRate > 0
       ? `<br>Tax: <strong>$${Math.round(estimate.tax).toLocaleString()}</strong> (${(estimate.taxRate * 100).toFixed(2)}%)`
@@ -3652,6 +3729,21 @@
     const validUntilFmt = new Date(validUntilMs).toLocaleDateString('en-US',
       { month: 'long', day: 'numeric', year: 'numeric' });
 
+    // Deposit terms (2026-09-25): the SAME plan the on-screen quote prints
+    // (deposit-rule.js). Was a hard-coded `depositPct: 25` → "25% at contract
+    // signing" on every server-rendered Retail Quote, whatever the screen said.
+    // Pre-formatted client-side (valueText / summary) like the Estimate tile,
+    // so the server's money helper and the screen cannot disagree.
+    const _dp = estimate.depositPlan
+      || _depositPlanFor(estimate, meta.claim, estimate.mode || null);
+    const depositTerms = (_dp && _dp.totalCents > 0) ? {
+      label:     _dp.label,
+      valueText: _dp.valueText,
+      summary:   _dp.summary,
+      amount:    _dp.depositCents / 100,
+      balance:   _dp.balanceCents / 100,
+    } : null;
+
     return {
       // Cover (shared partial)
       preparedFor,
@@ -3688,7 +3780,7 @@
       terms: {
         validityDays: 30,
         validUntil:   validUntilFmt,
-        depositPct:   25,
+        deposit:      depositTerms,
         scheduleNote: 'Typical start: 2-4 weeks from signed contract.',
         // GBB audit, 2026-09-09: was '10 years labor minimum' — did not match
         // this same document's own tier-list bullets above (which said 10/15/
@@ -3856,7 +3948,19 @@
       selectedTier:     estimate.tier || state.tier,
       priceMode:        estimate.priceMode || state.mode,   // 'per-sq' | 'line-item' — tells consumers which model set grandTotal
       internalLineItemTotal: (estimate.internalLineItemTotal != null ? estimate.internalLineItemTotal : null), // cost basis for per-SQ estimates
-      deposit:          (estimate.deposit != null ? Number(estimate.deposit) : null), // numeric; insurance 0%, so invoicing honors it (V2-pkb)
+      // Deposit (2026-09-25): deposit-rule.js's answer on the saved total.
+      // `deposit` stays numeric for legacy readers; `depositPlan` is the
+      // display plan the homeowner portal prints (the server cannot run the
+      // rule). The invoice recomputes from the rule rather than trusting
+      // either, so a doc saved under the old logic can't carry it forward.
+      ...(() => {
+        const plan = estimate.depositPlan || _depositPlanFor(estimate, state.claim, state.jobMode);
+        const R = window.NBDDepositRule;
+        return {
+          deposit:     plan ? plan.depositCents / 100 : (estimate.deposit != null ? Number(estimate.deposit) : null),
+          depositPlan: (plan && R) ? R.toStored(plan) : null,
+        };
+      })(),
       materialCost:     estimate.materialCost,
       laborCost:        estimate.laborCost,
       subtotal:         estimate.subtotal,
@@ -4057,12 +4161,14 @@
       ? {
           carrier: doc.claim.carrier || '', number: doc.claim.number || '',
           adjuster: doc.claim.adjuster || '', dateOfLoss: doc.claim.dateOfLoss || '',
-          deductible: (doc.claim.deductible != null ? Number(doc.claim.deductible) : 2500),
+          // null = not entered (no $2,500 placeholder since the deposit rule,
+          // 2026-09-25 — see the state default).
+          deductible: (doc.claim.deductible != null ? Number(doc.claim.deductible) : null),
           acv: (doc.claim.acv != null ? Number(doc.claim.acv) : null),
           recoverableDepreciation: (doc.claim.recoverableDepreciation != null ? Number(doc.claim.recoverableDepreciation) : null),
           policyNumber: doc.claim.policyNumber || '',
         }
-      : { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: 2500, acv: null, recoverableDepreciation: null, policyNumber: '' };
+      : { carrier: '', number: '', adjuster: '', dateOfLoss: '', deductible: null, acv: null, recoverableDepreciation: null, policyNumber: '' };
     state.estimateName = doc.name || '';
     state.leadId = doc.leadId || null;
     // Photo embeds: restore the saved selection + refresh the pick-from
@@ -4182,7 +4288,9 @@
   function effectiveEstimate() {
     if (state._reopenedClean && state._reopenedDoc) {
       const replay = _reconstructEstimateFromSaved(state._reopenedDoc);
-      if (replay) return replay;
+      // The replay carries the doc's SAVED deposit, which may predate the
+      // deposit rule (2026-09-25) — re-stamp it from the rule + live claim.
+      if (replay) return _stampDeposit(replay);
     }
     return getCurrentEstimate();
   }
@@ -4674,10 +4782,11 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
     if (lead.policyNumber && !state.claim.policyNumber) state.claim.policyNumber = lead.policyNumber;
     if (lead.dateOfLoss && !state.claim.dateOfLoss)   state.claim.dateOfLoss = lead.dateOfLoss;
     if (lead.adjusterName && !state.claim.adjuster)   state.claim.adjuster = lead.adjusterName;
-    // Deductible: 2500 is the pristine state default, so a lead-recorded
-    // deductible may replace it — but never a value the rep typed.
+    // Deductible: unset (null / a cleared 0) takes the lead's recorded
+    // deductible — never over a value the rep typed. 2500 is the retired
+    // placeholder (2026-09-25), still treated as unset for drafts saved with it.
     if (lead.deductibleOrOwedByHO != null && lead.deductibleOrOwedByHO !== ''
-        && (state.claim.deductible == null || state.claim.deductible === 2500)) {
+        && (state.claim.deductible == null || state.claim.deductible === 0 || state.claim.deductible === 2500)) {
       state.claim.deductible = Number(lead.deductibleOrOwedByHO) || 0;
     }
     // Photo embeds: a NEW lead context starts with a clean selection and
@@ -4707,6 +4816,7 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       v2claimNumber:       state.claim && state.claim.number,
       v2claimAdjuster:     state.claim && state.claim.adjuster,
       v2claimDeductible:   state.claim && state.claim.deductible,
+      v2claimAcv:          state.claim && state.claim.acv,
       v2claimDateOfLoss:   state.claim && state.claim.dateOfLoss,
       v2claimPolicyNumber: state.claim && state.claim.policyNumber,
       v2county:            state.county
@@ -4715,6 +4825,13 @@ html,body{margin:0;padding:0;height:100%;width:100%;background:#fff;font-family:
       const el = document.getElementById(id);
       if (el && fields[id] != null) el.value = fields[id];
     }
+    // A blank deductible / ACV is a real state ("not entered" / "not known
+    // yet"), so a previous estimate's figure must not linger in the input
+    // while the deposit ignores it (deposit rule, 2026-09-25).
+    ['deductible', 'acv'].forEach((k) => {
+      const el = document.getElementById(k === 'acv' ? 'v2claimAcv' : 'v2claimDeductible');
+      if (el && !(state.claim && state.claim[k] != null)) el.value = '';
+    });
     // Tier — buttons, not an input. Toggle .active class.
     const tier = state.tier || 'better';
     ['good', 'better', 'best'].forEach(t => {

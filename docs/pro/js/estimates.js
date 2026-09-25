@@ -507,9 +507,13 @@ function buildReview() {
   const insuranceFields = d.mode === 'insurance' ? collectInsuranceFields() : null;
   estData.insurance = insuranceFields;
 
-  // Deposit: Cash 50/50 default, Insurance 0% default, user override persists.
-  const deposit = calcDeposit(grandTotal, d.mode, d.depositPctOverride);
-  estData.deposit = deposit;
+  // Deposit: deposit-rule.js (2026-09-25) — cash under $2,000 none, cash
+  // $2,000+ 50%, insurance the deductible + the ACV payment — with the rep's
+  // Override % honored and labelled. Was "Cash 50/50, Insurance 0%".
+  const deposit = calcDeposit(grandTotal, d.mode, d.depositPctOverride, insuranceFields);
+  const depositPlan = deposit.plan || null;
+  estData.deposit = { pct: deposit.pct, amount: deposit.amount, remainder: deposit.remainder };
+  estData.depositPlan = (depositPlan && window.NBDDepositRule) ? window.NBDDepositRule.toStored(depositPlan) : null;
 
   // Revision version — carry forward whatever was set when editing an
   // existing estimate; default to v1 for new drafts.
@@ -591,16 +595,18 @@ function buildReview() {
     <div style="margin-top:14px;padding:10px 12px;background:var(--s2);border:1px solid var(--br);border-radius:7px;font-size:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
         <div style="font-weight:700;color:var(--t);">Deposit Schedule</div>
-        <div style="font-size:10px;color:var(--m);">Default ${d.mode === 'insurance' ? '0% (insurance)' : '50/50 (cash)'} · override below</div>
+        <div style="font-size:10px;color:var(--m);">${depositPlan && depositPlan.kind === 'override' ? 'Rep override' : 'Deposit rule'} · override below (blank = rule)</div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        <div><div style="color:var(--m);font-size:10px;">Due at Signing</div><div style="font-weight:700;">${fmt(deposit.amount)} (${deposit.pct}%)</div></div>
+        <div><div style="color:var(--m);font-size:10px;">${esc(depositPlan ? depositPlan.label : 'Due at Signing')}</div><div style="font-weight:700;">${depositPlan ? esc(depositPlan.valueText) : fmt(deposit.amount)} (${deposit.pct}%)</div></div>
         <div><div style="color:var(--m);font-size:10px;">Balance at Completion</div><div style="font-weight:700;">${fmt(deposit.remainder)}</div></div>
         <div style="display:flex;align-items:center;gap:6px;">
-          <label style="font-size:10px;color:var(--m);">Override %:</label>
-          <input type="number" min="0" max="100" value="${deposit.pct}" data-on-change="setDepositOverride" style="width:56px;padding:2px 6px;border-radius:4px;background:var(--s);border:1px solid var(--br);color:var(--t);font-size:11px;">
+          <label style="font-size:10px;color:var(--m);">Rep override %:</label>
+          <input type="number" min="0" max="100" value="${d.depositPctOverride != null ? esc(String(d.depositPctOverride)) : ''}" placeholder="${deposit.pct}" data-on-change="setDepositOverride" style="width:56px;padding:2px 6px;border-radius:4px;background:var(--s);border:1px solid var(--br);color:var(--t);font-size:11px;">
         </div>
       </div>
+      ${depositPlan && depositPlan.summary ? `<div style="margin-top:8px;color:var(--t);">${esc(depositPlan.summary)}</div>` : ''}
+      ${depositPlan && depositPlan.repNote ? `<div style="margin-top:4px;font-size:11px;color:var(--orange,#BD5728);">${esc(depositPlan.repNote)}</div>` : ''}
     </div>
     <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-size:10px;color:var(--m);">Version v${d.version || 1}${d.revisedFrom ? ' · revised from prior estimate' : ''}</div>
@@ -615,8 +621,12 @@ function buildReview() {
 // Persist the deposit-% override on estData so the math re-renders on
 // the next buildReview() tick. Called inline from the review step.
 window.setDepositOverride = function setDepositOverride(val) {
-  const pct = Math.max(0, Math.min(100, parseFloat(val) || 0));
-  estData.depositPctOverride = pct;
+  // Blank clears the override (2026-09-25): the deposit goes back to the
+  // rule. It used to read blank as 0% — no way back to the default once typed.
+  const raw = (val == null) ? '' : String(val).trim();
+  estData.depositPctOverride = (raw === '' || !isFinite(parseFloat(raw)))
+    ? null
+    : Math.max(0, Math.min(100, parseFloat(raw)));
   if (typeof buildReview === 'function') buildReview();
 };
 
@@ -805,6 +815,9 @@ async function saveEstimate() {
       insurance: estData.insurance || null,
       deposit:   estData.deposit   || null,
       depositPctOverride: estData.depositPctOverride ?? null,
+      // The rule's display plan (deposit-rule.js toStored) — what the
+      // homeowner portal prints; the server cannot run the rule itself.
+      depositPlan: estData.depositPlan || null,
       version: estData.version || 1,
       revisedFrom: estData.revisedFrom || null,
       // Cross-cutting
@@ -1148,33 +1161,29 @@ function collectInsuranceFields() {
   };
 }
 
-// Deposit math per spec: Cash jobs default 50% due at contract signing
-// + 50% at completion; Insurance jobs default $0 down (ACV covers the
-// first check once the carrier pays). User can override the split on
-// either mode — this is the spec's documented behavior.
+// Deposit math — deposit-rule.js (2026-09-25): cash under $2,000 no
+// deposit, cash $2,000+ 50% at signing, insurance the deductible + the ACV
+// payment; the rep's Override % is honored and labelled. The comment that
+// stood here ("Cash 50/50, Insurance $0 down") described one of the five
+// contradictory deposit answers the app printed before the rule existed.
 //
 // D-5 unify (Rock 2 PR 4 close-out, 2026-07-04): delegate to V2's
-// calcDeposit so both engines quote the SAME deposit for the same total.
-// The engines had drifted on rounding: classic rounded the amount to
-// cents, V2 rounds to the $25 step (matching the rounding the customer
-// already sees on the grand total) — a $16,375 cash job quoted an
-// $8,187.50 deposit on one path and $8,200 on the other. V2's is the
-// spec behavior; classic falls back to its legacy cent-rounding only if
-// the V2 engine isn't loaded.
-function calcDeposit(grandTotal, mode, overridePct) {
+// calcDeposit so both engines quote the SAME deposit for the same total;
+// V2's calcDeposit is itself a thin adapter over NBDDepositRule. The legacy
+// cent-rounding fallback that ran when V2 wasn't loaded was a second copy of
+// the old rule — gone; the rule module is eager on every page that loads
+// this file, so it answers directly.
+function calcDeposit(grandTotal, mode, overridePct, claim) {
   const V2 = (typeof window !== 'undefined') && window.EstimateBuilderV2;
+  const c = claim || {};
   if (V2 && typeof V2.calcDeposit === 'function') {
-    return V2.calcDeposit(grandTotal, mode, { overridePct });
+    return V2.calcDeposit(grandTotal, mode, { overridePct, deductible: c.deductible, acv: c.acv });
   }
   _warnDeprecatedOnce('calcDeposit', 'EstimateBuilderV2.calcDeposit');
-  if (grandTotal <= 0) return { pct: 0, amount: 0, remainder: grandTotal };
-  const defaultPct = mode === 'insurance' ? 0 : 50;
-  const pct = (overridePct != null && overridePct >= 0 && overridePct <= 100)
-    ? overridePct
-    : defaultPct;
-  const amount = Math.round(grandTotal * (pct / 100) * 100) / 100;
-  const remainder = Math.round((grandTotal - amount) * 100) / 100;
-  return { pct, amount, remainder };
+  const R = (typeof window !== 'undefined') && window.NBDDepositRule;
+  if (!R || !(grandTotal > 0)) return { pct: 0, amount: 0, remainder: grandTotal > 0 ? grandTotal : 0, plan: null };
+  const plan = R.compute({ total: grandTotal, mode, overridePct, deductible: c.deductible, acv: c.acv });
+  return { pct: plan.pct, amount: plan.depositCents / 100, remainder: plan.balanceCents / 100, plan };
 }
 
 // Revisions: when an estimate is moved from any status → a later stage,

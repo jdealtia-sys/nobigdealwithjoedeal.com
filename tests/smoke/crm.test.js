@@ -874,8 +874,11 @@ section('Claim unification: ClaimCore canonical view + synced status + Claim Det
     /lead\.policyNumber && !state\.claim\.policyNumber/.test(v2)
     && /lead\.dateOfLoss && !state\.claim\.dateOfLoss/.test(v2)
     && /lead\.adjusterName && !state\.claim\.adjuster/.test(v2));
-  assert('prefillFromLead only replaces the pristine 2500 default deductible',
-    /state\.claim\.deductible == null \|\| state\.claim\.deductible === 2500/.test(v2));
+  // 2026-09-25 (deposit rule): the $2,500 placeholder is gone — unset is null
+  // (or a cleared 0); 2500 stays recognised for drafts saved with it.
+  assert('prefillFromLead only fills an unset deductible (null / cleared 0 / the retired 2500 placeholder)',
+    /state\.claim\.deductible == null \|\| state\.claim\.deductible === 0 \|\| state\.claim\.deductible === 2500/.test(v2)
+    && /deductible: null, acv: null, recoverableDepreciation: null, policyNumber: ''/.test(v2));
   const dbboot = read(path.join(ROOT, 'docs/pro/js/dashboard-bootstrap.module.js'));
   assert('_saveEstimate claim write-back fills ONLY empty lead fields (CRM record wins)',
     /estClaim\.carrier && !lead\.insCarrier && !lead\.insuranceCarrier/.test(dbboot)

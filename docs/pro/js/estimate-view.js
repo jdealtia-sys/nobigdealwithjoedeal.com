@@ -290,6 +290,27 @@
     html +=   '<span class="ev-grand-val">' + money(total) + '</span>';
     html += '</div>';
 
+    // Payment terms (2026-09-25): the deposit rule's plan as the rep's builder
+    // stamped it (docs/pro/js/deposit-rule.js), validated server-side by
+    // functions/deposit-plan-view.js — the same stages and sentence the quote,
+    // contract and invoice print. Older estimates carry none: nothing prints.
+    var dp = est.depositPlan;
+    if (dp && dp.summary) {
+      html += '<div class="ev-section-title">Payment terms</div>';
+      if (Array.isArray(dp.rows) && dp.rows.length) {
+        html += '<ul class="ev-line-list ev-pay-list">';
+        dp.rows.forEach(function (r) {
+          html += '<li class="ev-line">';
+          html +=   '<span class="ev-line-name">' + escHtml(r.label || '') + '</span>';
+          html +=   '<span class="ev-line-qty">' + escHtml(r.due || '') + '</span>';
+          html +=   '<span class="ev-line-amt">' + (r.amountCents != null ? money(r.amountCents / 100) : escHtml(r.amountText || '')) + '</span>';
+          html += '</li>';
+        });
+        html += '</ul>';
+      }
+      html += '<p class="ev-pay-terms">' + escHtml(dp.summary) + '</p>';
+    }
+
     html += '<div class="ev-cta-row">';
     html +=   '<button type="button" class="ghost" data-ev-action="print">Print / Save PDF</button>';
     html +=   backLinkHtml();

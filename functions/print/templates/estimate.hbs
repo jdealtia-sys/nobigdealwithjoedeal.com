@@ -20,7 +20,10 @@
     tiers (optional): { good: {label, total, features[]}, better: {...}, best: {...}, recommended }
     lines[]: { code, description, quantity, unit, unitPrice, lineTotal, category? }
     subtotal, tax, total
-    terms: { validityDays, depositPct, scheduleNote }
+    terms: { validityDays, deposit: { label, valueText, summary, amount, balance }, scheduleNote }
+      terms.deposit is deposit-rule.js's plan, pre-formatted client-side
+      (2026-09-25) — it replaced a hard-coded depositPct: 25 that printed
+      "25% at contract signing" on every server Retail Quote.
     notes (optional, free-form pre-signature paragraph)
 --}}
 
@@ -147,10 +150,10 @@
 <section class="avoid-break" style="margin-top: var(--s-6);">
   <h2>Terms &amp; Schedule</h2>
   <div class="kv-grid">
-    {{#if terms.depositPct}}
+    {{#if terms.deposit}}
     <div class="kv">
-      <div class="kv-label">Deposit Required</div>
-      <div class="kv-value">{{terms.depositPct}}% at contract signing</div>
+      <div class="kv-label">{{terms.deposit.label}}</div>
+      <div class="kv-value">{{terms.deposit.valueText}}</div>
     </div>
     {{/if}}
     {{#if terms.scheduleNote}}
@@ -172,6 +175,9 @@
     </div>
     {{/if}}
   </div>
+  {{#if terms.deposit.summary}}
+  <p class="deposit-terms" style="margin-top: var(--s-3); line-height:1.6;"><strong>Payment terms:</strong> {{terms.deposit.summary}}</p>
+  {{/if}}
 </section>
 {{/if}}
 

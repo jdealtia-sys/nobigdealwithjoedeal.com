@@ -876,35 +876,34 @@ ${footer}
       `;
     }
 
-    // Deposit terms. Honor an EXPLICIT deposit when present (insurance estimates
-    // legitimately carry deposit:0) — only fall back to the cash 50/50 default
-    // when no deposit was set at all. `estimate.deposit || …` treated 0 as unset,
-    // so a $0-deposit insurance quote printed a phantom 50% deposit. Labels are
-    // derived from the actual split, not hardcoded "50%".
-    const deposit = (estimate.deposit != null)
-      ? Number(estimate.deposit)
-      : (estimate.mode === 'insurance' ? 0 : Math.round((estimate.total * 0.5) / 25) * 25);
-    const balance = estimate.total - deposit;
-    const depositPct = (estimate.total > 0) ? Math.round((deposit / estimate.total) * 100) : 0;
-    const balancePct = 100 - depositPct;
+    // Payment terms — deposit-rule.js (2026-09-25), the one answer every quote,
+    // contract, invoice and portal view prints. The V2 builder hands over the
+    // plan it already stamped (estimate.depositPlan: live claim fields, the
+    // all-in total); anything else is computed from the estimate + meta.claim.
+    // This block used to fall back to its own 50/50 split, which is how the
+    // on-screen quote and the server PDF ("25%") came to disagree.
+    const _rule = (typeof window !== 'undefined') ? window.NBDDepositRule : null;
+    const depositPlan = meta.depositPlan || estimate.depositPlan
+      || (_rule ? _rule.fromEstimate(estimate, { claim: meta.claim || null, total: estimate.total }) : null);
+    const deposit = depositPlan ? depositPlan.depositCents / 100 : null;
+    const balance = depositPlan ? depositPlan.balanceCents / 100 : null;
+    const _planOk = !!(depositPlan && depositPlan.totalCents > 0);
     const depositTerms = `
       <h2>Payment Terms</h2>
       <table>
         <tbody>
+          ${_planOk ? depositPlan.rows.map(r => `
           <tr>
-            <td><strong>Deposit (${depositPct}% — Upon signing)</strong></td>
-            <td class="num"><strong>${fmtMoneyBig(deposit)}</strong></td>
-          </tr>
-          <tr>
-            <td><strong>Balance Due (${balancePct}% — Upon completion)</strong></td>
-            <td class="num"><strong>${fmtMoneyBig(balance)}</strong></td>
-          </tr>
+            <td><strong>${escapeHtml(r.label)} — ${escapeHtml(r.due)}</strong></td>
+            <td class="num"><strong>${r.amountCents != null ? fmtMoneyBig(r.amountCents / 100) : escapeHtml(r.amountText)}</strong></td>
+          </tr>`).join('') : ''}
           <tr class="grand-row">
             <td><strong>PROJECT TOTAL</strong></td>
             <td class="num"><strong>${fmtMoneyBig(estimate.total)}</strong></td>
           </tr>
         </tbody>
       </table>
+      ${_planOk && depositPlan.summary ? `<p class="deposit-terms" style="font-size:12px;color:#444;margin-top:8px;">${escapeHtml(depositPlan.summary)}</p>` : ''}
     `;
 
     // Warranty blurb. A Job Template estimate's workmanship warranty is set by
@@ -1023,7 +1022,8 @@ ${footer}
       scopeItemCount: bullets.length,
       total: estimate.total,
       deposit: deposit,
-      balance: balance
+      balance: balance,
+      depositPlan: depositPlan
     };
   }
 

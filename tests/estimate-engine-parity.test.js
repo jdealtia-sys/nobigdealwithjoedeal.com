@@ -27,8 +27,13 @@ function ok(name, cond) { if (cond) { passed++; } else { failed++; fails.push(na
 
 function loadV2() {
   const SRC = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/estimate-builder-v2.js'), 'utf8');
+  // deposit-rule.js rides in the same window, as on dashboard.html (eager,
+  // 2026-09-25): V2.calcDeposit is a thin adapter over it.
+  const RULE = fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/deposit-rule.js'), 'utf8');
   const win = {}; win.window = win;
-  vm.runInNewContext(SRC, { window: win, console: { log() {}, warn() {}, error() {} }, Math, JSON, Object, Number }, { filename: 'estimate-builder-v2.js' });
+  const ctx = vm.createContext({ window: win, console: { log() {}, warn() {}, error() {} }, Math, JSON, Object, Number });
+  vm.runInContext(RULE, ctx, { filename: 'deposit-rule.js' });
+  vm.runInContext(SRC, ctx, { filename: 'estimate-builder-v2.js' });
   return win.EstimateBuilderV2;
 }
 function loadConfig() {
@@ -122,9 +127,13 @@ ok('V2 exposes calcDeposit', typeof V2.calcDeposit === 'function');
   const cash = V2.calcDeposit(16375, 'cash', {});
   ok('D-5 cash 50% of $16,375 rounds to $8,200 (not $8,187.50)', cash.pct === 50 && cash.amount === 8200);
   ok('D-5 remainder = total − amount', near(cash.remainder, 16375 - 8200));
-  // Insurance default: $0 down.
+  // Insurance (deposit rule, 2026-09-25): the deductible (+ the ACV payment)
+  // — $0 only while no deductible is entered, and then the plan says so.
   const ins = V2.calcDeposit(16375, 'insurance', {});
-  ok('D-5 insurance defaults to $0 down', ins.pct === 0 && ins.amount === 0);
+  ok('D-5 insurance with no deductible entered → $0 and a needsDeductible plan', ins.pct === 0 && ins.amount === 0
+    && ins.plan && ins.plan.needsDeductible === true);
+  const insD = V2.calcDeposit(16375, 'insurance', { deductible: 2500 });
+  ok('D-5 insurance with a deductible → the deductible at signing', insD.amount === 2500 && insD.remainder === 13875);
   // Override honored on either mode.
   const ovr = V2.calcDeposit(10000, 'insurance', { overridePct: 25 });
   ok('D-5 override 25% honored on insurance', ovr.pct === 25 && ovr.amount === 2500);
@@ -132,7 +141,8 @@ ok('V2 exposes calcDeposit', typeof V2.calcDeposit === 'function');
   const zero = V2.calcDeposit(0, 'cash', {});
   ok('D-5 zero total → zero deposit', zero.pct === 0 && zero.amount === 0);
   // Classic source delegates (same pattern as D-2's waste delegation).
-  ok('D-5 classic calcDeposit delegates to V2', /V2\.calcDeposit\(grandTotal, mode, \{ overridePct \}\)/.test(ESTSRC_D5()));
+  ok('D-5 classic calcDeposit delegates to V2 (with the claim figures, 2026-09-25)',
+    /V2\.calcDeposit\(grandTotal, mode, \{ overridePct, deductible: c\.deductible, acv: c\.acv \}\)/.test(ESTSRC_D5()));
 }
 function ESTSRC_D5(){ return fs.readFileSync(path.join(__dirname, '..', 'docs/pro/js/estimates.js'), 'utf8'); }
 

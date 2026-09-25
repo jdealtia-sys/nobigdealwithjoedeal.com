@@ -197,7 +197,8 @@
     "estimate-gutter-source.test.js",
     "draw-geom.test.js",
     "upgrade-price-settings.test.js",
-    "upgrades-builder-card.test.js"
+    "upgrades-builder-card.test.js",
+    "deposit-rule.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [

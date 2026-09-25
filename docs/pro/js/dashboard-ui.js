@@ -1377,7 +1377,7 @@ const DOC_TEMPLATES = {
 <p><strong>Materials:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Color: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contract Price:</strong> $<span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> &nbsp;&nbsp; <strong>Start Date:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>NBD Guarantee:</strong> Lifetime workmanship warranty on every install — Standard (non-transferable), Preferred (transferable to 1 subsequent owner within 30 days of sale), Elite (fully transferable + annual courtesy inspection + signed certificate). GAF Timberline shingle manufacturer lifetime warranty included on all installs.</p>
-<p><strong>Payment Terms:</strong> 50% due at material delivery. Balance due upon completion.</p>
+<p><strong>Payment Terms:</strong> {{PAYMENT_TERMS}}</p>
 <p>By signing below, homeowner authorizes {{COMPANY}} to perform the above work.</p>
 <p><strong>Homeowner Signature:</strong> <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>
 <p><strong>Contractor Signature:</strong> {{REP_NAME}} <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> Date: <span class="field-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></p>`
@@ -1566,9 +1566,16 @@ function openDocTemplate(key){
   const repName = _nbdRepName();
   const co = _nbdDocCompany();
   document.getElementById('docViewerTitle').textContent = t.title;
+  // Blank contract's payment terms (2026-09-25): the deposit rule's own
+  // statement (deposit-rule.js) — this form printed "50% due at material
+  // delivery", a sixth deposit answer that matched none of the others.
+  const _dr = window.NBDDepositRule;
+  const payTerms = (_dr && typeof _dr.policyText === 'function') ? _dr.policyText() : '';
+  const _escT = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   document.getElementById('docViewerContent').innerHTML = t.content
     .split('{{REP_NAME}}').join(repName)
     .split('{{COMPANY_PHONE}}').join(co.phone)
+    .split('{{PAYMENT_TERMS}}').join(_escT(payTerms))
     .split('{{COMPANY}}').join(co.name);
   if(window.nbdModal){window.nbdModal.open('docViewerModal');}else{document.getElementById('docViewerModal').classList.add('open');}
 }

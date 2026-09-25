@@ -1184,11 +1184,15 @@
           prompt: 'His body language softens slightly. "Well... this guy said he was licensed too. Took $3,000 up front and never came back. I reported him but nothing happened." Mrs. Johnson is listening intently. The neighbor adds: "You know, my roof\'s been leaking since that storm too..."',
           options: [
             {
-              text: '"That\'s infuriating. Listen — here\'s how we\'re different. We don\'t take a penny until the job is done and you\'re satisfied. Zero deposit. Your insurance pays us directly after completion. I know trust is earned, not given. How about I swing by your place after I finish here and take a look at that leak? No charge, no commitment — just an honest assessment."',
+              // 2026-09-25 (deposit rule): this line taught reps to promise
+              // "zero deposit — insurance pays us after completion". On a
+              // claim the deductible is due at signing and the ACV check up
+              // front (deposit-rule.js); the deductible is never waived.
+              text: '"That\'s infuriating. Listen — here\'s how we\'re different. Nothing is due until you\'ve signed a written contract that spells out every payment. On an insurance claim the only money out of your own pocket is your deductible — the rest is your insurance company\'s money, paid as the claim pays out. I know trust is earned, not given. How about I swing by your place after I finish here and take a look at that leak? No charge, no commitment — just an honest assessment."',
               nextNode: 'neighbor_win',
               score: 25,
               tags: { empathy: 20, closing: 20, authority: 20, rapport: 15 },
-              feedback: 'Turned an angry neighbor into your next customer. The "zero deposit" policy directly addresses his trauma. Offering to help the leak makes you the solution to his problem, not the source of another one. Two deals from one doorstep.'
+              feedback: 'Turned an angry neighbor into your next customer. A clear, written payment schedule — nothing before a signed contract, only the deductible out of pocket on a claim — directly addresses his trauma. Offering to help the leak makes you the solution to his problem, not the source of another one. Two deals from one doorstep.'
             },
             {
               text: '"I\'d be happy to help. Let me finish with the Johnsons and I can look at your roof after."',

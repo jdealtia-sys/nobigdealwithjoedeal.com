@@ -1,0 +1,431 @@
+/**
+ * deposit-rule.js — THE deposit rule. Every surface that computes or prints a
+ * deposit, down payment or "due at signing" amount asks this file.
+ *
+ * Jo's rule (2026-09-25, authoritative):
+ *   • CASH jobs under $2,000 total: no deposit — payment due on completion.
+ *   • CASH jobs $2,000 and up: 50% deposit at signing, balance on completion.
+ *   • INSURANCE-claim jobs: the homeowner's DEDUCTIBLE plus the insurance ACV
+ *     payment (the carrier's first check), both up front when possible; the
+ *     MINIMUM is the deductible. The deductible is always collected — never
+ *     waived, reduced, rebated or absorbed (illegal in OH/KY) — and no sentence
+ *     this file writes may imply otherwise. ACV not known yet: the deposit is
+ *     the deductible, and the copy says the ACV payment is due when the
+ *     carrier releases it.
+ *
+ * WHY one file (2026-09-25): the app contradicted itself. V2's on-screen
+ * Retail Quote fell back to 50/50, the server Retail Quote PDF hard-coded
+ * "25% at contract signing", invoices defaulted to 50%, insurance quotes
+ * printed a $0 deposit, the contract defaulted to "Fifty percent", and Job
+ * Templates saved no deposit at all (so a $555 repair invoiced a 50% deposit).
+ * Each of those now calls compute() / fromEstimate() below instead of doing
+ * its own arithmetic.
+ *
+ * Thresholds: window.NBD_ESTIMATE_CONFIG.DEPOSIT_RULE (estimate-config.js),
+ * tenant-overridable later. customer.html does not load estimate-config.js, so
+ * DEFAULTS below is the fallback; tests/deposit-rule.test.js holds the two
+ * equal so they cannot drift.
+ *
+ * Money is integer cents throughout, and deposit + balance === total exactly.
+ *
+ * The ACV input is the carrier scope's ACTUAL CASH VALUE line (RCV minus
+ * depreciation, before the deductible) — the `acv` field the classic builder,
+ * V2's claim block and estimate-finalization's insurance scope already carry.
+ * The carrier's first check is ACV − deductible, so "deductible + ACV check"
+ * equals the ACV value whenever the ACV exceeds the deductible.
+ *
+ * Persisted plans (toStored) carry display strings and cents only — never a
+ * cost figure — so the homeowner portal can print exactly what the rep's
+ * paperwork printed without running this file server-side.
+ */
+(function () {
+  'use strict';
+
+  var DEFAULTS = Object.freeze({
+    CASH_NO_DEPOSIT_UNDER_CENTS: 200000, // cash under $2,000.00 → no deposit
+    CASH_DEPOSIT_PCT: 50,                // cash $2,000.00 and up → 50% at signing
+    CASH_DEPOSIT_ROUND_TO_CENTS: 2500    // the percentage deposit rounds to the nearest $25 (the grand-total step)
+  });
+
+  var ACV_WORDS = 'insurance ACV payment (your carrier’s first check)';
+
+  function _root() {
+    return (typeof window !== 'undefined') ? window : null;
+  }
+
+  function _int(v) {
+    var n = Number(v);
+    return (isFinite(n) && n >= 0) ? Math.round(n) : null;
+  }
+
+  // Resolve the thresholds: an explicit config (tests, a tenant later) → the
+  // loaded estimate-config.js → DEFAULTS, per field, so one bad value can
+  // never zero the whole rule.
+  function config(override) {
+    var r = _root();
+    var src = override || (r && r.NBD_ESTIMATE_CONFIG && r.NBD_ESTIMATE_CONFIG.DEPOSIT_RULE) || {};
+    var out = {};
+    Object.keys(DEFAULTS).forEach(function (k) {
+      var v = _int(src[k]);
+      out[k] = (v == null) ? DEFAULTS[k] : v;
+    });
+    if (out.CASH_DEPOSIT_PCT > 100) out.CASH_DEPOSIT_PCT = DEFAULTS.CASH_DEPOSIT_PCT;
+    if (!out.CASH_DEPOSIT_ROUND_TO_CENTS) out.CASH_DEPOSIT_ROUND_TO_CENTS = 1;
+    return out;
+  }
+
+  // Dollars (number or "$1,234.50" string) → integer cents; blank/NaN → null.
+  function toCents(v) {
+    if (v == null || v === '') return null;
+    var n = (typeof v === 'string') ? Number(v.replace(/[$,\s]/g, '')) : Number(v);
+    if (!isFinite(n)) return null;
+    return Math.round(n * 100);
+  }
+
+  // House money style (render-pdf.js `money`, estimate-view.js): whole dollars
+  // when whole, cents when present — $1,000 / $3,494.07.
+  function fmtCents(cents) {
+    var c = Math.round(Number(cents) || 0);
+    var neg = c < 0;
+    c = Math.abs(c);
+    var d = (c % 100 === 0) ? 0 : 2;
+    return (neg ? '-' : '') + '$' + (c / 100).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+  }
+
+  function isInsuranceMode(mode) {
+    return String(mode == null ? '' : mode).trim().toLowerCase() === 'insurance';
+  }
+
+  function _clamp(c, total) { return Math.max(0, Math.min(total, c)); }
+
+  function _pctDeposit(totalCents, pct, stepCents) {
+    if (pct >= 100) return totalCents;
+    if (pct <= 0) return 0;
+    var raw = Math.round(totalCents * pct / 100);
+    var step = stepCents > 0 ? stepCents : 1;
+    return _clamp(Math.round(raw / step) * step, totalCents);
+  }
+
+  function _validPct(v) {
+    if (v == null || v === '') return null;
+    var n = Number(v);
+    return (isFinite(n) && n >= 0 && n <= 100) ? n : null;
+  }
+
+  function _row(key, label, due, amountCents, amountText) {
+    return {
+      key: key, label: label, due: due,
+      amountCents: (amountCents == null ? null : amountCents),
+      amountText: amountText || (amountCents == null ? '' : fmtCents(amountCents))
+    };
+  }
+
+  function _plan(base) {
+    var p = {
+      version: 1,
+      rule: base.rule,
+      kind: base.kind || base.rule,
+      mode: base.mode,
+      totalCents: base.totalCents,
+      depositCents: base.depositCents,
+      balanceCents: base.totalCents - base.depositCents,
+      pct: base.totalCents > 0 ? Math.round(base.depositCents * 100 / base.totalCents) : 0,
+      deductibleCents: base.deductibleCents == null ? null : base.deductibleCents,
+      acvValueCents: base.acvValueCents == null ? null : base.acvValueCents,
+      acvCheckCents: base.acvCheckCents == null ? null : base.acvCheckCents,
+      acvKnown: base.acvCheckCents != null,
+      needsDeductible: !!base.needsDeductible,
+      label: base.label,
+      valueText: base.valueText,
+      summary: base.summary,
+      terms: base.terms,
+      rows: base.rows,
+      override: base.override || null,
+      repNote: base.repNote || ''
+    };
+    if (base.pctLabel != null) p.pct = base.pctLabel;
+    return p;
+  }
+
+  // ── The rule itself, no override ───────────────────────────────────────
+  function _rulePlan(totalCents, insurance, dedCents, acvCents, c, stepCents) {
+    var mode = insurance ? 'insurance' : 'cash';
+    if (!(totalCents > 0)) {
+      return _plan({ rule: 'none', mode: mode, totalCents: 0, depositCents: 0,
+        label: 'Due at signing', valueText: fmtCents(0), summary: '', terms: '', rows: [] });
+    }
+
+    if (!insurance) {
+      var pct = c.CASH_DEPOSIT_PCT;
+      if (totalCents < c.CASH_NO_DEPOSIT_UNDER_CENTS || pct <= 0) {
+        return _plan({ rule: 'cash-none', mode: mode, totalCents: totalCents, depositCents: 0,
+          label: 'Due at signing', valueText: 'No deposit',
+          summary: 'No deposit. The full ' + fmtCents(totalCents) + ' is due on completion.',
+          terms: 'No deposit — payment in full on completion.',
+          rows: [_row('completion', 'Payment in full', 'On completion', totalCents)] });
+      }
+      var dep = _pctDeposit(totalCents, pct, stepCents);
+      var bal = totalCents - dep;
+      var rows = [_row('deposit', pct + '% deposit', 'At signing', dep)];
+      if (bal > 0) rows.push(_row('balance', 'Balance', 'On completion', bal));
+      return _plan({ rule: 'cash-percent', mode: mode, totalCents: totalCents, depositCents: dep, pctLabel: pct,
+        label: 'Due at signing', valueText: fmtCents(dep),
+        summary: pct + '% deposit of ' + fmtCents(dep) + ' due at signing' +
+          (bal > 0 ? '; balance of ' + fmtCents(bal) + ' due on completion.' : '.'),
+        terms: pct + '% deposit at signing; balance on completion.',
+        rows: rows });
+    }
+
+    // ── Insurance ──
+    if (dedCents == null) {
+      // No deductible entered. It is still due — the copy says so without a
+      // number, and the rep surfaces warn (repNote). $0 is never printed as
+      // "the deductible".
+      return _plan({ rule: 'insurance', mode: mode, totalCents: totalCents, depositCents: 0, needsDeductible: true,
+        label: 'Due at signing', valueText: 'Your deductible',
+        summary: 'Your insurance deductible is due at signing. Your ' + ACV_WORDS +
+          ' is due when your carrier releases it, and the rest of the balance is due on completion.',
+        terms: 'Your deductible at signing; your insurance ACV payment when your carrier releases it; the balance on completion.',
+        rows: [
+          _row('deductible', 'Your deductible', 'At signing', null, 'Per your policy'),
+          _row('acv', 'Insurance ACV payment (your carrier’s first check)', 'When your carrier releases it', null, 'Set by your carrier'),
+          _row('balance', 'Balance', 'On completion', null, 'Remainder of ' + fmtCents(totalCents))
+        ],
+        repNote: 'No deductible entered — the deductible is always collected, so enter it to set the deposit.' });
+    }
+
+    var acvCheck = (acvCents == null) ? null : Math.max(0, acvCents - dedCents);
+
+    if (dedCents >= totalCents) {
+      return _plan({ rule: 'insurance', mode: mode, totalCents: totalCents, depositCents: totalCents,
+        deductibleCents: dedCents, acvValueCents: acvCents, acvCheckCents: acvCheck,
+        label: 'Due at signing', valueText: fmtCents(totalCents),
+        summary: 'The job total of ' + fmtCents(totalCents) + ' is at or below your ' + fmtCents(dedCents) +
+          ' deductible, so the full ' + fmtCents(totalCents) + ' is due at signing.',
+        terms: 'The full job total at signing (it is at or below your deductible).',
+        rows: [_row('deductible', 'Job total (at or below your deductible)', 'At signing', totalCents)],
+        repNote: 'Job total is at or below the deductible — no insurance payment is expected on this job.' });
+    }
+
+    if (acvCheck != null && acvCheck > 0) {
+      var upfront = Math.min(totalCents, dedCents + acvCheck);
+      var acvPart = upfront - dedCents;
+      var rest = totalCents - upfront;
+      var r2 = [
+        _row('deductible', 'Your deductible', 'At signing', dedCents),
+        _row('acv', 'Insurance ACV payment (your carrier’s first check)', 'Up front — as soon as your carrier releases it', acvPart)
+      ];
+      if (rest > 0) r2.push(_row('balance', 'Balance', 'On completion', rest));
+      return _plan({ rule: 'insurance', mode: mode, totalCents: totalCents, depositCents: upfront,
+        deductibleCents: dedCents, acvValueCents: acvCents, acvCheckCents: acvCheck,
+        label: 'Due up front', valueText: fmtCents(upfront),
+        summary: 'Due up front: your ' + fmtCents(dedCents) + ' deductible at signing, plus your ' + fmtCents(acvPart) +
+          ' ' + ACV_WORDS + ' as soon as your carrier releases it — ' + fmtCents(upfront) + ' in all.' +
+          (rest > 0 ? ' Balance of ' + fmtCents(rest) + ' due on completion.' : ''),
+        terms: 'Your deductible at signing and your insurance ACV payment as soon as it is released; the balance on completion.',
+        rows: r2 });
+    }
+
+    var balI = totalCents - dedCents;
+    if (acvCheck === 0) {
+      // ACV known and at or below the deductible: the carrier's first check is
+      // $0, so there is no ACV payment to ask for up front.
+      return _plan({ rule: 'insurance', mode: mode, totalCents: totalCents, depositCents: dedCents,
+        deductibleCents: dedCents, acvValueCents: acvCents, acvCheckCents: 0,
+        label: 'Due at signing', valueText: fmtCents(dedCents),
+        summary: 'Your ' + fmtCents(dedCents) + ' deductible is due at signing; balance of ' + fmtCents(balI) + ' due on completion.',
+        terms: 'Your deductible at signing; the balance on completion.',
+        rows: [_row('deductible', 'Your deductible', 'At signing', dedCents),
+               _row('balance', 'Balance', 'On completion', balI)] });
+    }
+
+    // ACV not known yet: the deposit is the deductible, and the ACV payment is
+    // due when the carrier releases it.
+    return _plan({ rule: 'insurance', mode: mode, totalCents: totalCents, depositCents: dedCents,
+      deductibleCents: dedCents, acvValueCents: null, acvCheckCents: null,
+      label: 'Due at signing', valueText: fmtCents(dedCents),
+      summary: 'Your ' + fmtCents(dedCents) + ' deductible is due at signing. Your ' + ACV_WORDS +
+        ' is due when your carrier releases it, and the rest of the ' + fmtCents(balI) + ' balance is due on completion.',
+      terms: 'Your deductible at signing; your insurance ACV payment when your carrier releases it; the balance on completion.',
+      rows: [_row('deductible', 'Your deductible', 'At signing', dedCents),
+             _row('balance', 'Balance', 'Insurance ACV payment when your carrier releases it; the rest on completion', balI)] });
+  }
+
+  /**
+   * compute(input) → plan
+   *   input.total | input.totalCents   job total (dollars | integer cents)
+   *   input.mode                       'insurance' | anything else = cash
+   *   input.deductible, input.acv      dollars (insurance only; 0/blank = not entered)
+   *   input.overridePct | input.overrideAmount   an existing REP OVERRIDE
+   *       (classic builder "Override %", doc pre-flight "Deposit Amount").
+   *       Honored and labelled (plan.kind 'override', plan.repNote); on an
+   *       insurance job it can never go below the deductible.
+   *   input.roundToCents, input.config  optional (tests / tenant settings)
+   */
+  function compute(input) {
+    input = input || {};
+    var c = config(input.config);
+    var totalCents = (input.totalCents != null) ? _int(input.totalCents) : toCents(input.total);
+    if (!(totalCents > 0)) totalCents = 0;
+    var insurance = isInsuranceMode(input.mode);
+    var ded = insurance ? toCents(input.deductible) : null;
+    if (!(ded > 0)) ded = null;
+    var acv = insurance ? toCents(input.acv) : null;
+    if (!(acv > 0)) acv = null;
+    var step = _int(input.roundToCents) || c.CASH_DEPOSIT_ROUND_TO_CENTS;
+
+    var base = _rulePlan(totalCents, insurance, ded, acv, c, step);
+    if (!(totalCents > 0)) return base;
+
+    var ovAmt = (input.overrideAmount != null && input.overrideAmount !== '') ? toCents(input.overrideAmount) : null;
+    if (ovAmt != null && ovAmt < 0) ovAmt = null;
+    var ovPct = (ovAmt == null) ? _validPct(input.overridePct) : null;
+    if (ovAmt == null && ovPct == null) return base;
+
+    var dep = (ovAmt != null) ? _clamp(ovAmt, totalCents) : _pctDeposit(totalCents, ovPct, step);
+    if (insurance && ded == null && dep === 0) {
+      // Never let an override print "no deposit" on a claim whose deductible
+      // nobody has entered — the deductible is still owed.
+      base.repNote = 'Rep override of $0 ignored — the deductible is always collected; enter it to set the deposit.';
+      return base;
+    }
+    var raised = false;
+    if (insurance && ded != null) {
+      var floor = Math.min(ded, totalCents);
+      if (dep < floor) { dep = floor; raised = true; }
+    }
+    if (dep === base.depositCents) {
+      // The override says what the rule says — or asked for less than the
+      // deductible and was raised back to it. Either way the rule's own plan
+      // stands; only the raise is worth telling the rep about.
+      if (raised) base.repNote = 'Rep override of ' + fmtCents(ovAmt != null ? ovAmt : _pctDeposit(totalCents, ovPct, step)) +
+        ' raised to the ' + fmtCents(dep) + ' deductible, which is never reduced.';
+      return base;
+    }
+
+    var bal = totalCents - dep;
+    var pctWord = (ovPct != null) ? (ovPct + '% deposit') : 'Deposit';
+    var rows = dep > 0
+      ? [_row('deposit', pctWord, 'At signing', dep)]
+      : [_row('completion', 'Payment in full', 'On completion', totalCents)];
+    if (dep > 0 && bal > 0) rows.push(_row('balance', 'Balance', 'On completion', bal));
+    var summary = dep > 0
+      ? (pctWord + ' of ' + fmtCents(dep) + ' due at signing' + (bal > 0 ? '; balance of ' + fmtCents(bal) + ' due on completion.' : '.'))
+      : ('No deposit. The full ' + fmtCents(totalCents) + ' is due on completion.');
+    if (insurance && ded != null) summary += ' The deposit includes your ' + fmtCents(Math.min(ded, totalCents)) + ' deductible.';
+    else if (insurance) summary += ' Your insurance deductible is always collected in full.';
+    return _plan({ rule: base.rule, kind: 'override', mode: base.mode, totalCents: totalCents, depositCents: dep,
+      pctLabel: ovPct != null ? ovPct : null,
+      deductibleCents: base.deductibleCents, acvValueCents: base.acvValueCents, acvCheckCents: base.acvCheckCents,
+      label: 'Due at signing', valueText: dep > 0 ? fmtCents(dep) : 'No deposit',
+      summary: summary,
+      terms: dep > 0 ? (pctWord + ' at signing; balance on completion.') : 'No deposit — payment in full on completion.',
+      rows: rows,
+      override: { pct: ovPct, amountCents: ovAmt, ruleDepositCents: base.depositCents, raisedToDeductible: raised },
+      repNote: (insurance && ded == null)
+        ? 'Rep override — enter the deductible: the deposit can never be less than it.'
+        : ('Rep override — the deposit rule would ask ' + fmtCents(base.depositCents) +
+          (raised ? '; raised to the deductible, which is never reduced' : '') + '.') });
+  }
+
+  function _first() {
+    for (var i = 0; i < arguments.length; i++) {
+      var v = arguments[i];
+      if (v != null && v !== '' && isFinite(Number(v))) return v;
+    }
+    return null;
+  }
+  // A deductible of 0 is "not entered" (V2's claim input coerces a cleared
+  // field to 0), so it falls through to the lead's recorded deductible.
+  function _firstPositive() {
+    for (var i = 0; i < arguments.length; i++) {
+      var c = toCents(arguments[i]);
+      if (c != null && c > 0) return c / 100;
+    }
+    return null;
+  }
+
+  /**
+   * fromEstimate(est, opts) → plan for a SAVED or in-builder estimate doc
+   * (classic, V2 or Job Template shape).
+   *   opts.total / opts.totalCents — price to split (an invoice folds in
+   *     approved supplements, so it passes its own total)
+   *   opts.claim — live claim fields (V2 state.claim) instead of est.claim
+   *   opts.lead  — lead doc; its deductible fills in when the estimate has none
+   *   opts.overrideAmount / opts.overridePct — a rep override from the caller
+   * A stored plan's override is honored; a stored plan's AMOUNT never is —
+   * the deposit is always recomputed, so an estimate saved under the old
+   * 50/50 / 25% / $0 logic gets the rule, not its stale number.
+   */
+  function fromEstimate(est, opts) {
+    est = est || {};
+    opts = opts || {};
+    var totalCents = (opts.totalCents != null) ? _int(opts.totalCents)
+      : toCents(_first(opts.total, est.grandTotal, est.total));
+    var mode = opts.mode || est.mode || est.jobMode || (est.insurance === true ? 'insurance' : '');
+    var claim = opts.claim || est.claim
+      || ((est.insurance && typeof est.insurance === 'object') ? est.insurance : null) || {};
+    var lead = opts.lead || {};
+    var deductible = _firstPositive(claim.deductible, lead.deductibleOrOwedByHO, lead.deductible);
+    var input = {
+      totalCents: totalCents, mode: mode,
+      deductible: deductible, acv: _first(claim.acv),
+      config: opts.config, roundToCents: opts.roundToCents
+    };
+    var stored = est.depositPlan && est.depositPlan.override;
+    if (opts.overrideAmount != null && opts.overrideAmount !== '') input.overrideAmount = opts.overrideAmount;
+    else if (opts.overridePct != null && opts.overridePct !== '') input.overridePct = opts.overridePct;
+    else if (stored && stored.amountCents != null) input.overrideAmount = stored.amountCents / 100;
+    else if (stored && stored.pct != null) input.overridePct = stored.pct;
+    else if (est.depositPctOverride != null && est.depositPctOverride !== '') input.overridePct = est.depositPctOverride;
+    else if (est.depositOverridePct != null && est.depositOverridePct !== '') input.overridePct = est.depositOverridePct;
+    return compute(input);
+  }
+
+  // The persisted / whitelisted shape: display strings + cents, no repNote
+  // (rep-facing) and no claim internals beyond what the summary already says.
+  function toStored(plan) {
+    if (!plan || !(plan.totalCents > 0)) return null;
+    return {
+      v: 1,
+      kind: plan.kind, rule: plan.rule, mode: plan.mode,
+      totalCents: plan.totalCents, depositCents: plan.depositCents, balanceCents: plan.balanceCents,
+      pct: plan.pct,
+      label: plan.label, valueText: plan.valueText, summary: plan.summary, terms: plan.terms,
+      rows: (plan.rows || []).map(function (r) {
+        return { label: r.label, due: r.due, amountCents: r.amountCents, amountText: r.amountText };
+      }),
+      override: plan.override ? {
+        pct: plan.override.pct == null ? null : plan.override.pct,
+        amountCents: plan.override.amountCents == null ? null : plan.override.amountCents
+      } : null
+    };
+  }
+
+  // Generic statement of the rule for boilerplate that knows no job (company
+  // profile payment-terms defaults, contract fallback).
+  function policyText(override) {
+    var c = config(override);
+    var under = fmtCents(c.CASH_NO_DEPOSIT_UNDER_CENTS);
+    return 'Cash jobs under ' + under + ': no deposit — payment in full on completion. ' +
+      'Cash jobs of ' + under + ' or more: ' + c.CASH_DEPOSIT_PCT + '% deposit at contract signing, balance on completion. ' +
+      'Insurance claims: the homeowner’s deductible is due at signing and the insurance ACV payment (the carrier’s first check) ' +
+      'is due as soon as the carrier releases it; the balance is due on completion. ' +
+      'The deductible is the homeowner’s responsibility and is never waived or reduced.';
+  }
+
+  var API = {
+    DEFAULTS: DEFAULTS,
+    config: config,
+    compute: compute,
+    fromEstimate: fromEstimate,
+    toStored: toStored,
+    policyText: policyText,
+    fmtCents: fmtCents,
+    toCents: toCents,
+    isInsuranceMode: isInsuranceMode
+  };
+
+  if (typeof window !== 'undefined') window.NBDDepositRule = API;
+  if (typeof module !== 'undefined' && module.exports) module.exports = API;
+})();

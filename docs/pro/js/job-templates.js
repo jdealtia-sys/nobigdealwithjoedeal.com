@@ -1089,8 +1089,10 @@
   }
 
   // ═════════════════════════════════════════════════════════
-  // Payload — classic + V2 compatible doc. PURE (no DOM, no
-  // window reads) so it unit-tests standalone.
+  // Payload — classic + V2 compatible doc. PURE (no DOM; the one
+  // window read is the pure deposit rule, window.NBDDepositRule — absent,
+  // the deposit stays null and the invoice asks the rule itself) so it
+  // unit-tests standalone.
   // ═════════════════════════════════════════════════════════
 
   /**
@@ -1127,6 +1129,17 @@
     const repairWarranty = meta.repairWarranty === true
       && resolved.warrantyKind !== 'roof'
       && warrantyParts.some(p => p && p.kind === 'repair');
+    // Deposit (2026-09-25): deposit-rule.js on the saved total. This saved
+    // `deposit: meta.deposit` — which no caller passes — so every template
+    // estimate stored null and the invoice fell back to 50%: a $555 repair
+    // asked a $277.50 deposit. Now a sub-$2,000 cash job stores $0 and says
+    // "No deposit"; a caller-supplied meta.deposit is a rep override.
+    const _depRule = (typeof window !== 'undefined' && window.NBDDepositRule) || null;
+    const depositPlan = _depRule ? _depRule.compute({
+      total: est.total,
+      mode: est.mode || 'cash',
+      overrideAmount: (meta.deposit != null && meta.deposit !== '') ? meta.deposit : undefined
+    }) : null;
 
     return {
       // Identity
@@ -1206,7 +1219,8 @@
       grandTotal:      est.total,
       selectedTier:    savedTier,
       priceMode:       'line-item',
-      deposit:         (meta.deposit != null ? Number(meta.deposit) : null),
+      deposit:         depositPlan ? depositPlan.depositCents / 100 : (meta.deposit != null ? Number(meta.deposit) : null),
+      depositPlan:     depositPlan ? _depRule.toStored(depositPlan) : null,
       materialCost:    est.materialCost,
       laborCost:       est.laborCost,
       subtotal:        est.subtotal,
