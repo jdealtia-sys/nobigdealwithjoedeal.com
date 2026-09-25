@@ -14,7 +14,22 @@ const fs = require('fs');
 const path = require('path');
 const assert = require('assert');
 
-const PROJECT_ID = 'nbd-rules-test';
+// 2026-09-25 (rules subcollection-delete lane): overridable so this suite can
+// run against a long-lived SHARED local emulator. initializeTestEnvironment
+// REPLACES the rules of whatever projectId it is handed, and the fixtures
+// below use fixed doc ids, so a local run needs its own fresh id:
+//   RULES_TEST_PROJECT_ID=demo-rules-<lane>-<n> node firestore-rules.test.js
+// CI never sets it (emulators:exec boots a throwaway emulator), so the default
+// is unchanged there. The app's real project ids (.firebaserc) are refused:
+// loading these rules into one would rewrite the rules every other session's
+// E2E runs against on that emulator.
+const PROJECT_ID = process.env.RULES_TEST_PROJECT_ID || 'nbd-rules-test';
+{
+  const rc = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../.firebaserc'), 'utf8'));
+  if (Object.values(rc.projects || {}).includes(PROJECT_ID)) {
+    throw new Error('refusing to load test rules into the app project "' + PROJECT_ID + '"');
+  }
+}
 
 async function run() {
   const env = await initializeTestEnvironment({
@@ -1040,6 +1055,76 @@ async function run() {
   await assertFails(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 123 }));
   await assertFails(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'x'.repeat(61) }));
   await assertSucceeds(updateDoc(doc(alice, 'leads/leadA2'), { openWarrantyClaimId: 'x'.repeat(60) }));
+
+  // 28d. DELETE on leads/{id}/documents and leads/{id}/warrantyClaims
+  // (2026-09-25). Both used a single `allow write` that ended in a shape
+  // validator (documentStatusWriteOk / warrantyClaimWriteOk) reading
+  // request.resource. That is null on a delete, so EVERY client delete was
+  // denied, owner included (the emulator says "Null value error" at the
+  // helper). The rows outlived their own lead: 2 per phone-customer E2E run.
+  // Delete is now its own line with exactly the create/update writer check:
+  // the lead owner, or company_admin/manager in the parent lead's tenant.
+  // The denials pin that it was not widened past that.
+  const repA2    = env.authenticatedContext('ray', { role: 'sales_rep', companyId: 'co-a' }).firestore();
+  const coAdminB = env.authenticatedContext('cob', { role: 'company_admin', companyId: 'co-b' }).firestore();
+  // A homeowner has no rules-level identity: the portal reaches lead data only
+  // through token-checked Cloud Functions (admin SDK). The most a homeowner's
+  // browser can hold is an anonymous Auth session. This one even carries
+  // claims naming the lead and its portal token, which must grant nothing.
+  const homeowner = env.authenticatedContext('ho-portal-1', {
+    firebase: { sign_in_provider: 'anonymous', identities: {} },
+    portalToken: 'TOKEN123', leadId: 'leadA2',
+  }).firestore();
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const db = ctx.firestore();
+    for (const sub of ['documents', 'warrantyClaims']) {
+      const row = sub === 'documents'
+        ? { name: 'contract.html', status: 'signed', uploadedBy: 'alice' }
+        : { status: 'resolved', reason: 'workmanship' };
+      for (const id of ['del-owner', 'del-mgr', 'del-ca']) {
+        await setDoc(doc(db, 'leads/leadA2/' + sub + '/' + id), row);
+      }
+      // leadA is alice's LEGACY lead (no companyId): owner-only, as on writes.
+      await setDoc(doc(db, 'leads/leadA/' + sub + '/del-legacy'), row);
+      // A row whose parent lead is already gone (the orphan class).
+      await setDoc(doc(db, 'leads/leadGone/' + sub + '/orphan'), row);
+    }
+  });
+  for (const sub of ['documents', 'warrantyClaims']) {
+    const p = (id) => 'leads/leadA2/' + sub + '/' + id;
+    // ❌ nobody outside the writer set, starting with the non-owner roles
+    //    inside the lead's own tenant.
+    await assertFails(deleteDoc(doc(viewerA,   p('del-owner'))));   // same-tenant viewer
+    await assertFails(deleteDoc(doc(repA2,     p('del-owner'))));   // same-tenant rep, not the owner
+    await assertFails(deleteDoc(doc(admin,     p('del-owner'))));   // platform admin: never had write here
+    await assertFails(deleteDoc(doc(mgrB,      p('del-owner'))));   // other tenant, manager
+    await assertFails(deleteDoc(doc(coAdminB,  p('del-owner'))));   // other tenant, company_admin
+    await assertFails(deleteDoc(doc(bob,       p('del-owner'))));   // other tenant, rep
+    await assertFails(deleteDoc(doc(anon,      p('del-owner'))));   // signed out
+    await assertFails(deleteDoc(doc(homeowner, p('del-owner'))));   // homeowner / portal session
+    // ✅ the owner, and same-tenant company_admin + manager (the set that can
+    //    already create and update these rows).
+    await assertSucceeds(deleteDoc(doc(alice,   p('del-owner'))));
+    await assertSucceeds(deleteDoc(doc(mgrA,    p('del-mgr'))));
+    await assertSucceeds(deleteDoc(doc(coAdmin, p('del-ca'))));
+    // …and the rows are really gone.
+    for (const id of ['del-owner', 'del-mgr', 'del-ca']) {
+      assert.strictEqual((await getDoc(doc(alice, p(id)))).exists(), false, sub + '/' + id + ' should be deleted');
+    }
+    // Legacy lead (no companyId): the owner deletes, a same-company manager
+    // cannot, since the tenant clause needs a companyId on the parent.
+    await assertFails(deleteDoc(doc(mgrA, 'leads/leadA/' + sub + '/del-legacy')));
+    await assertSucceeds(deleteDoc(doc(alice, 'leads/leadA/' + sub + '/del-legacy')));
+    // Parent lead already hard-deleted: no client can reach the row, because
+    // the check reads the lead. functions/lead-artifact-cleanup.js
+    // (onLeadDeleted) sweeps these rows with the admin SDK instead.
+    await assertFails(deleteDoc(doc(alice, 'leads/leadGone/' + sub + '/orphan')));
+  }
+  // The split did not loosen the shape gate on create/update.
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/documents/post-split-bogus'),
+    { name: 'x.html', status: 'made_up_status' }));
+  await assertFails(setDoc(doc(alice, 'leads/leadA2/warrantyClaims/post-split-bogus'),
+    { status: 'open', reason: 'made_up_reason' }));
 
   // 29. USER TEMPLATE-SYNC SUBCOLLECTIONS (feat/template-sync).
   //     job-templates.js mirrors + hydrates custom job templates at

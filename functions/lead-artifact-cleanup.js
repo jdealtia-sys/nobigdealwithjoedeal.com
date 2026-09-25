@@ -72,6 +72,20 @@
  * a `leadId` pointing at nothing — same orphan class as the token
  * collections below, just undiscovered until now. Reaped in step 5.
  *
+ * UPDATE 2026-09-25 — the warrantyClaims subcollection is reaped too (step 1b).
+ * ─────────────────────────────────────────────────────────────────────
+ * `documents` rows were swept here from the start, but the sibling
+ * `leads/{id}/warrantyClaims` rows (warranty-claim.js, 2026-09-15) were not.
+ * Until 2026-09-25 no client could delete either kind of row at all: their
+ * `allow write` rules ran a shape validator that reads request.resource, and
+ * that is null on a delete, so every client delete was denied. The rule now
+ * lets the owner or same-company staff delete them, but only while the parent
+ * lead exists, because the check reads the lead. Once the lead is gone this
+ * trigger is the only thing that can remove them. Other lead subcollections
+ * (tasks, notes, activity, drawings, signatures, ...) are still not swept here.
+ * Account erasure (integrations/compliance.js) recursiveDeletes every lead the
+ * user still has, which covers all of them, but not a lead hard-deleted before.
+ *
  * NOT covered here, deliberately:
  *   - D2D knock photos (`photos/{uid}/d2d/{knockId}/...`). They belong to the
  *     knock, not the lead, and carry no /photos doc at all (image-pipeline.js
@@ -242,6 +256,26 @@ exports.onLeadDeleted = onDocumentDeleted(
       } catch (e) {
         failures.push(`doc ${d.id}: ${e.message}`);
       }
+    }
+
+    // ── 1b. The orphaned warrantyClaims subcollection (2026-09-25) ──
+    // Claim rows hold no Storage paths, so this is a plain delete. After the
+    // lead is gone the client rules deny it (their check reads the parent
+    // lead), which leaves this trigger as the only path. A closed job has one
+    // or two claims in practice; 200 is only a bound for a corrupt leadId.
+    let claimsDeleted = 0;
+    try {
+      const snap = await db.collection(`leads/${leadId}/warrantyClaims`).limit(200).get();
+      for (const c of snap.docs) {
+        try {
+          await c.ref.delete();
+          claimsDeleted++;
+        } catch (e) {
+          failures.push(`warrantyClaim ${c.id}: ${e.message}`);
+        }
+      }
+    } catch (e) {
+      failures.push(`warrantyClaims read: ${e.message}`);
     }
 
     // ── 2. Deterministic leadId-keyed Storage prefixes ─────────────
@@ -420,6 +454,7 @@ exports.onLeadDeleted = onDocumentDeleted(
       ownerUids: [...ownerUids],
       objectsDeleted,
       docsDeleted,
+      claimsDeleted,
       photoDocsDeleted,
       tokensRevoked,
       appointmentsDeleted,

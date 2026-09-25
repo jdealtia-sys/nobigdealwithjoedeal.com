@@ -26,7 +26,15 @@ const { initializeTestEnvironment, assertFails, assertSucceeds } = require('@fir
 const fs = require('fs');
 const path = require('path');
 
-const PROJECT_ID = 'nbd-xtenant-test';
+// 2026-09-25: overridable for a shared local emulator, same contract and
+// same app-project refusal as firestore-rules.test.js (see the note there).
+const PROJECT_ID = process.env.RULES_TEST_PROJECT_ID || 'nbd-xtenant-test';
+{
+  const rc = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../.firebaserc'), 'utf8'));
+  if (Object.values(rc.projects || {}).includes(PROJECT_ID)) {
+    throw new Error('refusing to load test rules into the app project "' + PROJECT_ID + '"');
+  }
+}
 
 const results = [];
 // opts.knownGap=true → a mismatch is recorded as WARN (tracked-but-unfixed,
@@ -93,6 +101,9 @@ async function run() {
     await setDoc(doc(db, 'training_sessions/tsA'),     { userId: 'alice', companyId: 'co-a' });
     await setDoc(doc(db, 'leads/leadA/recordings/recA'),{ userId: 'alice', companyId: 'co-a', transcript: 'confidential call notes' });
     await setDoc(doc(db, 'leads/leadA/documents/docA'), { userId: 'alice', name: 'Signed Contract.pdf' });
+    await setDoc(doc(db, 'leads/leadA/documents/docDel'), { userId: 'alice', name: 'Old Draft.html', status: 'draft' });
+    await setDoc(doc(db, 'leads/leadA/warrantyClaims/claimA'),   { status: 'open', reason: 'workmanship' });
+    await setDoc(doc(db, 'leads/leadA/warrantyClaims/claimDel'), { status: 'resolved', reason: 'material' });
     await setDoc(doc(db, 'leads/leadA/ai_drafts/draftA'),{ userId: 'alice', companyId: 'co-a', status: 'pending', draftText: 'Joe handles pricing personally — want a free inspection?', customerPhone: '+15555550100' });
     await setDoc(doc(db, 'leads/leadA/signatures/Homeowner'),{ userId: 'alice', role: 'Homeowner', png: 'data:image/png;base64,iVBORw0KGgo=' });
     await setDoc(doc(db, 'measurements/measA'),        { ownerId: 'alice', companyId: 'co-a', leadId: 'leadA', status: 'ready' });
@@ -133,6 +144,21 @@ async function run() {
   await check('users: B reads A user profile',        'deny',  getDoc(doc(bob, 'users/alice')));
   await check('recordings: B reads A call transcript','deny',  getDoc(doc(bob, 'leads/leadA/recordings/recA')));
   await check('lead documents: B reads A contract',   'deny',  getDoc(doc(bob, 'leads/leadA/documents/docA')));
+  // 2026-09-25: documents + warrantyClaims got their own `allow delete` (the
+  // old `allow write` read request.resource, null on a delete, so it denied
+  // every client delete). The owner control proves the fix; the rest prove a
+  // role claim alone still never crosses the companyId wall on delete.
+  for (const [label, sub, keep, drop] of [
+    ['lead documents', 'documents', 'docA', 'docDel'],
+    ['warrantyClaims', 'warrantyClaims', 'claimA', 'claimDel'],
+  ]) {
+    await check(label + ': B deletes A row',                        'deny',  deleteDoc(doc(bob,    'leads/leadA/' + sub + '/' + keep)));
+    await check(label + ': cross-tenant MANAGER cannot delete',     'deny',  deleteDoc(doc(bobMgr, 'leads/leadA/' + sub + '/' + keep)));
+    await check(label + ': cross-tenant company_admin cannot delete','deny', deleteDoc(doc(bobCA,  'leads/leadA/' + sub + '/' + keep)));
+    await check(label + ': same-tenant sales_rep peer cannot delete','deny', deleteDoc(doc(dave,   'leads/leadA/' + sub + '/' + keep)));
+    await check(label + ': signed-out cannot delete',               'deny',  deleteDoc(doc(anon,   'leads/leadA/' + sub + '/' + keep)));
+    await check(label + ': owner CAN delete (2026-09-25 fix)',      'allow', deleteDoc(doc(alice,  'leads/leadA/' + sub + '/' + drop)));
+  }
   await check('measurements: B reads A measurement',  'deny',  getDoc(doc(bob, 'measurements/measA')));
   // 90-day same-roof reuse (findReusableMeasurement/requestMeasurement) needs
   // a teammate to be able to read a colleague's measurement doc; companyId is
