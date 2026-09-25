@@ -522,6 +522,10 @@ test.describe('phone views: Settings panels @audit', () => {
           await b.scrollIntoViewIfNeeded();
           await b.tap();
         };
+        const litTabs = () => page.evaluate(() => [...document.querySelectorAll('#mobile-nav .mn-item.active')].map((e) => e.id).sort());
+        // All that may be lit while the rep is in Settings: a Settings tab, if
+        // the rep has put one in the bar.
+        const settingsTabs = () => page.evaluate(() => (document.getElementById('mni-settings') ? ['mni-settings'] : []));
         try {
           // Another Settings tab → Cancel: still on Pipelines, edit intact.
           await tapTab('profile');
@@ -537,6 +541,56 @@ test.describe('phone views: Settings panels @audit', () => {
           expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id)).toBe('view-settings');
           expect(await order(), 'Cancel keeps the reorder').toEqual(edited);
           await expect(saveBar).toBeVisible();
+          // ...and the bar does not claim the rep went Home (2026-09-25 phone
+          // nav polish: mobileNav lit the tapped tab whether or not goTo
+          // left). Settings has no tab in the default bar, so nothing is lit.
+          await page.waitForTimeout(300);
+          expect(await litTabs(), `after Cancel, the bottom nav lights no tab the rep did not go to @${width}`).toEqual(await settingsTabs());
+
+          // The installed app. There the leave prompt is nbdConfirm, a DOM
+          // modal that answers later (standalone-compat.js), not the blocking
+          // confirm() above; it is stood in for here by a promise the test
+          // settles, so the bar can be read while the prompt is still up.
+          await page.evaluate(() => {
+            window.__pvNbdConfirm = Object.getOwnPropertyDescriptor(window, 'nbdConfirm') || null;
+            window.__pvLeave = [];
+            window.nbdConfirm = (msg) => new Promise((resolve) => { window.__pvLeave.push({ msg, resolve }); });
+          });
+          try {
+            // A bottom-nav tap: Home is not lit while the rep is still in
+            // Settings being asked, nor after Cancel.
+            await page.locator('#mni-dash').tap();
+            await expect.poll(() => page.evaluate(() => window.__pvLeave.length), { message: 'the tap asks through nbdConfirm' }).toBe(1);
+            expect(await litTabs(), `while the leave prompt is up, the bottom nav does not light Home @${width}`).toEqual(await settingsTabs());
+            await page.evaluate(() => window.__pvLeave[0].resolve(false));
+            await page.waitForTimeout(300);
+            expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id), 'Cancel stays in Settings').toBe('view-settings');
+            expect(await litTabs(), `after Cancel in the installed app, the bottom nav does not light Home @${width}`).toEqual(await settingsTabs());
+
+            // A cancelled Back. Back moves the hash first, so the bar lights
+            // the Back target while the modal is up; Cancel puts the hash back
+            // without a hashchange, and the bar must follow it back.
+            await page.evaluate(() => {
+              // The rep came to Settings from the pipeline: that is where Back goes.
+              history.pushState(null, '', '#/crm');
+              history.pushState(null, '', '#/settings');
+            });
+            await page.evaluate(() => history.back());
+            await expect.poll(() => page.evaluate(() => window.__pvLeave.length), { message: 'Back asks through nbdConfirm' }).toBe(2);
+            expect(await page.evaluate(() => window.__pvLeave[1].msg)).toMatch(/unsaved pipeline changes/i);
+            await page.evaluate(() => window.__pvLeave[1].resolve(false));
+            await expect.poll(() => page.evaluate(() => location.hash), { message: 'Cancel puts the Settings hash back' }).toBe('#/settings');
+            expect(await page.evaluate(() => (document.querySelector('.view.active') || {}).id), 'Cancel stays in Settings').toBe('view-settings');
+            await page.waitForTimeout(300);
+            expect(await litTabs(), `after a cancelled Back, the bottom nav does not light the Back target (CRM) @${width}`).toEqual(await settingsTabs());
+            expect(await order(), 'a cancelled Back keeps the reorder').toEqual(edited);
+          } finally {
+            await page.evaluate(() => {
+              if (window.__pvNbdConfirm) Object.defineProperty(window, 'nbdConfirm', window.__pvNbdConfirm);
+              else delete window.nbdConfirm;
+            });
+          }
+          expect(asked.length, 'the installed-app prompt stood in for confirm()').toBe(2);
 
           // Tapping Pipelines again while it is open keeps the working copy.
           await tapTab('pipelines');
