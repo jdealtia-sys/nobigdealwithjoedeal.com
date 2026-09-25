@@ -362,7 +362,7 @@ const RUNNABLE = ['node', 'smoke'];
 //   2026-09-21  SIXTEENTH collision. The SMS outbox lane adds two node suites
 //               (sms-outbox-client, sms-outbox-server). RE-MEASURED after the
 //               nine PRs that landed ahead of it today: 177/68/266.
-const FLOORS = { node: 180, smoke: 68, disk: 269 };
+const FLOORS = { node: 181, smoke: 68, disk: 270 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
