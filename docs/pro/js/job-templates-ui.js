@@ -955,6 +955,7 @@
       '.jt-ho-hdr{flex-shrink:0;background:#fff;border-bottom:1px solid #e2e8f0;padding:14px 18px;}',
       '.jt-ho-co{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#64748b;}',
       '.jt-ho-hdr h2{margin:4px 0 2px;font-size:22px;font-weight:800;color:#1a202c;}',
+      '.jt-ho-hdr h2:focus{outline:none;}',
       '.jt-ho-hdr p{margin:0;font-size:14px;color:#475569;line-height:1.45;}',
       '.jt-ho-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 24px;}',
       '.jt-ho-col{max-width:720px;margin:0 auto;display:flex;flex-direction:column;gap:14px;}',
@@ -1873,7 +1874,7 @@
     var taxC = pay ? Math.round(Number(pay.tax) * 100) : 0;
     return '<div class="jt-ho-hdr">' +
         '<div class="jt-ho-co">' + esc(companyName()) + '</div>' +
-        '<h2>Options for your home</h2>' +
+        '<h2 tabindex="-1">Options for your home</h2>' +
         '<p>Your price already covers everything under “Already included”. Add an option only if you want it.</p>' +
       '</div>' +
       '<div class="jt-ho-body"><div class="jt-ho-col">' +
@@ -2015,6 +2016,20 @@
         return;
     }
     upgRepaint();
+    // Focus follows the hand-over: into the homeowner page when it opens
+    // (a screen reader or keyboard starts on its title, not on the rep
+    // controls underneath), back to "Show homeowner" when it is handed back.
+    try {
+      var focusEl = null;
+      if (action === 'upg-show-homeowner') {
+        var ho = document.getElementById('jtHomeowner');
+        focusEl = ho && ho.querySelector && ho.querySelector('.jt-ho-hdr h2');
+      } else if (action === 'upg-ho-done') {
+        var cardEl = document.getElementById('jtUpgCard');
+        focusEl = cardEl && cardEl.querySelector && cardEl.querySelector('[data-jt-action="upg-show-homeowner"]');
+      }
+      if (focusEl && typeof focusEl.focus === 'function') focusEl.focus({ preventScroll: action === 'upg-ho-done' ? false : true });
+    } catch (e) { /* focus is a courtesy, never a blocker */ }
   }
 
   // ══════════════════════════════════════════════════════════════════════
