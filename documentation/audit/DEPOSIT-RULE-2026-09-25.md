@@ -2,6 +2,88 @@
 
 **Branch:** `fix/deposit-rule` · **Suite:** `tests/deposit-rule.test.js` (node bucket)
 
+## Update — review fixes (2026-09-25, same day)
+
+The PR review found four blocking problems. All reproduced with the real
+modules first, then fixed. Parts of the sections below are superseded where
+marked.
+
+1. **Pre-flight prefill turned into a silent override.** The contract's
+   Deposit Amount was prefilled once from `lead.jobValue`, so editing the
+   Contract Price left the old deposit in place, and the contract printed it
+   as a rep override nobody had made. It was also a regression: before the
+   rule, `depositAmount` never printed on a contract. **Now** the deposit
+   fields (`depositAmount`, the `paymentSchedule` sentence, the Payment
+   Agreement's Payment 1 and Payment 2) derive from the rule at the price the
+   form shows. They follow that price live until the rep edits them, and the
+   sentence follows an edited deposit (`doc-preflight.js`
+   `resolveDepositField` / `refreshDepositDefaults`).
+2. **Saved prefills came back on the next contract.** Pre-flight saves every
+   `PERSIST.DOCUMENT` field to `lead.docOverrides.<type>`, including the
+   rule's dollar deposit and dollar sentence. The next contract reloaded both
+   as if a rep had typed them. After a price or claim change, the paragraph
+   then contradicted the table. **Now** a deposit field is saved only when the
+   rep changed it, stamped `depositBasis` {price, mode, deductible, ACV}. It
+   reloads only while all four still match. Anything else, including every
+   value saved before this fix, goes back to the rule. A new rep-only
+   **deposit note** under the fields names what was not carried over. The
+   note also labels a rep override with the rule's own figure and flags a
+   missing deductible.
+3. **The retired $2,500 placeholder counted as a real deductible.** V2 saved
+   `claim.deductible: 2500` on every pre-rule doc. `fromEstimate` preferred it
+   over the lead's real deductible, so invoices and contract prefills said
+   "Your $2,500 deductible". **Now**, an unstamped doc (no `depositPlan`)
+   with exactly 2500 is treated as the placeholder
+   (`NBDDepositRule.hasLegacyPlaceholderDeductible`). The lead's deductible
+   wins. With none on the lead, the deductible counts as not entered and the
+   rep gets a warning. V2 reopen nulls it too, so saving the doc again can't
+   turn it into a confirmed $2,500. A real $2,500 typed after the rule is
+   stamped, and it stands.
+   *Supersedes "Invoices, quotes and contracts recompute and are correct
+   either way" under Open for Jo: that line was only true once the
+   placeholder was handled.*
+4. (Legal lens, same root as 2.) A second contract can no longer print a
+   Payment Terms paragraph that contradicts its own schedule table.
+
+Cheap minors fixed at the same time:
+- **Invoice:** stores a rep-only `depositRepNote` (override, raised to the
+  deductible, no deductible, placeholder) and shows it in the invoice
+  detail view. It never appears on the customer's invoice.
+- **Payment Agreement:** Payment 1 is the deductible (claim) or the deposit.
+  Payment 2 is the ACV check, due when the carrier releases it. The balance
+  is the final payment, so the schedule adds up to the total. There is no
+  more "1. Deposit $0.00 Pending" row. With no deductible entered, Payment 1
+  is blank and required. *Supersedes the last Open-for-Jo bullet.*
+- **Job Templates:** the build screen passes the lead's deductible, so the
+  portal names the same dollar deductible the invoice does. `createEstimate`
+  re-stamps the deposit after upgrades change the total.
+- **Tier cards** (server PDF `priceNote` + on-screen Retail Quote) each show
+  that tier's own deposit.
+- **Sandbox demo** (`sandbox.html`) loads `deposit-rule.js` and quotes it.
+  *Supersedes the "unchanged" sandbox-demo row in the inventory.*
+
+Tests: `tests/deposit-rule.test.js` sections 6–10 drive the real pre-flight.
+They type through its real input handler and feed the captured Firestore
+write back into a second contract. Each rendered result is checked against
+`contract.hbs` and the Payment Agreement template. The same sections cover
+the invoice path, V2 reopen, the tier cards and the sandbox demo.
+`upgrades-builder-card` checks the re-stamp. The table's insurance cases
+moved to a $2,000 deductible, because an unstamped $2,500 doc is now the
+placeholder by design. Each fix was break-tested, and each break turned the
+expected assertions red: pre-flight catch-up (11 red), save-only-edits and
+basis (17), placeholder in `fromEstimate` (10), placeholder on V2 reopen (2),
+tier notes (3 server + 1 on-screen), Payment Agreement plan (5), Payment 1 /
+the $0 row (4), the note (8), invoice note (1), Job Template deductible (1),
+the upgrade re-stamp (1) and the sandbox demo (1). Phone check: the pre-flight note at
+360 / 412 / 1280 px has no horizontal overflow.
+
+**Still open (not deposit-specific):** pre-flight also saves every other
+`PERSIST.DOCUMENT` prefill as an override, including the Contract Price and
+the dates. A second contract therefore opens with the first one's price and
+start date until the rep edits them. The deposit now follows whatever price
+the form shows, so the two can never disagree. But the stale price itself is
+a separate fix across all 22 document types.
+
 ## The rule (Jo, 2026-09-25 — authoritative)
 
 - **Cash, under $2,000 total:** no deposit — payment due on completion.
