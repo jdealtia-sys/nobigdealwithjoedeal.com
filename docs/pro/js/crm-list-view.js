@@ -168,6 +168,8 @@
       return;
     }
 
+    if (_isPhone()) { _renderFieldCards(wrap, stageKeys, labelFor); return; }
+
     const arrow = (key) => _sortKey === key ? (_sortDir === 1 ? ' ▲' : ' ▼') : '';
     const rows = _sorted(_lastList).map((l) => {
       const sk = _stageKeyOf(l);
@@ -218,6 +220,127 @@
       sel.addEventListener('change', () => {
         if (typeof window.moveCard === 'function') window.moveCard(sel.dataset.id, sel.value);
       });
+    });
+  }
+
+  // ── Phone field cards (2026-09-24) ─────────────────────────────
+  // On a phone the list IS the pipeline (it opens by default there), so it
+  // renders as one card per lead built for a job site: name + value, the
+  // address, stage + days since the last touch, and big Call / Text / Map /
+  // Open buttons. Swipe right calls, swipe left moves to the next stage.
+  // The desktop keeps the sortable table above.
+  const SWIPE_PX = 90;           // horizontal travel before a swipe counts
+  const NO_ADVANCE = new Set(['closed', 'lost']);
+
+  function _digits(p) { return String(p || '').replace(/[^\d+]/g, ''); }
+  function _mapsHref(addr) {
+    const q = encodeURIComponent(addr);
+    return /iP(ad|hone|od)|Macintosh/.test(navigator.userAgent || '')
+      ? 'https://maps.apple.com/?q=' + q
+      : 'https://www.google.com/maps/search/?api=1&query=' + q;
+  }
+  // The next stage in pipeline order, skipping the dead ends a swipe should
+  // never land on by accident (Lost needs its reason flow, Closed is final).
+  function _nextStage(sk, stageKeys) {
+    if (NO_ADVANCE.has(sk)) return null;
+    for (let i = stageKeys.indexOf(sk) + 1; i > 0 && i < stageKeys.length; i++) {
+      if (!NO_ADVANCE.has(stageKeys[i])) return stageKeys[i];
+    }
+    return null;
+  }
+
+  function _renderFieldCards(wrap, stageKeys, labelFor) {
+    const sortOpts = [['activity', 'Last touch'], ['value', 'Value'], ['name', 'Name'], ['stage', 'Stage'], ['age', 'Age']]
+      .map(([k, lbl]) => '<option value="' + k + '"' + (k === _sortKey ? ' selected' : '') + '>' + lbl + '</option>').join('');
+    const cards = _sorted(_lastList).map((l) => {
+      const sk = _stageKeyOf(l);
+      const val = Number(l.jobValue) || 0;
+      const actD = _ageDays(_activity(l));
+      const phone = _digits(l.phone);
+      const addr = (l.address || '').trim();
+      const open = '/pro/customer?id=' + encodeURIComponent(l.id);
+      const opts = stageKeys.map((k) =>
+        '<option value="' + _esc(k) + '"' + (k === sk ? ' selected' : '') + '>' + _esc(labelFor(k)) + '</option>').join('');
+      const touch = actD == null ? '' : (actD === 0 ? 'touched today' : actD + 'd since last touch');
+      const stale = actD != null && actD >= 7 ? ' cl-card-stale' : '';
+      const btn = (cls, href, icon, label, extra) =>
+        '<a class="cl-card-btn ' + cls + '" href="' + _esc(href) + '"' + (extra || '') + '>' + icon + '<span>' + label + '</span></a>';
+      return '<div class="cl-card" data-id="' + _esc(l.id) + '" data-phone="' + _esc(phone) + '" data-stage="' + _esc(sk) + '">'
+        + '<div class="cl-card-top"><a class="cl-card-name" href="' + open + '">' + _esc(_name(l)) + '</a>'
+        +   (val > 0 ? '<span class="cl-card-val">$' + val.toLocaleString() + '</span>' : '') + '</div>'
+        + (addr ? '<div class="cl-card-addr">' + _esc(addr) + '</div>' : '')
+        + '<div class="cl-card-meta"><select class="cl-stage-select" data-id="' + _esc(l.id) + '" aria-label="Stage">' + opts + '</select>'
+        +   (touch ? '<span class="cl-card-touch' + stale + '">' + touch + '</span>' : '') + '</div>'
+        + '<div class="cl-card-actions">'
+        +   (phone ? btn('cl-call', 'tel:' + phone, '📞', 'Call') + btn('cl-text', 'sms:' + phone, '💬', 'Text') : '')
+        +   (addr ? btn('cl-map', _mapsHref(addr), '📍', 'Map', ' target="_blank" rel="noopener"') : '')
+        +   btn('cl-open', open, '→', 'Open')
+        + '</div></div>';
+    }).join('');
+
+    wrap.innerHTML =
+      '<div class="cl-cards-bar"><label>Sort <select class="cl-sort-select" aria-label="Sort leads">' + sortOpts + '</select></label>'
+      + '<span class="cl-cards-hint">Swipe right to call · left for next stage</span></div>'
+      + '<div class="cl-cards">' + cards + '</div>';
+
+    const sortSel = wrap.querySelector('.cl-sort-select');
+    if (sortSel) sortSel.addEventListener('change', () => {
+      _sortKey = sortSel.value;
+      _sortDir = (_sortKey === 'value' || _sortKey === 'activity' || _sortKey === 'age') ? -1 : 1;
+      render(_lastList);
+    });
+    wrap.querySelectorAll('.cl-stage-select').forEach((sel) => {
+      sel.addEventListener('change', () => {
+        if (typeof window.moveCard === 'function') window.moveCard(sel.dataset.id, sel.value);
+      });
+    });
+    wrap.querySelectorAll('.cl-card').forEach((card) => _wireSwipe(card, stageKeys, labelFor));
+  }
+
+  // Touch-only swipe. Vertical movement wins (the page must still scroll),
+  // and a swipe that starts on a control (select, button) is ignored.
+  function _wireSwipe(card, stageKeys, labelFor) {
+    let x0 = null, y0 = null, dx = 0, horiz = false;
+    card.addEventListener('touchstart', (e) => {
+      if (e.target.closest && e.target.closest('select, a, button')) { x0 = null; return; }
+      const t = e.touches[0]; x0 = t.clientX; y0 = t.clientY; dx = 0; horiz = false;
+    }, { passive: true });
+    card.addEventListener('touchmove', (e) => {
+      if (x0 == null) return;
+      const t = e.touches[0]; dx = t.clientX - x0; const dy = t.clientY - y0;
+      if (!horiz && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(dy) * 1.5) horiz = true;
+      if (horiz) {
+        card.style.transform = 'translateX(' + Math.max(-140, Math.min(140, dx)) + 'px)';
+        card.classList.toggle('cl-card-swipe-call', dx > SWIPE_PX);
+        card.classList.toggle('cl-card-swipe-next', dx < -SWIPE_PX);
+      }
+    }, { passive: true });
+    card.addEventListener('touchend', () => {
+      if (x0 == null) return;
+      const moved = dx; x0 = null;
+      card.style.transform = '';
+      card.classList.remove('cl-card-swipe-call', 'cl-card-swipe-next');
+      if (!horiz) return;
+      if (moved > SWIPE_PX) {
+        const phone = card.getAttribute('data-phone');
+        if (phone) window.location.href = 'tel:' + phone;
+        else if (typeof window.showToast === 'function') window.showToast('No phone number on this lead', 'info');
+      } else if (moved < -SWIPE_PX) {
+        const next = _nextStage(card.getAttribute('data-stage'), stageKeys);
+        if (!next) { if (typeof window.showToast === 'function') window.showToast('Already at the last stage', 'info'); return; }
+        if (typeof window.moveCard === 'function') {
+          const id = card.getAttribute('data-id');
+          // moveCard returns nothing and a stage gate can cancel it, so only
+          // confirm once the lead actually reads the new stage.
+          Promise.resolve(window.moveCard(id, next)).then(() => {
+            const lead = (window._leads || []).find((x) => x && x.id === id);
+            if (lead && _stageKeyOf(Object.assign({}, lead, { _stageKey: null })) === next
+                && typeof window.showToast === 'function') {
+              window.showToast('Moved to ' + labelFor(next), 'success');
+            }
+          }).catch(() => {});
+        }
+      }
     });
   }
 
