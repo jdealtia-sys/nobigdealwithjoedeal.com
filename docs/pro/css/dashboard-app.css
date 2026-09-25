@@ -4351,6 +4351,17 @@ body {
      thumb-reachable without forcing the header taller than 48px. */
   header .hdr-tool{ min-width:40px!important; min-height:40px!important; }
   .upill{ min-height:36px!important; }
+  /* Settings pill touch target (2026-09-25, phone-audit follow-up from
+     review:dashnav). With the What's New bell moved out of the pill (views#10)
+     the pill alone is 38×36 — under the 44px floor this audit holds every
+     phone control to. Growing the pill itself would push the bell, kebab and
+     tools 6px left and clip the "NBD PRO" wordmark further at 360px, so the
+     44×44 target is an invisible hit area centred on the pill instead: the
+     header paints and lays out exactly as before. The pseudo-element hit-tests
+     as .upill, so the delegate's closest('[data-action]') still routes the tap
+     to Settings. 44 fits inside the 48px bar and the 7px gap to the bell. */
+  .upill{ position:relative; }
+  .upill::after{ content:''; position:absolute; left:50%; top:50%; width:max(100%, 44px); height:max(100%, 44px); transform:translate(-50%, -50%); }
   body{padding-bottom:62px;}
   .app-body{flex-direction:column;}
   .content{width:100%;}
@@ -5179,7 +5190,11 @@ body {
 #taskModal[data-task-mode="pick"] .task-add-row,
 #taskModal[data-task-mode="pick"] .task-list{display:none;}
 #taskModal:not([data-task-mode="picked"]) .task-lead-change{display:none;}
-.task-lead-change{margin-top:6px;background:none;border:none;padding:6px 0;min-height:32px;color:var(--orange);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;}
+/* "Change customer" is a 44px target (2026-09-25, phone-audit follow-up from
+   review:dashnav): at min-height 32px it was the one control in the picker
+   flow under the floor its 44px rows meet. margin-top drops 6→2 so the add
+   row moves down 8px, not 12. */
+.task-lead-change{margin-top:2px;background:none;border:none;padding:6px 0;min-height:44px;color:var(--orange);font-family:'Barlow',sans-serif;font-size:12px;font-weight:600;cursor:pointer;}
 .task-lead-pick{margin-bottom:12px;}
 .task-lead-pick-lbl{display:block;font-size:12px;color:var(--m);margin-bottom:6px;}
 .task-lead-pick input{width:100%;box-sizing:border-box;background:var(--s2);border:1px solid var(--br);border-radius:7px;padding:10px 11px;font-family:'Barlow',sans-serif;font-size:16px;color:var(--t);outline:none;}

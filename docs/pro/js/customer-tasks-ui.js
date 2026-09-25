@@ -369,7 +369,13 @@ window.showToast = function(message, type = 'info') {
     // --nbd-bottom-chrome is 0px on desktop and wherever no strip shows.
     // --nbd-toast-bottom is customer.html's phone override (<=768px), which
     // also clears the field-tools ⋯ launcher parked above the bar.
-    container.style.cssText = 'position:fixed;bottom:var(--nbd-toast-bottom, calc(20px + var(--nbd-bottom-chrome, 0px)));right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
+    // + --nbd-upload-lift (2026-09-25, phone-audit follow-up from
+    // review:chrome): the in-flight upload widget rides the same bottom
+    // offset in the same corner, so a toast raised mid-upload landed on its
+    // "View details" button for up to 9s (and on desktop too, 16px vs 20px).
+    // While the widget shows, customer-bootstrap.module.js publishes its
+    // height + an 8px gap here and the stack rises above it; 0px otherwise.
+    container.style.cssText = 'position:fixed;bottom:calc(var(--nbd-toast-bottom, calc(20px + var(--nbd-bottom-chrome, 0px))) + var(--nbd-upload-lift, 0px));right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;align-items:flex-end;';
     document.body.appendChild(container);
   }
   while (container.children.length >= 5) container.firstChild.remove();
