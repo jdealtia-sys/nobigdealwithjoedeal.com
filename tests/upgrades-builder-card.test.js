@@ -344,7 +344,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   const reqRow = sv && sv.rows.find((r) => r.code === 'UPG LG-LBP');
   ok('saved: plain desc, "Base scope", upgradeRequired, still face value', reqRow && reqRow.desc === 'LeafBlaster PRO stainless micromesh gutter guard'
     && reqRow.category === 'Base scope' && reqRow.upgradeRequired === true && cents(reqRow.retailTotal) === dAlu.qty * 1200, JSON.stringify(reqRow && { d: reqRow.desc, c: reqRow.category }));
-  ok('saved log: status "required"', sv.upgradeLog && sv.upgradeLog.items.find((i) => i.id === 'leafblaster_pro_micromesh').status === 'required');
+  ok('saved log: status "required"', !!(sv && sv.upgradeLog) && (sv.upgradeLog.items.find((i) => i.id === 'leafblaster_pro_micromesh') || {}).status === 'required');
 
   // ══════════════════════════════════════════════════════════════════
   section('6. SHOW HOMEOWNER — priced and measured only; Add / No thanks; running total with tax');
@@ -411,15 +411,16 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
   ok('upgradeCents / upgradeTaxCents / upgrades[] on the estimate', sv.upgradeCents === cardLine && sv.upgradeTaxCents === aluTax
     && sv.upgrades.length === 1 && sv.upgrades[0].id === 'alurex' && sv.upgrades[0].unitCents === 1800);
   const log = sv.upgradeLog;
-  const li = (id) => log && log.items.find((i) => i.id === id);
-  ok('the log records every offer the homeowner could have had', log && LEAF.every((id) => !!li(id)) && log.items.length === 4, log && log.items.map((i) => i.id).join(','));
+  // {} when missing, so a broken save reddens these checks instead of crashing the suite.
+  const li = (id) => (log && log.items.find((i) => i.id === id)) || {};
+  ok('the log records every offer the homeowner could have had', !!log && LEAF.every((id) => !!li(id).id) && log.items.length === 4, log && log.items.map((i) => i.id).join(','));
   ok('…chosen / declined / offered', li('alurex').status === 'chosen' && li('leafblaster_pro_micromesh').status === 'declined'
     && li('amerimax_lockin_mesh').status === 'declined' && li('leafblaster_pro_reinforced').status === 'offered');
   ok('…with FROZEN prices (unit cents, qty, line cents)', li('alurex').unitCents === 1800 && li('alurex').qty === dAlu.qty && li('alurex').retailCents === cardLine
     && li('leafblaster_pro_reinforced').unitCents === 1500 && li('leafblaster_pro_reinforced').retailCents === dAlu.qty * 1500);
   ok('…the star and its reason, and that the homeowner saw the page', li('alurex').recommended === true && li('alurex').reason === 'Two big oaks over the back run'
-    && li('amerimax_lockin_mesh').recommended === false && log.shownToHomeowner === true && log.version === U.version);
-  ok('a needs_price item is never in the log (it was never quotable)', !li('downspout_3x4_step_up') && !li('underground_drain'));
+    && li('amerimax_lockin_mesh').recommended === false && !!log && log.shownToHomeowner === true && log.version === U.version);
+  ok('a needs_price item is never in the log (it was never quotable)', !!log && !li('downspout_3x4_step_up').id && !li('underground_drain').id);
   ok('no undefined anywhere in the saved doc (Firestore rejects it)', !JSON.stringify(sv, (k, v) => (v === undefined ? '__UNDEF__' : v)).includes('__UNDEF__'));
   const savedAlu = sv;
 
@@ -555,7 +556,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
     const reRow2 = re.rows.find((r) => r.code === 'UPG LG-ARX');
     ok('edited re-save keeps the tagged row and the upgraded total', reRow2 && reRow2.upgrade === true && cents(reRow2.retailTotal) === cardLine
       && cents(re.grandTotal) === cents(est.total) && re.upgradeCents === cardLine);
-    ok('…in every reader (portal rows print the quoted line)', cents(w.NBDCustomerEstimateRows.buildDisplayRows(re).find((r) => r.code === 'UPG LG-ARX').total) === cardLine);
+    ok('…in every reader (portal rows print the quoted line)', cents((w.NBDCustomerEstimateRows.buildDisplayRows(re).find((r) => r.code === 'UPG LG-ARX') || {}).total) === cardLine);
     ok('the draft carries the upgrades too', (V2.collectDraft().upgrades || []).length === 1);
 
     // Second cycle: reopen THE RE-SAVED doc, edit again, save again.
@@ -577,7 +578,7 @@ const LEAF = ['amerimax_lockin_mesh', 'leafblaster_pro_micromesh', 'leafblaster_
       const saveU = st.upgrades; st.upgrades = [];
       const b3 = V2.effectiveEstimate(); st.upgrades = saveU;
       ok('county ' + other + ' (' + e3.taxRate + '): the upgrade is re-taxed at the new rate, the quote unchanged',
-        cents(e3.total) === cents(b3.total) + cardLine + upT && e3.upgradeTaxCents === upT && cents(upLines(e3)[0].retailTotal) === cardLine);
+        cents(e3.total) === cents(b3.total) + cardLine + upT && e3.upgradeTaxCents === upT && upLines(e3).length === 1 && cents(upLines(e3)[0].retailTotal) === cardLine);
     } else {
       ok('a second county rate exists to test re-taxing', false, JSON.stringify(counties));
     }
