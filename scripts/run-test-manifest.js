@@ -389,7 +389,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               cut from origin/main at 918af3d8 (#1763); RE-MEASURED on
 //               9d4c82bc (#1764) with the review fixes — unchanged; whoever
 //               merges last re-measures.
-const FLOORS = { node: 189, smoke: 68, disk: 278 };
+//   2026-09-25  189/68/278 -> 190/68/279, tests/draw-reticle-css-scope.test.js
+//               (the Draw crosshair's stylesheet stays inert with its beta
+//               switch off, #1766). MEASURED via --check after rebasing onto
+//               322ccbc7 (#1773); whoever merges last re-measures.
+const FLOORS = { node: 190, smoke: 68, disk: 279 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);
