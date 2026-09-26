@@ -422,10 +422,37 @@
   // loading line is ever replaced — it stays data-state="loading" under the
   // "did not load" text too, so a later landing still paints the rows. A
   // panel already painted from the hydrated profile may hold typing; never
-  // repaint over it from here.
+  // repaint over it from here — unless it was painted for ANOTHER tenant
+  // (2026-09-25, second review of #1774): the account's company changed
+  // under this tab and this landing is the new company's. Those rows are not
+  // its prices and can't be saved to it (see _paintedKey), so they are
+  // repainted, and the rep is told if that drops a change they had made.
   function onProfileLanded() {
     var host = document.getElementById(HOST_ID);
-    if (host && host.getAttribute('data-state') === 'loading' && root._companyProfileLoaded === true) render();
+    if (!host || root._companyProfileLoaded !== true) return;
+    var state = host.getAttribute('data-state');
+    if (state === 'loading') { render(); return; }
+    if (paintedForAnotherTenant(host)) render();
+  }
+
+  // Rows showing another tenant's prices than the profile now loaded. render()
+  // checks this too, so the notice below shows whichever repaint comes first:
+  // this listener's, or the Estimates panel's own landing repaint (which
+  // calls render() and usually runs first).
+  function paintedForAnotherTenant(host) {
+    return host.getAttribute('data-state') === 'ready' && _paintedKey != null
+      && root._companyProfileLoaded === true && !paintedForLoadedProfile();
+  }
+
+  // Any row changed since the paint (a bad price counts: it was typed).
+  function editedSincePaint(host) {
+    var forms = {};
+    host.querySelectorAll('[data-upg-id]').forEach(function (row) {
+      forms[row.getAttribute('data-upg-id')] = formOfRow(row);
+    });
+    var out = buildSaveMap(forms);
+    if (out.errors.length) return true;
+    return Object.keys(changedEntries(out.map, _painted)).length > 0;
   }
   try { root.addEventListener('nbd:company-profile-loaded', onProfileLanded); } catch (_) { /* no event target */ }
 
@@ -510,6 +537,9 @@
       waitForProfile();
       return;
     }
+    // Repainting over another tenant's rows (see onProfileLanded): say so
+    // below if that drops a change the rep had made to them.
+    var dropped = paintedForAnotherTenant(host) && editedSincePaint(host);
     var entries = savedEntries(root._companyProfile);
     // What this device is showing as saved: the baseline changedEntries
     // compares against, so a save sends only what was edited here.
@@ -555,6 +585,7 @@
     setSaveEnabled(editable);
     var b = document.getElementById(SAVE_ID);
     if (b && !editable) b.hidden = true;
+    if (dropped) setMessage('Your company’s saved upgrade prices just loaded and replaced the changes you had made here. Make them again, then press Save.', 'error');
   }
 
   // savedEntries of the profile the rows were last painted from, updated by
@@ -662,6 +693,23 @@
     if (typeof root._saveCompanyProfile !== 'function') {
       setMessage('Saving is unavailable right now. Reload the page and try again.', 'error');
       return { ok: false, reason: 'unavailable' };
+    }
+    // The tenant this write lands on must be the one the rows were painted
+    // for (2026-09-25, second review of #1774). The check above compares the
+    // paint with the profile in memory; the account's company can change
+    // under this tab before anything re-reads it, and _saveCompanyProfile
+    // resolves its own key — so these edits, made over one company's prices,
+    // went to the other. Ask for the key it will use.
+    _saving = true;
+    var key = null;
+    try { key = typeof root._resolveCompanyKey === 'function' ? await root._resolveCompanyKey() : null; } catch (_) { key = null; } finally { _saving = false; }
+    if (key != null && _paintedKey != null && String(key) !== String(_paintedKey)) {
+      // The profile in memory is not this company's either: forget it, and
+      // repaint for this one — the loading line until its profile lands.
+      if (typeof root._resetCompanyProfile === 'function') root._resetCompanyProfile();
+      render();
+      setMessage('Your saved upgrade prices are still loading. Nothing was saved — make your change again once they appear.', 'error');
+      return { ok: false, reason: 'loading' };
     }
     _saving = true;
     var btn = document.getElementById(SAVE_ID);

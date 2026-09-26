@@ -381,7 +381,7 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
   });
   test('RESET clears the tenant county policy, not just localStorage', () => {
     const i = BOOT.indexOf('const _resetEstimateDefaultsV2');
-    const block = BOOT.slice(i, i + 2600);
+    const block = BOOT.slice(i, BOOT.indexOf('\n  };', i));
     if (!/'pricing\.permits': \{\}/.test(block)) throw new Error('reset does not clear permits');
     if (!/'pricing\.countyTax': \{\}/.test(block)) throw new Error('reset does not clear countyTax');
     if (!/'pricing\.fallbackTaxRate': null/.test(block)) throw new Error('reset does not clear fallbackTaxRate');
@@ -408,7 +408,9 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
   // prove the 14 inputs were painted FROM it — and publishing pre-hydration
   // inputs is a dot-path full-replace of company money with factory values.
   test('county persistence requires PANEL hydration, not just profile hydration', () => {
-    if (!/const countyReady = profileReady && _countyInputsResolved;/.test(BOOT)) {
+    // …for the tenant the save writes to (second review of #1774; the
+    // behaviour is pinned by the Save All vm tests below).
+    if (!/const countyReady = profileReady && _countyInputsResolved && paintedHere\(_countyInputsKey\);/.test(BOOT)) {
       throw new Error('missing the countyReady gate');
     }
     if (!/_countyInputsResolved = !!s && window\._companyProfileLoaded === true;/.test(BOOT)) {
@@ -456,7 +458,7 @@ console.log('\nPersistence contract (dashboard-bootstrap)');
   });
   test('reset treats NOT_FOUND as success (a tenant with no profile has nothing to clear)', () => {
     const i = BOOT.indexOf('const _resetEstimateDefaultsV2');
-    const block = BOOT.slice(i, i + 3000);
+    const block = BOOT.slice(i, BOOT.indexOf('\n  };', i));
     if (!/not-found\|NOT_FOUND/i.test(block)) throw new Error('reset must not report NOT_FOUND as a failure');
   });
 }
@@ -865,6 +867,29 @@ atest('claims left over from the previous account never pick the key', async () 
   m.win._userClaims = { companyId: 'c9' };
   eq(await m.win._resolveCompanyKey(), 'c9', 'control: claims without a uid are trusted, as before');
 });
+atest('a save for another tenant than the loaded one forgets that copy instead of relabelling it, and asks for this one', async () => {
+  // Second review of #1774: the company changed under the tab, and an
+  // ungated save (Settings > Company Profile) put c2's cache into memory
+  // under a flag that still named c1's server copy.
+  const m = loadProfileModule();
+  await m.win._loadCompanyProfile();
+  eq(m.win._companyProfileLoadedKey(), 'c1', 'loaded key before');
+  m.win._userClaims = { companyId: 'c2' }; // the account's company changed
+  await m.win._saveCompanyProfile({ businessName: 'Typed' });
+  eq(m.log.sets[1], false, 'the flag goes down on the save (writes: ' + JSON.stringify(m.log.sets) + ')');
+  await flushTimers();
+  eq(m.log.refs[m.log.refs.length - 1], 'companyProfile/c2', 'this tenant\'s profile is read');
+  eq(m.win._companyProfileLoadedKey(), 'c2', 'loaded key once it lands');
+  eq(m.log.events, 2, 'landing events (one per tenant)');
+  // Control: a save for the loaded tenant keeps its server copy and the flag.
+  const c = loadProfileModule();
+  await c.win._loadCompanyProfile();
+  await c.win._saveCompanyProfile({ businessName: 'Typed' });
+  await flushTimers();
+  eq(JSON.stringify(c.log.sets), '[true]', 'control: writes to _companyProfileLoaded');
+  eq(c.log.reads, 1, 'control: reads');
+  eq(c.win._companyProfile.businessName, 'Typed', 'control: the save is in memory');
+});
 
 // The My Jurisdictions waiter (dashboard-bootstrap), real code in a vm.
 function loadJurWaiter() {
@@ -896,6 +921,8 @@ function loadJurWaiter() {
   ctx._paintCompanyEstimateInputs = () => { log.loads++; ctx._renderJurisdictionRows(); };
   ctx._companyInputsEdited = () => [];
   ctx._loadEstimateDefaultsV2 = () => { log.full = (log.full || 0) + 1; ctx._paintCompanyEstimateInputs(); };
+  // The county half's paint record lives above this slice (loadPanel runs it).
+  vm.runInContext('var _countyInputsResolved = false; var _countyInputsKey = null;', ctx);
   vm.runInContext(BOOT.slice(i, end + 4), ctx);
   const announce = () => { win._companyProfileLoaded = true; (listeners['nbd:company-profile-loaded'] || []).forEach((f) => f()); };
   return {
@@ -982,24 +1009,29 @@ function loadPanel() {
   };
   const byId = (id) => (els[id] = els[id] || mk(id));
   const listeners = {};
-  const log = { ensure: 0, toasts: [] };
+  const log = { ensure: 0, toasts: [], upgRenders: 0 };
   let finish = null;
+  // st.key: the tenant whose server copy company-profile.js says is loaded
+  // (null: the older stand-in with no key, which every earlier test uses).
+  const st = { key: null };
   const win = {
     _companyProfileLoaded: false,
     _companyProfile: { pricing: {} },
     NBD_ESTIMATE_CONFIG: { ADDON_STEEP_PER_SQ: 25 },
-    NBDUpgradePriceSettings: { render() {} },
+    NBDUpgradePriceSettings: { render() { log.upgRenders++; } },
     addEventListener(t, f) { (listeners[t] = listeners[t] || []).push(f); },
+    _companyProfileLoadedKey: () => (win._companyProfileLoaded === true ? st.key : null),
     _ensureCompanyProfile() {
       log.ensure++;
       return new Promise((r) => { finish = r; });
     },
   };
   // What getResolvedCountySettings returns: this device's settings, with the
-  // tenant's county policy overlaid once the profile has landed.
+  // tenant's county policy overlaid once the profile has landed (the landed
+  // profile's own Hamilton permit when it carries one).
   const device = { tierRates: { good: 545 }, costBasis: { good: 0 }, fallbackTaxRate: 0.07, permits: { 'hamilton-oh': { cost: 100 } }, countyTax: { 'hamilton-oh': 0.07 } };
   const resolved = () => (win._companyProfileLoaded === true
-    ? Object.assign({}, device, { permits: { 'hamilton-oh': { cost: 150 } }, countyTax: { 'hamilton-oh': 0.078 } })
+    ? Object.assign({}, device, { permits: (win._companyProfile.pricing && win._companyProfile.pricing.permits) || { 'hamilton-oh': { cost: 150 } }, countyTax: { 'hamilton-oh': 0.078 } })
     : device);
   const ctx = vm.createContext({
     window: win, Promise,
@@ -1014,12 +1046,17 @@ function loadPanel() {
     val: (id) => String(byId(id).value),
     type: (id, v) => { byId(id).value = v; },
     // The profile lands (any reader's read): the company's values arrive.
-    land: () => {
+    // key/pricing: whose profile it is, and what it holds (default: the
+    // keyless stand-in with company A's values).
+    land: (key, pricing) => {
       win._companyProfileLoaded = true;
-      win._companyProfile = { pricing: { addonPrices: { steepPerSq: 30 }, customJurisdictions: { 'custom-a': { name: 'A', cost: 5, rate: 0.01 } } } };
+      st.key = key == null ? null : key;
+      win._companyProfile = { pricing: pricing || { addonPrices: { steepPerSq: 30 }, customJurisdictions: { 'custom-a': { name: 'A', cost: 5, rate: 0.01 } } } };
       (listeners['nbd:company-profile-loaded'] || []).forEach((f) => f());
       if (finish) finish(true);
     },
+    // company-profile.js's _resetCompanyProfile (an account switch).
+    reset: () => { win._companyProfileLoaded = false; st.key = null; win._companyProfile = { pricing: {} }; },
     flag: (name) => vm.runInContext(name, ctx),
   };
 }
@@ -1068,6 +1105,82 @@ atest('control: a landing with no company input changed says nothing, and still 
   eq(p.byId('v2save-msg').getAttribute('data-kind'), null, 'panel message kind');
 });
 
+// Second review of #1774: the panel's paint recorded THAT it came from a
+// loaded profile, never WHOSE. Same account, its company changed under the tab
+// (claims), a re-read loaded the new company — and the panel kept the old
+// one's rows and rates, which Save All then full-replaced onto the new one.
+const PROF_V = { addonPrices: { steepPerSq: 33 }, permits: { 'hamilton-oh': { cost: 303 } }, customJurisdictions: { 'custom-v': { name: 'Victor', cost: 3, rate: 0.03 } } };
+const PROF_X = { addonPrices: { steepPerSq: 34 }, permits: { 'hamilton-oh': { cost: 404 } }, customJurisdictions: { 'custom-x1': { name: 'Xray', cost: 4, rate: 0.04 }, 'custom-x2': { name: 'Xylo', cost: 5, rate: 0.05 } } };
+asection('\nProfile boot retry: the panel records WHOSE profile it was painted from');
+atest('another company\'s profile landing repaints a panel painted for the old one, and says what it replaced', async () => {
+  const p = loadPanel();
+  p.land('cV', PROF_V);
+  p.ctx._loadEstimateDefaultsV2(); // the tab paints company V
+  eq(p.val('permHamOh'), '303', 'permit as painted for V');
+  eq(p.byId('jurRows').rows, 1, 'V\'s rows');
+  eq(p.flag('_countyInputsKey'), 'cV', 'county inputs painted for');
+  eq(p.flag('_jurRowsKey'), 'cV', 'rows painted for');
+  p.type('v2addonSteep', '99'); // a company-wide edit, over V's rates
+  p.land('cX', PROF_X); // the claims changed; a re-read loaded company X
+  await flushTimers();
+  eq(p.val('permHamOh'), '404', 'permit shows X\'s');
+  eq(p.val('v2addonSteep'), '34', 'add-on rate shows X\'s');
+  eq(p.byId('jurRows').rows, 2, 'X\'s rows painted');
+  eq(p.flag('_countyInputsKey'), 'cX', 'county inputs painted for');
+  eq(p.flag('_jurRowsKey'), 'cX', 'rows painted for');
+  const msg = p.byId('v2save-msg');
+  eq(msg.getAttribute('data-kind'), 'warn', 'panel message kind');
+  if (!/replaced a county, tax or add-on rate you had changed/.test(msg.textContent)) throw new Error('panel message: ' + msg.textContent);
+});
+atest('control: a landing for the company the panel was painted for leaves typing alone', async () => {
+  const p = loadPanel();
+  p.land('cX', PROF_X);
+  p.ctx._loadEstimateDefaultsV2();
+  p.type('v2addonSteep', '77');
+  p.land('cX', PROF_X); // another read of the same company (a document generator's)
+  await flushTimers();
+  eq(p.val('v2addonSteep'), '77', 'the rep\'s unsaved add-on rate');
+  eq(p.log.toasts.length, 0, 'toasts');
+});
+atest('an account switch takes the old company\'s values off the panel; the new account\'s landing repaints it', async () => {
+  // Second review of #1774, minor: after a same-tab switch the tab kept the
+  // previous company's rows, rates and upgrade typing on screen.
+  const p = loadPanel();
+  p.land('cV', PROF_V);
+  p.ctx._loadEstimateDefaultsV2();
+  const upgBefore = p.log.upgRenders;
+  p.reset(); // _bindCachesToSession: company-profile.js forgets the profile…
+  p.ctx._forgetEstimatePanelPaint(true); // …and the panel its paint
+  eq(p.byId('jurRows').getAttribute('data-jur-wait'), 'loading', 'jurisdictions back on the loading line');
+  eq(p.byId('jurRows').rows, 0, 'the previous company\'s rows on screen');
+  eq(p.val('permHamOh'), '100', 'permit shows this device\'s value, not the previous company\'s');
+  eq(p.val('v2addonSteep'), '25', 'add-on rate shows the config default, not the previous company\'s');
+  eq(p.log.upgRenders, upgBefore + 1, 'upgrade panel repainted (to its loading line)');
+  eq(p.flag('_countyInputsResolved'), false, '_countyInputsResolved');
+  if (p.log.ensure < 1) throw new Error('the new account\'s profile was not asked for');
+  p.land('cB', PROF_X);
+  await flushTimers();
+  eq(p.byId('jurRows').hasAttribute('data-jur-wait'), false, 'loading state cleared');
+  eq(p.byId('jurRows').rows, 2, 'the new company\'s rows');
+  eq(p.val('permHamOh'), '404', 'the new company\'s permit');
+  eq(p.flag('_jurRowsKey'), 'cB', 'rows painted for');
+  eq(p.log.toasts.length, 0, 'toasts (nothing typed was replaced)');
+});
+atest('control: a panel never painted, or a sign-out, repaints nothing', async () => {
+  const p = loadPanel();
+  p.ctx._forgetEstimatePanelPaint(true);
+  eq(p.byId('jurRows').hasAttribute('data-jur-wait'), false, 'never painted: no loading line');
+  eq(p.log.ensure, 0, 'never painted: no read asked for');
+  const q = loadPanel();
+  q.land('cV', PROF_V);
+  q.ctx._loadEstimateDefaultsV2();
+  q.reset();
+  q.ctx._forgetEstimatePanelPaint(false); // signed out: the page is leaving
+  eq(q.val('permHamOh'), '303', 'nothing repainted on a sign-out');
+  eq(q.flag('_jurRowsResolved'), false, 'but the paint is forgotten');
+  eq(q.flag('_jurRowsKey'), null, 'rows painted for');
+});
+
 // _saveEstimateDefaultsV2, real code in a vm. `_collectJurisdictionRows`
 // returns {} — what the loading line collects to — so a gate that let it
 // through would full-replace the company's list with nothing.
@@ -1079,14 +1192,20 @@ function loadSave(state) {
   const raw = BOOT.slice(fnStart, end + 5);
   const src = raw.replace(FS_IMPORT_RE, '__fsImport()');
   if (src === raw) throw new Error('harness: no firestore import was rerouted');
-  const log = { company: [], replace: [], userSettings: 0, collected: 0, repaint: 0, kick: 0, toasts: [], fades: 0, resets: 0 };
+  const log = { company: [], replace: [], userSettings: 0, collected: 0, repaint: 0, kick: 0, toasts: [], fades: 0, resets: 0, timers: [], marked: 0 };
   const msg = { style: {}, textContent: '', attrs: {}, setAttribute(k, v) { this.attrs[k] = String(v); } };
   const win = {
     _companyProfileLoaded: state.loaded,
     _companyProfile: { pricing: { customJurisdictions: { 'custom-a': { name: 'A', cost: 5, rate: 0.01 } } } },
     _db: { name: 'db' }, _user: { uid: 'u1' },
     _resolveCompanyKey: async () => 'c1',
-    _saveCompanyProfile: async (o) => { log.company.push(JSON.parse(JSON.stringify(o))); },
+    _saveCompanyProfile: async (o) => {
+      log.company.push(JSON.parse(JSON.stringify(o)));
+      // companyHangs: offline — the merge write is queued, never acked.
+      if (state.companyHangs) await new Promise(() => {});
+      // switchDuringWrite: another account signs in while the write is out.
+      if (state.switchDuringWrite) state.loadedKey = 'cOther';
+    },
   };
   // state.loadedKey: which tenant's server copy company-profile.js says is in
   // memory (absent: the older file without _companyProfileLoadedKey).
@@ -1096,8 +1215,17 @@ function loadSave(state) {
   }
   // state.upgChanges: upgrade-price edits made in that panel since its paint.
   if (state.upgChanges) {
-    win.NBDUpgradePriceSettings = { collect: () => ({ map: {}, changes: state.upgChanges, errors: [] }), markSaved() {} };
+    win.NBDUpgradePriceSettings = { collect: () => ({ map: {}, changes: state.upgChanges, errors: [] }), markSaved() { log.marked++; } };
   }
+  // Which tenant the panel's company half was painted for (second review of
+  // #1774): by default the one loaded now — the panel painted from it.
+  const paintKey = (k) => JSON.stringify(k !== undefined ? k : (state.loadedKey !== undefined ? state.loadedKey : null));
+  const slice = (head) => {
+    const s = BOOT.indexOf(head);
+    const e = BOOT.indexOf('\n  }', s);
+    if (s < 0 || e < 0) throw new Error('not found: ' + head.trim());
+    return BOOT.slice(s, e + 4);
+  };
   const ctx = vm.createContext({
     window: win, console: { warn() {}, log() {} },
     document: { getElementById: (id) => (id === 'v2save-msg' ? msg : null) },
@@ -1107,7 +1235,9 @@ function loadSave(state) {
     _renderJurisdictionRows: () => { log.kick++; },
     _pricingDenied: () => false,
     showToast: (m, k) => log.toasts.push({ m: String(m), k }),
-    setTimeout: () => { log.fades++; return 1; }, clearTimeout: () => {},
+    // The 5s fade is the one the tests count; any other timer (the "still
+    // sending" notice) is kept for a test to fire.
+    setTimeout: (fn, ms) => { if (ms === 5000) log.fades++; else log.timers.push({ fn, ms }); return 1; }, clearTimeout: () => {},
     __fsImport: async () => ({
       doc: (...a) => a.slice(1).join('/'),
       // userSettingsHangs: offline — the write is queued, never acked.
@@ -1115,7 +1245,9 @@ function loadSave(state) {
       updateDoc: async (ref, data) => { log.replace.push({ ref, keys: Object.keys(data).sort() }); },
     }),
   });
-  vm.runInContext('var _countyInputsResolved = ' + !!state.county + '; var _jurRowsResolved = ' + !!state.jur + '; var _v2SaveMsgTimer = null;', ctx);
+  vm.runInContext('var _countyInputsResolved = ' + !!state.county + '; var _jurRowsResolved = ' + !!state.jur + '; var _v2SaveMsgTimer = null;'
+    + ' var _countyInputsKey = ' + paintKey(state.countyKey) + '; var _jurRowsKey = ' + paintKey(state.jurKey) + ';', ctx);
+  vm.runInContext(slice('  function _loadedProfileKey() {') + '\n' + slice('  function _showCompanyWritePending() {'), ctx);
   vm.runInContext(src, ctx);
   return { save: () => win._saveEstimateDefaultsV2(), log, msg, win };
 }
@@ -1187,6 +1319,126 @@ atest('control: loaded for THIS tenant, the same save publishes, upgrade edits i
   eq(s.log.resets, 0, 'nothing forgotten');
   eq(s.msg.attrs['data-kind'], 'ok', 'message kind');
 });
+atest('the panel was painted for ANOTHER tenant than the one loaded and written: nothing company-wide goes out, and the tab repaints', async () => {
+  // Second review of #1774 (reproduced on the rig): the same account's
+  // company changed under the tab, a re-read loaded the new company (c1), and
+  // the panel still showed the old one's (cV) rows and rates. The loaded key
+  // matched the write — so Save All published cV's rows onto c1 as a full
+  // replace, under a "✓ saved".
+  const s = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'c1', countyKey: 'cV', jurKey: 'cV' });
+  await s.save();
+  eq(s.log.replace.length, 0, 'full-replace (updateDoc) writes');
+  eq(s.log.company.length, 0, 'company-profile merge writes');
+  eq(s.log.collected, 0, 'jurisdiction rows collected');
+  eq(s.log.repaint, 1, 'repaints (from this tenant\'s loaded profile)');
+  eq(s.log.resets, 0, 'the loaded profile IS this tenant\'s: nothing to forget');
+  eq(s.msg.attrs['data-kind'], 'warn', 'message kind');
+  if (!/NOT saved for your company/.test(s.msg.textContent)) throw new Error('message: ' + s.msg.textContent);
+  eq(s.log.userSettings, 1, 'this device\'s own settings are still saved');
+});
+atest('each half is checked on its own: rows painted for this tenant publish, county inputs painted for another do not', async () => {
+  const s = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'c1', countyKey: 'cV', jurKey: 'c1' });
+  await s.save();
+  eq(s.log.replace.length, 1, 'full-replace writes');
+  eq(s.log.replace[0].keys.join(','), 'pricing.customJurisdictions', 'replaced paths (no county maps)');
+  eq(Object.keys(s.log.company[0].pricing).sort().join(','), 'customJurisdictions', 'merged pricing keys (no add-on or county rates)');
+  eq(s.msg.attrs['data-kind'], 'warn', 'message kind');
+});
+atest('offline with the profile loaded: the rep is told the company rates are still sending, not left with nothing', async () => {
+  // Second review of #1774: the loaded path awaited the company merge write,
+  // which settles only on the server's ack — no message at all until reconnect.
+  const s = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'c1', companyHangs: true });
+  s.save(); // never settles while offline
+  await flushTimers();
+  eq(s.log.company.length, 1, 'the company write was issued');
+  const pending = s.log.timers.filter((t) => t.ms === 2500);
+  eq(pending.length, 1, '"still sending" timers');
+  eq(s.msg.style.display, undefined, 'nothing shown before the notice is due');
+  pending[0].fn();
+  eq(s.msg.style.display, 'block', 'the message is shown');
+  eq(s.msg.attrs['data-kind'], 'pending', 'message kind');
+  if (!/Still sending/.test(s.msg.textContent) || !/Saved on this device/.test(s.msg.textContent)) throw new Error('message: ' + s.msg.textContent);
+});
+atest('a write that lands after another account signed in reconciles nothing into that account\'s profile or upgrade baseline', async () => {
+  const UPG = { fascia_wrap: { cents: 975, enabled: true } };
+  const s = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'c1', upgChanges: UPG, switchDuringWrite: true });
+  await s.save();
+  eq(s.log.replace.length, 1, 'the full-replace still went to the tenant it was for');
+  eq(s.log.replace[0].ref, 'companyProfile/c1', 'full-replace target');
+  eq(Object.keys(s.win._companyProfile.pricing.customJurisdictions).join(','), 'custom-a', 'the in-memory profile after the switch');
+  eq(s.log.marked, 0, 'upgrade baseline updates');
+  // Control: no switch — the saved rows and upgrade entries are reconciled.
+  const c = loadSave({ loaded: true, county: true, jur: true, loadedKey: 'c1', upgChanges: UPG });
+  await c.save();
+  eq(Object.keys(c.win._companyProfile.pricing.customJurisdictions).join(','), '', 'control: the in-memory profile takes the saved rows');
+  eq(c.log.marked, 1, 'control: upgrade baseline updates');
+});
+
+// _resetEstimateDefaultsV2, real code in a vm.
+function loadReset(state) {
+  const i = BOOT.indexOf('const _resetEstimateDefaultsV2 = async function() {');
+  const end = BOOT.indexOf('\n  };', i);
+  if (i < 0 || end < 0) throw new Error('_resetEstimateDefaultsV2 not found');
+  const raw = BOOT.slice(i, end + 5);
+  const src = raw.replace(FS_IMPORT_RE, '__fsImport()');
+  if (src === raw) throw new Error('harness: no firestore import was rerouted');
+  const log = { replace: [], resets: 0, loads: 0, toasts: [] };
+  const win = {
+    nbdConfirm: () => Promise.resolve(true),
+    EstimateBuilderV2: { getDefaultSettings: () => ({}), saveSettings() {} },
+    _companyProfileLoaded: true,
+    _companyProfile: { pricing: { permits: { 'hamilton-oh': { cost: 303 } }, countyTax: { 'hamilton-oh': 0.073 } } },
+    _db: { name: 'db' }, _user: { uid: 'u1' },
+    _resolveCompanyKey: async () => state.companyKey,
+    _companyProfileLoadedKey: () => (win._companyProfileLoaded === true ? state.loadedKey : null),
+    _resetCompanyProfile: () => { log.resets++; win._companyProfileLoaded = false; },
+  };
+  const ctx = vm.createContext({
+    window: win, console: { warn() {}, log() {} },
+    _loadEstimateDefaultsV2: () => { log.loads++; },
+    showToast: (m, k) => log.toasts.push({ m: String(m), k }),
+    _pricingDenied: () => false,
+    __fsImport: async () => ({
+      doc: (...a) => a.slice(1).join('/'),
+      updateDoc: async (ref, data) => {
+        log.replace.push({ ref, keys: Object.keys(data).sort() });
+        if (state.switchDuringWrite) state.loadedKey = 'cOther';
+      },
+    }),
+  });
+  vm.runInContext(src + '\nwindow.__reset = _resetEstimateDefaultsV2;', ctx);
+  return { reset: () => win.__reset(), log, win };
+}
+const hamPermit = (win) => { const p = win._companyProfile.pricing.permits['hamilton-oh']; return p ? p.cost : null; };
+atest('Reset to Defaults: loaded for another tenant than it would clear — it clears nothing company-wide, forgets that copy, and says so', async () => {
+  // Second review of #1774 (reproduced on the rig): gated on the flag only,
+  // it cleared the NEW company's county rates, then wrote {} into the OLD
+  // company's in-memory copy under a flag still naming it.
+  const r = loadReset({ loadedKey: 'cV', companyKey: 'cX' });
+  await r.reset();
+  eq(r.log.replace.length, 0, 'company-wide county wipes');
+  eq(r.log.resets, 1, 'the other tenant\'s copy is forgotten');
+  eq(hamPermit(r.win), 303, 'the other tenant\'s in-memory permit is not written');
+  eq(r.log.loads, 1, 'the panel repaints (and so asks for this tenant\'s profile)');
+  eq(r.log.toasts[0].k, 'info', 'toast kind');
+  if (!/NOT reset/.test(r.log.toasts[0].m)) throw new Error('toast: ' + r.log.toasts[0].m);
+});
+atest('control: Reset to Defaults loaded for the tenant it clears does clear it', async () => {
+  const r = loadReset({ loadedKey: 'cX', companyKey: 'cX' });
+  await r.reset();
+  eq(r.log.replace.length, 1, 'company-wide county wipes');
+  eq(r.log.replace[0].ref, 'companyProfile/cX', 'wipe target');
+  eq(r.log.replace[0].keys.join(','), 'pricing.countyTax,pricing.fallbackTaxRate,pricing.permits', 'wiped paths');
+  eq(hamPermit(r.win), null, 'this tenant\'s in-memory permits are cleared');
+  eq(r.log.resets, 0, 'nothing forgotten');
+  eq(r.log.toasts[0].k, 'success', 'toast kind');
+});
+atest('Reset to Defaults: a wipe that lands after another account signed in clears nothing in that account\'s memory', async () => {
+  const r = loadReset({ loadedKey: 'cX', companyKey: 'cX', switchDuringWrite: true });
+  await r.reset();
+  eq(r.log.replace.length, 1, 'the wipe went to the tenant it was for');
+  eq(hamPermit(r.win), 303, 'the in-memory profile after the switch');
+});
 atest('offline: the warning shows at once, not when the per-user settings write is finally acked', async () => {
   // PR #1774 review: Save All awaited that setDoc, which settles only on the
   // server's ack, so with no signal the rep saw nothing at all until the
@@ -1207,11 +1459,16 @@ function loadSessionBinder() {
     if (s < 0 || e < 0) throw new Error('not found: ' + head.trim());
     return BOOT.slice(s, e + 4);
   };
-  const log = { resets: 0, leads: 0, analytics: 0 };
+  const log = { resets: 0, leads: 0, analytics: 0, repaints: 0 };
   const win = { _resetCompanyProfile: () => { log.resets++; } };
-  const ctx = vm.createContext({ window: win, _clearAnalyticsCardCaches: () => { log.analytics++; }, _resetLeadsCache: () => { log.leads++; } });
-  vm.runInContext('var _sessionUid; var _jurRowsResolved = true; var _countyInputsResolved = true;', ctx);
-  vm.runInContext(slice('  function _bindCachesToSession(uid) {') + '\n' + slice('  function _forgetEstimatePanelPaint() {'), ctx);
+  const ctx = vm.createContext({
+    window: win, _clearAnalyticsCardCaches: () => { log.analytics++; }, _resetLeadsCache: () => { log.leads++; },
+    // The panel's company half (loadPanel runs the real one).
+    _paintCompanyEstimateInputs: () => { log.repaints++; },
+  });
+  vm.runInContext('var _sessionUid; var _jurRowsResolved = true; var _countyInputsResolved = true;'
+    + ' var _jurRowsKey = "cA"; var _countyInputsKey = "cA"; var _companyInputIds = ["defTaxRate"];', ctx);
+  vm.runInContext(slice('  function _bindCachesToSession(uid) {') + '\n' + slice('  function _forgetEstimatePanelPaint(repaint) {'), ctx);
   return { bind: (uid) => ctx._bindCachesToSession(uid), log, flag: (n) => vm.runInContext(n, ctx) };
 }
 atest('an account change in the tab forgets the company profile and the Estimates panel\'s paint', async () => {
@@ -1225,6 +1482,14 @@ atest('an account change in the tab forgets the company profile and the Estimate
   eq(b.log.leads, 1, 'the leads cache is reset too (unchanged)');
   eq(b.flag('_jurRowsResolved'), false, '_jurRowsResolved after the switch');
   eq(b.flag('_countyInputsResolved'), false, '_countyInputsResolved after the switch');
+  eq(b.flag('_jurRowsKey'), null, 'rows painted for, after the switch');
+  eq(b.flag('_countyInputsKey'), null, 'county inputs painted for, after the switch');
+  // Second review of #1774: the painted panel goes back to its loading
+  // state for the new account (the real repaint is pinned by loadPanel above).
+  eq(b.log.repaints, 1, 'panel repaints on the switch');
+  b.bind(null); // a sign-out: the page leaves for the login screen
+  eq(b.log.resets, 2, 'profile resets on the sign-out');
+  eq(b.log.repaints, 1, 'panel repaints on the sign-out');
 });
 
 // A promise that never settles (e.g. a retry run that is never woken) empties

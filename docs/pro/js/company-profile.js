@@ -633,6 +633,16 @@
     // Resolve the tenant key up front so the cache read/write below is
     // tenant-scoped (no cross-tenant bleed).
     const key = window.db ? await _resolveCompanyKey() : null;
+    // The server copy in memory is ANOTHER tenant's than the one this save
+    // lands on (the account's company changed under this tab; 2026-09-25,
+    // second review of PR #1774). It is forgotten, not relabelled: the build
+    // below then starts from this tenant's cache like any unloaded save —
+    // it used to swap this tenant's cache into memory under a flag that
+    // still named the other one — and this tenant's server copy is asked for.
+    if (key && window._companyProfileLoaded === true && _loadedKey !== null && _loadedKey !== key) {
+      window._resetCompanyProfile();
+      Promise.resolve().then(function () { return window._ensureCompanyProfile(); }).catch(function () { /* the next waiter asks again */ });
+    }
     // Merge onto the EXISTING remote overrides (this tenant's cache, not bare
     // defaults) so a PARTIAL save — e.g. just { pricing } from the Add-on Rates
     // editor — can't clobber unrelated fields (brand / legal / letterhead). This

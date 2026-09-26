@@ -179,6 +179,10 @@ window.addEventListener('pageshow', (event) => {
   }
 });
 
+// The account whose company profile this page last asked for (undefined
+// until the first signed-in auth tick).
+let _profileUid;
+
 // Auth guard
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -191,6 +195,17 @@ onAuthStateChanged(auth, async (user) => {
 
   // CRITICAL: Set global _user for external modules (customer-portal, photo-report, review-engine, profit-tracker)
   window._user = user;
+
+  // A DIFFERENT account signed in over this tab (2026-09-25, second review of
+  // #1774): the company profile was never reset here, so _ensureCompanyProfile
+  // below answered "loaded" with the previous account's company still in
+  // memory — this account's documents carried that company's brand and legal
+  // text, and its customer IDs that company's prefix. Forget it before
+  // anything awaits; the ensure below then reads this account's.
+  if (_profileUid !== undefined && _profileUid !== user.uid && typeof window._resetCompanyProfile === 'function') {
+    try { window._resetCompanyProfile(); } catch (_) { /* best-effort */ }
+  }
+  _profileUid = user.uid;
 
   // window._userClaims is the tenant/role record every team-scoped reader on
   // this page branches on — and NOTHING on customer.html was setting it. Its
