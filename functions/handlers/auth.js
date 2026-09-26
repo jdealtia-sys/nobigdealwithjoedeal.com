@@ -31,6 +31,7 @@ const { getStorage } = require('firebase-admin/storage');
 const { getFirestore } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { FieldValue } = require('firebase-admin/firestore');
+const { findPendingInvite } = require('./invite-lookup');
 
 const {
   CORS_ORIGINS,
@@ -420,24 +421,35 @@ exports.onRepSignup = beforeUserCreated(
 
     let companyId, role;
     try {
-      // Search all companies' member lists for this email
-      // This is a collectionGroup query on 'members' subcollections.
-      const memberSnap = await db.collectionGroup('members')
-        .where('email', '==', email)
-        .where('status', '==', 'invited')
-        .limit(1)
-        .get();
+      // 2026-09-25 (invite-claim path check): same resolver as claimInvite
+      // (handlers/invite-lookup.js). This used to be an inline
+      // collectionGroup('members') query with limit(1) that took the tenant
+      // from ref.parent.parent.id, trusting a `members` doc under ANY parent,
+      // including one a user wrote under their own users/{uid}. Only a doc at
+      // exactly companies/{companyId}/members/{email}, with an issuable role
+      // and an existing company doc, counts now.
+      const lookup = await findPendingInvite(db, email);
+      if (lookup.nonCanonical || lookup.invalid || lookup.orphaned || lookup.truncated) {
+        logger.warn('onRepSignup: dropped member docs that are not invites', {
+          nonCanonical: lookup.nonCanonical, invalid: lookup.invalid,
+          orphaned: lookup.orphaned, truncated: lookup.truncated,
+        });
+      }
 
-      if (memberSnap.empty) {
-        // Not an invited rep — solo operator signup. No claims to set.
-        logger.info('onRepSignup: no matching invite');
+      if (lookup.status !== 'found') {
+        // 'none': not an invited rep, solo operator signup, no claims to set.
+        // 'ambiguous': two companies invited this email. limit(1) used to pick
+        // whichever path sorted first; picking here would stamp a tenant the
+        // rep may not have meant to join. Sign up with no claims instead;
+        // claimInvite at first dashboard load reports ambiguous_invite and
+        // claims once an owner cancels the stray invite. Also 'ambiguous'
+        // when the lookup hit its page cap (truncated, 2026-09-25 fixup).
+        logger.info('onRepSignup: no claimable invite', { status: lookup.status });
         return;
       }
 
-      const memberDoc = memberSnap.docs[0];
-      const memberData = memberDoc.data();
-      // The parent path is companies/{companyId}/members/{email}
-      companyId = memberDoc.ref.parent.parent.id;
+      const memberData = lookup.data || {};
+      companyId = lookup.companyId;
 
       // CRITICAL: hard allowlist. A malicious/compromised company owner
       // could have written `role: 'admin'` into the invite doc in an

@@ -1722,6 +1722,71 @@ async function run() {
       + s34Fail.join('\n    '));
   }
 
+  // 35. USERS/{uid} SUBCOLLECTION WRITES ARE AN ALLOWLIST (2026-09-25,
+  //     invite-claim path check). The /users/{uid}/{subcol}/{docId} wildcard
+  //     granted the owner WRITE on ANY subcollection name. Server handlers
+  //     that find docs with collectionGroup(<name>) match that name under ANY
+  //     parent, so a user-written users/{uid}/members doc was read by
+  //     claimInvite/onRepSignup as a team invite (the handlers now check the
+  //     parent path too: tests/invite-claim-path.integration.test.js). Now the
+  //     wildcard writes only the names the app writes; READ is unchanged.
+  //     Same collect-all shape as 34 so a break-test shows every label a rule
+  //     change moves.
+  const s35Fail = [];
+  let s35Pass = 0;
+  async function x35(label, want, promise) {
+    try {
+      if (want === 'deny') await assertFails(promise); else await assertSucceeds(promise);
+      s35Pass++;
+    } catch (e) {
+      s35Fail.push(label + ' (wanted ' + want + ')');
+    }
+  }
+  const ux = env.authenticatedContext('u35', { email: 'u35@x.test' }).firestore();       // plain signed-in user
+  const ox = env.authenticatedContext('o35', { role: 'sales_rep', companyId: 'co-35' }).firestore();
+  // Seed one doc per server-only name so the read column has something to read.
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    const a = ctx.firestore();
+    await setDoc(doc(a, 'users/u35/notificationLogs/n1'), { title: 'server-written' });
+    await setDoc(doc(a, 'users/u35/members/seeded'), { email: 'seeded@x.test', status: 'invited' });
+  });
+  // ❌ the names server handlers query as a collection group, plus an
+  //    arbitrary one: not writable by the owner, not by a platform admin.
+  for (const name of ['members', 'recordings', 'ai_drafts', 'notificationLogs', 'anything_else']) {
+    await x35('owner create users/{uid}/' + name, 'deny',
+      setDoc(doc(ux, 'users/u35/' + name + '/x@y.test'), { email: 'x@y.test', status: 'invited', role: 'company_admin' }));
+    await x35('platform admin create users/{uid}/' + name, 'deny',
+      setDoc(doc(admin, 'users/u35/' + name + '/adm'), { v: 1 }));
+  }
+  await x35('owner update a seeded users/{uid}/members doc', 'deny',
+    updateDoc(doc(ux, 'users/u35/members/seeded'), { role: 'company_admin' }));
+  await x35('owner delete a seeded users/{uid}/members doc', 'deny',
+    deleteDoc(doc(ux, 'users/u35/members/seeded')));
+  // ✅ every subcollection the app writes under users/{uid} (the allowlist in
+  //    firestore.rules, plus the two explicit template matches), create +
+  //    update + delete, by the owner.
+  for (const s of ['captures/c1', 'ds_meta/streaks', 'ds_pages/p1', 'fcmTokens/t1',
+    'preferences/mobileNav', 'settings/aiPersona', 'jobTemplates/jt1', 'templates/t1']) {
+    await x35('owner create users/{uid}/' + s, 'allow', setDoc(doc(ux, 'users/u35/' + s), { v: 1 }));
+    await x35('owner update users/{uid}/' + s, 'allow', updateDoc(doc(ux, 'users/u35/' + s), { v: 2 }));
+    await x35('owner read users/{uid}/' + s, 'allow', getDoc(doc(ux, 'users/u35/' + s)));
+    await x35('other user write users/{uid}/' + s, 'deny', setDoc(doc(ox, 'users/u35/' + s), { v: 3 }));
+    await x35('other user read users/{uid}/' + s, 'deny', getDoc(doc(ox, 'users/u35/' + s)));
+    await x35('platform admin write users/{uid}/' + s, 'allow', setDoc(doc(admin, 'users/u35/' + s), { v: 4 }));
+    await x35('owner delete users/{uid}/' + s, 'allow', deleteDoc(doc(ux, 'users/u35/' + s)));
+  }
+  // READ is unchanged: the owner (and a platform admin) can still read a
+  // server-written subcollection the allowlist does not name.
+  await x35('owner read users/{uid}/notificationLogs', 'allow', getDoc(doc(ux, 'users/u35/notificationLogs/n1')));
+  await x35('platform admin read users/{uid}/notificationLogs', 'allow', getDoc(doc(admin, 'users/u35/notificationLogs/n1')));
+  await x35('other user read users/{uid}/notificationLogs', 'deny', getDoc(doc(ox, 'users/u35/notificationLogs/n1')));
+
+  console.log('  35: ' + s35Pass + ' users/{uid} subcollection checks passed, ' + s35Fail.length + ' failed');
+  if (s35Fail.length) {
+    throw new Error('35 users/{uid} subcollection allowlist: ' + s35Fail.length + ' check(s) went the wrong way:\n    '
+      + s35Fail.join('\n    '));
+  }
+
   console.log('✓ All firestore rules tests passed');
   await env.cleanup();
 }

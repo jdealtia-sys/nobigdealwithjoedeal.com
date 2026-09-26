@@ -397,7 +397,11 @@ const RUNNABLE = ['node', 'smoke'];
 //               viewer role is read-only client-side, #1776). MEASURED via
 //               --check after rebasing onto 4ede37e7 (#1766); whoever
 //               merges last re-measures.
-const FLOORS = { node: 191, smoke: 68, disk: 280 };
+//   2026-09-25  191/68/280 -> 192/68/282, tests/collection-group-paths.test.js
+//               (node) + tests/invite-claim-path.integration.test.js
+//               (emulator; disk only). MEASURED via --check on dda2597c
+//               (#1776); whoever merges last re-measures.
+const FLOORS = { node: 192, smoke: 68, disk: 282 };
 
 // ── Argument parsing ───────────────────────────────────────────────
 const argv = process.argv.slice(2);

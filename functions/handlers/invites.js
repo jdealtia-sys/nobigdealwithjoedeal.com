@@ -45,6 +45,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { Resend } = require('resend');
 const { CORS_ORIGINS, INVITE_ALLOWED_ROLES, isOwnerCaller, requireTeamAdmin } = require('./_shared');
 const { callableRateLimit } = require('../shared');
+const { findPendingInvite } = require('./invite-lookup');
 // Seat caps live in billing.js PLAN_LIMITS (server source of truth for the
 // plan table; mirrors docs/pro/js/billing-gate.js PLANS).
 const { _test: { PLAN_LIMITS } } = require('../billing');
@@ -105,35 +106,47 @@ exports.claimInvite = onCall(
     // unverified user with no invite gets the cheap terminal 'no_invite'
     // (the dashboard hook stops retrying) instead of an endless
     // email-unverified loop for the 99% with no invite at all.
-    const inviteSnap = await db.collectionGroup('members')
-      .where('email', '==', email)
-      .where('status', '==', 'invited')
-      .limit(2)
-      .get();
-    if (inviteSnap.empty) return { claimed: false, reason: 'no_invite' };
+    //
+    // 2026-09-25 (invite-claim path check): the lookup lives in
+    // handlers/invite-lookup.js, shared with onRepSignup. It used to be an
+    // inline collectionGroup('members') query here that read the tenant off
+    // ref.parent.parent.id, so a `members` doc under ANY parent counted as an
+    // invite, including one a user wrote under their own users/{uid}. Now only
+    // a doc at exactly companies/{companyId}/members/{email}, with an issuable
+    // role and an existing company doc, is an invite; anything else is dropped
+    // before the ambiguity check below. See that file's header.
+    const lookup = await findPendingInvite(db, email);
+    if (lookup.nonCanonical || lookup.invalid || lookup.orphaned || lookup.truncated) {
+      logger.warn('claimInvite: dropped member docs that are not invites', {
+        nonCanonical: lookup.nonCanonical, invalid: lookup.invalid,
+        orphaned: lookup.orphaned, truncated: lookup.truncated,
+      });
+    }
+    if (lookup.status === 'none') return { claimed: false, reason: 'no_invite' };
 
     // Two DIFFERENT companies invited the same email. The collectionGroup has
     // no orderBy, so Firestore orders by __name__ (the full member path) and
-    // limit(1) would silently claim the lexicographically-smallest companyId —
-    // NOT necessarily the tenant the rep meant to join. That is a cross-tenant
-    // mis-claim (wrong-tenant data leak) AND a permanent lockout: once the
-    // wrong companyId is on the token, the `token.companyId !== uid` guard above
-    // rejects every retry. Refuse instead; the owners resolve the collision
-    // (cancel the stray invite) and the rep re-checks. Non-terminal client-side
-    // so it self-heals. (Doc id == email, so >1 result always means >1 company.)
-    if (inviteSnap.size > 1) {
-      const companies = new Set(inviteSnap.docs.map((d) => d.ref.parent.parent.id));
-      if (companies.size > 1) {
-        logger.warn('claimInvite: ambiguous cross-tenant invite — refusing', {
-          email, companies: Array.from(companies),
-        });
-        return { claimed: false, reason: 'ambiguous_invite' };
-      }
+    // taking the first hit would silently claim the lexicographically-smallest
+    // companyId — NOT necessarily the tenant the rep meant to join. That is a
+    // cross-tenant mis-claim (wrong-tenant data leak) AND a permanent lockout:
+    // once the wrong companyId is on the token, the `token.companyId !== uid`
+    // guard above rejects every retry. Refuse instead; the owners resolve the
+    // collision (cancel the stray invite) and the rep re-checks. Non-terminal
+    // client-side so it self-heals. findPendingInvite counts companies only
+    // over REAL invites, so a stray doc can no longer trigger this. It also
+    // answers 'ambiguous' (truncated: true) when its scan hit the page cap
+    // (2026-09-25 review fixup): past the cap it cannot tell which invite,
+    // or whether a second one exists.
+    if (lookup.status === 'ambiguous') {
+      logger.warn('claimInvite: ambiguous cross-tenant invite — refusing', {
+        email, companies: lookup.companyIds, truncated: lookup.truncated,
+      });
+      return { claimed: false, reason: 'ambiguous_invite' };
     }
 
-    const memberDoc = inviteSnap.docs[0];
-    const memberData = memberDoc.data() || {};
-    const companyId = memberDoc.ref.parent.parent.id;
+    const memberRef = lookup.ref;
+    const memberData = lookup.data || {};
+    const companyId = lookup.companyId;
 
     // Invite expiry (gauntlet batch 2 — product decision 2026-07-16:
     // 30 days). An expired invite is claimable no more; the owner's
@@ -176,8 +189,8 @@ exports.claimInvite = onCall(
       logger.warn('claimInvite: invite role outside allowlist', { companyId, requested: memberData.role });
     }
 
-    const companySnap = await db.doc(`companies/${companyId}`).get();
-    const companyName = (companySnap.exists && (companySnap.data() || {}).name) || '';
+    // findPendingInvite already read (and required) the company doc.
+    const companyName = (lookup.company && lookup.company.name) || '';
 
     // Only companyId + role. Deliberately NO `plan` claim: post-Pillar-4
     // billing resolves from subscriptions/{companyId}, so a rep inherits the
@@ -189,7 +202,7 @@ exports.claimInvite = onCall(
     await mergeCustomClaims(uid, { companyId, role });
 
     const batch = db.batch();
-    batch.update(memberDoc.ref, {
+    batch.update(memberRef, {
       status: 'active',
       uid,
       activatedAt: FieldValue.serverTimestamp(),

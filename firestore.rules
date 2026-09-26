@@ -1083,11 +1083,11 @@ service cloud.firestore {
       // the single '_usage' rollup doc) at users/{uid}/jobTemplates/{tplId}
       // and hydrates them back at boot; users/{uid}/templates/{tplId} held
       // the retired NBDTemplateSuite mirror (#1017) — kept writable so any
-      // legacy docs stay readable. The generic /{subcol}/{docId}
-      // wildcard below already grants owner access — these explicit
-      // matches PIN the sync contract (covered by
-      // tests/firestore-rules.test.js §29) so a future tightening of the
-      // wildcard can't silently kill template sync again.
+      // legacy docs stay readable. These explicit matches PIN the sync
+      // contract (covered by tests/firestore-rules.test.js §29). Since
+      // 2026-09-25 the /{subcol}/{docId} wildcard below grants WRITE only to
+      // an allowlist that does not repeat these two names, so these matches
+      // are now the only write grant template sync has.
       match /jobTemplates/{tplId} {
         allow read, write: if isOwner(uid) || isAdmin();
       }
@@ -1095,8 +1095,34 @@ service cloud.firestore {
         allow read, write: if isOwner(uid) || isAdmin();
       }
 
+      // 2026-09-25 (invite-claim path check): WRITE is an allowlist of the
+      // subcollection names the app writes; READ is unchanged. This wildcard
+      // used to grant write on ANY name under the caller's own uid. Several
+      // server handlers find docs with collectionGroup(<name>), which matches
+      // that name under ANY parent: claimInvite + onRepSignup ('members'), the
+      // recording retention cron + adjuster board ('recordings'), AI texting
+      // stats ('ai_drafts'). A doc written here under one of those names was
+      // read as if the server had written it; for 'members' that meant it was
+      // accepted as a team invite. The handlers now also check the parent
+      // path themselves (functions/collection-group-paths.js). The list below
+      // is every client write under users/{uid}/..., grepped across docs/ and
+      // functions/ on 2026-09-25:
+      //   captures     quick-capture.js, quick-capture-inbox.js, talk-tank.js
+      //   ds_meta      daily-success/ds-firebase-sync.js (streaks doc)
+      //   ds_pages     daily-success/ds-firebase-sync.js
+      //   fcmTokens    push-registration.js
+      //   preferences  mobile-nav-customizer.js
+      //   settings     ai-texting-persona.js (aiPersona)
+      // jobTemplates + templates keep their explicit matches above.
+      // notificationLogs is written by the admin SDK only and needs no rule.
+      // A NEW client-written subcollection must be added here or its writes
+      // are denied; tests/firestore-rules.test.js section 35 pins the list.
+      function userWritableSubcollection(name) {
+        return name in ['captures', 'ds_meta', 'ds_pages', 'fcmTokens', 'preferences', 'settings'];
+      }
       match /{subcol}/{docId} {
-        allow read, write: if isOwner(uid) || isAdmin();
+        allow read: if isOwner(uid) || isAdmin();
+        allow write: if (isOwner(uid) || isAdmin()) && userWritableSubcollection(subcol);
       }
     }
 

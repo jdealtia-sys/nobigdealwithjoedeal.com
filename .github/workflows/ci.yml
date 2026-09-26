@@ -387,6 +387,13 @@ jobs:
         run: |
           cd tests
           firebase emulators:exec --only auth,firestore --project nbd-test-leadlifecycle 'node ./lead-lifecycle.test.js'
+      # claimInvite + onRepSignup accept only a real companies/{id}/members
+      # invite (2026-09-25): both run in-process against these emulators, so
+      # this job's functions deps are all it needs (no functions emulator).
+      - name: Run invite-claim path-check tests under auth+firestore emulator
+        run: |
+          cd tests
+          firebase emulators:exec --only auth,firestore --project demo-nbd-invite 'node ./invite-claim-path.integration.test.js'
 
   syntax-check:
     name: Node syntax check

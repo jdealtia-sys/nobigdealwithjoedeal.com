@@ -35,6 +35,7 @@ const { FieldValue } = require('firebase-admin/firestore');
 const { getSecret, hasSecret, PROVIDERS, SECRETS } = require('./_shared');
 const { isVoiceIntelDisabled } = require('./killswitch');
 const prompts = require('../voice-prompts');
+const { matchDocPath } = require('../collection-group-paths');
 
 // Claude analysis + consent check reuse the existing Anthropic key.
 const ANTHROPIC_API_KEY_FOR_VOICE = defineSecret('ANTHROPIC_API_KEY');
@@ -80,6 +81,22 @@ function parseAudioPath(fullPath) {
   );
   if (!m) return null;
   return { uid: m[1], leadId: m[2], recordingId: m[3], ext: m[4].toLowerCase() };
+}
+
+// The Storage object the retention cron may delete for a recording doc, or
+// null. 2026-09-25: the cron finds docs with collectionGroup('recordings'),
+// which matches that collection name under ANY parent, and used to delete
+// whatever audioPath the doc named. processRecording only ever writes
+// leads/{leadId}/recordings/{recordingId} with audioPath
+// audio/{uid}/{leadId}/{recordingId}.ext, so require exactly that pairing:
+// a doc anywhere else, or one naming another recording's audio, deletes
+// nothing from Storage.
+function retentionAudioPathFor(docPath, audioPath) {
+  const at = matchDocPath('leads/{leadId}/recordings/{recordingId}', docPath);
+  const audio = parseAudioPath(audioPath);
+  if (!at || !audio) return null;
+  if (audio.leadId !== at.leadId || audio.recordingId !== at.recordingId) return null;
+  return audioPath;
 }
 
 // getCompanyContext: resolve the caller's companyId + plan tier +
@@ -895,9 +912,17 @@ exports.recordingRetentionCron = onSchedule(
           // steps the orphaned doc can still be cleaned up next run;
           // losing the audio without losing the doc pointer leaves
           // the UI showing a broken "play" button indefinitely.
-          if (rec.audioPath) {
-            try { await bucket.file(rec.audioPath).delete({ ignoreNotFound: true }); }
-            catch (e) { logger.warn('retention: audio delete failed', { path: rec.audioPath, err: e.message }); }
+          // 2026-09-25 (invite-claim path check, same class): this query is a
+          // collectionGroup('recordings') scan, which matches a `recordings`
+          // collection under ANY parent, and the Storage object it deletes is
+          // named by the doc's own audioPath field. Only delete when the doc
+          // sits where processRecording writes it and names its own audio.
+          const audioPath = retentionAudioPathFor(d.ref.path, rec.audioPath);
+          if (audioPath) {
+            try { await bucket.file(audioPath).delete({ ignoreNotFound: true }); }
+            catch (e) { logger.warn('retention: audio delete failed', { path: audioPath, err: e.message }); }
+          } else if (rec.audioPath) {
+            logger.warn('retention: audio kept, doc path and audioPath do not match', { doc: d.ref.path });
           }
           await d.ref.delete();
           hardDeleted++;
@@ -918,6 +943,7 @@ exports.recordingRetentionCron = onSchedule(
 module.exports = Object.assign(module.exports, {
   // Helpers exported for unit testing:
   _parseAudioPath: parseAudioPath,
+  _retentionAudioPathFor: retentionAudioPathFor,
   _getCompanyContext: getCompanyContext,
   _checkBudget: checkBudget,
   _incrementVoiceUsage: incrementVoiceUsage,

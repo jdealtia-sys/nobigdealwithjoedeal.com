@@ -1761,8 +1761,12 @@ section('C5: Voice Intel retention cron + monitoring + feature flag');
     /HARD_DELETE_GRACE_DAYS = 30/.test(src));
   assert('C5: per-company recordingRetentionDays override (bounded 7-3650)',
     /recordingRetentionDays[\s\S]{0,400}d >= 7 && d <= 3650/.test(src));
+  // 2026-09-25: the deleted object is the path-checked audioPath from
+  // retentionAudioPathFor (a collectionGroup hit outside
+  // leads/{id}/recordings, or naming another recording's audio, deletes no
+  // Storage object); behaviour is pinned in tests/collection-group-paths.test.js.
   assert('C5: hard-delete removes Storage payload BEFORE deleting Firestore doc',
-    /bucket\.file\(rec\.audioPath\)\.delete[\s\S]{0,200}d\.ref\.delete\(\)/.test(src));
+    /const audioPath = retentionAudioPathFor\(d\.ref\.path, rec\.audioPath\)[\s\S]{0,120}bucket\.file\(audioPath\)\.delete[\s\S]{0,400}d\.ref\.delete\(\)/.test(src));
   assert('C5: hard-delete tolerates missing Storage files (ignoreNotFound)',
     /ignoreNotFound: true/.test(src));
 

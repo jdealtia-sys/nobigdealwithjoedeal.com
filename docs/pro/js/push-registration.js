@@ -12,7 +12,8 @@
  *   2. Mints an FCM token via getToken({ vapidKey }).
  *   3. Persists it to users/{uid}/fcmTokens/{sha256(token)} — the exact shape
  *      getUserFCMTokens() reads ({ token, lastActive }). The owner-write is
- *      already permitted by the users/{uid}/{subcol} catch-all rule.
+ *      permitted by the users/{uid}/{subcol} rule; since 2026-09-25 that
+ *      rule's WRITE is an allowlist of names and fcmTokens is on it.
  *   4. Wires a foreground onMessage handler (toast while the tab is open).
  *
  * Config: the VAPID key lives in dashboard-fcm-config.js
