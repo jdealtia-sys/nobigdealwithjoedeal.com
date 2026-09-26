@@ -164,14 +164,29 @@ console.log('\nInvite lifecycle — past_due entitlement + invitee email link');
 console.log('\nInvite/claim hardening (Phase-3 QA sweep)');
 {
   const src = read('functions/handlers/invites.js');
-  // Cross-tenant ambiguous claim: limit(2) + refuse when two companies match,
-  // instead of limit(1) silently claiming the smallest-path companyId.
-  assert('claimInvite looks up with limit(2), not limit(1)',
-    /collectionGroup\('members'\)[\s\S]{0,160}\.limit\(2\)/.test(src)
-    && !/\.limit\(1\)\s*\n\s*\.get\(\);\s*\n\s*if \(inviteSnap\.empty\)/.test(src),
+  // Cross-tenant ambiguous claim: read more than one hit + refuse when two
+  // companies match, instead of limit(1) silently claiming the smallest-path
+  // companyId. 2026-09-25: the lookup moved to functions/handlers/invite-lookup.js
+  // (shared with onRepSignup), which drops docs that are not real invites
+  // BEFORE counting companies and reads a page of INVITE_SCAN_LIMIT so the
+  // dropped ones cannot use up the page. The behaviour is exercised against
+  // the emulator in tests/invite-claim-path.integration.test.js; these pin
+  // the wiring.
+  const lookupSrc = read('functions/handlers/invite-lookup.js');
+  const { INVITE_SCAN_LIMIT } = require(path.join(ROOT, 'functions/handlers/invite-lookup.js'));
+  assert('invite lookup reads a multi-hit page, not limit(1)',
+    /collectionGroup\('members'\)[\s\S]{0,160}\.limit\(INVITE_SCAN_LIMIT\)/.test(lookupSrc)
+    && INVITE_SCAN_LIMIT >= 2,
     'limit(1) silently claims the lexicographically-smallest companyId on a same-email collision');
+  // Comments stripped for the absence check: invites.js explains the old
+  // inline query by quoting it.
+  const invCode = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/mg, '');
+  assert('claimInvite resolves its invite through findPendingInvite, not its own query',
+    /await findPendingInvite\(db, email\)/.test(invCode) && !/collectionGroup\(/.test(invCode),
+    'a second inline query would bring back the parent-path trust the shared lookup removes');
   assert('claimInvite refuses an ambiguous cross-tenant invite',
-    /companies\.size > 1[\s\S]{0,200}reason: 'ambiguous_invite'/.test(src),
+    /tenantIds\.length > 1\) return Object\.assign\(base, \{ status: 'ambiguous'/.test(lookupSrc)
+    && /lookup\.status === 'ambiguous'[\s\S]{0,200}reason: 'ambiguous_invite'/.test(src),
     'two tenants inviting the same email must not silently claim one — cross-tenant leak + lockout');
   // Email-verify wall reads the authoritative Auth record, not just the token,
   // so a just-verified rep with a stale ID token is not stranded.

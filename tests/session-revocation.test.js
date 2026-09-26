@@ -126,6 +126,11 @@ function loadRevokeHandler(opts) {
       isOwnerCaller: () => false, _generateE2EPassword: () => 'pw', INVITE_ALLOWED_ROLES: [],
     },
     '../shared': { callableRateLimit: async () => {} },
+    // 2026-09-25: onRepSignup's invite lookup moved into its own module.
+    // Not exercised here; present so loading auth.js resolves every require.
+    './invite-lookup': {
+      findPendingInvite: async () => { throw new Error('findPendingInvite is not under test here'); },
+    },
     '../rate-limit-policy': {
       guardCallable: (name, handler) => { calls.guard.push(name); return handler; },
     },

@@ -200,7 +200,8 @@
     "upgrade-price-settings.test.js",
     "upgrades-builder-card.test.js",
     "deposit-rule.test.js",
-    "role-gate.test.js"
+    "role-gate.test.js",
+    "collection-group-paths.test.js"
   ],
   "smoke": {
     "team-roles.test.js": [
@@ -706,6 +707,7 @@
   },
   "emulator": {
     "auth-access.test.js": "test:authaccess",
+    "invite-claim-path.integration.test.js": "test:invitepath",
     "lead-lifecycle.test.js": "test:leadlifecycle",
     "portal-token.test.js": "test:portal",
     "rate-limit.test.js": "test:ratelimit"
