@@ -4755,8 +4755,14 @@ section('Globals Tranche 2c: __NBD_CALL_REGISTRY dispatch layer');
     /STAGE_ROLE:\s*ROLE\b/.test(bootReg) && !/window\.STAGE_ROLE\s*=/.test(bootReg));
   assert('applyPipelineConfig is a real named function declaration now, not window.X = function applyPipelineConfig()',
     /^  function applyPipelineConfig\(\) \{/m.test(bootReg));
-  assert('applyPipelineConfig\'s in-module self-reference (the profile-load callback) reads the bare declaration, not window',
-    /\.then\(\(\) => \{ applyPipelineConfig\(\); \}\)/.test(bootReg) && !/window\.applyPipelineConfig\(/.test(bootReg));
+  // 2026-09-25 (lane profretry): a landing applies the config through the
+  // 'nbd:company-profile-loaded' listener (boot read, its retry, or
+  // company-profile.js starting the read itself); the boot callback applies
+  // the cached config only when its read failed.
+  assert('applyPipelineConfig\'s in-module self-references (profile-landed listener + failed-boot-read callback) read the bare declaration, not window',
+    /window\.addEventListener\('nbd:company-profile-loaded', \(\) => \{ applyPipelineConfig\(\); \}\);/.test(bootReg)
+    && /if \(window\._companyProfileLoaded === true\) return;\s*applyPipelineConfig\(\);/.test(bootReg)
+    && !/window\.applyPipelineConfig\(/.test(bootReg));
   assert('pipeline-builder.js\'s ROLES() reads STAGE_ROLE off the registry, not bare window',
     /_nbdReg\.STAGE_ROLE\)/.test(pipelineBuilderSrc));
   assert('pipeline-builder.js\'s resolved() reads resolvePipelineConfig off the registry, not bare window',

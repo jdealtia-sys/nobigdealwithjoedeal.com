@@ -226,10 +226,14 @@
       // Upgrades card (job-templates.js applyUpgrades) and V2's reopen of an
       // upgraded estimate (estimate-v2-ui.js) read NBDUpgrades at CALL time
       // only, so their place after both in this list is safe (stage 2 card).
+      // 2026-09-25 (PR #1774, company-profile boot retry): the settings
+      // panel repaints on its tenant's landing and checks its save's key —
+      // v1 -> 3 (#1776 had already shipped its own edit as v2), and this
+      // file's own ?v 11 -> 12 in dashboard.html + customer.html.
       'css/upgrade-price-settings.css?v=1',
       'js/upgrade-library.js?v=1',
       'js/upgrade-pricing.js?v=2',
-      'js/upgrade-price-settings.js?v=2'
+      'js/upgrade-price-settings.js?v=3'
     ],
     // Photo + inspection engine (PR 2d). Camera capture / gallery / lightbox /
     // bulk-analyze (photo-engine), the photo-report doc (photo-report), and the

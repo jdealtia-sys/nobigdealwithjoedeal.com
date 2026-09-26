@@ -783,10 +783,14 @@ section('Custom jurisdictions: per-tenant rows reach both pickers + the engine (
   // Review follow-ups (2026-07-29): a pre-hydration empty render must never
   // be persisted as a tenant-wide wipe, and the full-replace must target the
   // same doc key as _saveCompanyProfile.
+  // 2026-09-25 (lane profretry): the rows must also have been PAINTED from
+  // the hydrated profile (jurReady), not merely hydrated by save time — and
+  // (second review of #1774) painted for the tenant the save writes to.
   assert('jurisdiction render/save gate on companyProfile hydration (wipe-race fix)',
     /window\._companyProfileLoaded === true/.test(bootSrc)
     && /window\._companyProfileLoaded = true/.test(read(path.join(PRO_JS, 'company-profile.js')))
-    && /profileReady \? _collectJurisdictionRows\(\) : null/.test(bootSrc));
+    && /const jurReady = profileReady && _jurRowsResolved && paintedHere\(_jurRowsKey\);/.test(bootSrc)
+    && /jurReady \? _collectJurisdictionRows\(\) : null/.test(bootSrc));
   assert('full-replace resolves the company key via the shared resolver',
     /window\._resolveCompanyKey/.test(bootSrc)
     && /window\._resolveCompanyKey = _resolveCompanyKey/.test(read(path.join(PRO_JS, 'company-profile.js'))));

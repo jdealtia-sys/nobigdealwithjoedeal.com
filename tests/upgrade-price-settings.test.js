@@ -67,6 +67,10 @@ function boot() {
     clear: () => { Object.keys(store).forEach((k) => { delete store[k]; }); },
   };
   win.localStorage = ls;
+  // Event listeners the modules register on window, so a test can announce a
+  // company-profile landing ('nbd:company-profile-loaded').
+  win.__listeners = {};
+  win.addEventListener = (t, f) => { (win.__listeners[t] = win.__listeners[t] || []).push(f); };
   const sb = {
     window: win, localStorage: ls,
     console: { log() {}, warn() {}, error() {}, info() {}, debug() {} },
@@ -400,6 +404,214 @@ test('collect() hands both saves only this device\'s edits, and markSaved stops 
   }
 });
 
+test('a panel painted for another account\'s company is never saved — by Save All or by its own Save', () => {
+  // PR #1774 review: after an account switch in the same tab the panel still
+  // reads "ready" with the previous account's rows and edits, while the
+  // company profile was reset under it; its own Save (or Save All) wrote those
+  // edits to the new account's company.
+  const rows = LIB.items.map((it) => fakeRow(it.id, { priceText: '', enabled: true, installerName: '' }));
+  const attrs = { 'data-state': 'ready', 'data-editable': '1' };
+  const host = {
+    getAttribute: (a) => (a in attrs ? attrs[a] : null), setAttribute: (a, v) => { attrs[a] = String(v); },
+    querySelectorAll: () => rows, appendChild() {}, addEventListener() {}, set textContent(v) { /* the loading line */ },
+  };
+  const msg = { textContent: '', hidden: true, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } };
+  const doc = win.document;
+  const realGet = doc.getElementById;
+  const realCreate = doc.createElement;
+  // Just enough DOM for render() to build its rows: attributes, children, and
+  // querySelector('[data-attr]') over the subtree.
+  const mkEl = () => {
+    const at = {};
+    const kids = [];
+    const n = {
+      style: {}, classList: { add() {}, remove() {}, toggle() {} },
+      getAttribute: (a) => (a in at ? at[a] : null), setAttribute: (a, v) => { at[a] = String(v); },
+      removeAttribute: (a) => { delete at[a]; }, hasAttribute: (a) => a in at,
+      appendChild: (c) => { kids.push(c); return c; }, addEventListener() {},
+      querySelector: (sel) => {
+        const want = /^\[([\w-]+)\]$/.exec(sel);
+        const walk = (list) => {
+          for (const k of list) {
+            if (want && k.hasAttribute && k.hasAttribute(want[1])) return k;
+            const hit = k.__kids ? walk(k.__kids) : null;
+            if (hit) return hit;
+          }
+          return null;
+        };
+        return walk(kids);
+      },
+      __kids: kids,
+    };
+    return n;
+  };
+  doc.getElementById = (id) => (id === 'upgPriceRows' ? host : id === 'upgPriceMsg' ? msg : null);
+  doc.createElement = mkEl;
+  const writes = [];
+  win._saveCompanyProfile = async (o) => { writes.push(o); };
+  try {
+    // Control: painted from account A's company (key cA), still loaded for cA.
+    win._companyProfileLoaded = true;
+    win._companyProfileLoadedKey = () => 'cA';
+    win._companyProfile = { pricing: {} };
+    win._user = { uid: 'uA' };
+    win._userClaims = {};
+    S.render();
+    eq(attrs['data-state'], 'ready', 'painted');
+    rows.find((r) => r.getAttribute('data-upg-id') === 'fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    eq(JSON.stringify((S.collect() || {}).changes), '{"fascia_wrap":{"cents":975,"enabled":true}}', 'control: the same tenant publishes the edit');
+    // The account switches: company-profile.js now names B's company (its
+    // read landed), or nothing (reset, B's read still out).
+    win._companyProfileLoadedKey = () => 'cB';
+    eq(S.collect(), null, 'collect() for Save All: nothing to publish');
+    win._companyProfileLoaded = false;
+    win._companyProfileLoadedKey = () => null; // reset, the new account's read still out
+    eq(S.collect(), null, 'collect() while the new account\'s profile is loading');
+    // Its own Save refuses before its first await, so all of it shows now.
+    S.save();
+    eq(writes.length, 0, 'company writes');
+    eq(attrs['data-state'], 'loading', 'the panel goes back to its loading line');
+    truthy(/still loading/.test(msg.textContent) && /Nothing was saved/.test(msg.textContent), 'the rep is told: ' + msg.textContent);
+  } finally {
+    doc.getElementById = realGet;
+    doc.createElement = realCreate;
+    delete win._companyProfileLoadedKey;
+    delete win._companyProfileLoaded;
+    delete win._saveCompanyProfile;
+    delete win._companyProfile;
+    delete win._user;
+    delete win._userClaims;
+    S.markSaved(S.savedEntries(null));
+  }
+});
+
+// Second review of #1774: the panel's key check compared the paint with the
+// profile in memory only. The same account's company can change under the
+// tab (claims) before anything re-reads it — its own Save then wrote edits
+// made over one company's prices to the other — and a re-read that loaded
+// the new company left the old one's rows up, saying nothing.
+const pendingAsync = [];
+function atest(name, fn) { pendingAsync.push([name, fn]); }
+// A painted panel over stub DOM (the same shape as the test above), with the
+// window hooks company-profile.js provides. Call restore() when done.
+function paintedPanel(opts) {
+  const rows = LIB.items.map((it) => fakeRow(it.id, { priceText: '', enabled: true, installerName: '' }));
+  const attrs = {};
+  const st = { key: opts.loadedKey, resolved: opts.resolvedKey, clears: 0, resets: 0, writes: [] };
+  const host = {
+    getAttribute: (a) => (a in attrs ? attrs[a] : null), setAttribute: (a, v) => { attrs[a] = String(v); },
+    querySelectorAll: () => rows, appendChild() {}, addEventListener() {},
+    set textContent(v) { st.clears++; },
+  };
+  const msg = { textContent: '', hidden: true, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } };
+  const doc = win.document;
+  const realGet = doc.getElementById;
+  const realCreate = doc.createElement;
+  const mkEl = () => {
+    const at = {};
+    const kids = [];
+    return {
+      style: {}, classList: { add() {}, remove() {}, toggle() {} },
+      getAttribute: (a) => (a in at ? at[a] : null), setAttribute: (a, v) => { at[a] = String(v); },
+      removeAttribute: (a) => { delete at[a]; }, hasAttribute: (a) => a in at,
+      appendChild: (c) => { kids.push(c); return c; }, addEventListener() {},
+      querySelector: () => null, __kids: kids,
+    };
+  };
+  doc.getElementById = (id) => (id === 'upgPriceRows' ? host : id === 'upgPriceMsg' ? msg : null);
+  doc.createElement = mkEl;
+  win._companyProfileLoaded = true;
+  win._companyProfileLoadedKey = () => (win._companyProfileLoaded === true ? st.key : null);
+  win._resolveCompanyKey = async () => st.resolved;
+  win._resetCompanyProfile = () => { st.resets++; win._companyProfileLoaded = false; };
+  win._saveCompanyProfile = async (o) => { st.writes.push(o); };
+  win._companyProfile = { pricing: {} };
+  win._user = { uid: 'uA' };
+  win._userClaims = {};
+  S.render();
+  return {
+    st, attrs, msg,
+    row: (id) => rows.find((r) => r.getAttribute('data-upg-id') === id),
+    land: () => (win.__listeners['nbd:company-profile-loaded'] || []).forEach((f) => f()),
+    restore: () => {
+      doc.getElementById = realGet;
+      doc.createElement = realCreate;
+      ['_companyProfileLoadedKey', '_companyProfileLoaded', '_resolveCompanyKey', '_resetCompanyProfile', '_saveCompanyProfile', '_companyProfile', '_user', '_userClaims']
+        .forEach((k) => { delete win[k]; });
+      S.markSaved(S.savedEntries(null));
+    },
+  };
+}
+
+atest('its own Save refuses when the company it would write to is not the one the rows were painted for', async () => {
+  const p = paintedPanel({ loadedKey: 'cV', resolvedKey: 'cX' }); // claims changed; nothing re-read yet
+  try {
+    eq(p.attrs['data-state'], 'ready', 'painted');
+    p.row('fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    const r = await S.save();
+    eq(r.ok, false, 'saved');
+    eq(r.reason, 'loading', 'reason');
+    eq(p.st.writes.length, 0, 'company writes');
+    eq(p.st.resets, 1, 'the other company\'s profile in memory is forgotten');
+    eq(p.attrs['data-state'], 'loading', 'the panel goes back to its loading line');
+    truthy(/Nothing was saved/.test(p.msg.textContent), 'the rep is told: ' + p.msg.textContent);
+  } finally { p.restore(); }
+  // Control: the company it writes to IS the one painted.
+  const c = paintedPanel({ loadedKey: 'cX', resolvedKey: 'cX' });
+  try {
+    c.row('fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    const r = await S.save();
+    eq(r.ok, true, 'control: saved');
+    eq(JSON.stringify(c.st.writes[0].pricing.upgradePrices), '{"fascia_wrap":{"cents":975,"enabled":true}}', 'control: the edit is written');
+    eq(c.st.resets, 0, 'control: nothing forgotten');
+  } finally { c.restore(); }
+});
+
+atest('another company\'s profile landing repaints rows painted for the old one, and says so when it drops typing', async () => {
+  const p = paintedPanel({ loadedKey: 'cV', resolvedKey: 'cX' });
+  try {
+    p.row('fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    const before = p.st.clears;
+    p.land(); // a landing for the company already painted: never over typing
+    eq(p.st.clears, before, 'repaints on a landing for the painted company');
+    eq(p.msg.textContent, '', 'message');
+    p.st.key = 'cX'; // a re-read loaded the new company…
+    p.land(); // …and announced it
+    eq(p.st.clears, before + 1, 'repaints on the new company\'s landing');
+    eq(p.attrs['data-state'], 'ready', 'painted again');
+    truthy(S.collect() !== null, 'the repainted panel is saveable for the new company');
+    truthy(/just loaded and replaced the changes/.test(p.msg.textContent), 'the rep is told: ' + p.msg.textContent);
+  } finally { p.restore(); }
+  // The Estimates panel's own landing repaint usually runs first (its listener
+  // registers at boot, this lazy module's later) and calls render() itself:
+  // the notice must come from that repaint too.
+  const d = paintedPanel({ loadedKey: 'cV', resolvedKey: 'cX' });
+  try {
+    d.row('fascia_wrap').nodes['[data-upg-price]'].value = '9.75';
+    d.st.key = 'cX';
+    S.render(); // _paintCompanyEstimateInputs → NBDUpgradePriceSettings.render()
+    truthy(/just loaded and replaced the changes/.test(d.msg.textContent), 'the rep is told by the panel\'s repaint: ' + d.msg.textContent);
+    const before = d.st.clears;
+    d.land(); // this module's listener, second: nothing left to repaint
+    eq(d.st.clears, before, 'repaints by the second listener');
+    // Control: an ordinary repaint for the same company (the tab reopened)
+    // is not reported as a replacement.
+    d.msg.textContent = '';
+    d.row('fascia_wrap').nodes['[data-upg-price]'].value = '8.00';
+    S.render();
+    eq(d.msg.textContent, '', 'no notice on a same-company repaint');
+  } finally { d.restore(); }
+  // No typing: repainted just the same, without the notice.
+  const q = paintedPanel({ loadedKey: 'cV', resolvedKey: 'cX' });
+  try {
+    const before = q.st.clears;
+    q.st.key = 'cX';
+    q.land();
+    eq(q.st.clears, before + 1, 'repaints');
+    eq(q.msg.textContent, '', 'no notice when nothing was typed');
+  } finally { q.restore(); }
+});
+
 // ═════════════════════════════════════════════════════════════════════════
 console.log('\n4. round-trip — typed dollars reach the quote and the paper, to the cent');
 console.log('──────────────────────────────────────────────────');
@@ -589,5 +801,22 @@ test('the gate matches firestore.rules cpCanWrite, not a guess', () => {
   eq(body, 'isAdmin() || (companyId == request.auth.uid && notViewer()) || (isCompanyAdmin() && companyId == myCompanyId())', 'rule body (update canEdit if this changes)');
 });
 
-console.log('\n' + passed + ' passed, ' + failed + ' failed');
-process.exit(failed ? 1 : 0);
+// The async tests (section 3's tenant checks) run last, one at a time: each
+// swaps the shared window hooks in and back out.
+let asyncDone = false;
+process.on('beforeExit', () => {
+  if (asyncDone) return;
+  console.log('  ✗ an async test never settled (a promise hung) — failing the suite');
+  process.exit(1);
+});
+(async () => {
+  console.log('\n3b. panel tenant checks (async)');
+  console.log('──────────────────────────────────────────────────');
+  for (const [name, fn] of pendingAsync) {
+    try { await fn(); console.log('  ✓ ' + name); passed++; }
+    catch (e) { console.log('  ✗ ' + name + ' — ' + e.message); failed++; }
+  }
+  asyncDone = true;
+  console.log('\n' + passed + ' passed, ' + failed + ' failed');
+  process.exit(failed ? 1 : 0);
+})();
