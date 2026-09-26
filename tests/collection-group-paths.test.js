@@ -49,6 +49,8 @@ console.log('\nmatchDocPath — exact shape only');
   ok('nested deeper under a company → null', matchDocPath(T, 'companies/c1/teams/t1/members/a@b.co') === null);
   ok('right parent, wrong collection name → null', matchDocPath(T, 'companies/c1/member/a@b.co') === null);
   ok('too short → null', matchDocPath(T, 'companies/c1/members') === null);
+  ok('longer path whose first four segments match → null',
+    matchDocPath(T, 'companies/c1/members/a@b.co/members/a@b.co') === null);
   ok('empty segment → null', matchDocPath(T, 'companies//members/a@b.co') === null);
   ok('leading slash is not the relative path shape → null', matchDocPath(T, '/companies/c1/members/a@b.co') === null);
   ok('non-string path → null', matchDocPath(T, null) === null && matchDocPath(T, undefined) === null);

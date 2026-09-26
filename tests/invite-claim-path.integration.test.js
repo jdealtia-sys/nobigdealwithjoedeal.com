@@ -117,7 +117,10 @@ async function run() {
   // ── 1. A members doc under users/{uid} is not an invite ─────────────────
   section('1. a users/{uid}/members doc is ignored');
   {
-    const writer = await makeUser('writer');
+    // The writer is an ordinary self-serve account WITH its own
+    // companies/{uid} doc (createCompany gives every signup one), so the
+    // company-exists check cannot be what stops this; the path check must.
+    const writer = { uid: await makeCompany('writer') };
     const victim = await makeUser('victim');
     const stray = `users/${writer.uid}/members/${victim.email}`;
     await db.doc(stray).set(inviteDoc(victim.email, 'company_admin', writer.uid));
@@ -174,7 +177,7 @@ async function run() {
   section('3. a stray doc alongside a real invite: real one claims, no ambiguous_invite');
   {
     const co = await makeCompany('owner3');
-    const writer = await makeUser('writer3');
+    const writer = { uid: await makeCompany('writer3') }; // has its own company doc, as in 1
     const rep = await makeUser('rep3');
     const stray = `users/${writer.uid}/members/${rep.email}`;
     await db.doc(`companies/${co}/members/${rep.email}`).set(inviteDoc(rep.email, 'sales_rep', co));
@@ -268,10 +271,13 @@ async function run() {
     ok('8 claimInvite: member doc id != its email → no_invite',
       o8.claimed === false && o8.reason === 'no_invite', JSON.stringify(o8));
 
-    // 9. a members collection nested deeper under a company
+    // 9. a members collection nested deeper under a company. The middle id is
+    //    itself a real company id, so reading the tenant off
+    //    ref.parent.parent.id would land on an EXISTING company here; only the
+    //    exact-shape path check refuses it.
     const co9 = await makeCompany('owner9');
     const rep9 = await makeUser('rep9');
-    await db.doc(`companies/${co9}/teams/t1/members/${rep9.email}`).set(inviteDoc(rep9.email, 'sales_rep', co9));
+    await db.doc(`companies/${co9}/teams/${co9}/members/${rep9.email}`).set(inviteDoc(rep9.email, 'sales_rep', co9));
     const o9 = await claim(rep9);
     ok('9 claimInvite: companies/{id}/teams/{t}/members doc → no_invite',
       o9.claimed === false && o9.reason === 'no_invite', JSON.stringify(o9));
