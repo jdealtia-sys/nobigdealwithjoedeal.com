@@ -1,0 +1,301 @@
+/* docs/pro/css/draw-reticle.css — the phone crosshair screen for the Drawing
+   Tool (draw lane L4, 2026-09-25). Built by js/draw-reticle.js; both ride the
+   lazy `drawtool` bundle, so nothing here is on the boot path.
+
+   Every rule is scoped to #view-draw.dr-on (or body.dr-bar-on), classes that
+   draw-reticle.js adds ONLY on a coarse pointer, and only while the rep has
+   the "Crosshair drawing (beta)" switch on (off by default, 2026-09-25 —
+   Jo's release gate). A mouse-driven desktop — even a narrow window — and a
+   phone with the switch off never get them, so their layout and tap/click-
+   to-place are untouched. The one exception is the switch itself (last
+   section), styled by its own classes wherever the JS adds it. An unscoped
+   rule here would change every phone's Draw screen with the switch off, so
+   tests/draw-reticle-css-scope.test.js fails on one (gate review).
+
+   Colours: theme tokens (--s, --s2, --t, --m, --br, --orange, --accent-fg)
+   so light and dark both work. The two exceptions are deliberate: the
+   crosshair / handle / magnifier ring are white with a black outline, and
+   the length chips are white on near-black, because they sit on satellite
+   imagery of any colour and must read in daylight (phone audit polish). */
+
+#view-draw.dr-on .dr-root [hidden]{display:none!important;}
+
+#view-draw.dr-on .dr-root{
+  position:absolute;top:0;right:0;bottom:0;left:0;
+  /* Above Leaflet's panes (400-700) and its control corners (1000, earlier in
+     the DOM). pointer-events:none: only the bar, the side buttons and the
+     pending-point handle take touches — everything else reaches the map. */
+  z-index:1000;pointer-events:none;overflow:hidden;
+  --dr-attrib:var(--map-attrib-h, 18px);
+  --dr-act-h:56px;--dr-chip-h:44px;
+  font-family:'Barlow Condensed',sans-serif;
+}
+
+/* ── Crosshair: exactly the map container's centre (same box as #drawMap) ── */
+#view-draw.dr-on .dr-cross{
+  position:absolute;left:50%;top:50%;width:48px;height:48px;margin:-24px 0 0 -24px;
+  background:
+    linear-gradient(#fff,#fff) center top/2px 17px no-repeat,
+    linear-gradient(#fff,#fff) center bottom/2px 17px no-repeat,
+    linear-gradient(#fff,#fff) left center/17px 2px no-repeat,
+    linear-gradient(#fff,#fff) right center/17px 2px no-repeat;
+  filter:drop-shadow(0 0 1px #000) drop-shadow(0 0 1px #000);
+}
+#view-draw.dr-on .dr-root.dr-free .dr-cross{opacity:.45;}
+
+/* Snap ring (the next point lands on an existing corner) + Edit's pick ring. */
+#view-draw.dr-on .dr-snap{
+  position:absolute;left:0;top:0;width:34px;height:34px;border-radius:50%;
+  border:3px solid #FACC15;box-shadow:0 0 0 2px rgba(0,0,0,.75),inset 0 0 0 1px rgba(0,0,0,.6);
+}
+#view-draw.dr-on .dr-pickring{border-color:#38BDF8;}
+
+/* The pending point: a 56px grab target around a small ring + dot. */
+#view-draw.dr-on .dr-handle{
+  position:absolute;left:0;top:0;width:56px;height:56px;border-radius:50%;
+  pointer-events:auto;touch-action:none;-webkit-user-select:none;user-select:none;
+  -webkit-tap-highlight-color:transparent;cursor:grab;
+}
+#view-draw.dr-on .dr-handle::before{
+  content:'';position:absolute;left:12px;top:12px;width:28px;height:28px;border-radius:50%;
+  border:2px solid #fff;box-shadow:0 0 0 1px #000,inset 0 0 0 1px #000;background:rgba(189,87,40,.18);
+}
+#view-draw.dr-on .dr-handle::after{
+  content:'';position:absolute;left:25px;top:25px;width:6px;height:6px;border-radius:50%;
+  background:var(--orange,#BD5728);box-shadow:0 0 0 1px #fff;
+}
+#view-draw.dr-on .dr-root.dr-dragging .dr-handle{cursor:grabbing;}
+
+/* The magnifier: a round window onto a small Leaflet map two zooms deeper. */
+#view-draw.dr-on .dr-loupe{
+  position:absolute;left:0;top:0;width:128px;height:128px;border-radius:50%;overflow:hidden;
+  border:3px solid #fff;box-shadow:0 0 0 1px #000,0 8px 22px rgba(0,0,0,.55);background:#000;
+  pointer-events:none;
+}
+#view-draw.dr-on .dr-loupe-map{position:absolute;top:0;right:0;bottom:0;left:0;background:#000;}
+#view-draw.dr-on .dr-loupe-x{
+  position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;z-index:1000;
+  background:
+    linear-gradient(#fff,#fff) center top/2px 11px no-repeat,
+    linear-gradient(#fff,#fff) center bottom/2px 11px no-repeat,
+    linear-gradient(#fff,#fff) left center/11px 2px no-repeat,
+    linear-gradient(#fff,#fff) right center/11px 2px no-repeat;
+  filter:drop-shadow(0 0 1px #000);
+}
+
+/* First-use help and the zoom hint: never take a touch. */
+#view-draw.dr-on .dr-coach{
+  position:absolute;top:calc(var(--map-pad, 8px) + 72px);left:52px;right:60px;
+  padding:8px 10px;border-radius:10px;background:rgba(10,12,15,.9);color:#fff;
+  font-size:14px;font-weight:600;line-height:1.3;text-align:center;box-shadow:0 4px 14px rgba(0,0,0,.4);
+}
+#view-draw.dr-on .dr-zoomhint{
+  position:absolute;left:50%;top:calc(50% + 34px);transform:translateX(-50%);white-space:nowrap;
+  padding:4px 10px;border-radius:999px;background:rgba(10,12,15,.88);color:#fff;font-size:13px;font-weight:700;
+}
+#view-draw.dr-on .dr-root.dr-pending .dr-zoomhint{top:calc(50% + 40px);}
+
+/* Layer / Fit / My location: 44px round buttons down the right side, under
+   the ☰ Tools handle (top: pad + badge + Tools). */
+#view-draw.dr-on .dr-side{
+  position:absolute;right:calc(var(--map-pad, 8px) + env(safe-area-inset-right, 0px));
+  top:calc(var(--map-pad, 8px) + var(--map-badge-h, 34px) + 40px);
+  display:flex;flex-direction:column;gap:8px;pointer-events:auto;
+}
+#view-draw.dr-on .dr-round{
+  width:44px;height:44px;border-radius:50%;border:1px solid var(--br);background:var(--s);color:var(--t);
+  font-size:19px;line-height:1;display:flex;align-items:center;justify-content:center;padding:0;
+  box-shadow:0 2px 8px rgba(0,0,0,.4);cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+
+/* ── The bottom bar: above the app's bottom nav (--dr-floor, measured) and
+   Leaflet's attribution strip (--map-attrib-h), which the tile licences need
+   left legible. Capped so the crosshair stays above it even at 360x640. ── */
+#view-draw.dr-on .dr-bar{
+  position:absolute;
+  left:calc(8px + env(safe-area-inset-left, 0px));right:calc(8px + env(safe-area-inset-right, 0px));
+  bottom:calc(var(--dr-floor, 0px) + var(--dr-attrib) + 2px);
+  display:flex;flex-direction:column;gap:6px;padding:8px;
+  background:var(--s);color:var(--t);border:1px solid var(--br);border-radius:14px;
+  box-shadow:0 6px 24px rgba(0,0,0,.5);pointer-events:auto;
+}
+#view-draw.dr-on .dr-row{display:flex;gap:6px;min-width:0;}
+#view-draw.dr-on .dr-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));}
+#view-draw.dr-on .dr-chip{
+  min-height:var(--dr-chip-h);padding:0 10px;border-radius:10px;border:1px solid var(--br);
+  background:var(--s2);color:var(--t);font-family:inherit;font-size:15px;font-weight:700;
+  letter-spacing:.02em;display:flex;align-items:center;justify-content:center;gap:6px;
+  white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+#view-draw.dr-on .dr-chip[aria-pressed="true"]{background:var(--orange);border-color:var(--orange);color:var(--accent-fg, #fff);}
+#view-draw.dr-on .dr-edge{min-width:60px;}
+#view-draw.dr-on .dr-danger{color:var(--red, #EF4444);}
+#view-draw.dr-on .dr-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1px rgba(255,255,255,.6);}
+/* All 11 types on screen at once (a clipped 4th row hid Parapet / Gutters
+   behind a scroll nobody would find); 40vh only guards a tiny landscape. */
+#view-draw.dr-on .dr-types{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));max-height:40vh;overflow-y:auto;}
+#view-draw.dr-on .dr-typechip{justify-content:flex-start;font-size:14px;}
+#view-draw.dr-on .dr-read{
+  flex:1 1 auto;min-width:0;min-height:var(--dr-chip-h);padding:0 4px;border:0;background:transparent;color:var(--t);
+  display:flex;flex-direction:column;justify-content:center;align-items:flex-start;text-align:left;cursor:pointer;
+  font-family:inherit;-webkit-tap-highlight-color:transparent;
+}
+#view-draw.dr-on .dr-read-main,#view-draw.dr-on .dr-read-sub{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#view-draw.dr-on .dr-read-main{font-size:17px;font-weight:800;line-height:1.15;}
+#view-draw.dr-on .dr-read-sub{font-size:13px;font-weight:600;line-height:1.2;opacity:.85;}
+#view-draw.dr-on .dr-act{
+  min-height:var(--dr-act-h);border-radius:12px;border:1px solid var(--br);background:var(--s2);color:var(--t);
+  font-family:inherit;font-size:17px;font-weight:800;letter-spacing:.02em;cursor:pointer;padding:0 12px;
+  -webkit-tap-highlight-color:transparent;
+}
+#view-draw.dr-on .dr-icon{width:52px;flex:0 0 52px;padding:0;font-size:24px;}
+#view-draw.dr-on .dr-add,#view-draw.dr-on .dr-confirm{flex:1 1 auto;background:var(--orange);border-color:var(--orange);color:var(--accent-fg, #fff);}
+#view-draw.dr-on .dr-aux{flex:0 0 auto;min-width:96px;}
+#view-draw.dr-on .dr-cancel{flex:0 0 auto;min-width:104px;}
+#view-draw.dr-on .dr-act:disabled,#view-draw.dr-on .dr-chip:disabled{opacity:.45;cursor:default;}
+#view-draw.dr-on .dr-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}
+#view-draw.dr-on .dr-safe-probe{position:absolute;left:0;bottom:0;width:0;height:env(safe-area-inset-bottom, 0px);visibility:hidden;}
+
+/* Length and area chips on the map: readable over imagery, sized to text. */
+#view-draw.dr-on .meas-label{font-size:13px;padding:3px 7px;background:rgba(10,12,15,.9);color:#fff;border-radius:5px;}
+#view-draw.dr-on .facet-area-label{font-size:14px;padding:4px 9px;background:rgba(10,12,15,.9);color:#fff;}
+
+/* Screenshot captures lines without the imagery, and Auto-Detect samples the
+   drawing canvas: hidden on phones until each works (plan, L4). */
+#view-draw.dr-on #map-sidebar-draw [data-fn="screenshotMap"],
+#view-draw.dr-on #map-sidebar-draw [data-fn="startAutoDetect"]{display:none!important;}
+/* The drawer's Eave/Rake mode flips the edge a TAP picks, and on this screen
+   a tap only aims: Edit's Flip does that job here (gate lane, 2026-09-25).
+   Its status line goes too ("Tap any Eave or Rake line…") — the engine can
+   still be in 'er' when the switch goes on, and the bar shows Edit then —
+   and so does the perimeter one ("tap map to trace. Tap first dot to
+   close."): here a tap only aims, and the bar's readout says what Add will
+   do (gate review, 2026-09-25). */
+#view-draw.dr-on #modeERBtn,
+#view-draw.dr-on #erBar,
+#view-draw.dr-on #perimBar{display:none!important;}
+
+/* Toasts float 134px up on phones — right through the bar — and lifted to
+   just above the bar they still sat ON the crosshair on any phone under
+   ~700px tall (360x640, 393x660: L4 review 2026-09-25), hiding it and taking
+   the finger meant for the pending point. While the Draw screen is up they
+   sit at the TOP of the map (--dr-toast-*, measured), compact, and let taps
+   through to the zoom / Tools buttons under them — only ✕ takes a finger. */
+body.dr-bar-on .toast-container,body.dr-bar-on #toast.toast{
+  top:var(--dr-toast-top, 92px)!important;bottom:auto!important;
+  left:var(--dr-toast-left, 12px)!important;right:var(--dr-toast-right, 12px)!important;
+  max-width:none!important;margin-bottom:0!important;
+}
+body.dr-bar-on .toast-container{gap:6px;}
+body.dr-bar-on .toast-container .toast{min-width:0;max-width:none;padding:8px 12px;pointer-events:none;}
+body.dr-bar-on .toast-container .toast .toast-close{pointer-events:auto;}
+
+/* ── ☰ Tools becomes an overlay sheet on phones. It used to open BENEATH the
+   map (order:2) and squash it to ~374px, which moved the map's centre — and
+   the crosshair — mid-trace. Absolutely positioned, the map never resizes.
+   It still holds everything #1757 fixed for the installed app: the drawer
+   opens on screen, with Lines / Gutters under a thumb (phone-dashnav
+   "draw (installed app)" pins that). A phone on its side (the manifest
+   allows any orientation) is wider than 768px, so the short-landscape case
+   gets the sheet too, not the desktop's 280px column (L4 review). ── */
+@media (max-width:768px), (orientation:landscape) and (max-height:500px){
+  #view-draw.dr-on .map-view{position:relative!important;}
+  #view-draw.dr-on #map-sidebar-draw{
+    position:absolute!important;left:0;right:0;bottom:var(--dr-floor, 0px);z-index:1100;
+    width:auto!important;max-height:0;overflow:hidden;padding:0!important;border-right:none!important;
+    transition:max-height .3s ease;
+    border-top:1px solid var(--br);border-radius:16px 16px 0 0;
+    background:var(--s);box-shadow:0 -10px 30px rgba(0,0,0,.45);overscroll-behavior:contain;
+  }
+  #view-draw.dr-on #map-sidebar-draw.open{
+    max-height:min(72%, calc(100% - 96px))!important;overflow-y:auto;
+    padding:12px calc(12px + env(safe-area-inset-right, 0px)) calc(16px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px))!important;
+  }
+}
+
+/* ── Landscape phone (L4 review, 2026-09-25). The 174px bar across the
+   bottom covered the crosshair outright (852x393: crosshair y 217-265, bar
+   199-373), so Add dropped points the rep could not see. On its side the bar
+   docks as a right-hand column instead, with ☰ Tools and the side buttons
+   moved to its left; the crosshair (the map's centre) stays clear of all
+   three down to a 700px-wide map. The action row sticks to the column's
+   foot, so Add / Confirm stay on screen even where the column must scroll
+   (740x360 under a bottom nav). ── */
+@media (orientation:landscape) and (max-height:500px){
+  #view-draw.dr-on{--dr-col-w:248px;--dr-col-r:calc(8px + env(safe-area-inset-right, 0px));}
+  #view-draw.dr-on .dr-bar{
+    left:auto;right:var(--dr-col-r);top:8px;width:var(--dr-col-w);box-sizing:border-box;
+    overflow-y:auto;overscroll-behavior:contain;
+  }
+  /* One row of four (13px, ~53px wide each) — a 2x2 grid cost a whole 50px
+     row the readout needs at 740x360. */
+  #view-draw.dr-on .dr-mode{padding:0 2px;font-size:13px;letter-spacing:0;}
+  #view-draw.dr-on .dr-ctx{flex-wrap:wrap;}
+  #view-draw.dr-on .dr-read{flex:1 1 100%;order:-1;}
+  #view-draw.dr-on .dr-acts{
+    /* Sticky offsets respect the column's 8px padding: -8px (and a matching
+       8px of its own background) covers that strip, or scrolled chips peek
+       out beneath the buttons. */
+    margin-top:auto;position:sticky;bottom:-8px;z-index:1;background:var(--s);
+    margin-bottom:-8px;padding-bottom:8px;
+  }
+  #view-draw.dr-on .dr-types{grid-template-columns:repeat(2,minmax(0,1fr));}
+  #view-draw.dr-on .dr-side{right:calc(var(--dr-col-r) + var(--dr-col-w) + 8px);top:calc(var(--map-pad, 8px) + 40px);}
+  #view-draw.dr-on .dr-coach{right:calc(var(--dr-col-r) + var(--dr-col-w) + 60px);}
+  /* ☰ Tools: the desktop layout (over 768px wide) hides it; here it is the
+     only way into the sheet. */
+  #view-draw.dr-on .map-toggle-btn{
+    display:flex!important;position:absolute;top:var(--map-pad, 8px)!important;bottom:auto!important;left:auto!important;
+    right:calc(var(--dr-col-r) + var(--dr-col-w) + 8px)!important;transform:none!important;z-index:1001;
+    min-height:36px;align-items:center;background:var(--s);border:1px solid var(--br);border-radius:20px;padding:6px 16px;
+    font-size:11px;font-family:'Barlow Condensed',sans-serif;letter-spacing:.08em;color:var(--t);cursor:pointer;
+    white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
+  #view-draw.dr-on .map-badge{display:none!important;}
+  /* Only ~300px of map on its side: the sheet takes all of it below ☰ Tools
+     (still the way to close it) and scrolls to Draw Mode. */
+  #view-draw.dr-on #map-sidebar-draw.open{max-height:calc(100% - 56px)!important;}
+}
+
+/* The installed app on its side is over 768px wide, so it gets the DESKTOP
+   standalone rules: #view-draw pinned to 100dvh-60px and the map to
+   100dvh-120px (dashboard-app.css), while mobile-polish.css pads the body
+   80px for the FAB stack. The map then overran its clipped view by ~50px —
+   in WebKit iPhone 14 Pro landscape with those rules forced, the map box
+   ran to y 361 but showed only to 313, cutting Cancel / Confirm in half and
+   centring the crosshair on a partly hidden map (L4 fix, 2026-09-25). On the
+   Draw screen the view fills the pane and the body keeps only the home
+   indicator's inset. Over 768px only: a landscape phone narrower than that
+   has the bottom nav, which that padding clears. */
+@media (orientation:landscape) and (max-height:500px) and (min-width:769px){
+  body.dr-bar-on{padding-bottom:env(safe-area-inset-bottom, 0px)!important;}
+  #view-draw.dr-on.active{height:auto!important;}
+  #view-draw.dr-on .map-area{min-height:0!important;}
+}
+
+/* ── The beta switch (release gate, 2026-09-25): "Crosshair drawing (beta)"
+   in ☰ Tools, under Controls (below every control the drawing flow uses, so
+   none of them moves — gate review). js/draw-reticle.js adds it on coarse
+   pointers only, and it shows with the screen OFF too, so these rules are
+   scoped to the switch, not to .dr-on. A real switch (role="switch"), 48px
+   tall. tests/draw-reticle-css-scope.test.js holds every rule in this file
+   to one of the three scopes. ── */
+#map-sidebar-draw .dr-switch-row{margin:0 0 10px;}
+#map-sidebar-draw .dr-switch{
+  width:100%;min-height:48px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:6px 10px;border-radius:10px;border:1px solid var(--br);background:var(--s2);color:var(--t);
+  font-family:'Barlow Condensed',sans-serif;text-align:left;cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+}
+#map-sidebar-draw .dr-switch[aria-checked="true"]{border-color:var(--orange);}
+#map-sidebar-draw .dr-switch:focus-visible{outline:2px solid var(--orange);outline-offset:2px;}
+#map-sidebar-draw .dr-switch-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+#map-sidebar-draw .dr-switch-label{font-size:14px;font-weight:700;letter-spacing:.02em;line-height:1.2;}
+#map-sidebar-draw .dr-switch-hint{font-size:12px;font-weight:500;line-height:1.25;color:var(--m);}
+#map-sidebar-draw .dr-switch-track{position:relative;flex:0 0 44px;width:44px;height:26px;border-radius:13px;background:var(--br);transition:background .15s;}
+#map-sidebar-draw .dr-switch-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.45);transition:transform .15s;}
+#map-sidebar-draw .dr-switch[aria-checked="true"] .dr-switch-track{background:var(--orange);}
+#map-sidebar-draw .dr-switch[aria-checked="true"] .dr-switch-knob{transform:translateX(18px);}
+@media (prefers-reduced-motion: reduce){
+  #map-sidebar-draw .dr-switch-track,#map-sidebar-draw .dr-switch-knob{transition:none;}
+}

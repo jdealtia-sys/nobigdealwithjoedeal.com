@@ -339,9 +339,19 @@
     // own ?v re-bumped 7 -> 8 (after #1762's registry edit took 7).
     // 2026-09-25 (draw lane L3): maps-routing.js gains the crosshair-ready
     // engine seam (drawMap.nbdDraw) — v5 -> v6; this file's own ?v 8 -> 9.
+    // draw-reticle.css + draw-reticle.js (2026-09-25, draw lane L4) are the
+    // phone crosshair screen. They ride AFTER maps-routing.js (the smoke pin
+    // only needs draw-geom -> maps-routing first) and stay lazy with it; the
+    // JS returns at once unless (pointer: coarse), so desktop gets nothing
+    // but the two small fetches. On a phone it ships OFF (Jo's release gate):
+    // it adds only a "Crosshair drawing (beta)" switch to ☰ Tools until the
+    // rep turns that on. Stylesheet first, so the bar is styled the moment
+    // the JS builds it. This file's own ?v re-bumped 9 -> 10.
     drawtool: [
       'js/draw-geom.js?v=2',
-      'js/maps-routing.js?v=6'
+      'js/maps-routing.js?v=6',
+      'css/draw-reticle.css?v=1',
+      'js/draw-reticle.js?v=1'
     ],
     // Talk Tank inbox (2026-09-14, boot-weight containment) — a single-view
     // module with zero callers outside goTo('talk-tank'); was two static

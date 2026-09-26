@@ -196,6 +196,7 @@
     "job-template-honest-paperwork.test.js",
     "estimate-gutter-source.test.js",
     "draw-geom.test.js",
+    "draw-reticle-css-scope.test.js",
     "upgrade-price-settings.test.js",
     "upgrades-builder-card.test.js",
     "deposit-rule.test.js"
