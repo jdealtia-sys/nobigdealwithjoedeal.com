@@ -704,6 +704,8 @@ window.applyEstimatePreset = function applyEstimatePreset(key) {
 
 let _savingEstimate = false;
 async function saveEstimate() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   if(_savingEstimate) return;
   if(!estData.grandTotal){showToast('Build estimate first','error');return;}
 

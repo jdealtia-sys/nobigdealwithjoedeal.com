@@ -1,5 +1,7 @@
 
 function openEditCustomerModal() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const lead = window._currentLead;
   if (!lead) return;
   document.getElementById('editFirstName').value = lead.firstName || '';
@@ -92,6 +94,8 @@ window.addServiceAddressRow = addServiceAddressRow;
 window.removeServiceAddressRow = removeServiceAddressRow;
 
 async function saveCustomerEdits() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const btn = document.getElementById('saveEditBtn');
   btn.disabled = true;
   btn.textContent = 'SAVING...';

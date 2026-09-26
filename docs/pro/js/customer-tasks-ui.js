@@ -190,6 +190,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // Task Management Functions
 window.openTaskModal = function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   document.getElementById('taskTitle').value = '';
   document.getElementById('taskDueDate').value = '';
   document.getElementById('taskPriority').value = 'medium';
@@ -224,6 +226,8 @@ function _taskNotify(msg, kind) {
 }
 
 window.saveEvent = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const title = document.getElementById('eventTitle').value.trim();
   const when = document.getElementById('eventWhen').value;
   const notes = document.getElementById('eventNotes').value.trim();
@@ -257,6 +261,8 @@ window.saveEvent = async function() {
 };
 
 window.saveTask = async function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const title = document.getElementById('taskTitle').value.trim();
   const dueDate = document.getElementById('taskDueDate').value;
   const priority = document.getElementById('taskPriority').value;
@@ -2128,6 +2134,8 @@ function _renderDocCreateGrid(filter) {
 }
 
 window.openDocCreateModal = function() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   var modal = document.getElementById('docCreateModal');
   if (!modal) return;
   modal.setAttribute('aria-hidden', 'false');
@@ -2168,6 +2176,8 @@ document.addEventListener('input', function _docCreateSearchListener(e) {
 // Backdrop click + Esc dismiss are handled by nbdModal (batch-4 consolidation).
 
 window.generateCustomerDoc = async function(type) {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   // Docgen is lazy (ScriptLoader 'docgen'). Both NBDDocGen and DocPreflight
   // ride that one bundle, so this single await covers the pre-flight branch
   // below as well — without it that branch would silently skip the review

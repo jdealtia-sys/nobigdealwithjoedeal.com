@@ -65,6 +65,40 @@ service cloud.firestore {
         && request.auth.token.get('role', '') in ['company_admin', 'manager', 'viewer'];
     }
 
+    // 2026-09-25 (Jo's decision B): the 'viewer' role is READ-ONLY on tenant
+    // data, everywhere. A viewer reads what isCompanyReader() allows and
+    // writes none of it: not the lead (Audit #3 F-1 already said so), and not
+    // the rows under a lead they happen to own either. Before this, the owner
+    // branch of every lead subcollection (tasks, notes, drawings, documents,
+    // warrantyClaims, signatures, activity) ignored role, so a viewer-owner
+    // could write rows under a lead they could not update. The same held for
+    // every owner-only top-level collection (photos, estimates, pins, ...),
+    // and a viewer could CREATE leads, estimates, expenses and invoices.
+    //
+    // Every tenant-data write rule now ANDs this in on its owner branch (or on
+    // the whole rule). It is false only for role == 'viewer', so no other role
+    // loses anything. .get() because a solo operator has NO role claim and a
+    // bare token.role read throws (NEW-5).
+    //
+    // Deliberately NOT applied: a viewer's own user-scoped docs — keyed to
+    // their own uid / userId, about the viewer themselves, carrying no lead,
+    // customer or money data — which the app writes to boot and to remember
+    // settings: users/{uid} (+ subcollections: settings, preferences,
+    // fcmTokens, jobTemplates, captures), userSettings/{uid}, notifications
+    // addressed to them, reps/{uid} (their team profile), academy_progress/
+    // {uid}, daily_entries/{uid}, dailyTracker, training_sessions (their own
+    // sales-practice record) and estimate_drafts/{uid}. Most are private to
+    // the viewer. Two are read by teammates BY DESIGN (corrected 2026-09-25 —
+    // an earlier cut of this comment said "nobody else reads" them): every
+    // member of the company reads reps/{uid} (it is the viewer's profile,
+    // which decision B names as an exception), and a company_admin / manager
+    // reads training_sessions to coach (it records the viewer's own practice,
+    // not tenant business). The table is in
+    // documentation/audit/ROLE-TIGHTENING-2026-09-25.md.
+    function notViewer() {
+      return isAuth() && request.auth.token.get('role', '') != 'viewer';
+    }
+
     // Field-diff helper used by users/<uid> to block privilege escalation.
     function didNotChange(fields) {
       return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
@@ -304,8 +338,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (
           (
-            (isOwner(resource.data.userId)
-              && request.auth.token.get('role', '') != 'viewer')
+            (isOwner(resource.data.userId) && notViewer())
             || (isCompanyStaff()
               && resource.data.companyId != null
               && resource.data.companyId == myCompanyId())
@@ -326,13 +359,14 @@ service cloud.firestore {
           && paperworkFieldsOk()
           && openClaimIdOk()
         );
-      allow delete: if (isOwner(resource.data.userId)
-            && request.auth.token.get('role', '') != 'viewer')
+      allow delete: if (isOwner(resource.data.userId) && notViewer())
         || isAdmin()
         || (isCompanyAdmin()
             && resource.data.companyId != null
             && resource.data.companyId == myCompanyId());
+      // Decision B: a viewer cannot add a lead to the pipeline either.
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
@@ -364,6 +398,7 @@ service cloud.firestore {
         // rule enforces shape. Webhook-written activities (measurement,
         // stripe, esign, calcom) bypass these rules via admin SDK.
         allow create: if isAuth()
+          && notViewer()   // decision B: not even on a lead the viewer owns
           && request.resource.data.userId == request.auth.uid
           // Manager edit rights (2026-07): same-company staff may append
           // timeline entries on teammate leads; every F-05 shape constraint
@@ -392,11 +427,14 @@ service cloud.firestore {
              ]));
         allow update, delete: if false;
       }
+      // Decision B (2026-09-25): notViewer() on every write below. The owner
+      // branch used to ignore role, so a viewer who owned the lead could write
+      // here while the lead doc itself refused them.
       match /tasks/{taskId} {
         allow read:   if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
-        allow write:  if isAuth()
+        allow write:  if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
@@ -404,7 +442,7 @@ service cloud.firestore {
         allow read:   if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
-        allow write:  if isAuth()
+        allow write:  if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
@@ -493,26 +531,31 @@ service cloud.firestore {
         // 2026-09-25: split out of `allow write`. documentStatusWriteOk() reads
         // request.resource, which is null on a delete, so the old single line
         // denied EVERY client delete here, owner included (emulator: "Null
-        // value error" at the helper). Delete keeps exactly the writer check
-        // create/update use: lead owner, or company_admin/manager in the parent
-        // lead's tenant. No wider: a viewer or sales_rep on someone else's
-        // lead is refused, and so is the platform admin, the same set as
-        // tasks/notes/drawings. A caller who OWNS the lead passes the owner
-        // branch whatever their role, a viewer-owner included, exactly as on
-        // create/update here and on tasks/notes/drawings. The lead doc itself
-        // bars a viewer-owner from update/delete (Audit #3 F-1); matching that
-        // means one pass over every subcollection's owner branch, not delete
-        // alone (a viewer-owner who can `set` a row can already blank it).
+        // value error" at the helper). #1771 gave delete the same writer check
+        // create/update use; the 2026-09-25 decisions below then narrowed it
+        // (managers and viewer-owners no longer hard-delete). A viewer or
+        // sales_rep on someone else's lead is refused, and so is the platform
+        // admin, the same set as tasks/notes/drawings.
         // The parent lead has to still exist for the check to pass. A
         // hard-deleted lead's rows are swept by onLeadDeleted (admin SDK,
         // functions/lead-artifact-cleanup.js); see the privacy note there.
-        allow create, update: if isAuth()
+        //
+        // 2026-09-25, Jo's two calls on the review of #1771 (both final):
+        //  A. Hard delete of a documents row (a signed contract) is the set
+        //     that can delete the lead itself: the lead's owner, or a
+        //     company_admin of the lead's tenant. Managers keep create/update
+        //     (including the soft delete, an update of deleted:true) but lose
+        //     the hard delete. The platform admin stays refused, as in #1771.
+        //  B. A viewer writes nothing here, a viewer-owner included, so the
+        //     viewer-owner exception described above is gone on all three
+        //     operations.
+        allow create, update: if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
           && documentStatusWriteOk();
-        allow delete: if isAuth()
+        allow delete: if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
-              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
+              || (isCompanyAdmin() && parentLeadInMyCompany(leadId)));
       }
 
       // ── WARRANTY CLAIMS (2026-09-15) ───────────────────
@@ -530,13 +573,15 @@ service cloud.firestore {
         // 2026-09-25: same split, same reason as /documents directly above.
         // warrantyClaimWriteOk() reads request.resource, so the old
         // `allow write` denied every client delete of a claim row.
-        allow create, update: if isAuth()
+        // Decisions A + B apply exactly as on /documents: hard delete is the
+        // lead owner or a company_admin of its tenant; no viewer writes.
+        allow create, update: if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)))
           && warrantyClaimWriteOk();
-        allow delete: if isAuth()
+        allow delete: if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
-              || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
+              || (isCompanyAdmin() && parentLeadInMyCompany(leadId)));
       }
 
       // ── DRAWINGS (roof measurements, sketches) ────────
@@ -549,7 +594,7 @@ service cloud.firestore {
           || parentLeadInMyCompany(leadId));
         // Same gap, same fix as /documents directly above — a manager could
         // open a teammate's roof measurements and not correct them.
-        allow write: if isAuth()
+        allow write: if isAuth() && notViewer()
           && (isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
               || (isCompanyStaff() && parentLeadInMyCompany(leadId)));
       }
@@ -569,10 +614,12 @@ service cloud.firestore {
       // (the trigger owns terminal states) nor mutate leadId/userId/
       // companyId/draftText-provenance/Twilio fields. create+delete are
       // admin-SDK only so a rep can't fabricate or destroy drafts.
+      // notViewer() on the update (decision B, 2026-09-25): approving a draft
+      // SENDS a text.
       match /ai_drafts/{draftId} {
         allow read: if isAuth() && (isAdmin() || isOwner(resource.data.userId));
         allow update: if isAuth()
-          && isOwner(resource.data.userId)
+          && isOwner(resource.data.userId) && notViewer()
           && request.resource.data.diff(resource.data).affectedKeys()
                .hasOnly(['status', 'draftText', 'approvedAt', 'approvedBy', 'editedByRep', 'dismissedAt'])
           && request.resource.data.status in ['approved', 'dismissed'];
@@ -589,7 +636,7 @@ service cloud.firestore {
         allow read:  if isAuth() && (isAdmin()
           || isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId)
           || parentLeadInMyCompany(leadId));
-        allow write: if isAuth()
+        allow write: if isAuth() && notViewer()
           && isOwner(get(/databases/$(database)/documents/leads/$(leadId)).data.userId);
       }
     }
@@ -615,21 +662,22 @@ service cloud.firestore {
         || (isCompanyReader()
             && resource.data.companyId != null
             && resource.data.companyId == myCompanyId());
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      // notViewer() on the owner branch of every write (decision B, 2026-09-25).
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
       // Edit-estimate legitimately rewrites the money fields (updateDoc with the
       // rebuilt payload), so DON'T freeze totals — but owner/provenance and the
       // server-stamped view counters must be immutable from the client (else an
       // owner could rewrite userId/createdBy or spoof viewCount/viewedAt to fake
       // engagement). The edit payload (_buildSavePayload) carries none of these
       // keys, so normal edits pass `didNotChange`. Mirrors the /expenses guard.
-      allow update: if (isOwner(resource.data.userId)
+      allow update: if (isOwner(resource.data.userId) && notViewer()
             && didNotChange(['userId', 'companyId', 'createdBy', 'createdAt', 'viewedAt', 'viewCount', 'lastViewedAt', 'lastViewedVia']))
         || isAdmin();
       // companyId (when present) must be the caller's tenant — pins it so an
       // owner can't stamp a VICTIM tenant's companyId and inject an estimate
       // into that team's company-scoped rollups. Absent is allowed (legacy /
       // solo clients that don't stamp); '== uid' is the solo convention.
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid
         && (request.resource.data.get('companyId', '') == ''
             || request.resource.data.companyId == request.auth.token.get('companyId', '')
             || (request.auth.token.get('companyId', '') == ''
@@ -648,15 +696,18 @@ service cloud.firestore {
     // parentEstimateId, version, status, reason, addedItems[],
     // modifications[], createdAt, updatedAt }.
     match /supplements/{supplementId} {
-      allow read, delete: if isOwner(resource.data.userId) || isAdmin();
+      // read and delete were one line; split 2026-09-25 so delete can carry
+      // notViewer() (decision B) without touching read.
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
       // Freeze the provenance on this financial doc: a saved supplement can't be
       // re-owned or re-pointed to a different parent estimate. Supplements are
       // created append-only (addDoc, versioned), so a legit update keeps userId +
       // parentEstimateId stable → passes; only tampering trips the guard.
-      allow update: if (isOwner(resource.data.userId)
+      allow update: if (isOwner(resource.data.userId) && notViewer()
             && didNotChange(['userId', 'parentEstimateId']))
         || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── EXPENSES (job costs / supplier spend) ─────────
@@ -717,23 +768,25 @@ service cloud.firestore {
       // Uses .get('companyId','') NOT myCompanyId() — reading an ABSENT claim
       // key with == THROWS (same hazard as the role guard below), which would
       // permission-deny a legit claimless solo's own create.
+      // notViewer() on create too (decision B, 2026-09-25): a viewer used to be
+      // able to CREATE an expense and then not edit or delete it.
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == request.auth.token.get('companyId', '')
             || (request.auth.token.get('companyId', '') == '' && request.resource.data.companyId == request.auth.uid))
         && validExpenseMoney();
-      // .get('role','') NOT `.role != 'viewer'` — reading an ABSENT claim
-      // key with != THROWS in rules (solo operators have no role claim),
-      // which would permission-deny their own edits. Same fix as /leads.
+      // notViewer() reads the role with .get('role','') NOT `.role != 'viewer'`
+      // — reading an ABSENT claim key with != THROWS in rules (solo operators
+      // have no role claim), which would permission-deny their own edits.
       allow update: if (isOwner(resource.data.userId)
-            && request.auth.token.get('role', '') != 'viewer'
+            && notViewer()
             && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy'])
             && validExpenseMoney())
         || isAdmin();
-      allow delete: if (isOwner(resource.data.userId)
-            && request.auth.token.get('role', '') != 'viewer')
+      allow delete: if (isOwner(resource.data.userId) && notViewer())
         || isAdmin();
     }
 
@@ -747,15 +800,16 @@ service cloud.firestore {
       // Solo-only `== uid` fallback, same as /expenses create — absence-safe
       // .get('companyId','') so a claimless solo isn't THROW-denied. (#12)
       allow create: if isAuth()
+        && notViewer()   // decision B, 2026-09-25 (update/delete already barred viewers)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == request.auth.token.get('companyId', '')
             || (request.auth.token.get('companyId', '') == '' && request.resource.data.companyId == request.auth.uid))
         && validExpenseMoney();
-      allow update: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer'
+      allow update: if (isOwner(resource.data.userId) && notViewer()
             && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy'])
             && validExpenseMoney()) || isAdmin();
-      allow delete: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer') || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
     }
 
     // ── SUPPLIERS / VENDORS (1099 tracking) ───────────
@@ -773,17 +827,18 @@ service cloud.firestore {
       // is rejected, not just three spellings (QA finding). The full TIN lives
       // only in the locked private/** subtree (server-only), never here.
       allow create: if isAuth()
+        && notViewer()   // decision B, 2026-09-25 (update/delete already barred viewers)
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string && request.resource.data.companyId.size() > 0
         && (request.resource.data.companyId == myCompanyId()
             || (request.auth.token.get('companyId', '') == '' && request.resource.data.companyId == request.auth.uid))
         && request.resource.data.keys().hasOnly(['userId', 'companyId', 'displayName', 'legalName',
              'taxClassification', 'is1099Eligible', 'w9Status', 'contact', 'createdAt', 'createdBy', 'updatedAt']);
-      allow update: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer'
+      allow update: if (isOwner(resource.data.userId) && notViewer()
             && didNotChange(['userId', 'companyId', 'createdAt', 'createdBy'])
             && request.resource.data.keys().hasOnly(['userId', 'companyId', 'displayName', 'legalName',
                  'taxClassification', 'is1099Eligible', 'w9Status', 'contact', 'createdAt', 'createdBy', 'updatedAt'])) || isAdmin();
-      allow delete: if (isOwner(resource.data.userId) && request.auth.token.get('role', '') != 'viewer') || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
 
       // Server-only seam for a future encrypted TIN — locked to ALL clients.
       match /private/{doc} {
@@ -824,10 +879,11 @@ service cloud.firestore {
       // follow-up updateDoc moving companyId to a VICTIM tenant, planting
       // an image in that company's shared gallery (audit 2026-08-02 — the
       // 2026-07-08 /pins fix never reached this rule). Delete is untouched.
-      allow update: if (isOwner(resource.data.userId) || isAdmin())
+      // notViewer() on the owner branch of every write (decision B, 2026-09-25).
+      allow update: if ((isOwner(resource.data.userId) && notViewer()) || isAdmin())
         && didNotChange(['userId', 'companyId']);
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid
         && (request.resource.data.get('companyId', '') == ''
             || request.resource.data.companyId == myCompanyId()
             || (request.auth.token.get('companyId', '') == ''
@@ -865,15 +921,17 @@ service cloud.firestore {
       // ~198). Without it an owner could updateDoc their pin's companyId to a
       // VICTIM tenant, injecting a spoofed pin into that team's shared map
       // (create pins companyId, but update did not — audit 2026-07-08).
-      allow update: if (isOwner(resource.data.userId) || isAdmin()
+      // notViewer() on the owner branch (decision B, 2026-09-25).
+      allow update: if ((isOwner(resource.data.userId) && notViewer()) || isAdmin()
           || (isCompanyAdmin() && sameCompanyAsResource()))
         && didNotChange(['userId', 'companyId']);
-      allow delete: if isOwner(resource.data.userId) || isAdmin()
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin()
         || (isCompanyAdmin() && sameCompanyAsResource());
       // Pin companyId on create (mirrors /leads, /reports, /expenses). Without
       // it a crafted write could inject a pin into another tenant's team-visible
       // map. _savePin stamps companyId = claims.companyId || uid.
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
@@ -890,12 +948,14 @@ service cloud.firestore {
       allow read: if isOwner(resource.data.userId) || isAdmin() || sameCompanyAsResource();
       // UPDATE freezes provenance so a zone's companyId can't be repointed to a
       // victim tenant's shared map (same fix as /pins — audit 2026-07-08).
-      allow update: if (isOwner(resource.data.userId) || isAdmin()
+      // notViewer() on the owner branch (decision B, 2026-09-25).
+      allow update: if ((isOwner(resource.data.userId) && notViewer()) || isAdmin()
           || (isCompanyAdmin() && sameCompanyAsResource()))
         && didNotChange(['userId', 'companyId']);
-      allow delete: if isOwner(resource.data.userId) || isAdmin()
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin()
         || (isCompanyAdmin() && sameCompanyAsResource());
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
@@ -913,26 +973,36 @@ service cloud.firestore {
     // permission-denied (NEW-D40a) — the lead-linked path already
     // works via leads/{leadId}/drawings above. Same owner-scope
     // shape as photos / pins.
+    //
+    // 2026-09-25 (decision B): this block and the owner-only blocks below that
+    // shared one `allow read, update, delete` line are split, so the writes
+    // can carry notViewer() while read stays exactly as it was.
     match /drawings/{drawingId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── TASKS ─────────────────────────────────────────
     match /tasks/{taskId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── COMMUNICATIONS (call / email / SMS log) ───────
     // Written from customer.html when a rep taps call / email / SMS
     // shortcut buttons. Owner scope by userId.
     match /communications/{commId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── NOTIFICATIONS ─────────────────────────────────
+    // No notViewer() here on purpose (decision B, 2026-09-25): these are the
+    // caller's own inbox rows. Marking one read or dismissing it is personal
+    // UI state, not tenant data, and a viewer needs it to use the bell.
     match /notifications/{notifId} {
       allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
       // Creation is server-side (admin SDK). Allow self-create too for client-initiated flows
@@ -949,16 +1019,20 @@ service cloud.firestore {
         resource.data.get('sentByUid', '') == request.auth.uid ||
         resource.data.sentBy == request.auth.token.email
       );
-      allow create: if isAuth() &&
+      // notViewer(): a sent-mail log row for a lead (decision B, 2026-09-25).
+      // sendEmail already refuses a viewer sender server-side.
+      allow create: if isAuth() && notViewer() &&
         request.resource.data.sentBy == request.auth.token.email &&
         (!('sentByUid' in request.resource.data) ||
          request.resource.data.sentByUid == request.auth.uid);
     }
 
     // ── DOCUMENTS ─────────────────────────────────────
+    // Split read from the writes 2026-09-25 so they can carry notViewer().
     match /documents/{docId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── NOTES ─────────────────────────────────────────
@@ -974,7 +1048,7 @@ service cloud.firestore {
       allow read: if isAuth() && (isAdmin()
         || isOwner(get(/databases/$(database)/documents/leads/$(resource.data.leadId)).data.userId)
         || parentLeadInMyCompany(resource.data.leadId));
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
       // CREATE must check the PARENT LEAD, not just the author (audit
       // 2026-08-02). Pinning userId alone let ANY authenticated user —
       // no shared company, no role at all — write a note onto someone
@@ -984,8 +1058,10 @@ service cloud.firestore {
       // lead owner, or same-company STAFF. isCompanyStaff() deliberately
       // excludes 'viewer', so the read-only role stays read-only here too
       // (it is enforced for /leads at ~line 165 and must not be weaker on
-      // the notes that hang off them).
+      // the notes that hang off them). Since 2026-09-25 (decision B) that
+      // holds on a lead the viewer OWNS too: notViewer() below.
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.userId == request.auth.uid
         && (isAdmin()
             || isOwner(get(/databases/$(database)/documents/leads/$(request.resource.data.leadId)).data.userId)
@@ -1059,9 +1135,12 @@ service cloud.firestore {
       // Writers: platform admin, the solo owner (doc keyed by their uid), or a
       // company_admin acting inside their own tenant. isCompanyAdmin() implies a
       // role claim (and thus a companyId claim) so myCompanyId() is safe here.
+      // notViewer() on the uid branch (decision B, 2026-09-25): a viewer is a
+      // member of someone else's tenant, never a solo owner, so the only doc
+      // that branch let them write was an orphan companyProfile/{their uid}.
       function cpCanWrite() {
         return isAdmin()
-          || companyId == request.auth.uid
+          || (companyId == request.auth.uid && notViewer())
           || (isCompanyAdmin() && companyId == myCompanyId());
       }
       allow read: if cpScoped();
@@ -1171,8 +1250,10 @@ service cloud.firestore {
     // allocation, a separate product decision.
     match /counters/{counterId} {
       allow read:   if isAuth();
-      allow create: if isAuth() && request.resource.data.next == 1;
-      allow update: if isAuth()
+      // notViewer() (decision B, 2026-09-25): the mint only runs to stamp a
+      // customer id on a lead, which a viewer can neither create nor update.
+      allow create: if isAuth() && notViewer() && request.resource.data.next == 1;
+      allow update: if isAuth() && notViewer()
         && request.resource.data.next is int
         && request.resource.data.next == resource.data.next + 1;
     }
@@ -1241,8 +1322,9 @@ service cloud.firestore {
     // from the per-device drift that preceded it.
     match /catalogCosts/{companyId} {
       allow read: if isAuth() && (companyId == myCompanyId() || companyId == request.auth.uid);
+      // notViewer() on the uid branch: same orphan-doc reason as cpCanWrite().
       allow write: if isAdmin()
-        || companyId == request.auth.uid
+        || (companyId == request.auth.uid && notViewer())
         || (isCompanyAdmin() && companyId == myCompanyId());
     }
 
@@ -1302,16 +1384,18 @@ service cloud.firestore {
       // a rep can't tag a knock with another company's id (which would make
       // it readable by that company's managers). Presence not required so a
       // missed client path degrades to owner-only, never cross-tenant.
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+      // notViewer() on every write (decision B, 2026-09-25): a knock is a
+      // customer's address and outcome on the team map, not personal state.
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
             || (request.auth.token.get('companyId', '') == ''
                 && request.resource.data.companyId == request.auth.uid));
       // Provenance frozen on update — see /photos above. Without this an
       // owner re-stamps their own knock into a victim tenant's live D2D map.
-      allow update: if (isOwner(resource.data.userId) || isAdmin())
+      allow update: if ((isOwner(resource.data.userId) && notViewer()) || isAdmin())
         && didNotChange(['userId', 'companyId']);
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
     }
 
     // ── REPS (team member profiles) ──────────────────
@@ -1338,22 +1422,25 @@ service cloud.firestore {
         || isOwner(resource.data.userId)
         || (isAuth() && myCompanyId() != null && resource.data.companyId == myCompanyId());
       // Phase-1.5: companyId, if present, must be the caller's own tenant.
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid
+      // notViewer() on every write (decision B, 2026-09-25).
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid
         && (!('companyId' in request.resource.data)
             || request.resource.data.companyId == myCompanyId()
             || (request.auth.token.get('companyId', '') == ''
                 && request.resource.data.companyId == request.auth.uid));
       // Provenance frozen on update — see /photos above. A territory
       // re-stamped into a victim tenant draws a polygon on their live map.
-      allow update: if (isOwner(resource.data.userId) || isAdmin())
+      allow update: if ((isOwner(resource.data.userId) && notViewer()) || isAdmin())
         && didNotChange(['userId', 'companyId']);
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
     }
 
     // ── PRODUCTS ──────────────────────────────────────
+    // Read split from the writes 2026-09-25 so they can carry notViewer().
     match /products/{productId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── ML TRAINING DATA (roof edge detection) ────────
@@ -1366,14 +1453,19 @@ service cloud.firestore {
     // imagery metadata; should never leak cross-tenant).
     match /ml_training_data/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      // notViewer(): a pair is written when a drawing is SAVED (decision B).
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAdmin();  // training data is append-only from the rep's perspective
     }
 
     // ── TEMPLATES ─────────────────────────────────────
+    // Read split from the writes 2026-09-25 so they can carry notViewer().
+    // (A user's own template forks live at users/{uid}/templates and
+    // users/{uid}/jobTemplates, which stay writable for everyone.)
     match /templates/{templateId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── COMPANIES ─────────────────────────────────────
@@ -1398,13 +1490,15 @@ service cloud.firestore {
       // plan:'enterprise' at document CREATION and keep it forever. Require
       // plan to be absent or 'free' at create too, matching the only shape the
       // admin SDK ever writes there (createCompany always seeds plan:'free').
-      allow create: if isAuth()
+      // notViewer() (decision B, 2026-09-25): a viewer belongs to another
+      // tenant, so a companies/{their uid} doc could only be a squat.
+      allow create: if isAuth() && notViewer()
         && companyId == request.auth.uid
         && request.resource.data.ownerId == request.auth.uid
         && (!('plan' in request.resource.data) || request.resource.data.plan == 'free');
-      allow update: if ((isAuth() && resource.data.ownerId == request.auth.uid)
+      allow update: if ((isAuth() && notViewer() && resource.data.ownerId == request.auth.uid)
             && didNotChange(['plan', 'ownerId'])) || isAdmin();
-      allow delete: if (isAuth() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow delete: if (isAuth() && notViewer() && resource.data.ownerId == request.auth.uid) || isAdmin();
 
       // Members subcollection is writable only by the company owner or admin.
       // QA 2026-06-21 #10: the live app queries /companies/{_user.uid}/members,
@@ -1543,7 +1637,10 @@ service cloud.firestore {
         || (isCompanyStaff()
             && resource.data.companyId != null
             && resource.data.companyId == myCompanyId());
+      // notViewer() on create too (decision B, 2026-09-25): the viewer guard
+      // above covered update/delete only, so a viewer could still bill.
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.createdBy == request.auth.uid
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
@@ -1556,7 +1653,7 @@ service cloud.firestore {
       allow update: if isAdmin()
         || (
           (
-            (isOwner(resource.data.createdBy) && request.auth.token.get('role', '') != 'viewer')
+            (isOwner(resource.data.createdBy) && notViewer())
             || (isCompanyStaff()
                 && resource.data.companyId != null
                 && resource.data.companyId == myCompanyId())
@@ -1564,17 +1661,19 @@ service cloud.firestore {
           && didNotChange(['createdBy', 'companyId', 'estimateId', 'createdAt'])
         );
       allow delete: if isAdmin()
-        || (isOwner(resource.data.createdBy) && request.auth.token.get('role', '') != 'viewer')
+        || (isOwner(resource.data.createdBy) && notViewer())
         || (isCompanyAdmin()
             && resource.data.companyId != null
             && resource.data.companyId == myCompanyId());
     }
 
     // ── EMAIL DRIP ───────────────────────────────────
+    // notViewer() on the writes of every owner-only block from here to
+    // /deal_rooms (decision B, 2026-09-25); read is unchanged.
     match /drip_queue/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
     }
     match /drip_log/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
@@ -1600,23 +1699,24 @@ service cloud.firestore {
 
     // ── LEAD DOCUMENTS ───────────────────────────────
     match /lead_documents/{docId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // ── REFERRALS ────────────────────────────────────
     match /referrals/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
       allow delete: if isAdmin();
     }
 
     // ── REVIEW REQUESTS ──────────────────────────────
     match /review_requests/{docId} {
       allow read: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
-      allow update: if isOwner(resource.data.userId) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
+      allow update: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -1636,6 +1736,7 @@ service cloud.firestore {
       // report.html renders same-origin, so that was a cross-tenant stored-XSS
       // vector. saveReport already stamps companyId = claims.companyId || uid.
       allow create: if isAuth()
+        && notViewer()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
@@ -1646,7 +1747,7 @@ service cloud.firestore {
       // Owners must be able to delete their own saved reports — the My
       // Reports list exposes a delete button to every owner, and admin-only
       // delete left it permanently failing (NEW-D11).
-      allow delete: if isOwner(resource.data.userId) || isAdmin();
+      allow delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
     }
 
     // ── INVITES (admin-SDK only) ─────────────────────
@@ -1711,9 +1812,11 @@ service cloud.firestore {
     // share token + snapshot tier prices, so userId MUST be trustworthy: pin it
     // to the caller on create (a rep can't plant a deal under another uid).
     // Without this rule the client write default-denied and deals never synced.
+    // Read split from the writes 2026-09-25 so they can carry notViewer().
     match /deal_rooms/{dealId} {
-      allow read, update, delete: if isOwner(resource.data.userId) || isAdmin();
-      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow read: if isOwner(resource.data.userId) || isAdmin();
+      allow update, delete: if (isOwner(resource.data.userId) && notViewer()) || isAdmin();
+      allow create: if isAuth() && notViewer() && request.resource.data.userId == request.auth.uid;
     }
 
     // Close Board deal acceptance (1a). createDealAcceptToken mints these;

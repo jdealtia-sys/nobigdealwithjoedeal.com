@@ -382,7 +382,8 @@ section('Customers map layer — dashboard.html wiring');
   // Audit fix: /pins + /zones UPDATE must freeze provenance (companyId) so an
   // owner can't repoint their doc into a victim tenant's shared map.
   assert('/pins + /zones update freezes userId/companyId (didNotChange)',
-    (rules.match(/allow update: if \(isOwner\(resource\.data\.userId\)[\s\S]{0,220}didNotChange\(\['userId', 'companyId'\]\)/g) || []).length >= 2,
+    // 2026-09-25: the owner branch may now be wrapped as `((isOwner(..) && notViewer())`.
+    (rules.match(/allow update: if \(\(?isOwner\(resource\.data\.userId\)[\s\S]{0,220}didNotChange\(\['userId', 'companyId'\]\)/g) || []).length >= 2,
     'expected both /pins and /zones update rules to guard didNotChange([userId, companyId])');
   // Zone insights — point-in-polygon aggregation of the leads inside a zone.
   assert('zones show insights (point-in-polygon leads → count/$ /roles/damage)',

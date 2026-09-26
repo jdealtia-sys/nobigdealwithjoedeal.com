@@ -19,6 +19,18 @@ service firebase.storage {
     function isOwner(uid) { return isAuth() && request.auth.uid == uid; }
     function isAdmin() { return isAuth() && request.auth.token.role == 'admin'; }
 
+    // 2026-09-25 (Jo's decision B): the 'viewer' role is READ-ONLY on tenant
+    // data. Every path below is keyed by the uploader's uid, so a viewer could
+    // upload photos, contracts, receipts and audio under their own prefix
+    // even though firestore.rules now refuses every doc that would point at
+    // them. ownerWrites() is the owner check plus that bar; it is false only
+    // for role == 'viewer', so no other role loses anything. .get() because a
+    // solo operator has NO role claim (a bare token.role read throws). Same
+    // rule as notViewer() in firestore.rules. Reads are unchanged.
+    function ownerWrites(uid) {
+      return isOwner(uid) && request.auth.token.get('role', '') != 'viewer';
+    }
+
     // Safe content-type helpers — handle the case where a malicious
     // upload omits the Content-Type header entirely (Firebase sets
     // request.resource.contentType to null in that case and
@@ -45,10 +57,10 @@ service firebase.storage {
     // Path: photos/{uid}/{file}
     match /photos/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 15 * 1024 * 1024
         && isImage();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
     // Legacy un-scoped path: blocked.
     match /photos/{file} {
@@ -62,10 +74,10 @@ service firebase.storage {
     // attachments). Rejects executable / archive types by default.
     match /docs/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 25 * 1024 * 1024
         && isDocType();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
     match /docs/{file} {
       allow read, write: if false;
@@ -78,10 +90,10 @@ service firebase.storage {
     // now (portal.html is served by Hosting).
     match /portals/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 5 * 1024 * 1024
         && isHtmlOnly();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── GENERATED DOCUMENTS (rep-owned HTML) ──────────
@@ -95,10 +107,10 @@ service firebase.storage {
     // remote signing. Owner-only HTML, same shape as portals/.
     match /documents/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 5 * 1024 * 1024
         && isHtmlOnly();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── E-SIGN ENVELOPES ───────────────────────────────
@@ -118,12 +130,12 @@ service firebase.storage {
     // signer a download URL.
     match /esign/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 25 * 1024 * 1024
         && request.resource != null
         && request.resource.contentType != null
         && request.resource.contentType.matches('application/pdf');
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── DEAL ROOMS ─────────────────────────────────────
@@ -134,37 +146,37 @@ service firebase.storage {
     // HTML pages, so gate on isHtmlOnly() like documents/.
     match /deal_rooms/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 5 * 1024 * 1024
         && isHtmlOnly();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── SHARED GALLERIES ──────────────────────────────
     match /galleries/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 10 * 1024 * 1024
         && isImage();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── SHARED REPORTS ────────────────────────────────
     match /reports/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 10 * 1024 * 1024
         && isDocType();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── SHARED DOCUMENTS ──────────────────────────────
     match /shared_docs/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 25 * 1024 * 1024
         && isDocType();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── VOICE INTELLIGENCE AUDIO (C2) ──────────────────
@@ -192,10 +204,10 @@ service firebase.storage {
     }
     match /audio/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 200 * 1024 * 1024
         && isAudioType();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
 
     // ── EXPENSE RECEIPTS ──────────────────────────────
@@ -210,10 +222,10 @@ service firebase.storage {
     // (Rev. Proc. 97-22) non-alteration expectation.
     match /receipts/{uid}/{allPaths=**} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid)
+      allow write: if ownerWrites(uid)
         && request.resource.size < 25 * 1024 * 1024
         && isDocType();
-      allow delete: if isOwner(uid) || isAdmin();
+      allow delete: if ownerWrites(uid) || isAdmin();
     }
     match /receipts/{file} {
       allow read, write: if false;

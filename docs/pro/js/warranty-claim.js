@@ -154,6 +154,8 @@
   // true so the caller can proceed with the stage change.
   // ─────────────────────────────────────────────
   async function promptIntake(lead) {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return false;
     // Registry-only (Globals Tranche 3 T3-C, 2026-09-18), not a bare window
     // global. Not defined on customer.html (dashboard-only helper) — the
     // fallback to [] there is pre-existing, unchanged by this migration.
@@ -210,6 +212,8 @@
   // question — a denied claim was never worked.
   // ─────────────────────────────────────────────
   async function promptResolution(lead) {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return false;
     if (!lead.openWarrantyClaimId) return true; // nothing open — never block the move
     const fields = await _modal(
       'Resolve Warranty Claim',

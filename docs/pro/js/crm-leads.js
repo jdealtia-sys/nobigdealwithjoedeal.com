@@ -80,6 +80,8 @@ const _arrayUnion = window.arrayUnion;
 
 
 function openLeadModal(){
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const modal = document.getElementById('leadModal');
   if (!modal) return; // standalone compat — modal not in DOM
   // nbdModal owns Esc/backdrop/focus on dashboard.html; classList fallback on
@@ -246,6 +248,8 @@ if (_leadModal) _leadModal.addEventListener('click', async (e) => {
 document.addEventListener('DOMContentLoaded',()=>{const tm=document.getElementById('taskModal');if(tm)tm.addEventListener('click',e=>{if(e.target===tm)closeTaskModal();});});
 
 async function saveLead(){
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const mErr=document.getElementById('mErr'),mOk=document.getElementById('mOk');
   const saveBtn=document.querySelector('#leadModal .msave');
   // Lead modal may be absent in standalone/compat mode — bail cleanly.

@@ -452,6 +452,8 @@
   }
 
   function newEstimate() {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return;
     withEstimates('openEstimateV2Builder', [{ leadId: _leadId }]);
   }
 
@@ -461,6 +463,8 @@
   // event. Leads have no snapshot listener on the dashboard either, so the
   // in-memory lead + kanban are refreshed by hand.
   function makePrimary(estId) {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return;
     var ests = getEstimates();
     var est = null;
     for (var i = 0; i < ests.length; i++) if (ests[i].id === estId) est = ests[i];
@@ -577,6 +581,8 @@
   // _duplicateEstimate is eager (dashboard-bootstrap), so unlike the other
   // actions here this needs no lazy-bundle hop.
   function doDuplicate(id) {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return;
     if (typeof window._duplicateEstimate !== 'function') {
       toast('Duplicate not available — reload the page', 'error');
       return;

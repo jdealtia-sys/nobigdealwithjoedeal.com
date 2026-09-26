@@ -235,6 +235,8 @@
   // QUICK KNOCK MODAL
   // ============================================================================
   function openQuickKnock(opts) {
+    // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+    if (window.NBDRole && !window.NBDRole.guard()) return;
     // Idempotent (2026-09-25, phone-audit follow-up). Two calls used to build
     // two #d2d-quick-knock-overlay sheets with the same id — a double tap, or
     // two "+" > D2D Knock taps racing the lazy bundle — and the second call

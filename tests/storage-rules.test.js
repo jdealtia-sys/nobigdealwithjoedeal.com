@@ -16,6 +16,8 @@
  *     (2026-09-08 — the prefix previously had no rule block at all)
  *   - homeowner-uploads/ is owner/admin read and write-denied to every
  *     client (2026-09-14 — same gap, same shape, one prefix later)
+ *   - a 'viewer' writes nothing, even under its own uid prefix, and still
+ *     reads its own objects (2026-09-25, Jo's decision B)
  */
 
 'use strict';
@@ -43,6 +45,10 @@ async function run() {
   const bob   = env.authenticatedContext('bob',   { role: 'sales_rep', companyId: 'co-b' }).storage();
   const admin = env.authenticatedContext('joe',   { role: 'admin' }).storage();
   const anon  = env.unauthenticatedContext().storage();
+  // 2026-09-25 (decision B): a read-only viewer, and a no-role solo owner as
+  // the control that the same upload is otherwise legal.
+  const vic   = env.authenticatedContext('vic',   { role: 'viewer', companyId: 'co-v' }).storage();
+  const solo  = env.authenticatedContext('solo1', {}).storage();
 
   const { ref, uploadBytes, getBytes, deleteObject } = require('firebase/storage');
 
@@ -337,6 +343,45 @@ async function run() {
     buf(2048),
     { contentType: 'image/jpeg' }
   ));
+
+  // ── VIEWER IS READ-ONLY (2026-09-25, Jo's decision B) ─────────────────
+  // 29. Every client-writable prefix is keyed by the uploader's uid, so a
+  //     viewer could upload photos, contracts, receipts and audio under its
+  //     OWN prefix even though firestore.rules refuses every doc that would
+  //     point at them. ownerWrites() now bars role == 'viewer' on write and
+  //     delete. For each prefix: the viewer's upload is refused, the SAME
+  //     upload by a no-role solo succeeds (so the refusal is the role, not
+  //     the payload), the viewer cannot delete an object already under its
+  //     prefix, and can still read it.
+  const VIEWER_PREFIXES = [
+    ['photos',      'r.jpg',              'image/jpeg'],
+    ['docs',        'c.pdf',              'application/pdf'],
+    ['portals',     'lead42.html',        'text/html'],
+    ['documents',   'lead42/d.html',      'text/html'],
+    ['esign',       'lead42/env1/source.pdf', 'application/pdf'],
+    ['deal_rooms',  'dr.html',            'text/html'],
+    ['galleries',   'lead42/g.jpg',       'image/jpeg'],
+    ['reports',     'r.pdf',              'application/pdf'],
+    ['shared_docs', 's.pdf',              'application/pdf'],
+    ['audio',       'lead42/rec.webm',    'audio/webm'],
+    ['receipts',    'rc.jpg',             'image/jpeg'],
+  ];
+  await env.withSecurityRulesDisabled(async (context) => {
+    for (const [p, name, type] of VIEWER_PREFIXES) {
+      await uploadBytes(ref(context.storage(), p + '/vic/seeded-' + name.split('/').join('-')), buf(1024), { contentType: type });
+    }
+  });
+  for (const [p, name, type] of VIEWER_PREFIXES) {
+    const seeded = p + '/vic/seeded-' + name.split('/').join('-');
+    await assertFails(uploadBytes(ref(vic, p + '/vic/' + name), buf(1024), { contentType: type }));
+    await assertSucceeds(uploadBytes(ref(solo, p + '/solo1/' + name), buf(1024), { contentType: type }));
+    await assertFails(uploadBytes(ref(vic, seeded), buf(1024), { contentType: type }));   // overwrite
+    await assertFails(deleteObject(ref(vic, seeded)));
+    await assertSucceeds(getBytes(ref(vic, seeded)));
+    await assertSucceeds(deleteObject(ref(solo, p + '/solo1/' + name)));
+  }
+  // Platform admin still deletes a viewer's object (support context, unchanged).
+  await assertSucceeds(deleteObject(ref(admin, 'photos/vic/seeded-r.jpg')));
 
   console.log('✓ All storage rules tests passed');
   await env.cleanup();

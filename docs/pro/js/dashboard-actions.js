@@ -1637,6 +1637,8 @@ function _mountNotesTab() {
 // dance) — write, then re-fetch via _mountNotesTab, consistent with how
 // _mJdDeleteDoc/_mJdWireSignedUploadInputs already refresh their own lists.
 async function _mJdQuickAddNote() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const input = document.getElementById('mJdNotesInput');
   const send = document.getElementById('mJdNotesSend');
   const status = document.getElementById('mJdNotesStatus');
@@ -2724,6 +2726,8 @@ function openFullCustomerDetails() {
 }
 
 function editCardDetails() {
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const lid = window._cardDetailLeadId;
   if (!lid) return;
   // Read the id BEFORE closing: closeCardDetailModal → nbdModal.close →

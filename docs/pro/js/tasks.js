@@ -179,6 +179,8 @@ async function toggleTodayTask(leadId,taskId,done){
   if(!ok&&typeof showToast==='function')showToast("Couldn't save — check your connection and tap it again",'error');
 }
 async function openTaskModal(leadId,event){
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   if(event)event.stopPropagation();
   document.getElementById('taskInput').value='';
   document.getElementById('taskDue').value='';
@@ -263,6 +265,8 @@ function renderTaskList(tasks){
   }).join('');
 }
 async function addTask(){
+  // 2026-09-25: a viewer is read-only (Jo's decision B; role-gate.js).
+  if (window.NBDRole && !window.NBDRole.guard()) return;
   const inp=document.getElementById('taskInput'),due=document.getElementById('taskDue');
   if(!inp)return;
   const text=inp.value.trim();
