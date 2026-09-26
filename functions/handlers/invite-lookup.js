@@ -30,7 +30,8 @@
  *   4. belongs to a companies/{companyId} doc that exists.
  * Everything else the query returns is counted and dropped BEFORE the
  * ambiguity check, so a stray doc can neither be claimed nor block a real
- * invite. firestore.rules now also stops the stray doc being written in
+ * invite (every page is read, up to a cap past which the lookup refuses
+ * rather than guesses; see INVITE_MAX_PAGES). firestore.rules now also stops the stray doc being written in
  * the first place (users/{uid} subcollection writes are an allowlist).
  * Either change alone closes the hole; both are kept on purpose.
  *
@@ -43,41 +44,66 @@ const { INVITE_ALLOWED_ROLES } = require('./_shared');
 
 const INVITE_PATH = 'companies/{companyId}/members/{memberId}';
 
-// How many collection-group hits one lookup reads. Was limit(2) (claimInvite)
+// How many collection-group hits one page reads. Was limit(2) (claimInvite)
 // and limit(1) (onRepSignup): enough when every hit was a real invite, not
 // once stray docs are dropped after the read, because the dropped ones used
-// up the page. Default order is by full document path, so companies/... sorts
-// ahead of users/..., and the rules change means no new stray doc can be
-// written; 50 is headroom on top of both, far above the number of tenants
-// that will ever invite one address. A full page is reported as `truncated`
-// so the caller can log it.
+// up the page.
+//
+// 2026-09-25 review fixup: the first version read ONE page of 50 and treated
+// it as the whole answer. Results come back in full-path order, so more than
+// 50 stray hits sorting ahead of companies/... hid the real invite ('none'),
+// and stray hits sorting BETWEEN two real invites hid the second one, so the
+// first was claimed where the right answer is 'ambiguous'. The lookup now
+// pages (startAfter the last doc) until a short page. INVITE_MAX_PAGES caps
+// the reads; a scan that reaches the cap without a short page never answers
+// 'found' (see findPendingInvite), because it cannot rule out a second
+// invite. No client path can write a stray `members` doc (firestore.rules),
+// so the normal read stays one short page.
 const INVITE_SCAN_LIMIT = 50;
+const INVITE_MAX_PAGES = 20;
 
 /**
  * @param {FirebaseFirestore.Firestore} db
  * @param {string} email already lower-cased and trimmed by the caller
+ * @param {{pageSize?: number, maxPages?: number}} [opts] tests only; the
+ *   callers take the INVITE_SCAN_LIMIT / INVITE_MAX_PAGES defaults
  * @returns {Promise<{
  *   status: 'none'|'ambiguous'|'found',
  *   nonCanonical: number,  // hits not at companies/{id}/members/{email}
  *   invalid: number,       // right path, but role not issuable
  *   orphaned: number,      // right path, but companies/{id} doc missing
- *   truncated: boolean,
+ *   truncated: boolean,    // hit the page cap; status is then never 'found'
  *   companyIds?: string[], // status 'ambiguous'
  *   ref?: FirebaseFirestore.DocumentReference, data?: object,
  *   companyId?: string, company?: object,       // status 'found'
  * }>}
  */
-async function findPendingInvite(db, email) {
-  const snap = await db.collectionGroup('members')
+async function findPendingInvite(db, email, opts) {
+  const pageSize = (opts && opts.pageSize) || INVITE_SCAN_LIMIT;
+  const maxPages = (opts && opts.maxPages) || INVITE_MAX_PAGES;
+  const byEmail = db.collectionGroup('members')
     .where('email', '==', email)
-    .where('status', '==', 'invited')
-    .limit(INVITE_SCAN_LIMIT)
-    .get();
+    .where('status', '==', 'invited');
+
+  // Read every page (see INVITE_MAX_PAGES above). With only equality filters
+  // Firestore orders by document path, which is what startAfter(doc) pages on.
+  const docs = [];
+  let truncated = false;
+  let last = null;
+  for (let page = 0; ; page++) {
+    if (page >= maxPages) { truncated = true; break; }
+    let q = byEmail.limit(pageSize);
+    if (last) q = q.startAfter(last);
+    const snap = await q.get();
+    docs.push(...snap.docs);
+    if (snap.size < pageSize) break;
+    last = snap.docs[snap.docs.length - 1];
+  }
 
   let nonCanonical = 0;
   let invalid = 0;
   const candidates = [];
-  for (const doc of snap.docs) {
+  for (const doc of docs) {
     const at = matchDocPath(INVITE_PATH, doc.ref.path);
     const data = doc.data() || {};
     const docEmail = String(data.email || '').trim().toLowerCase();
@@ -100,13 +126,22 @@ async function findPendingInvite(db, email) {
     return false;
   });
 
-  const base = { nonCanonical, invalid, orphaned, truncated: snap.size >= INVITE_SCAN_LIMIT };
+  const base = { nonCanonical, invalid, orphaned, truncated };
+  const tenantIds = Array.from(new Set(valid.map((c) => c.companyId)));
+
+  // The scan stopped at the page cap, so an invite (or a second one) may lie
+  // past what was read. Fail closed: 'ambiguous' is the answer both callers
+  // already refuse on (claimInvite: non-terminal ambiguous_invite, so it
+  // re-checks once the stray docs are gone; onRepSignup: no claims). Neither
+  // 'found' (could be the wrong one of two) nor 'none' (could hide the only
+  // one) would be true.
+  if (truncated) return Object.assign(base, { status: 'ambiguous', companyIds: tenantIds });
+
   if (!valid.length) return Object.assign(base, { status: 'none' });
 
   // Two DIFFERENT companies invited the same email. Refuse rather than pick
   // one (see claimInvite). Doc id == email, so each company contributes at
   // most one row; >1 valid row always means >1 company.
-  const tenantIds = Array.from(new Set(valid.map((c) => c.companyId)));
   if (tenantIds.length > 1) return Object.assign(base, { status: 'ambiguous', companyIds: tenantIds });
 
   const pick = valid[0];
@@ -119,4 +154,4 @@ async function findPendingInvite(db, email) {
   });
 }
 
-module.exports = { findPendingInvite, INVITE_SCAN_LIMIT, INVITE_PATH };
+module.exports = { findPendingInvite, INVITE_SCAN_LIMIT, INVITE_MAX_PAGES, INVITE_PATH };

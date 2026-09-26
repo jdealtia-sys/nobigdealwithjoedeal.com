@@ -18,8 +18,9 @@
  *   - functions/handlers/invite-lookup.js: one resolver for both handlers. A
  *     hit is an invite only at exactly companies/{companyId}/members/{email},
  *     with an issuable role and an existing company doc; everything else is
- *     dropped BEFORE the ambiguity check, and the page is INVITE_SCAN_LIMIT so
- *     dropped docs cannot crowd a real invite out of it.
+ *     dropped BEFORE the ambiguity check, and the lookup reads every page
+ *     (up to a cap, past which it refuses), so dropped docs cannot crowd a
+ *     real invite out or hide a second one (cases 10-11).
  *   - firestore.rules: users/{uid} subcollection WRITES are an allowlist
  *     (pinned by tests/firestore-rules.test.js section 35).
  * This file drives the REAL handlers in-process (claimInvite.run /
@@ -67,6 +68,7 @@ const { FieldValue } = freq('firebase-admin/firestore');
 
 const { claimInvite } = require(path.join(ROOT, 'functions/handlers/invites.js'));
 const { onRepSignup } = require(path.join(ROOT, 'functions/handlers/auth.js'));
+const { findPendingInvite, INVITE_SCAN_LIMIT } = require(path.join(ROOT, 'functions/handlers/invite-lookup.js'));
 
 let passed = 0, failed = 0; const fails = [];
 function ok(name, cond, detail) {
@@ -303,6 +305,93 @@ async function run() {
     await db.doc(`companies/${co9}/teams/${co9}/members/${rep9b.email}`).set(inviteDoc(rep9b.email, 'sales_rep', co9));
     const s9 = await signup(rep9b);
     ok('9 onRepSignup: nested members doc → no claims', !s9 || !s9.customClaims, JSON.stringify(s9));
+  }
+
+  // ── 10. More stray hits than one page (2026-09-25 review fixup) ──────────
+  // The first version read ONE page of INVITE_SCAN_LIMIT hits. More stray
+  // docs than that, sorting ahead of the real invite, left 'none'; stray docs
+  // sorting between two real invites hid the second one, so the first was
+  // claimed where the answer is ambiguous_invite. The lookup now reads every
+  // page. Strays are admin-seeded (no client path can write one).
+  section('10. more stray hits than one page: every page is read');
+  {
+    const over = INVITE_SCAN_LIMIT + 5;
+    async function seedStrays(prefixFor, email) {
+      const batch = db.batch();
+      for (let i = 0; i < over; i++) batch.set(db.doc(`${prefixFor(i)}/members/${email}`), inviteDoc(email, 'company_admin', 'x'));
+      await batch.commit();
+    }
+
+    // 10a. A full page of strays ahead of the only real invite.
+    const co = await makeCompany('owner10');
+    const rep = await makeUser('rep10');
+    await seedStrays((i) => `aaa_${RUN}/p${i}`, rep.email);
+    await db.doc(`companies/${co}/members/${rep.email}`).set(inviteDoc(rep.email, 'manager', co));
+    const out = await claim(rep);
+    ok('10a claimInvite: a full page of strays ahead → still claims the real company',
+      out.claimed === true && out.companyId === co, JSON.stringify(out));
+    const repS = await makeUser('rep10s');
+    await seedStrays((i) => `aaa_${RUN}/q${i}`, repS.email);
+    await db.doc(`companies/${co}/members/${repS.email}`).set(inviteDoc(repS.email, 'sales_rep', co));
+    const sOut = await signup(repS);
+    ok('10a onRepSignup: a full page of strays ahead → still the real company',
+      sOut && sOut.customClaims && sOut.customClaims.companyId === co, JSON.stringify(sOut));
+
+    // 10b. Two real invites with a full page of strays between them. Paths
+    // order segment by segment, so companies/{A}/teams/... sits after
+    // companies/{A}/members/... and before companies/{B}/... (A < B).
+    const coA = await makeCompany('owner10a');
+    const coB = await makeCompany('owner10b');
+    ok('10b fixture: company A sorts before company B', coA < coB, coA + ' / ' + coB);
+    const rep2 = await makeUser('rep10b');
+    await db.doc(`companies/${coA}/members/${rep2.email}`).set(inviteDoc(rep2.email, 'sales_rep', coA));
+    await seedStrays((i) => `companies/${coA}/teams/t${i}`, rep2.email);
+    await db.doc(`companies/${coB}/members/${rep2.email}`).set(inviteDoc(rep2.email, 'sales_rep', coB));
+    const o2 = await claim(rep2);
+    ok('10b claimInvite: second real invite past a full page → ambiguous_invite, not the first company',
+      o2.claimed === false && o2.reason === 'ambiguous_invite', JSON.stringify(o2));
+    ok('10b claimInvite: nothing stamped', !(await claimsOf(rep2.uid)).companyId);
+    const rep2s = await makeUser('rep10bs');
+    await db.doc(`companies/${coA}/members/${rep2s.email}`).set(inviteDoc(rep2s.email, 'sales_rep', coA));
+    await seedStrays((i) => `companies/${coA}/teams/u${i}`, rep2s.email);
+    await db.doc(`companies/${coB}/members/${rep2s.email}`).set(inviteDoc(rep2s.email, 'sales_rep', coB));
+    const s2 = await signup(rep2s);
+    ok('10b onRepSignup: second real invite past a full page → no claims', !s2 || !s2.customClaims, JSON.stringify(s2));
+  }
+
+  // ── 11. The page ceiling fails closed ─────────────────────────────────────
+  // The read stops after maxPages pages. Past that it cannot know there is
+  // no second invite, so it never answers 'found' (callers refuse, as for two
+  // real invites). Small pages via the test-only options keep this quick.
+  section('11. a scan that hits its page ceiling never answers found');
+  {
+    const opts = { pageSize: 5, maxPages: 2 };
+    const co = await makeCompany('owner11');
+
+    // Control: fewer hits than the ceiling, spread over two pages → found.
+    const e1 = `${RUN}-lookup11a@invite.test`;
+    for (let i = 0; i < 6; i++) await db.doc(`aaa_${RUN}/c${i}/members/${e1}`).set(inviteDoc(e1, 'company_admin', 'x'));
+    await db.doc(`companies/${co}/members/${e1}`).set(inviteDoc(e1, 'sales_rep', co));
+    const l1 = await findPendingInvite(db, e1, opts);
+    ok('11 control: 7 hits over two 5-hit pages → found, not truncated',
+      l1.status === 'found' && l1.companyId === co && l1.truncated === false,
+      JSON.stringify({ s: l1.status, t: l1.truncated, n: l1.nonCanonical }));
+
+    // Real invite first, then more strays than the ceiling can read.
+    const e2 = `${RUN}-lookup11b@invite.test`;
+    await db.doc(`companies/${co}/members/${e2}`).set(inviteDoc(e2, 'sales_rep', co));
+    for (let i = 0; i < 12; i++) await db.doc(`companies/${co}/teams/c${i}/members/${e2}`).set(inviteDoc(e2, 'company_admin', 'x'));
+    const l2 = await findPendingInvite(db, e2, opts);
+    ok('11 real invite seen, ceiling hit → ambiguous (fails closed), truncated',
+      l2.status === 'ambiguous' && l2.truncated === true, JSON.stringify({ s: l2.status, t: l2.truncated }));
+
+    // Only strays inside the ceiling, real invite past it → still not 'none'.
+    const e3 = `${RUN}-lookup11c@invite.test`;
+    for (let i = 0; i < 12; i++) await db.doc(`aaa_${RUN}/d${i}/members/${e3}`).set(inviteDoc(e3, 'company_admin', 'x'));
+    await db.doc(`companies/${co}/members/${e3}`).set(inviteDoc(e3, 'sales_rep', co));
+    const l3 = await findPendingInvite(db, e3, opts);
+    ok('11 real invite past the ceiling → ambiguous, not none',
+      l3.status === 'ambiguous' && l3.truncated === true, JSON.stringify({ s: l3.status, t: l3.truncated }));
   }
 }
 

@@ -173,11 +173,22 @@ console.log('\nInvite/claim hardening (Phase-3 QA sweep)');
   // the emulator in tests/invite-claim-path.integration.test.js; these pin
   // the wiring.
   const lookupSrc = read('functions/handlers/invite-lookup.js');
-  const { INVITE_SCAN_LIMIT } = require(path.join(ROOT, 'functions/handlers/invite-lookup.js'));
-  assert('invite lookup reads a multi-hit page, not limit(1)',
-    /collectionGroup\('members'\)[\s\S]{0,160}\.limit\(INVITE_SCAN_LIMIT\)/.test(lookupSrc)
-    && INVITE_SCAN_LIMIT >= 2,
-    'limit(1) silently claims the lexicographically-smallest companyId on a same-email collision');
+  const lookupCode = lookupSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/mg, '');
+  const { INVITE_SCAN_LIMIT, INVITE_MAX_PAGES } = require(path.join(ROOT, 'functions/handlers/invite-lookup.js'));
+  // 2026-09-25 review fixup: one page is not the whole answer. The lookup
+  // pages (startAfter the last doc) until a short page, and a scan that hits
+  // INVITE_MAX_PAGES answers 'ambiguous' instead of 'found'/'none'. Cases 10
+  // and 11 of the emulator suite exercise both; these pin the wiring.
+  assert('invite lookup pages through every hit, not one limit(n) page',
+    /collectionGroup\('members'\)/.test(lookupCode)
+    && /opts\.pageSize\) \|\| INVITE_SCAN_LIMIT;/.test(lookupCode)
+    && /\.limit\(pageSize\)/.test(lookupCode)
+    && /\.startAfter\(last\)/.test(lookupCode)
+    && INVITE_SCAN_LIMIT >= 2 && INVITE_MAX_PAGES >= 2,
+    'limit(1) silently claims the lexicographically-smallest companyId on a same-email collision; one page hides hits past it');
+  assert('invite lookup fails closed when it hits its page cap',
+    /if \(truncated\) return Object\.assign\(base, \{ status: 'ambiguous'/.test(lookupCode),
+    'a capped scan cannot rule out a second invite, so it must not answer found or none');
   // Comments stripped for the absence check: invites.js explains the old
   // inline query by quoting it.
   const invCode = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/mg, '');

@@ -133,10 +133,13 @@ exports.claimInvite = onCall(
     // guard above rejects every retry. Refuse instead; the owners resolve the
     // collision (cancel the stray invite) and the rep re-checks. Non-terminal
     // client-side so it self-heals. findPendingInvite counts companies only
-    // over REAL invites, so a stray doc can no longer trigger this.
+    // over REAL invites, so a stray doc can no longer trigger this. It also
+    // answers 'ambiguous' (truncated: true) when its scan hit the page cap
+    // (2026-09-25 review fixup): past the cap it cannot tell which invite,
+    // or whether a second one exists.
     if (lookup.status === 'ambiguous') {
       logger.warn('claimInvite: ambiguous cross-tenant invite — refusing', {
-        email, companies: lookup.companyIds,
+        email, companies: lookup.companyIds, truncated: lookup.truncated,
       });
       return { claimed: false, reason: 'ambiguous_invite' };
     }

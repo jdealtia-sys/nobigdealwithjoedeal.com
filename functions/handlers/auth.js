@@ -442,7 +442,8 @@ exports.onRepSignup = beforeUserCreated(
         // whichever path sorted first; picking here would stamp a tenant the
         // rep may not have meant to join. Sign up with no claims instead;
         // claimInvite at first dashboard load reports ambiguous_invite and
-        // claims once an owner cancels the stray invite.
+        // claims once an owner cancels the stray invite. Also 'ambiguous'
+        // when the lookup hit its page cap (truncated, 2026-09-25 fixup).
         logger.info('onRepSignup: no claimable invite', { status: lookup.status });
         return;
       }
