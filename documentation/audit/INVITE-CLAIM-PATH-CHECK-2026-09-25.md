@@ -34,21 +34,14 @@ match /{subcol}/{docId} { allow read, write: if isOwner(uid) || isAdmin(); }
 ```
 
 It let a signed-in user write a subcollection of **any** name under their own
-`users/{uid}` doc, `members` included. A `members` document there, carrying
-someone else's email and `status: 'invited'`, was accepted by the lookup as a
-team invite for that email:
+`users/{uid}` doc, `members` included, and the lookup accepted a matching
+document there as a team invite. That skipped everything `createTeamInvite`
+enforces (plan seat cap, role allowlist at write time, who may invite),
+resolved the tenant to the writer's uid, and could also make a real invite for
+the same address come back as `ambiguous_invite`, which blocked it.
 
-- the tenant it resolved to was the writer's uid, and the role was whatever
-  the document said (anything in the invite allowlist, `company_admin`
-  included);
-- none of `createTeamInvite`'s checks applied: the plan seat cap, the role
-  allowlist at write time, who is allowed to invite;
-- a real invite for the same email came back as `ambiguous_invite`, so the
-  real one could not be claimed until the stray document went away.
-
-`claimInvite` runs at dashboard boot (`dashboard-bootstrap.module.js`) for a
-signed-in user with a verified email whose token has no `companyId` claim or
-has `companyId == uid` (every self-serve solo owner). `onRepSignup` is a
+`claimInvite` is called from the dashboard (`dashboard-bootstrap.module.js`),
+so the path was live in production. `onRepSignup` is a
 blocking trigger that production never runs (GCIP, see
 [BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17](BLOCKING-TRIGGERS-NOT-GCIP-2026-08-17.md));
 it is fixed anyway because the emulator rig and any future GCIP upgrade run
@@ -71,11 +64,14 @@ it. The `members(email, status)` COLLECTION_GROUP index ships in
 Everything else is counted and dropped **before** the ambiguity check, so a
 stray document can neither be claimed nor block a real invite. The handlers log
 the counts (`nonCanonical`, `invalid`, `orphaned`, `truncated`), never an
-email. The page is 50 hits (was 2 in `claimInvite`, 1 in `onRepSignup`): hits
-come back in full-path order, so a stray document under a parent that sorts
-before `companies` used up the old page and pushed the real invite out of it.
-`claimInvite` also reuses the company doc the lookup read instead of reading it
-again.
+email. The old reads took 2 hits (`claimInvite`) or 1 (`onRepSignup`), and
+hits come back in full-path order, so a stray document under a parent that
+sorts before `companies` used up the page and pushed the real invite out of
+it. The lookup now reads **every** page (50 hits each, `startAfter` the last
+doc) until a short page, up to 20 pages; a scan that reaches that cap answers
+`ambiguous`, which both callers refuse, never `found` or `none` (see
+[Review fixup](#review-fixup-2026-09-25)). `claimInvite` also reuses the
+company doc the lookup read instead of reading it again.
 
 Behaviour changes, both deliberate:
 
@@ -162,16 +158,18 @@ data.
 
 ## Tests
 
-- `tests/invite-claim-path.integration.test.js`, **32 checks**, emulator
+- `tests/invite-claim-path.integration.test.js`, **41 checks** (32 before the
+  review fixup), emulator
   bucket, new CI step in the `emulator-orphan-suites` job. Drives the real
   `claimInvite.run()` and `onRepSignup.run()` in-process against the Auth +
   Firestore emulators (no functions emulator). Stray documents are seeded with
   the admin SDK on purpose: the handler must hold even if one exists. Cases:
-  a `users/{uid}/members` doc (a normal victim and a solo owner with
-  `companyId == uid`), a real invite, a real invite beside a stray doc, five
+  a `users/{uid}/members` doc (two claimant token shapes), a real invite, a
+  real invite beside a stray doc, five
   stray docs that sort ahead of a real invite, two real invites (still
-  ambiguous), and four "right name, wrong shape" docs (no company doc, role
-  outside the allowlist, doc id not the email, nested deeper under a company).
+  ambiguous), four "right name, wrong shape" docs (no company doc, role
+  outside the allowlist, doc id not the email, nested deeper under a company),
+  and (fixup) more stray hits than one page (10) and the page cap (11).
   Every stray-doc writer owns a `companies/{uid}` doc and the nested case sits
   under a real company id, so the company-exists check alone cannot pass them;
   every `onRepSignup` leg uses its own address (a wrongly successful claim leg
@@ -217,6 +215,40 @@ Each fix piece reverted alone (committed first, restored with
 | `matchDocPath` depth check removed | unit | 1: longer path whose first four segments match |
 | cron call site back to `rec.audioPath` | smoke | C5 only (the unit suite stays green: it tests the helper, not the call site) |
 
+## Review fixup (2026-09-25)
+
+The review of PR #1779 approved it with four minor points. What was done:
+
+- **One page was treated as the whole answer.** The first version read a
+  single page of 50 hits. Reproduced on the emulator with admin-seeded stray
+  documents: more than 50 sorting ahead of `companies/` made the real invite
+  `no_invite`, and a full page sorting *between* two real invites hid the
+  second one, so the first company was claimed where the answer is
+  `ambiguous_invite`. No client can write such a document after the rules
+  change, so this was defence in depth, but the first PR body overstated it.
+  Fixed: `findPendingInvite` pages to the end (cap `INVITE_MAX_PAGES` = 20
+  pages of `INVITE_SCAN_LIMIT` = 50), and a scan that hits the cap answers
+  `ambiguous` with `truncated: true` (fail closed; `claimInvite` keeps
+  `ambiguous_invite` non-terminal, so it re-checks). Cases 10 and 11 of the
+  invite suite; case 11 uses test-only small pages (`opts`).
+- **This note was more operational than it needed to be** for a public repo
+  while the fix is undeployed. The defect section now states what the lookup
+  accepted and what that bypassed, without field values, the highest reachable
+  role or which accounts were exposed.
+- Two out-of-lane points were passed back to the orchestrator for separate
+  follow-ups rather than folded into this PR.
+
+Fixup break-tests (each alone on `invite-lookup.js`, restored byte-for-byte,
+SHA checked):
+
+| Reverted | Invite suite reddened (and nothing else) | `gauntlet-regressions` wiring pin |
+|---|---|---|
+| read one page again (`truncated = size >= pageSize`, no loop) | 3: case 10a claim + signup, case 11 control | stays green (the cursor code is still there; the suite is the real guard) |
+| cap no longer fails closed | 2: both case 11 cap checks (`found` / `none`) | "fails closed when it hits its page cap" |
+| `startAfter` cursor dropped (re-reads page 1) | 3: case 10a claim + signup, case 11 control | "pages through every hit" |
+
+The unfixed lookup reddened 7 (10a ×2, 10b ×3, 11 ×2): the reproduction.
+
 ## Left open
 
 - The retention cron itself is not run end to end (it needs Storage + a
@@ -224,3 +256,6 @@ Each fix piece reverted alone (committed first, restored with
 - The three "rules only" collection-group readers above.
 - `teamInviteEmail` (`onDocumentCreated companies/{companyId}/members/{id}`)
   is path-specific already and needed no change.
+- Invite acceptance is implicit: a pending invite is claimed at dashboard load
+  with no accept step. An explicit accept step is a separate product
+  follow-up (pre-existing, out of this lane).
