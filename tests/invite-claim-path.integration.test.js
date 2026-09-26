@@ -144,7 +144,12 @@ async function run() {
       outSolo.claimed === false && outSolo.reason === 'no_invite', JSON.stringify(outSolo));
     ok('claimInvite: solo owner keeps companyId == own uid', (await claimsOf(solo.uid)).companyId === solo.uid);
 
-    const sOut = await signup(victim);
+    // Every onRepSignup leg gets its OWN address and docs: a claim leg that
+    // wrongly succeeds flips its doc to active, which would hide a signup
+    // failure on the same doc.
+    const victim2 = await makeUser('victim1b');
+    await db.doc(`users/${writer.uid}/members/${victim2.email}`).set(inviteDoc(victim2.email, 'company_admin', writer.uid));
+    const sOut = await signup(victim2);
     ok('onRepSignup: users/{uid}/members doc → no claims', !sOut || !sOut.customClaims, JSON.stringify(sOut));
   }
 
@@ -236,7 +241,10 @@ async function run() {
     ok('claimInvite: two real companies → ambiguous_invite', out.claimed === false && out.reason === 'ambiguous_invite',
       JSON.stringify(out));
     ok('claimInvite: nothing stamped on ambiguity', !(await claimsOf(rep.uid)).companyId);
-    const sOut = await signup(rep);
+    const rep2 = await makeUser('rep5b');
+    await db.doc(`companies/${coA}/members/${rep2.email}`).set(inviteDoc(rep2.email, 'sales_rep', coA));
+    await db.doc(`companies/${coB}/members/${rep2.email}`).set(inviteDoc(rep2.email, 'sales_rep', coB));
+    const sOut = await signup(rep2);
     ok('onRepSignup: two real companies → no claims (claimInvite reports it later)', !sOut || !sOut.customClaims,
       JSON.stringify(sOut));
   }
@@ -251,7 +259,9 @@ async function run() {
     const o6 = await claim(rep6);
     ok('6 claimInvite: invite under a companies/{id} with no company doc → no_invite',
       o6.claimed === false && o6.reason === 'no_invite', JSON.stringify(o6));
-    const s6 = await signup(rep6);
+    const rep6b = await makeUser('rep6b');
+    await db.doc(`companies/${ghost}/members/${rep6b.email}`).set(inviteDoc(rep6b.email, 'sales_rep', ghost));
+    const s6 = await signup(rep6b);
     ok('6 onRepSignup: no company doc → no claims', !s6 || !s6.customClaims, JSON.stringify(s6));
 
     // 7. role createTeamInvite never issues
@@ -262,6 +272,10 @@ async function run() {
     ok('7 claimInvite: role outside the invite allowlist → no_invite',
       o7.claimed === false && o7.reason === 'no_invite', JSON.stringify(o7));
     ok('7 claimInvite: no claims stamped', !(await claimsOf(rep7.uid)).companyId);
+    const rep7b = await makeUser('rep7b');
+    await db.doc(`companies/${co7}/members/${rep7b.email}`).set(inviteDoc(rep7b.email, 'admin', co7));
+    const s7 = await signup(rep7b);
+    ok('7 onRepSignup: role outside the invite allowlist → no claims', !s7 || !s7.customClaims, JSON.stringify(s7));
 
     // 8. doc id is not the email it carries
     const co8 = await makeCompany('owner8');
@@ -270,6 +284,10 @@ async function run() {
     const o8 = await claim(rep8);
     ok('8 claimInvite: member doc id != its email → no_invite',
       o8.claimed === false && o8.reason === 'no_invite', JSON.stringify(o8));
+    const rep8b = await makeUser('rep8b');
+    await db.doc(`companies/${co8}/members/someone-else-b-${RUN}@invite.test`).set(inviteDoc(rep8b.email, 'sales_rep', co8));
+    const s8 = await signup(rep8b);
+    ok('8 onRepSignup: member doc id != its email → no claims', !s8 || !s8.customClaims, JSON.stringify(s8));
 
     // 9. a members collection nested deeper under a company. The middle id is
     //    itself a real company id, so reading the tenant off
@@ -281,7 +299,9 @@ async function run() {
     const o9 = await claim(rep9);
     ok('9 claimInvite: companies/{id}/teams/{t}/members doc → no_invite',
       o9.claimed === false && o9.reason === 'no_invite', JSON.stringify(o9));
-    const s9 = await signup(rep9);
+    const rep9b = await makeUser('rep9b');
+    await db.doc(`companies/${co9}/teams/${co9}/members/${rep9b.email}`).set(inviteDoc(rep9b.email, 'sales_rep', co9));
+    const s9 = await signup(rep9b);
     ok('9 onRepSignup: nested members doc → no claims', !s9 || !s9.customClaims, JSON.stringify(s9));
   }
 }
