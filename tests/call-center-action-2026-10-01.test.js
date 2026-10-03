@@ -152,7 +152,7 @@ const run = async (db, auth, data) => { try { return { r: await callAction({ db,
   ok('"✓ Done" in Said-you\'d-do also marks the CALL taskDone (Home + the Call Center drop the person)', db.docs.get(COLLECTION + '/cube_AAAAA1').taskDone === true);
   await run(db, owner, { id: 'cube_AAAAA1', action: 'taskUndone' });
   ok('…and Undo puts it back', db.docs.get(COLLECTION + '/cube_AAAAA1').taskDone === false);
-  const { mirrorCallTask } = M._test;
+  const mirrorCallTask = M._test.mirrorCallTask || (async () => undefined);
   db = fakeDb(seed());
   db.docs.set(COLLECTION + '/cube_AAAAA1', Object.assign({}, db.docs.get(COLLECTION + '/cube_AAAAA1'), { leadId: 'L1' }));
   let mr = await mirrorCallTask({ db, leadId: 'L1', taskId: 'cube-cube_AAAAA1', after: { done: true } });

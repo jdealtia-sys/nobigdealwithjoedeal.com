@@ -34,7 +34,8 @@ function ok(name, cond, detail) {
 
 (async () => {
   console.log('\n1. call-timeline.js — calls + texts on the customer timeline');
-  const CT = require(path.join(ROOT, 'docs/pro/js/call-timeline.js'));
+  let CT = { fromActivity: () => null };
+  try { CT = require(path.join(ROOT, 'docs/pro/js/call-timeline.js')); } catch (_) { /* not on this branch */ }
   const L = require(path.join(ROOT, 'functions/call-center-logic.js'));
   const at = Date.parse('2026-10-01T15:00:00Z');
   const act = L.buildCallActivity({
@@ -45,15 +46,15 @@ function ok(name, cond, detail) {
   const row = CT.fromActivity('cube-cube_x', Object.assign({ createdAt: { toDate: () => new Date(at + 3600e3) } }, act));
   ok('a noted call (what the server writes) → a Calls row: who + length, summary, Jo\'s promise, follow-up', row && row.type === 'communication' && row.kind === 'call'
     && row.title === 'They called · Pat Example · 1m 35s' && /Gutter leaking/.test(row.desc) && /You said you would: Send the quote/.test(row.desc) && !/gate open/.test(row.desc) && /Follow up 2026-10-02/.test(row.desc), JSON.stringify(row));
-  ok('dated when the CALL happened, not when it was filed', row.time.getTime() === at);
+  ok('dated when the CALL happened, not when it was filed', !!row && row.time.getTime() === at);
   const old = CT.fromActivity('cube-cube_y', { label: 'You called', summary: 's', createdAt: { toDate: () => new Date(at) } });
-  ok('an entry filed before startedAtMs existed falls back to createdAt', old.time.getTime() === at);
+  ok('an entry filed before startedAtMs existed falls back to createdAt', !!old && old.time.getTime() === at);
   const sms = CT.fromActivity('sms-txt_5135550100_20261001', { type: 'text', label: 'Texts · Pat (4)', summary: 'Sent photos.', startedAtMs: at });
-  ok('a day of texts → a Texts row', sms.kind === 'text' && sms.title === 'Texts · Pat (4)' && sms.desc === 'Sent photos.');
+  ok('a day of texts → a Texts row', !!sms && sms.kind === 'text' && sms.title === 'Texts · Pat (4)' && sms.desc === 'Sent photos.');
   ok('thursday-*, measurement and rep-written activity are NOT read here (shown from their own sources — no duplicates)',
     CT.fromActivity('thursday-abc', { summary: 'x' }) === null && CT.fromActivity('measure-1', { type: 'measurement_ready' }) === null && CT.fromActivity('a1b2c3', { type: 'note', source: 'rep' }) === null);
   const evil = CT.fromActivity('cube-cube_z', { label: '<img src=x onerror=alert(1)>', summary: '<script>alert(2)</script>', promises: [{ who: 'jo', text: '"><b>x</b>' }] });
-  ok('AI text from customer speech stays a plain string (the renderer escapes it)', evil.title.includes('<img') && evil.desc.includes('<script>') && typeof evil.desc === 'string');
+  ok('AI text from customer speech stays a plain string (the renderer escapes it)', !!evil && evil.title.includes('<img') && evil.desc.includes('<script>') && typeof evil.desc === 'string');
 
   console.log('\n2. customer page wiring');
   const cb = read('docs/pro/js/customer-bootstrap.module.js');
@@ -132,7 +133,7 @@ function ok(name, cond, detail) {
   await CC.reload();
   out = view.innerHTML;
   ok('All tab: every call card and the day of texts has Call + Text (5 rows)', (out.match(/data-cc-reach="call"/g) || []).length === 5 && out.includes('href="sms:+15135550103"'), (out.match(/data-cc-reach="call"/g) || []).length);
-  ok('a call with no number of its own uses the customer\'s phone', win.NBDCallCenter._telOf({ phoneDigits: '' }, { phone: '(513) 555-0101' }) === '+15135550101' && win.NBDCallCenter._telOf({ phoneDigits: '12' }, null) === '');
+  ok('a call with no number of its own uses the customer\'s phone', typeof win.NBDCallCenter._telOf === 'function' && win.NBDCallCenter._telOf({ phoneDigits: '' }, { phone: '(513) 555-0101' }) === '+15135550101' && win.NBDCallCenter._telOf({ phoneDigits: '12' }, null) === '');
   ok('the 44px touch target and link look come from the stylesheet', /\.pc-play \{ min-height: 44px; \}/.test(read('docs/pro/css/phone-calls.css')) && /\.cc-reach \{[^}]*display: inline-flex/.test(read('docs/pro/css/phone-calls.css')));
   CC._state.filter = 'attention';
   await CC.reload();
@@ -145,11 +146,12 @@ function ok(name, cond, detail) {
   ok('an unknown caller\'s ⋯ menu has Call + Text (it had nothing before)', moreU.join() === '📞 Call,💬 Text', moreU.join());
 
   console.log('\n4. ?call=<id> opens that call\'s card');
-  const t1 = CC._focusTarget(CC._state.calls, 'cube_one1', CC._needsAttention);
-  ok('a call that still needs Jo opens on Needs attention', t1 && t1.filter === 'attention');
-  const t2 = CC._focusTarget(CC._state.calls, 'cube_old1', CC._needsAttention);
-  ok('a call that doesn\'t opens on All', t2 && t2.filter === 'all');
-  ok('an unknown id → nothing', CC._focusTarget(CC._state.calls, 'cube_nope', CC._needsAttention) === null);
+  const focusT = typeof CC._focusTarget === 'function' ? CC._focusTarget : () => undefined;
+  const t1 = focusT(CC._state.calls, 'cube_one1', CC._needsAttention);
+  ok('a call that still needs Jo opens on Needs attention', !!t1 && t1.filter === 'attention');
+  const t2 = focusT(CC._state.calls, 'cube_old1', CC._needsAttention);
+  ok('a call that doesn\'t opens on All', !!t2 && t2.filter === 'all');
+  ok('an unknown id → nothing', focusT(CC._state.calls, 'cube_nope', CC._needsAttention) === null);
   CC._state.filter = 'attention';
   CC.init();
   await new Promise((r) => setTimeout(r, 600));

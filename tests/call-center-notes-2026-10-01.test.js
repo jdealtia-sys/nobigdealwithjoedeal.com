@@ -245,7 +245,7 @@ const BUSINESS = () => ({ call_type: 'customer', summary: 'Gutter leaking again;
   db = fakeDb({ [CONFIG]: { transcribeOnly: ['cube_nf'] }, [COLLECTION + '/cube_nf']: call('cube_nf', { leadId: 'LN' }), 'leads/LN': { firstName: 'Pat', userId: OWNER, followUp: '2026-09-01' } });
   await runTranscribe({ db, bucket, live: false, nowMs: NOW });
   ok('no AI follow-up date → the lead\'s follow-up is untouched', db.docs.get('leads/LN').followUp === '2026-09-01' && db.docs.get('leads/LN').lastContactType === 'call');
-  ok('leadContactPatch: nothing new → null', L.leadContactPatch({ lead: { lastContactedAt: NOW, followUp: '2026-12-01' }, call: { startedAtMs: NOW - 1 }, notes: { followUpDate: '2026-10-02' }, todayYmd: '2026-10-01', nowMs: NOW }) === null);
+  ok('leadContactPatch: nothing new → null', typeof L.leadContactPatch === 'function' && L.leadContactPatch({ lead: { lastContactedAt: NOW, followUp: '2026-12-01' }, call: { startedAtMs: NOW - 1 }, notes: { followUpDate: '2026-10-02' }, todayYmd: '2026-10-01', nowMs: NOW }) === null);
 
   console.log('\n10. Urgent calls tell Jo NOW — one internal push per call (2026-10-03)');
   const URGENT = () => Object.assign(BUSINESS(), { urgent: true, summary: 'Water coming through the ceiling right now.' });

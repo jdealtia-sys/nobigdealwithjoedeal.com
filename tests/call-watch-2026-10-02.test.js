@@ -117,7 +117,7 @@ function ok(label, cond, detail) {
     { id: 'su', bucket: 'contact', callType: 'sub', urgent: true, status: 'noted', startedAtMs: NOW - H },
     { id: 'sp2', bucket: 'contact', callType: 'supplier', promises: [{ who: 'jo', text: 'order shingles' }], status: 'noted', startedAtMs: NOW - H },
   ];
-  const ctxW = W.reachIndex(r3), ctxH = HA.reachIndex(r3);
+  const ctxW = typeof W.reachIndex === 'function' ? W.reachIndex(r3) : null, ctxH = typeof HA.reachIndex === 'function' ? HA.reachIndex(r3) : null;
   const w3 = r3.filter((r) => W.callNeedsYou(r, NOW, ctxW)).map((r) => r.id).join();
   const h3 = r3.filter((r) => HA.callNeedsYou(r, NOW, ctxH)).map((r) => r.id).join();
   ok('same flags as Home: done task cleared, missed calls from a customer + contact, called-back cleared, spam + an urgent sub skipped, a supplier promise kept',
@@ -134,7 +134,7 @@ function ok(label, cond, detail) {
 
   // Done tasks from before onCallTaskWrite: callWatch reads the open calls'
   // tasks, mirrors taskDone, and leaves those people out of the alert.
-  const { reconcileTaskDone } = require(path.join(ROOT, 'functions', 'call-watch.js'))._internal;
+  const reconcileTaskDone = require(path.join(ROOT, 'functions', 'call-watch.js'))._internal.reconcileTaskDone || (async () => -1);
   const store = new Map([['leads/LA/tasks/cube-ca', { done: true }], ['leads/LB/tasks/cube-cb2', { done: false }], ['leads/LA/tasks/sms-ta', { done: true }]]);
   const writes = [];
   const fdb = {
