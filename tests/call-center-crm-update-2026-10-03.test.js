@@ -160,6 +160,14 @@ function ok(name, cond, detail) {
   delete cards.cube_old1;
   await CC.reload();
   ok('the mark survives a later re-render (a data refresh rebuilds the list)', cards.cube_old1 && cards.cube_old1.classList.set.has('cc-focus'));
+  // The first read came back without the call (a boot read from the empty
+  // local cache): the link reads again rather than giving up.
+  rowsDb.phone_calls.push({ id: 'cube_late1', userId: 'U', leadId: 'L1', bucket: 'customer', phoneDigits: '5135550101', direction: 'outbound', status: 'noted', startedAtMs: NOW - 5 * H, summary: 'late' });
+  ok('(the list in memory does not have it yet)', !CC._state.calls.some((c) => c.id === 'cube_late1'));
+  if (typeof CC.focusCall === 'function') CC.focusCall('cube_late1');
+  await new Promise((r) => setTimeout(r, 2000));
+  ok('a ?call= link whose first read missed the call reads again and still opens it', !!cards.cube_late1 && cards.cube_late1.classList.set.has('cc-focus') && scrolled.includes('cube_late1'));
+
   // Cold start: init() runs before Firestore / the user exist (a push or the
   // email opening #/calls). It must wait, not settle on an empty list.
   const view2 = { innerHTML: '' };
@@ -175,7 +183,7 @@ function ok(name, cond, detail) {
   win2.db = {}; win2._user = { uid: 'U' };
   await new Promise((r) => setTimeout(r, 700));
   ok('a cold start waits for Firestore + the user ("Loading calls…"), then loads — never "No calls yet" with calls on file',
-    waiting && win2.NBDCallCenter._state.loaded && win2.NBDCallCenter._state.calls.length === 5 && !view2.innerHTML.includes('No calls yet'), JSON.stringify({ waiting, n: win2.NBDCallCenter._state.calls.length }));
+    waiting && win2.NBDCallCenter._state.loaded && win2.NBDCallCenter._state.calls.length === rowsDb.phone_calls.length + rowsDb.phone_text_days.length && !view2.innerHTML.includes('No calls yet'), JSON.stringify({ waiting, n: win2.NBDCallCenter._state.calls.length }));
   ok('.cc-focus is styled in the stylesheet (no inline style)', /\.cc-card\.cc-focus \{/.test(read('docs/pro/css/phone-calls.css')));
 
   console.log('\n' + passed + ' passed, ' + failed + ' failed');

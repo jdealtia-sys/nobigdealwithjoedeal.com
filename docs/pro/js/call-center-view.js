@@ -654,11 +654,16 @@
     return card;
   }
   function focusCall(id) {
-    var tries = 0;
+    var tries = 0, refetch = 0;
     (function wait() {
       if (!state.loaded) { if (++tries <= 80) setTimeout(wait, 250); return; }
       var t = focusTarget(state.calls, id, needsAttention);
-      if (!t) return;
+      // A cold-boot read can come back from the empty local cache (Firestore
+      // still connecting): read again a few times before giving up.
+      if (!t) {
+        if (++refetch <= 4) setTimeout(function () { load().then(wait); }, 1500);
+        return;
+      }
       state.filter = t.filter; state.q = ''; state.focusId = id;
       render();
       var card = focusedCard();
