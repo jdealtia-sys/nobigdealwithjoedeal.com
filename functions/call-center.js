@@ -25,7 +25,7 @@
 
 const { onSchedule } = require('./integrations/heartbeat'); // heartbeat-wrapped drop-in for firebase-functions/v2/scheduler
 const { logger } = require('firebase-functions/v2');
-const { getFirestore, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getStorage } = require('firebase-admin/storage');
 const L = require('./call-center-logic');
 
@@ -245,6 +245,8 @@ function deps() {
   return {
     transcribe: (buffer, ext) => transcribeGroqBuffer({ buffer, mimeType: ext === 'm4a' ? 'audio/mp4' : 'audio/mpeg', filename: 'call.' + (ext || 'm4a'), timeoutMs: 300_000 }),
     notes: claudeNotes,
+    // callWatch's push sender (Jo's own devices; never a customer).
+    push: (uid, title, body, data) => require('./push-functions').sendCustomNotification(uid, title, body, data),
   };
 }
 
@@ -273,6 +275,64 @@ async function createIfAbsent(ref, data) {
   }
 }
 
+/** lastContactedAt / lastContactType / followUp on the lead (L.leadContactPatch). */
+async function applyLeadContact({ db, leadId, lead, call, notes, todayYmd, nowMs }) {
+  const p = L.leadContactPatch({ lead, call, notes, todayYmd, nowMs });
+  if (!p) return false;
+  const patch = {};
+  if (p.lastContactedAtMs) { patch.lastContactedAt = Timestamp.fromMillis(p.lastContactedAtMs); patch.lastContactType = p.lastContactType; }
+  if (p.followUp) patch.followUp = p.followUp;
+  await db.doc('leads/' + leadId).set(patch, { merge: true });
+  return true;
+}
+
+/**
+ * An urgent call → Jo's own push right away (2026-10-03), plus the bell
+ * entry callWatch would have made. Once per call: urgentPushedAtMs on the
+ * call doc is stamped only after the push went out, and callWatch skips a
+ * call already told this way (call-watch-logic newNeeds). Same gate and
+ * hours as callWatch (CALL_WATCH_ENABLED, 8 AM-8 PM ET) — outside them the
+ * next callWatch run tells Jo instead. INTERNAL: never a customer.
+ */
+async function pushUrgent({ db, d, call, notes, leadName, nowMs }) {
+  if (process.env.CALL_WATCH_ENABLED !== 'true' || typeof d.push !== 'function') return false;
+  const W = require('./call-watch-logic');
+  if (!W.inWatchHours(nowMs)) return false;
+  const msg = L.urgentPushText({ call, notes, leadName });
+  const clickUrl = W.callCardUrl(call.id);
+  try {
+    await d.push(OWNER, msg.title, msg.body, { type: 'call_watch', clickUrl, notificationId: 'call-urgent-' + call.id });
+    await db.collection(COLLECTION).doc(call.id).set({ urgentPushedAtMs: nowMs }, { merge: true });
+    await db.collection('notifications').add({
+      userId: OWNER, type: 'call_watch', title: '📞 ' + msg.title, message: msg.body, priority: 'high',
+      clickUrl, read: false, dismissed: false, createdAt: FieldValue.serverTimestamp(),
+    });
+    return true;
+  } catch (e) {
+    logger.warn('call_center_urgent_push_failed', { id: call.id, err: e && e.message });
+    return false;
+  }
+}
+
+// The stored "Looks like X" for a call on no customer (L.suggestLeadForCall:
+// exactly one lead matches, or nothing). suggestCheckedAtMs marks it done.
+function suggestionPatch(call, leads, nowMs) {
+  const s = L.suggestLeadForCall(Object.assign({}, call, { leadId: null }), leads);
+  return { suggestedLeadId: s ? s.leadId : null, suggestedLeadName: s ? s.name : null, suggestedWhy: s ? s.why : null, suggestCheckedAtMs: nowMs, suggestRulesV: L.SUGGEST_RULES_VERSION };
+}
+const SUGGEST_BACKFILL_PER_RUN = 100;
+async function backfillSuggestions({ db, nowMs, leads }) {
+  const q = await db.collection(COLLECTION).where('userId', '==', OWNER).where('status', '==', 'noted').where('leadId', '==', null).limit(500).get();
+  const todo = [];
+  // Unchecked, or checked under older rules (2026-10-03: Thumbtack rules added).
+  q.forEach((d) => { const v = d.data() || {}; if (v.suggestRulesV !== L.SUGGEST_RULES_VERSION) todo.push(Object.assign({}, v, { id: d.id })); });
+  if (!todo.length) return 0;
+  const all = leads || await ownerLeads(db);
+  const batch = todo.slice(0, SUGGEST_BACKFILL_PER_RUN);
+  for (const c of batch) await db.collection(COLLECTION).doc(c.id).set(suggestionPatch(c, all, nowMs), { merge: true });
+  return batch.length;
+}
+
 /** One transcription pass. Exported for the integration test (stubbed deps). */
 async function runTranscribe({ db, bucket, live, nowMs }) {
   const ref = db.doc(CONFIG);
@@ -298,6 +358,7 @@ async function runTranscribe({ db, bucket, live, nowMs }) {
   const pick = L.pickToTranscribe(candidates, { live, allowIds, maxCount: TRANSCRIBE_PER_RUN, secLeft });
   const out = { state: allowIds.length ? 'test' : 'live', picked: pick.length, noted: 0, personal: 0, failed: 0, tasks: 0, audioSec: 0 };
   const d = deps();
+  let leadsForSuggest = null;
 
   for (const call of pick) {
     const callRef = db.collection(COLLECTION).doc(call.id);
@@ -311,9 +372,10 @@ async function runTranscribe({ db, bucket, live, nowMs }) {
       out.audioSec += Number(t.durationSec) || L.estimateAudioSec(call.sizeBytes);
 
       let leadName = '';
+      let leadDoc = null;
       if (call.leadId) {
         const ls = await db.doc('leads/' + call.leadId).get();
-        if (ls.exists) { const l = ls.data(); leadName = ((l.firstName || '') + ' ' + (l.lastName || '')).trim(); }
+        if (ls.exists) { leadDoc = ls.data(); leadName = ((leadDoc.firstName || '') + ' ' + (leadDoc.lastName || '')).trim(); }
       }
       const notes = L.sanitizeNotes(await d.notes({ system: L.NOTES_SYSTEM, prompt: L.buildNotesPrompt({ call, transcript: t.text, leadName }) }));
       // Jo said "it wasn't personal" (callCenterAction notpersonal): the
@@ -346,6 +408,19 @@ async function runTranscribe({ db, bucket, live, nowMs }) {
       }
       out.noted++;
 
+      // An urgent call tells Jo now, not at the next 2-hourly callWatch.
+      if (notes.urgent === true && !call.urgentPushedAtMs) {
+        if (await pushUrgent({ db, d, call, notes, leadName, nowMs })) out.urgentPushed = (out.urgentPushed || 0) + 1;
+      }
+
+      // "Looks like X" (2026-10-03): a call on no customer gets its one
+      // likely customer stored with it, so every call screen can offer
+      // "File on X" in one tap. A suggestion only — never filed by itself.
+      if (!call.leadId) {
+        if (!leadsForSuggest) leadsForSuggest = await ownerLeads(db);
+        await callRef.set(suggestionPatch(Object.assign({}, call, { summary: notes.summary, transcript: t.text }), leadsForSuggest, nowMs), { merge: true });
+      }
+
       if (call.leadId) {
         const full = Object.assign({}, call, { durationSec: Number(t.durationSec) || 0 });
         await db.doc('leads/' + call.leadId + '/activity/cube-' + call.id)
@@ -353,6 +428,8 @@ async function runTranscribe({ db, bucket, live, nowMs }) {
         const task = L.buildFollowUpTask({ call: full, notes, leadId: call.leadId, ownerUid: OWNER, todayYmd: today, nowMs });
         // create(): a re-run must never un-tick a task Jo already completed.
         if (task && await createIfAbsent(db.doc('leads/' + call.leadId + '/tasks/cube-' + call.id), Object.assign(task, { createdAt: FieldValue.serverTimestamp() }))) out.tasks++;
+        // The lead itself knows Jo talked to them (lastContactedAt, followUp).
+        if (leadDoc && leadDoc.deleted !== true && await applyLeadContact({ db, leadId: call.leadId, lead: leadDoc, call, notes, todayYmd: today, nowMs })) out.leadsUpdated = (out.leadsUpdated || 0) + 1;
       }
     } catch (e) {
       // Groq's hourly/daily rate limit is about the account, not this call:
@@ -368,6 +445,11 @@ async function runTranscribe({ db, bucket, live, nowMs }) {
       await callRef.set({ transcribeAttempts: (Number(call.transcribeAttempts) || 0) + 1, transcribeError: String((e && e.message) || e).slice(0, 300) }, { merge: true }).catch(() => {});
       logger.warn('call_center_transcribe_failed', { id: call.id, err: e && e.message });
     }
+  }
+
+  // Calls noted before suggestions existed get theirs, a batch a run.
+  if (live && !allowIds.length) {
+    try { out.suggested = await backfillSuggestions({ db, nowMs, leads: leadsForSuggest }); } catch (e) { logger.warn('call_center_suggest_backfill_failed', { err: e && e.message }); }
   }
 
   const patch = { audioSecDay: today, audioSecUsed: usedSec + out.audioSec, lastTranscribeAtMs: nowMs, lastTranscribe: out };
@@ -427,7 +509,7 @@ async function gatherSweep({ db, nowMs }) {
   if (nofile.length) {
     const leads = [];
     const ls = await db.collection('leads').where('userId', '==', OWNER).get();
-    ls.forEach((d) => { const v = d.data() || {}; leads.push({ id: d.id, firstName: v.firstName, lastName: v.lastName, address: v.address, deleted: v.deleted }); });
+    ls.forEach((d) => { const v = d.data() || {}; leads.push({ id: d.id, firstName: v.firstName, lastName: v.lastName, address: v.address, deleted: v.deleted, source: v.source }); });
     const byId = new Map(calls.map((c) => [c.id, c]));
     for (const it of nofile) {
       const s = L.suggestLeadForCall(byId.get(it.callId), leads);
@@ -493,6 +575,138 @@ const COMPANY_STAFF = ['company_admin', 'manager'];
 // Test seam for notpersonal (Drive download + bucket).
 let deps_ = {};
 
+const TEXT_DAYS = 'phone_text_days';
+const TEXTS = 'phone_texts';
+const etToday = (nowMs) => new Date(nowMs).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+const noteOf = (c) => ({ summary: c.summary || '', promises: Array.isArray(c.promises) ? c.promises : [], followUpDate: c.followUpDate || null, urgent: !!c.urgent });
+
+function leadInCallTenant(lead, call) {
+  return !!((lead.companyId && lead.companyId === call.companyId) || (lead.userId && lead.userId === call.userId));
+}
+
+// One call onto one lead: the call doc, and — for a noted call — the same
+// timeline entry and create-only follow-up task the notes pass writes. Both
+// ids are deterministic (cube-<callId>), so a repeat is a no-op.
+async function fileCallOnLead({ db, call, leadId, uid, nowMs, extra }) {
+  await db.collection(COLLECTION).doc(call.id).set(Object.assign({
+    leadId, bucket: 'customer', alternateLeadIds: [], attachedBy: uid, attachedAtMs: nowMs,
+    suggestedLeadId: null, suggestedLeadName: null, suggestedWhy: null,
+  }, extra || {}), { merge: true });
+  if (call.status !== 'noted') return;
+  const owner = call.userId || OWNER;
+  const notes = noteOf(call);
+  await db.doc('leads/' + leadId + '/activity/cube-' + call.id)
+    .set(Object.assign(L.buildCallActivity({ call, notes, ownerUid: owner }), { createdAt: FieldValue.serverTimestamp() }));
+  const task = L.buildFollowUpTask({ call, notes, leadId, ownerUid: owner, todayYmd: etToday(nowMs), nowMs });
+  if (task) await createIfAbsent(db.doc('leads/' + leadId + '/tasks/cube-' + call.id), Object.assign(task, { createdAt: FieldValue.serverTimestamp() }));
+}
+
+// A day of texts onto one lead, with the timeline entry + task text notes write.
+async function fileTextDayOnLead({ db, day, leadId, uid, nowMs, extra }) {
+  await db.collection(TEXT_DAYS).doc(day.id).set(Object.assign({ leadId, attachedBy: uid, attachedAtMs: nowMs }, extra || {}), { merge: true });
+  if (day.status !== 'noted') return;
+  const owner = day.userId || OWNER;
+  const notes = noteOf(day);
+  await db.doc('leads/' + leadId + '/activity/sms-' + day.id)
+    .set(Object.assign(L.buildTextDayActivity({ day, notes, ownerUid: owner }), { createdAt: FieldValue.serverTimestamp() }), { merge: true });
+  const task = L.buildTextDayTask({ day, notes, leadId, ownerUid: owner, todayYmd: etToday(nowMs), nowMs });
+  if (task) await createIfAbsent(db.doc('leads/' + leadId + '/tasks/sms-' + day.id), Object.assign(task, { createdAt: FieldValue.serverTimestamp() }));
+}
+
+/**
+ * Once a number joins a lead, every call, day of texts and text from that
+ * number still on NO lead is filed on it too (2026-10-03: the ingest files a
+ * call once and never looks again, so earlier calls from a new customer sat
+ * unmatched forever). Same tenant only (the call's userId + companyId); a
+ * call already on another lead is never moved. Idempotent: a second pass
+ * finds nothing unfiled.
+ */
+async function refileNumber({ db, call, leadId, uid, nowMs, noted }) {
+  const out = { calls: 0, textDays: 0, texts: 0 };
+  const digits = String(call.phoneDigits || '');
+  if (!/^\d{10}$/.test(digits) || !call.userId) return out;
+  // A proxy number (on 3+ of the tenant's leads) identifies nobody: never
+  // sweep everything from it onto one lead.
+  const onLeads = new Set();
+  for (const [f, v] of [['userId', call.userId], ['companyId', call.companyId]]) {
+    if (!v) continue;
+    (await db.collection('leads').where(f, '==', v).where('phoneDigits', '==', digits).get())
+      .forEach((d) => { if ((d.data() || {}).deleted !== true) onLeads.add(d.id); });
+  }
+  if (onLeads.size >= L.PROXY_MIN_LEADS) return Object.assign(out, { proxy: true });
+  const mine = (v) => v && !v.leadId && v.userId === call.userId && (v.companyId || null) === (call.companyId || null);
+  const extra = { refiledFrom: call.id };
+  const cs = await db.collection(COLLECTION).where('userId', '==', call.userId).where('phoneDigits', '==', digits).get();
+  for (const s of cs.docs) {
+    const c = Object.assign({}, s.data(), { id: s.id });
+    if (s.id === call.id || !mine(c)) continue;
+    await fileCallOnLead({ db, call: c, leadId, uid, nowMs, extra });
+    if (Array.isArray(noted) && c.status === 'noted') noted.push(c);
+    out.calls++;
+  }
+  const ds = await db.collection(TEXT_DAYS).where('userId', '==', call.userId).where('phoneDigits', '==', digits).get();
+  for (const s of ds.docs) {
+    const d = Object.assign({}, s.data(), { id: s.id });
+    if (!mine(d)) continue;
+    await fileTextDayOnLead({ db, day: d, leadId, uid, nowMs, extra });
+    out.textDays++;
+  }
+  // The texts themselves, so the customer page shows the thread and the
+  // next notes pass keeps the day on this lead.
+  const ts = await db.collection(TEXTS).where('userId', '==', call.userId).where('phoneDigits', '==', digits).get();
+  const todo = ts.docs.filter((s) => mine(s.data()));
+  for (let i = 0; i < todo.length; i += 400) {
+    const b = db.batch();
+    todo.slice(i, i + 400).forEach((s) => b.set(s.ref, { leadId, bucket: 'customer', alternateLeadIds: [] }, { merge: true }));
+    await b.commit();
+  }
+  out.texts = todo.length;
+  return out;
+}
+
+// attach: the call, the caller's number onto the lead (blanks only), then
+// every other unfiled call / text from that number.
+async function attachCallToLead({ db, call, lead, leadId, uid, nowMs }) {
+  await fileCallOnLead({ db, call, leadId, uid, nowMs });
+  const patch = L.phonePatchForLead(lead, call.phoneDigits);
+  if (patch) await db.doc('leads/' + leadId).set(Object.assign(patch, { updatedAt: FieldValue.serverTimestamp() }), { merge: true });
+  const noted = call.status === 'noted' ? [call] : [];
+  const refiled = await refileNumber({ db, call, leadId, uid, nowMs, noted });
+  // "The CRM knows I called": the newest noted call among the attached one
+  // and every re-filed one sets lastContactedAt / followUp (one write).
+  const newest = noted.sort((a, b) => (Number(b.startedAtMs) || 0) - (Number(a.startedAtMs) || 0))[0];
+  if (newest) await applyLeadContact({ db, leadId, lead, call: newest, notes: noteOf(newest), todayYmd: etToday(nowMs), nowMs });
+  return { phoneAdded: !!patch, refiled };
+}
+
+// move: copy the timeline entry and task to the new lead first, then remove
+// the old ones, then re-point the call — so a retry after any failure
+// finishes the job (the call still names the old lead until the end).
+async function moveCallToLead({ db, call, fromId, toId, to, uid, nowMs }) {
+  const id = call.id;
+  const oldAct = db.doc('leads/' + fromId + '/activity/cube-' + id);
+  const oldTask = db.doc('leads/' + fromId + '/tasks/cube-' + id);
+  const [a, t] = await Promise.all([oldAct.get(), oldTask.get()]);
+  let activityMoved = false, taskMoved = false;
+  if (a.exists) {
+    await db.doc('leads/' + toId + '/activity/cube-' + id).set(Object.assign({}, a.data(), { movedFromLeadId: fromId }));
+    activityMoved = true;
+  } else if (call.status === 'noted') {
+    await db.doc('leads/' + toId + '/activity/cube-' + id)
+      .set(Object.assign(L.buildCallActivity({ call, notes: noteOf(call), ownerUid: call.userId || OWNER }), { createdAt: FieldValue.serverTimestamp() }));
+  }
+  if (t.exists) {
+    await createIfAbsent(db.doc('leads/' + toId + '/tasks/cube-' + id), Object.assign({}, t.data(), { leadId: toId, movedFromLeadId: fromId, updatedAt: FieldValue.serverTimestamp() }));
+    taskMoved = true;
+  }
+  if (a.exists) await oldAct.delete();
+  if (t.exists) await oldTask.delete();
+  const patch = L.phonePatchForLead(to, call.phoneDigits);
+  if (patch) await db.doc('leads/' + toId).set(Object.assign(patch, { updatedAt: FieldValue.serverTimestamp() }), { merge: true });
+  await db.collection(COLLECTION).doc(id).set({ leadId: toId, bucket: 'customer', alternateLeadIds: [], movedFromLeadId: fromId, movedBy: uid, movedAtMs: nowMs }, { merge: true });
+  return { activityMoved, taskMoved, phoneAdded: !!patch };
+}
+
 async function callAction({ db, auth, data, nowMs }) {
   if (!auth) throw new HttpsError('unauthenticated', 'Sign in first.');
   const id = String((data && data.id) || '');
@@ -529,6 +743,9 @@ async function callAction({ db, auth, data, nowMs }) {
       if (!task) throw new HttpsError('failed-precondition', 'This call has no follow-up task — mark it handled instead.');
       const done = action === 'taskDone';
       await taskRef.set({ done, completedAt: done ? FieldValue.serverTimestamp() : null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      // Mirror onto the call now (onCallTaskWrite does the same for a tick
+      // anywhere else) so "needs you" drops the person straight away.
+      await ref.set({ taskDone: done }, { merge: true });
       return { ok: true, done };
     }
     if (action === 'snooze') {
@@ -558,21 +775,28 @@ async function callAction({ db, auth, data, nowMs }) {
     const ls = await db.doc('leads/' + leadId).get();
     const lead = ls.exists ? ls.data() : null;
     if (!lead || lead.deleted === true) throw new HttpsError('not-found', 'Customer not found.');
-    const tenantOk = (lead.companyId && lead.companyId === call.companyId) || (lead.userId && lead.userId === call.userId);
-    if (!tenantOk) throw new HttpsError('permission-denied', 'That customer is not in your company.');
-    await ref.set({ leadId, bucket: 'customer', alternateLeadIds: [], attachedBy: auth.uid, attachedAtMs: nowMs }, { merge: true });
-    const patch = L.phonePatchForLead(lead, call.phoneDigits);
-    if (patch) await db.doc('leads/' + leadId).set(Object.assign(patch, { updatedAt: FieldValue.serverTimestamp() }), { merge: true });
-    if (call.status === 'noted') {
-      const notes = { summary: call.summary || '', promises: call.promises || [], followUpDate: call.followUpDate || null, urgent: !!call.urgent };
-      const owner = call.userId || OWNER;
-      await db.doc('leads/' + leadId + '/activity/cube-' + id)
-        .set(Object.assign(L.buildCallActivity({ call, notes, ownerUid: owner }), { createdAt: FieldValue.serverTimestamp() }));
-      const today = new Date(nowMs).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      const task = L.buildFollowUpTask({ call, notes, leadId, ownerUid: owner, todayYmd: today, nowMs });
-      if (task) await createIfAbsent(db.doc('leads/' + leadId + '/tasks/cube-' + id), Object.assign(task, { createdAt: FieldValue.serverTimestamp() }));
-    }
-    return { ok: true, leadId, phoneAdded: !!patch };
+    if (!leadInCallTenant(lead, call)) throw new HttpsError('permission-denied', 'That customer is not in your company.');
+    const r = await attachCallToLead({ db, call, lead, leadId, uid: auth.uid, nowMs });
+    return { ok: true, leadId, phoneAdded: r.phoneAdded, refiled: r.refiled };
+  }
+  // "Wrong customer → move to…" from the customer page (2026-10-03): the
+  // call, its timeline entry and its follow-up task leave the lead they were
+  // filed on and land on the chosen one. Both leads must be in the call's
+  // company. The caller's number is added to the new lead (blanks only);
+  // it is never removed from the old one (it may be theirs too).
+  if (action === 'move') {
+    const toId = String((data && data.leadId) || '');
+    if (!toId || toId.includes('/')) throw new HttpsError('invalid-argument', 'Bad lead id.');
+    const fromId = call.leadId ? String(call.leadId) : '';
+    if (!fromId) throw new HttpsError('failed-precondition', 'This call is not filed on a customer — attach it instead.');
+    if (fromId === toId) return { ok: true, leadId: toId, moved: false };
+    const [fs, ts] = await Promise.all([db.doc('leads/' + fromId).get(), db.doc('leads/' + toId).get()]);
+    const from = fs.exists ? fs.data() : null;
+    const to = ts.exists ? ts.data() : null;
+    if (!to || to.deleted === true) throw new HttpsError('not-found', 'Customer not found.');
+    if (!leadInCallTenant(to, call) || (from && !leadInCallTenant(from, call))) throw new HttpsError('permission-denied', 'That customer is not in your company.');
+    const r = await moveCallToLead({ db, call, fromId, toId, to, uid: auth.uid, nowMs });
+    return Object.assign({ ok: true, leadId: toId, moved: true }, r);
   }
   if (action === 'notpersonal') {
     // The model called it personal: its CRM audio copy was deleted and no
@@ -612,6 +836,91 @@ exports.callPromisesList = onCall(
   (request) => promisesList({ db: getFirestore(), auth: request.auth, nowMs: Date.now() })
 );
 
+// ═══════════════════════════════════════════════════════════════════════
+// onCallTaskWrite (2026-10-03) — a call's follow-up task ticked ANYWHERE
+// (the customer page, the Today list, "Said you'd do", a bot) → taskDone on
+// the call / text day it came from. home-attention.js callNeedsYou and
+// callWatch read it: a kept promise drops the person off "needs you".
+// Task ids are cube-<callId> (phone_calls) and sms-<dayId> (phone_text_days).
+// A deleted follow-up task counts as dealt with. Writes only when the value
+// changes; the task must sit on the call's own lead.
+// ═══════════════════════════════════════════════════════════════════════
+const { onDocumentWritten } = require('firebase-functions/v2/firestore');
+
+async function mirrorCallTask({ db, leadId, taskId, after }) {
+  const m = /^(cube|sms)-([A-Za-z0-9_-]{5,140})$/.exec(String(taskId || ''));
+  if (!m) return null;
+  const ref = db.collection(m[1] === 'sms' ? 'phone_text_days' : COLLECTION).doc(m[2]);
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  const call = snap.data() || {};
+  if (call.leadId && call.leadId !== leadId) return null;
+  const done = !after || after.done === true;
+  if (call.taskDone === done) return { unchanged: true };
+  await ref.set({ taskDone: done }, { merge: true });
+  return { id: m[2], done };
+}
+
+exports.onCallTaskWrite = onDocumentWritten(
+  { document: 'leads/{leadId}/tasks/{taskId}', region: 'us-central1', memory: '256MiB', timeoutSeconds: 30 },
+  async (event) => {
+    // Most tasks are not a call's; skip them before any read.
+    if (!/^(cube|sms)-/.test(String(event.params.taskId || ''))) return;
+    const after = event.data && event.data.after && event.data.after.exists ? event.data.after.data() : null;
+    try {
+      await mirrorCallTask({ db: getFirestore(), leadId: event.params.leadId, taskId: event.params.taskId, after });
+    } catch (e) {
+      logger.warn('call_task_mirror_failed', { taskId: event.params.taskId, err: e && e.message });
+    }
+  }
+);
+
+// callTaggedMatch — "Match my tagged contacts" (2026-10-03). Owner (or
+// platform admin) only. { } previews: calls to phone contacts tagged
+// "NBD Customer" that sit on no lead, each number paired with the one lead
+// it matches (L.taggedContactPlan) or listed as not in the CRM yet. Nothing
+// is written. { confirm: [{ key, leadId }] } files exactly the rows Jo
+// confirmed — re-planned server-side, and a row whose match changed since
+// the preview is skipped, never guessed at.
+async function taggedMatch({ db, auth, data, nowMs }) {
+  if (!auth) throw new HttpsError('unauthenticated', 'Sign in first.');
+  const role = String((auth.token || {}).role || '');
+  if (!(auth.uid === OWNER || role === 'admin')) throw new HttpsError('permission-denied', 'This is the owner\'s phone.');
+  const calls = [];
+  const q = await db.collection(COLLECTION).where('userId', '==', OWNER).where('leadId', '==', null).get();
+  q.forEach((d) => calls.push(Object.assign({}, d.data(), { id: d.id })));
+  const leads = await ownerLeads(db);
+  const plan = L.taggedContactPlan({ calls, leads });
+  const confirm = Array.isArray(data && data.confirm) ? data.confirm.slice(0, 500) : null;
+  if (!confirm) {
+    return { matches: plan.matches, notInCrm: plan.notInCrm.map((r) => ({ key: r.key, phoneDigits: r.phoneDigits, contactName: r.contactName, calls: r.callIds.length, ambiguous: r.ambiguous })) };
+  }
+  const byKey = new Map(plan.matches.map((m) => [m.key, m]));
+  const callById = new Map(calls.map((c) => [c.id, c]));
+  const leadById = new Map(leads.map((l) => [l.id, l]));
+  const out = { filed: 0, calls: 0, skipped: 0 };
+  for (const want of confirm) {
+    const row = want && byKey.get(String(want.key || ''));
+    const lead = row && leadById.get(row.leadId);
+    if (!row || row.leadId !== String(want.leadId || '') || !lead) { out.skipped++; continue; }
+    const first = callById.get(row.callIds[0]);
+    // A number: attaching its newest call re-files the rest. No number
+    // (contact-name match): each call is filed on its own.
+    const r = await attachCallToLead({ db, call: first, lead, leadId: row.leadId, uid: auth.uid, nowMs });
+    out.calls += 1 + r.refiled.calls;
+    if (!row.phoneDigits) {
+      for (const id of row.callIds.slice(1)) { await fileCallOnLead({ db, call: callById.get(id), leadId: row.leadId, uid: auth.uid, nowMs }); out.calls++; }
+    }
+    out.filed++;
+  }
+  return out;
+}
+
+exports.callTaggedMatch = onCall(
+  { region: 'us-central1', enforceAppCheck: true, memory: '512MiB', timeoutSeconds: 120, maxInstances: 2 },
+  (request) => taggedMatch({ db: getFirestore(), auth: request.auth, data: request.data, nowMs: Date.now() })
+);
+
 exports.claudeNotes = claudeNotes;
 
 exports._test = {
@@ -621,6 +930,11 @@ exports._test = {
   gatherSweep,
   promisesList,
   callAction,
+  mirrorCallTask,
+  applyLeadContact,
+  taggedMatch,
+  refileNumber,
+  backfillSuggestions,
   setActionDeps(x) { deps_ = x || {}; },
   setClient(c) { _testClient = c; },
   setDeps(x) { _deps = x; },
