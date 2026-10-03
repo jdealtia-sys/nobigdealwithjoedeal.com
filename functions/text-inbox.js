@@ -213,7 +213,7 @@ async function runTextNotes({ db, live, nowMs }) {
           userId: OWNER, companyId: OWNER, type: 'text', source: 'sms-backup',
           label: 'Texts' + (day.contactName ? ' · ' + day.contactName : '') + ' (' + day.messages.length + ')',
           summary: notes.summary, promises: notes.promises, followUpDate: notes.followUpDate,
-          phoneTextDayId: day.id, createdAt: FieldValue.serverTimestamp(),
+          phoneTextDayId: day.id, startedAtMs: day.lastAtMs || null, createdAt: FieldValue.serverTimestamp(),
         }, { merge: true });
         const task = CC.buildFollowUpTask({ call: { id: day.id, contactName: day.contactName, startedAtMs: day.lastAtMs }, notes, leadId: day.leadId, ownerUid: OWNER, todayYmd: today, nowMs });
         if (task) {
